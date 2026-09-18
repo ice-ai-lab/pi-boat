@@ -48,6 +48,7 @@ packages/config/  typescript-config（Biome 配置在根 biome.json，见 ADR-00
 - toolCall 双字段归一化统一走 `normalizeToolCalls()`（protocol），文件加载与流式两条路径共用
 - 新增路由必须过 allowed-roots / 鉴权检查清单（server 拥有宿主机文件系统全部权限）
 - 提交消息用 Conventional Commits：`<type>(<scope>): <描述>`；type 限定 feat/fix/docs/style/refactor/perf/test/build/ci/chore/revert；scope 用包名或目录（core/server/protocol/client/ui/web/docs）；破坏性变更用 `!` 或 `BREAKING CHANGE:` 脚注（采纳 Conventional Commits 1.0.0，2026-09-18）
+- 提交纪律：AI 不主动 `git commit` / `git push`——完成改动后停在未提交状态，附建议的 commit 消息等用户明确指令（2026-09-18 定案）
 
 ## 测试
 
