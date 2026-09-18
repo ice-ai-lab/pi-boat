@@ -1,0 +1,7 @@
+{
+  "extends": "@pi-boat/typescript-config/react.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": ["src", "test"]
+}

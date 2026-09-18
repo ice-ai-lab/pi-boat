@@ -1,0 +1,34 @@
+{
+  "name": "@pi-boat/protocol",
+  "description": "PiBoat 前后端唯一契约：API 类型 + 事件 wire 格式（纯类型 + Zod，零业务逻辑）",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "test": "vitest run",
+    "lint": "biome check .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.14",
+    "@pi-boat/typescript-config": "workspace:*",
+    "typescript": "~7.0.2",
+    "vitest": "^5.0.1"
+  }
+}

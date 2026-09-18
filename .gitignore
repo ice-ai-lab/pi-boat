@@ -1,0 +1,15 @@
+# dependencies
+node_modules/
+
+# build outputs
+dist/
+*.tsbuildinfo
+
+# turbo
+.turbo/
+
+# misc
+coverage/
+.env*
+.DS_Store
+.idea/

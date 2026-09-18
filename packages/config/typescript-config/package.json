@@ -1,0 +1,10 @@
+{
+  "name": "@pi-boat/typescript-config",
+  "description": "PiBoat 共享 tsconfig（base / react）",
+  "version": "0.0.0",
+  "private": true,
+  "files": [
+    "base.json",
+    "react.json"
+  ]
+}
