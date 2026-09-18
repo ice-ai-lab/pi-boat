@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { serve } from '@hono/node-server';
 
-import { PORTS } from '@pi-boat/protocol';
+import { PORTS } from '@ice-ai/protocol';
 import { createAgentServer } from './server.js';
 
 const port = Number(process.env.PORT ?? PORTS.server);

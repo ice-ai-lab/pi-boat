@@ -178,14 +178,14 @@ importers:
 
   packages/client:
     dependencies:
-      '@pi-boat/protocol':
+      '@ice-ai/protocol':
         specifier: workspace:*
         version: link:../protocol
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.5.14
         version: 2.5.14
-      '@pi-boat/typescript-config':
+      '@ice-ai/typescript-config':
         specifier: workspace:*
         version: link:../config/typescript-config
       typescript:
@@ -202,14 +202,14 @@ importers:
       '@earendil-works/pi-coding-agent':
         specifier: ~0.85.1
         version: 0.85.1(supports-color@7.2.0)(ws@8.21.3)(zod@4.6.5)
-      '@pi-boat/protocol':
+      '@ice-ai/protocol':
         specifier: workspace:*
         version: link:../protocol
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.5.14
         version: 2.5.14
-      '@pi-boat/typescript-config':
+      '@ice-ai/typescript-config':
         specifier: workspace:*
         version: link:../config/typescript-config
       '@types/node':
@@ -231,7 +231,7 @@ importers:
       '@biomejs/biome':
         specifier: ^2.5.14
         version: 2.5.14
-      '@pi-boat/typescript-config':
+      '@ice-ai/typescript-config':
         specifier: workspace:*
         version: link:../config/typescript-config
       typescript:
@@ -246,10 +246,10 @@ importers:
       '@hono/node-server':
         specifier: ^2.1.1
         version: 2.1.1(hono@4.13.8)
-      '@pi-boat/core':
+      '@ice-ai/core':
         specifier: workspace:*
         version: link:../core
-      '@pi-boat/protocol':
+      '@ice-ai/protocol':
         specifier: workspace:*
         version: link:../protocol
       hono:
@@ -259,7 +259,7 @@ importers:
       '@biomejs/biome':
         specifier: ^2.5.14
         version: 2.5.14
-      '@pi-boat/typescript-config':
+      '@ice-ai/typescript-config':
         specifier: workspace:*
         version: link:../config/typescript-config
       '@types/node':
@@ -274,17 +274,17 @@ importers:
 
   packages/ui:
     dependencies:
-      '@pi-boat/client':
+      '@ice-ai/client':
         specifier: workspace:*
         version: link:../client
-      '@pi-boat/protocol':
+      '@ice-ai/protocol':
         specifier: workspace:*
         version: link:../protocol
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.5.14
         version: 2.5.14
-      '@pi-boat/typescript-config':
+      '@ice-ai/typescript-config':
         specifier: workspace:*
         version: link:../config/typescript-config
       '@types/react':

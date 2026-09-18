@@ -1,5 +1,5 @@
 {
-  "name": "@pi-boat/protocol",
+  "name": "@ice-ai/protocol",
   "description": "PiBoat 前后端唯一契约：API 类型 + 事件 wire 格式（纯类型 + Zod，零业务逻辑）",
   "version": "0.0.0",
   "private": true,
@@ -27,7 +27,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",
-    "@pi-boat/typescript-config": "workspace:*",
+    "@ice-ai/typescript-config": "workspace:*",
     "typescript": "~7.0.2",
     "vitest": "^5.0.1"
   }

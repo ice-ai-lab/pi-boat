@@ -1,5 +1,5 @@
 {
-  "name": "@pi-boat/client",
+  "name": "@ice-ai/client",
   "description": "PiBoat 类型安全 client SDK + React hooks（框架无关核心 + client/react 子导出）",
   "version": "0.0.0",
   "private": true,
@@ -23,11 +23,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@pi-boat/protocol": "workspace:*"
+    "@ice-ai/protocol": "workspace:*"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",
-    "@pi-boat/typescript-config": "workspace:*",
+    "@ice-ai/typescript-config": "workspace:*",
     "typescript": "~7.0.2",
     "vitest": "^5.0.1"
   }

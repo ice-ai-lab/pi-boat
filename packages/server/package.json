@@ -1,5 +1,5 @@
 {
-  "name": "@pi-boat/server",
+  "name": "@ice-ai/server",
   "description": "PiBoat HTTP/SSE 服务（Hono，组装 core，bin: piboat-server）",
   "version": "0.0.0",
   "private": true,
@@ -27,13 +27,13 @@
   },
   "dependencies": {
     "@hono/node-server": "^2.1.1",
-    "@pi-boat/core": "workspace:*",
-    "@pi-boat/protocol": "workspace:*",
+    "@ice-ai/core": "workspace:*",
+    "@ice-ai/protocol": "workspace:*",
     "hono": "^4.13.8"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",
-    "@pi-boat/typescript-config": "workspace:*",
+    "@ice-ai/typescript-config": "workspace:*",
     "@types/node": "^22",
     "tsx": "^4.23.13",
     "typescript": "~7.0.2"

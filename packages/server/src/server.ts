@@ -1,4 +1,4 @@
-import { type HealthResponse, PORTS } from '@pi-boat/protocol';
+import { type HealthResponse, PORTS } from '@ice-ai/protocol';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 
