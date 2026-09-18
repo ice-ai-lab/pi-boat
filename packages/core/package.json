@@ -1,0 +1,36 @@
+{
+  "name": "@pi-boat/core",
+  "description": "PiBoat Agent 业务核心（全仓唯一允许依赖 pi-coding-agent SDK 的包，传输无关）",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "test": "vitest run --passWithNoTests",
+    "lint": "biome check .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "~0.85.1",
+    "@pi-boat/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.14",
+    "@pi-boat/typescript-config": "workspace:*",
+    "@types/node": "^22",
+    "typescript": "~7.0.2",
+    "vitest": "^5.0.1"
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "name": "@pi-boat/server",
+  "description": "PiBoat HTTP/SSE 服务（Hono，组装 core，bin: piboat-server）",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "piboat-server": "dist/main.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsx watch src/main.ts",
+    "start": "node dist/main.js",
+    "lint": "biome check .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.1",
+    "@pi-boat/core": "workspace:*",
+    "@pi-boat/protocol": "workspace:*",
+    "hono": "^4.13.8"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.14",
+    "@pi-boat/typescript-config": "workspace:*",
+    "@types/node": "^22",
+    "tsx": "^4.23.13",
+    "typescript": "~7.0.2"
+  }
+}
