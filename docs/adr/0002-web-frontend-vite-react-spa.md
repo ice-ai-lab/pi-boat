@@ -18,7 +18,7 @@ M0 工程骨架曾按 Next.js 搭建 `apps/web` 并通过全量构建。复盘�
 | 生产托管 | agent server（Hono）`serveStatic` 托管 `dist/`，单进程即完整产品（维持原设计不变） |
 | 路由 | react-router（library mode）或 TanStack Router，前端落地时定；初期可纯状态切视图 |
 | Next.js | **不引入**。`apps/web`（Next 版壳）已删除，前端待建（M1 末段） |
-| 端口约定 | dev 期 `vite dev` 仍用 **30141**，server CORS 白名单维持 `http://localhost:30141` 不变 |
+| 端口约定 | dev 期 `vite dev` 仍用 **30141**，server CORS 白名单维持 `http://localhost:30141` 不变（后调整：2026-09-18 起改为 web dev **9528** / server **9527**，单一来源收敛为 `protocol` 的 `PORTS` 常量，见 01-overview §5.2） |
 
 依赖链不变：`apps/web → ui → client → protocol`；server 侧 "静态托管 web 构建产物" 职责不变（§3.1）。
 
@@ -52,7 +52,7 @@ Vite 方案补齐项均为小事：路由库选型、`lazy()` 手动代码分割
 
 - 依赖链更薄、`apps/web` 重建时更简单；`vite build` 产物直接 `serveStatic`，无导出模式约束
 - 版本演进风险收敛到 `vite.config.ts` 单文件，不再触及应用代码约定
-- Electron（二期）加载产物更轻；dev 期桌面壳可直接 `loadURL(30141)` 白拿 HMR
+- Electron（二期）加载产物更轻；dev 期桌面壳可直接 `loadURL(9528)` 白拿 HMR
 
 **负面 / 已知风险**
 

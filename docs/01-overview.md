@@ -172,7 +172,7 @@ pi-boat/
 | 开发 | 1 进程：`next dev` 兼任前后端 | 2 进程：`vite dev`（UI 热更新）+ agent server（会话常驻）；`turbo dev` 一条命令同时拉起 |
 | Electron | — | 主进程 + server 子进程（Electron 标准多进程形态） |
 
-开发模式下浏览器页面来自 `vite dev`（如 30141），API/SSE **直连** agent server（如 30142，dev 环境 CORS 白名单放行），不经代理转发，避免 SSE 被代理缓冲。
+开发模式下浏览器页面来自 `vite dev`（9528），API/SSE **直连** agent server（9527，dev 环境 CORS 白名单放行），不经代理转发，避免 SSE 被代理缓冲。
 
 **为何不采用内嵌式（即使它单进程）**：① Agent 会话生命周期与 `next dev` 绑死 —— Next 的模块图失效/热重载链路会波及承载 Agent 的路由模块，需要 `globalThis` hack 保活注册表，dev server 排障成本高；拆开后改 UI 代码不影响正在运行的 Agent 任务。② Electron 端将被迫内嵌整个 Next standalone 服务作为子进程（重、启动慢）；拉起精简 Hono server 子进程则很轻。③ node-pty 等原生模块在纯 Node 进程零特殊配置。
 
@@ -192,7 +192,7 @@ pi-boat/
 
 | 场景 | 谁来拉起 | 方式 |
 |---|---|---|
-| 开发 | `turbo run dev` | 并行任务：server（tsx watch，30142）+ web（vite dev，30141） |
+| 开发 | `turbo run dev` | 并行任务：server（tsx watch，9527）+ web（vite dev，9528） |
 | 生产（本地） | 用户 | 执行 `piboat` 命令（npx/全局安装皆可），单进程即完整产品 |
 | Electron | 桌面端 main 进程 | `child_process.spawn`（或 utilityProcess）拉起 server 子进程，env 传 token/port，stdout 健康检查就绪后开窗口 |
 
@@ -205,8 +205,8 @@ pi-boat/
 > Electron 不走原生 IPC 的原因：renderer 直接复用同一套 web UI + 同一个 client SDK 走 HTTP，前端代码无感运行环境；若走 IPC 需为每个接口写映射 bridge，双份维护。IPC 只留给窗口管理、系统对话框等少量原生能力。
 
 ```
-开发期（2 进程）：  浏览器 ──页面/HMR──▶ vite dev (30141)
-                    浏览器 ──API/SSE（CORS 白名单）──▶ agent server (30142)
+开发期（2 进程）：  浏览器 ──页面/HMR──▶ vite dev (9528)
+                    浏览器 ──API/SSE（CORS 白名单）──▶ agent server (9527)
 
 生产（1 进程）：    浏览器 ──页面+API+SSE（同源）──▶ agent server (127.0.0.1:port)
 
@@ -214,7 +214,7 @@ Electron：         renderer(=web UI) ──API/SSE──▶ agent server（子�
                     main ──spawn/健康检查/生命周期管理──▶ agent server
 ```
 
-- 开发期 CORS 白名单只放行 `http://localhost:30141`；token 校验在开发期可选
+- 开发期 CORS 白名单只放行 `http://localhost:9528`；token 校验在开发期可选。端口约定单一来源：`packages/protocol` 的 `PORTS`（`PORT` 环境变量可覆盖 server）
 - 生产同源部署：页面由 agent server 托管，token 经同源 bootstrap 接口下发（跨源页面无法读取响应，见 §5.6）
 
 #### 5.2.3 多会话并发与隔离

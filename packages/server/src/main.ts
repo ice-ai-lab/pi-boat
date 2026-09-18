@@ -1,11 +1,10 @@
 #!/usr/bin/env node
 import { serve } from '@hono/node-server';
 
+import { PORTS } from '@pi-boat/protocol';
 import { createAgentServer } from './server.js';
 
-const DEFAULT_PORT = 30142;
-
-const port = Number(process.env.PORT ?? DEFAULT_PORT);
+const port = Number(process.env.PORT ?? PORTS.server);
 const app = createAgentServer();
 
 serve({ fetch: app.fetch, hostname: '127.0.0.1', port }, (info) => {

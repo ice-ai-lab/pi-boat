@@ -1,9 +1,9 @@
-import type { HealthResponse } from '@pi-boat/protocol';
+import { type HealthResponse, PORTS } from '@pi-boat/protocol';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 
 /** 开发期 CORS 白名单只放行 web dev server（docs/01-overview.md §5.2.2） */
-const DEV_WEB_ORIGIN = 'http://localhost:30141';
+const DEV_WEB_ORIGIN = `http://localhost:${PORTS.web}`;
 
 export function createAgentServer() {
   const app = new Hono();
