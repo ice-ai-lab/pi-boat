@@ -12,13 +12,13 @@
 
 ```bash
 pnpm install                # Node ≥ 22.19（engines 强制）
-pnpm turbo run dev          # 目前仅 agent server (30142, tsx watch)；web 前端待建后加入（vite dev, 30141）
+pnpm turbo run dev          # 目前仅 agent server (9527, tsx watch)；web 前端待建后加入（vite dev, 9528）
 pnpm turbo run build        # 全量构建（M0 验收线）
 pnpm turbo run test         # Vitest（core/protocol/client/ui）
 pnpm turbo run lint         # Biome 2（lint + format；修复用 pnpm lint:fix）
 ```
 
-- 开发期浏览器页面来自 30141（vite dev，web 待建），API/SSE 直连 30142（CORS 白名单已预留 `http://localhost:30141`）
+- 开发期浏览器页面来自 9528（vite dev，web 待建），API/SSE 直连 9527（CORS 白名单已预留 `http://localhost:9528`）；端口单一来源为 `protocol` 的 `PORTS`，server 可用 `PORT` 环境变量覆盖
 - 提交前 `build + test` 全绿
 
 ## Monorepo 结构与依赖铁律

@@ -1,5 +1,5 @@
 import { CLIENT_VERSION } from '@pi-boat/client';
-import { PROTOCOL_VERSION } from '@pi-boat/protocol';
+import { PORTS, PROTOCOL_VERSION } from '@pi-boat/protocol';
 
 /**
  * @pi-boat/ui —— 纯展示组件库，只依赖 protocol 类型与 client hooks，
@@ -16,7 +16,7 @@ export function PiBoatShell() {
         Web UI 空壳已就绪 · client {CLIENT_VERSION} · protocol v{PROTOCOL_VERSION}
       </p>
       <p>
-        Agent API: <code>http://127.0.0.1:30142</code>（开发期浏览器直连，M1 接入）
+        Agent API: <code>http://127.0.0.1:{PORTS.server}</code>（开发期浏览器直连，M1 接入）
       </p>
     </main>
   );

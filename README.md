@@ -8,7 +8,7 @@
 
 ```bash
 pnpm install        # Node ≥ 22.19（engines 强制）
-pnpm turbo run dev  # 目前仅 agent server (30142)；web 前端待建（Vite + React，dev 端口 30141）
+pnpm turbo run dev  # 目前仅 agent server (9527)；web 前端待建（Vite + React，dev 端口 9528）
 pnpm turbo run build
 pnpm turbo run test
 pnpm turbo run lint
