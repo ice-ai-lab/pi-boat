@@ -1,5 +1,5 @@
 {
-  "name": "@pi-boat/core",
+  "name": "@ice-ai/core",
   "description": "PiBoat Agent 业务核心（全仓唯一允许依赖 pi-coding-agent SDK 的包，传输无关）",
   "version": "0.0.0",
   "private": true,
@@ -24,11 +24,11 @@
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "~0.85.1",
-    "@pi-boat/protocol": "workspace:*"
+    "@ice-ai/protocol": "workspace:*"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",
-    "@pi-boat/typescript-config": "workspace:*",
+    "@ice-ai/typescript-config": "workspace:*",
     "@types/node": "^22",
     "typescript": "~7.0.2",
     "vitest": "^5.0.1"

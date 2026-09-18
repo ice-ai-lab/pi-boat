@@ -1,6 +1,6 @@
 # PiBoat —— 项目概要设计
 
-> 项目代号 `pi-boat`，包作用域 `@pi-boat/*`，bin 命令 `piboat`（命名决策见 `docs/adr/0001`）
+> 项目代号 `pi-boat`，包作用域 `@ice-ai/*`（命名决策见 `docs/adr/0001`，scope 修订见 `docs/adr/0004`），bin 命令 `piboat`
 > 版本：v0.3（概要设计阶段） · 状态：待评审 · v0.3 变更：Web 前端定为 Vite + React 19 SPA，删除 Next.js（ADR-0002）；v0.2 变更：定名 pi-boat（ADR-0001），替换全部占位名
 
 ---
@@ -31,9 +31,9 @@
 │  │  React SPA   │   │  Electron        │   │                    │  │
 │  │  纯前端渲染   │   │  壳+拉起服务进程  │   │                    │  │
 │  └──────┬───────┘   └───────┬──────────┘   └─────────┬──────────┘  │
-│         │  @pi-boat/client (统一客户端 SDK)          │             │
+│         │  @ice-ai/client (统一客户端 SDK)          │             │
 └─────────┼────────────────────┼─────────────────────────┼────────────┘
-          │  HTTP REST + SSE（同一套协议 @pi-boat/protocol）
+          │  HTTP REST + SSE（同一套协议 @ice-ai/protocol）
 ┌─────────▼────────────────────▼─────────────────────────▼────────────┐
 │                       服务层 packages/server                         │
 │   Hono HTTP 服务：REST 路由 / SSE 事件流 / 本机访问防护 / 静态托管 web │
@@ -69,13 +69,13 @@ pi-boat/
 │   ├── web/                      # 前端 SPA：Vite + React 19（待建，见 ADR-0002）
 │   └── desktop/                  # Electron 桌面端（二期）
 ├── packages/
-│   ├── protocol/                 # @pi-boat/protocol  API 契约 & 事件 wire 格式
-│   ├── core/                     # @pi-boat/core      Agent 核心服务（唯一依赖 pi SDK）
-│   ├── server/                   # @pi-boat/server    HTTP/SSE 服务，组装 core（bin: piboat-server）
-│   ├── client/                   # @pi-boat/client    前端用类型安全 SDK + React hooks
-│   ├── ui/                       # @pi-boat/ui        共享 React 组件库
+│   ├── protocol/                 # @ice-ai/protocol  API 契约 & 事件 wire 格式
+│   ├── core/                     # @ice-ai/core      Agent 核心服务（唯一依赖 pi SDK）
+│   ├── server/                   # @ice-ai/server    HTTP/SSE 服务，组装 core（bin: piboat-server）
+│   ├── client/                   # @ice-ai/client    前端用类型安全 SDK + React hooks
+│   ├── ui/                       # @ice-ai/ui        共享 React 组件库
 │   ├── config/
-│   │   └── typescript-config/    # @pi-boat/typescript-config（lint/format 见根 biome.json，ADR-0003）
+│   │   └── typescript-config/    # @ice-ai/typescript-config（lint/format 见根 biome.json，ADR-0003）
 │   └── (可选拆分: terminal/ git/ auth/ —— 初期并入 core，见 §3.2)
 ├── docs/
 │   ├── 01-overview.md（本文档）
@@ -198,7 +198,7 @@ pi-boat/
 
 #### 5.2.2 web 与 agent server 如何交互
 
-**关键澄清：不存在 "web server → agent server" 的服务端调用链。** vite dev 只服务页面与 HMR，不代理任何 API；所有业务交互都发生在**浏览器（前端 JS）↔ agent server** 之间，统一走 `@pi-boat/client`（fetch + EventSource）。
+**关键澄清：不存在 "web server → agent server" 的服务端调用链。** vite dev 只服务页面与 HMR，不代理任何 API；所有业务交互都发生在**浏览器（前端 JS）↔ agent server** 之间，统一走 `@ice-ai/client`（fetch + EventSource）。
 
 > 一句话心智模型：**agent server = 跑在本机的后端 HTTP 服务，Web / Electron = 它的两个客户端**（同 Ollama 本体与各 GUI 的关系）。浏览器始终通过 HTTP 与后端交互，区别只在接口由谁承载（全栈框架内嵌 vs 独立进程）。
 >
@@ -361,7 +361,7 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 
 ## 9. 待定决策（进入详细设计前敲定）
 
-1. ~~项目命名与 npm scope~~ **✅ 已决策（ADR-0001）**：定名 `pi-boat` / `@pi-boat/*`，bin `piboat` / `piboat-server`，代号 PiBoat（原占位 pi-studio 因 npm 被同生态同类工具占用而出局）
+1. ~~项目命名与 npm scope~~ **✅ 已决策（ADR-0001）**：定名 `pi-boat` / `@ice-ai/*`，bin `piboat` / `piboat-server`，代号 PiBoat（原占位 pi-studio 因 npm 被同生态同类工具占用而出局）
 2. ~~Web 端实现与进程模型联动选择~~ **✅ 已决策（ADR-0002）**：选 A（独立 server + 纯前端，开发期 2 进程），且 Web 前端采用 Vite + React 19 SPA，不引入 Next.js（理由：纯本地 SPA 无 SSR/RSC 需求，静态产物由 server 托管）。详见 §5.1 与 `docs/adr/0002`
 3. 事件通道是否二期引入 WebSocket（多向交互如扩展 UI 面板实时渲染时再决策）
 4. 是否提供局域网访问开关（手机/平板临时连本机 Agent；默认关闭，仅在用户显式开启时绑定 0.0.0.0 并强制 token）

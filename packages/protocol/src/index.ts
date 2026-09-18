@@ -1,5 +1,5 @@
 /**
- * @pi-boat/protocol —— 前后端唯一契约：REST 请求/响应类型、事件 wire 格式
+ * @ice-ai/protocol —— 前后端唯一契约：REST 请求/响应类型、事件 wire 格式
  * （ClientAgentEvent）与领域类型。纯类型 + Zod schema，零业务逻辑。
  * 详见 docs/01-overview.md §3.1 / §10（M1 展开完整 schema）。
  */

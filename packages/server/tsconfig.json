@@ -1,5 +1,5 @@
 {
-  "extends": "@pi-boat/typescript-config/base.json",
+  "extends": "@ice-ai/typescript-config/base.json",
   "compilerOptions": {
     "noEmit": true,
     "types": ["node"]

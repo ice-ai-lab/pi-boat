@@ -1,5 +1,5 @@
 {
-  "extends": "@pi-boat/typescript-config/react.json",
+  "extends": "@ice-ai/typescript-config/react.json",
   "compilerOptions": {
     "noEmit": true
   },

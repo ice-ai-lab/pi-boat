@@ -1,8 +1,8 @@
-import { CLIENT_VERSION } from '@pi-boat/client';
-import { PORTS, PROTOCOL_VERSION } from '@pi-boat/protocol';
+import { CLIENT_VERSION } from '@ice-ai/client';
+import { PORTS, PROTOCOL_VERSION } from '@ice-ai/protocol';
 
 /**
- * @pi-boat/ui —— 纯展示组件库，只依赖 protocol 类型与 client hooks，
+ * @ice-ai/ui —— 纯展示组件库，只依赖 protocol 类型与 client hooks，
  * 不依赖任何宿主框架（Web 与桌面端直接复用，docs/01 §3.1）。
  * M1 计划：ChatWindow / MessageView / ChatInput …
  */

@@ -19,7 +19,7 @@ npm 注册表核查（2026-09-18）发现：
 |---|---|
 | 项目代号 | **PiBoat**（驼峰） |
 | 包名 / 仓库名 | `pi-boat` |
-| npm scope | `@pi-boat/*`（npm scope 允许连字符） |
+| npm scope | `@pi-boat/*`（npm scope 允许连字符）（已修订：ADR-0004 变更为 `@ice-ai/*`，2026-09-18） |
 | bin 命令 | `piboat`（用户主命令，单进程即完整产品）；`piboat-server`（`packages/server` 的服务入口） |
 
 命名含义：**产品 = 载着 pi 航行的船。** 船体 = core + server（常驻本机），甲板 = web / desktop / mobile 多个前端，与"一核多端"架构互为隐喻；亦呼应 pi SDK 出品方 Earendil Works 之名来源（Eärendil the Mariner，航海者）。
