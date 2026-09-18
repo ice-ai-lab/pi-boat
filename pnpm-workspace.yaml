@@ -3,12 +3,9 @@ packages:
   - "packages/*"
   - "packages/config/*"
 
+# 构建脚本许可：pnpm 11 起 onlyBuiltDependencies 已被 allowBuilds 取代（静默忽略）
 # pi SDK 依赖链中需要执行 postinstall 的包（esbuild 为 tsx 运行所必需）
-onlyBuiltDependencies:
-  - "@google/genai"
-  - esbuild
-  - protobufjs
 allowBuilds:
-  '@google/genai': set this to true or false
-  esbuild: set this to true or false
-  protobufjs: set this to true or false
+  "@google/genai": true
+  esbuild: true
+  protobufjs: true
