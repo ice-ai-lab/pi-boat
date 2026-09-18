@@ -401,4 +401,4 @@ type ClientAgentEvent =
 
 ---
 
-*下一步：评审通过后产出《详细设计》—— 各包模块/接口级设计（core 会话状态机、protocol 完整 schema、server 路由清单、ui 组件清单）与 M0 工程骨架实施方案。*
+*下一步：评审通过后产出《详细设计》—— 各包模块/接口级设计（core 会话状态机、server 路由清单、ui 组件清单）与 M0 工程骨架实施方案。protocol 完整契约已先行梳理为《协议层清单》（`docs/02-protocol-inventory.md`，对标 pi-web 全量 API 面），作为 protocol 包实施依据。*
