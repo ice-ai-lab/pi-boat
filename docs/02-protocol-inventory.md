@@ -21,7 +21,7 @@
 | SSE 事件流 | 3（agent 事件 + 终端输出 + auth 登录流） | `agent/[id]/events`、`terminal/[id]/events`、`auth/login/[provider]`（GET） |
 | RPC 命令 | 28（命令通道 27 + `agent/new` 专属 `ensure_session`） | `POST /api/agent/:id` 请求体判别联合（§4） |
 | 领域类型 | ~40 个 | domain/ 七文件（§3、§10） |
-| 事件 wire 类型 | ~31 种（SDK 透传 ~23 + 服务层自加 8） | SDK `JsonAgentSessionEvent` 投影 + 服务层事件（§5.1） |
+| 事件 wire 类型 | 29 种（SDK 透传 21 + 服务层自加 8；0.85.1 实测勘误，原记 ~31） | SDK `JsonAgentSessionEvent` 投影 + 服务层事件（§5.1） |
 
 ### 1.3 铁律（源自 AGENTS.md / 概要设计，本文档所有条目受其约束）
 
@@ -77,7 +77,7 @@
 
 | 类型 | 要点 |
 |---|---|
-| `SessionInfo` | `path/id/cwd/name/created/modified/messageCount/firstMessage/parentSessionId`；`relation: {kind:"fork", originSessionId?} \| {kind:"subagent", parentSessionId, profile, description, status}`（fork 仍为顶层，仅 subagent 形成父子树）；`projectRoot/projectKey`（项目分组键，Windows 大小写/分隔符不敏感）；`branch/isWorktree`；`transient`（内存会话未落盘） |
+| `SessionInfo` | `path/id/cwd/name/created/modified/messageCount/firstMessage`；`relation: {kind:"fork", originSessionId?} \| {kind:"subagent", parentSessionId, profile, description, status}`（fork 仍为顶层，仅 subagent 形成父子树；原列出的独立 `parentSessionId` 字段已并入 relation，0.85.1 实现勘误）；`projectRoot/projectKey`（项目分组键，Windows 大小写/分隔符不敏感）；`branch/isWorktree`；`transient`（内存会话未落盘） |
 | `SubagentSessionStatus` | `starting/queued/running/completed/failed/aborted/interrupted` |
 | `SessionTreeNode` | `entry/children/label?/compressedEntryIds?/branchPreview?` |
 | `SessionContext` | `messages[] + entryIds[]`（平行数组）、`oldestEntryId/hasMore`（向上分页）、`thinkingLevel`、`model` |
@@ -140,12 +140,12 @@
 - 剥离 `partial`（完整消息只经快照/历史下发）
 - `message_update` 附带 `usage`（SDK JSON 协议固定携带累积用量，尺寸恒定不随流增长）
 
-**事件全集**（= SDK `JsonAgentSessionEvent` 透传 ∪ 服务层自加；SDK 0.85.1 `.d.ts` 实测，共 ~31 种）：
+**事件全集**（= SDK `JsonAgentSessionEvent` 透传 ∪ 服务层自加；SDK 0.85.1 `.d.ts` 实测，共 29 种）：
 
 | 来源 | 事件（载荷） |
 |---|---|
 | SDK：消息流（pi-agent-core `AgentEvent`） | `agent_start`；`message_start {message}`；`message_update {usage, assistantMessageEvent}`；`message_end {message}`；`tool_execution_start / update {toolCallId, toolName, partialResult} / end`；`agent_end {messages: AgentMessage[], willRetry}`（AgentSessionEvent 增强版，非裸 turn 结束）；~~`turn_start / turn_end`~~（投影剔除） |
-| SDK：assistantMessageEvent 子事件（pi-ai，内嵌于 message_update） | `start`、`done`、`error`、`text_start / text_delta / text_end`、`thinking_start / thinking_delta / thinking_end`、`toolcall_start / toolcall_delta / toolcall_end`（start/delta 投影补齐 `id / toolName`）、`adaptive` —— 共 13 种，Zod 需全量定义，不可用省略号带过 |
+| SDK：assistantMessageEvent 子事件（pi-ai，内嵌于 message_update） | `start`、`done`、`error`、`text_start / text_delta / text_end`、`thinking_start / thinking_delta / thinking_end`、`toolcall_start / toolcall_delta / toolcall_end`（start/delta 投影补齐 `id / toolName`）—— 共 12 种，Zod 需全量定义，不可用省略号带过（0.85.1 实测无 `adaptive`，原记 13 种系笔误勘误） |
 | SDK：会话生命周期（agent-session 扩展） | `agent_settled`（agent 完全静止，客户端 UI settle 依据）；`queue_update {steering[], followUp[]}`；`compaction_start {reason: manual\|threshold\|overflow}`；`compaction_end {reason, result?, aborted, willRetry, errorMessage?}`；`auto_retry_start {attempt, maxAttempts, delayMs, errorMessage}`；`auto_retry_end {success, attempt, finalError?}`；`summarization_retry_scheduled / _attempt_start（branchSummary 与 compaction 两种变体）/ _finished`；`entry_appended {entry: SessionEntry}`；`session_info_changed {name}`；`thinking_level_changed {level}`；`bash_execution_update {id?, delta}` |
 | **服务层自加**（SDK 没有，server 必须自行定义） | `connected {sessionId, isStreaming}`、`startup_error {errorMessage}`、`prompt_done`、`prompt_error {errorMessage}`、`session_shutdown {reason?}`、`extension_ui_request`（§3.5）、`extension_error`、`extension_ui_closed {id}` |
 | PiBoat 新增 | 每事件附 `seq`（会话级单调递增；快照携带 `lastSeq`，客户端丢弃 `seq ≤ lastSeq`） |
@@ -156,7 +156,10 @@
 
 `connected` → 快照 `message_start`（进行中的半截消息）→ 增量续播。快照与订阅间隙的少量事件靠 `seq` 去重（概要设计 §5.4 时序 ①②③④）。
 
-### 5.3 终端事件流 `TerminalEvent`
+## 5.3 终端事件流 `TerminalEvent`（已移除）
+
+> ⚠️ 2026-01 决策：当前不准备支持终端能力（PTY），本节及 §6.8 终端端点从协议中移除，
+> 重启支持时再重新设计。
 
 - `output {data, offset, reset?}`（offset 做 `Last-Event-ID`/`?after=` 游标重放，SSE `id:` 帧即 offset；`reset=true` 表示 backlog 被清空需整体重绘）、`exit {exitCode}`、`closed`
 - 心跳 30s；exit/closed 后关流
@@ -237,7 +240,7 @@
 | `POST /api/worktrees` | `{cwd, branch}` → `{path, branch}` |
 | `DELETE /api/worktrees` | `{cwd, path, force?}` |
 
-### 6.8 终端（PTY）
+### 6.8 终端（PTY）（已移除，见 §5.3 决策）
 
 | 端点 | 形状 |
 |---|---|
@@ -335,13 +338,17 @@ packages/protocol/src/
     └── misc.ts             # health / lease / push
 ```
 
+> 落地状态：M1 的 protocol 侧已定稿（2026-01）——domain/ 七文件全量、commands M1 子集、
+> events/client-agent-event（终端 TerminalEvent 已按 2026-01 决策移除）、rest/misc + rest/sessions；
+> M2/M3 条目按里程碑追加。
+
 ## 11. 里程碑切片（从本清单取子集）
 
 | 里程碑 | 取自本清单 | 验收对应 |
 |---|---|---|
-| **M1 对话 MVP** | §2 全部 + §3 领域类型全量 + §4 命令子集（prompt/steer/followUp/abort/get_state/get_commands/get_tools/set_tools/get_last_assistant_text）+ 新建会话 + §5 事件全量 + §6.1/6.2/6.3（列表/详情/分页）+ health | 浏览器完成一轮带工具调用的编程任务 |
+| **M1 对话 MVP** | §2 全部 + §3 领域类型全量 + §4 命令子集（prompt/steer/followUp/abort/get_state/get_session_stats/get_commands/get_tools/set_tools/get_last_assistant_text）+ 新建会话 + §5 事件全量 + §6.1/6.2/6.3（列表/详情/分页）+ health —— protocol 侧已定稿，待 server/client 实现 | 浏览器完成一轮带工具调用的编程任务 |
 | **M2 会话与模型** | §4 剩余命令（分支组/压缩组/set_model/set_thinking_level/set_session_name/reload/custom_message）+ §6.4 模型 + §6.5 认证 | 日常可替代 TUI |
-| **M3 完整体验** | §6.6 文件 + §6.7 git + §6.8 终端 + §6.9 资源 + §7 辅助（lease/push） | 端到端功能完整 |
+| **M3 完整体验** | §6.6 文件 + §6.7 git + ~~§6.8 终端~~（已移除） + §6.9 资源 + §7 辅助（lease/push） | 端到端功能完整 |
 | **M4 桌面端** | 无新增（Electron 复用同一协议） | — |
 
 ---

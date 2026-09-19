@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { type ErrorCode, ErrorCodeSchema } from './constants.js';
+import { type ErrorCode, ErrorCodeSchema } from './constants';
 
 /** 命令成功响应体（HTTP 2xx） */
 export interface CommandOk<T> {

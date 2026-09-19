@@ -2,7 +2,7 @@
 import { serve } from '@hono/node-server';
 
 import { PORTS } from '@ice-ai/protocol';
-import { createAgentServer } from './server.js';
+import { createAgentServer } from './server';
 
 const port = Number(process.env.PORT ?? PORTS.server);
 const app = createAgentServer();
