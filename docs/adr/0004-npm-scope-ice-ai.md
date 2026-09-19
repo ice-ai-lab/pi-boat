@@ -8,7 +8,7 @@
 
 ADR-0001 定名时选定 scope `@pi-boat/*`（彼时因 `pi-studio` 撞名改道）。M0 完成后确定将发布至 npmjs，暴露两个问题：
 
-1. **主分发包命名困境**：scope = 产品名，主包将被迫成为 `@pi-boat/pi-boat`（冗余）、`@pi-boat/server`（主产品藏在子包名后，发现性差），或赌 unscoped `pi-boat` 不被抢注——pi 生态正活跃扩张（SDK 出品方自身即发布 `@agegr/pi-web`），而 ADR-0001 的起因恰是同类抢注（`pi-studio`）。
+1. **主分发包命名困境**：scope = 产品名，主包将被迫成为 `@pi-boat/pi-boat`（冗余）、`@pi-boat/server`（主产品藏在子包名后，发现性差），或赌 unscoped `pi-boat` 不被抢注——pi 生态正活跃扩张（SDK 出品方自身也在持续发布周边产品），而 ADR-0001 的起因恰是同类抢注（`pi-studio`）。
 2. **发布者命名空间缺失**：作者持有 npmjs 组织 `ice-ai`（账号 `mabaoguo` 为 owner，CLI 已验证）。发布者命名空间与产品名分离是多产品的自然形态，与上游 SDK 一致（`@earendil-works/pi-coding-agent` = 公司/产品）。
 
 注册表核查（2026-09-18）：unscoped `pi-boat`、unscoped `ice-ai` 均未被占，`@ice-ai/*` 下无任何包；组织已创建（npmjs.com/org/ice-ai）。
