@@ -1,7 +1,7 @@
 # PiBoat —— 协议层清单（protocol 包实施依据）
 
-> 版本：v0.1 · 状态：待评审 · 依据：对标 `@agegr/pi-web@0.9.x` 全量 API 面（46 个 REST 路由 + 2 条 SSE 流 + 31 个 RPC 命令），结合概要设计 `docs/01-overview.md` §3.1/§5.4/§10 整理
-> 用途：`packages/protocol` 的实施清单。每个条目标注 pi-web 源文件，形状以 pi-web 实战检验为准，命名与结构按 PiBoat 规范收敛
+> 版本：v0.2 · 状态：待评审 · 依据：概要设计 `docs/01-overview.md` §3.1/§5.4/§10，对照本仓 SDK 0.85.1 `.d.ts` 类型面全量核验；v0.2 修订：修正事件清单（§5.1）、命令计数与误列条目（§4）、补 4 条遗漏路由（§6）及若干字段
+> 用途：`packages/protocol` 的实施清单。形状以 SDK 0.85.1 实际类型面为准，命名与结构按 PiBoat 规范收敛
 
 ---
 
@@ -9,19 +9,19 @@
 
 ### 1.1 protocol-first，但按里程碑切片
 
-- **protocol 优先是对的**：它是零依赖叶子包，core/server/client/ui 全部依赖它，先定它则各包可并行开工；且 pi-web 已有实战检验过的 API 形状，照抄形状比发明便宜
+- **protocol 优先是对的**：它是零依赖叶子包，core/server/client/ui 全部依赖它，先定它则各包可并行开工；契约先行则争议前置，接口即产品
 - **但"先定义" ≠ "先全量定义"**：一次定完全部协议会推迟首个可运行功能 1~2 周。每个里程碑开工的第一件事是定该里程碑的 schema（切片见 §11）
-- 本文档是**全量清单**（对标 pi-web 功能全集），各里程碑从中取子集
+- 本文档是**全量清单**（产品功能全集），各里程碑从中取子集
 
 ### 1.2 量级总览
 
-| 类别 | 数量 | pi-web 对应物 |
+| 类别 | 数量 | 说明 |
 |---|---|---|
-| REST 路由 | 46 | `app/api/**/route.ts` |
-| SSE 事件流 | 2（agent 事件 + 终端输出） | `agent/[id]/events`、`terminal/[id]/events` |
-| RPC 命令 | 31 | `lib/rpc-manager.ts` 的命令 switch |
-| 领域类型 | ~40 个 | `lib/types.ts`、`lib/pi-types.ts`、`lib/git-types.ts`、`lib/api-types.ts` |
-| 事件 wire 类型 | ~20 种 | `lib/agent-event-wire.ts` + SDK `JsonAgentSessionEvent` |
+| REST 路由 | 50 个路由文件（53 个端点文件，其中 3 个为 SSE，部分含多方法） | 九大功能域（§6） |
+| SSE 事件流 | 3（agent 事件 + 终端输出 + auth 登录流） | `agent/[id]/events`、`terminal/[id]/events`、`auth/login/[provider]`（GET） |
+| RPC 命令 | 28（命令通道 27 + `agent/new` 专属 `ensure_session`） | `POST /api/agent/:id` 请求体判别联合（§4） |
+| 领域类型 | ~40 个 | domain/ 七文件（§3、§10） |
+| 事件 wire 类型 | ~31 种（SDK 透传 ~23 + 服务层自加 8） | SDK `JsonAgentSessionEvent` 投影 + 服务层事件（§5.1） |
 
 ### 1.3 铁律（源自 AGENTS.md / 概要设计，本文档所有条目受其约束）
 
@@ -35,20 +35,20 @@
 
 ## 2. ① 基础约定（constants / envelope / errors）
 
-| 条目 | 内容 | pi-web 来源 | 备注 |
-|---|---|---|---|
-| `PROTOCOL_VERSION` | 协议版本号 | —（PiBoat 新增） | 已在 M0 骨架落地 |
-| `PORTS` | `{ server: 9527, web: 9528 }` | —（PiBoat 新增） | 端口单一来源，已落地 |
-| 命令响应信封 | `{ success: true, data: T } \| { error: string, code?, accepted? }` | `lib/agent-client.ts` | agent 命令类路由统一信封 |
-| 错误码枚举 | `prompt_rejected`（+ `accepted: false`）等 | `agent/new`、`agent/[id]` 路由 | 区分"输入被拒"与"运行失败"；集中定义避免字符串散落 |
-| SSE 元约定 | 心跳 30s（注释帧 `:\n\n`）；断线重连 `Last-Event-ID` | `lib/agent-event-stream.ts` | pi-web 终端流已有 offset 游标重放；**agent 事件流 pi-web 无 seq 重放**（断线只能整体刷新），PiBoat 新增每会话单调递增 `seq`（去重 + 差量重放，概要设计 §5.4）——必须定义进 wire 类型 |
-| SSE 票据 | 一次性 query 票据（EventSource 无法带 header） | —（PiBoat 新增，概要设计 §5.6） | 与 token 鉴权配套 |
+| 条目 | 内容 | 备注 |
+|---|---|---|
+| `PROTOCOL_VERSION` | 协议版本号 | 已在 M0 骨架落地 |
+| `PORTS` | `{ server: 9527, web: 9528 }` | 端口单一来源，已落地 |
+| 命令响应信封 | `{ success: true, data: T } \| { error: string, code?, accepted? }` | agent 命令类路由统一信封 |
+| 错误码枚举 | `prompt_rejected`（+ `accepted: false`）等 | 区分"输入被拒"与"运行失败"；集中定义避免字符串散落 |
+| SSE 元约定 | 心跳 30s（注释帧 `:\n\n`）；断线重连 `Last-Event-ID` | 终端流用 offset 游标重放；agent 事件流附每会话单调递增 `seq`（去重 + 差量重放，概要设计 §5.4）——必须定义进 wire 类型 |
+| SSE 票据 | 一次性 query 票据（EventSource 无法带 header） | 与 token 鉴权配套（概要设计 §5.6） |
 
 ---
 
 ## 3. ② 领域类型（domain）—— protocol 最大的一块资产
 
-对应 pi-web `lib/types.ts` + `lib/pi-types.ts`，近乎整包移植。**惰性资产，建议 M1 一次定完**（后续里程碑直接复用）。
+**惰性资产，建议 M1 一次定完**（后续里程碑直接复用；基础形状须与 SDK 0.85.1 对应类型保持同步，升级时核对）。
 
 ### 3.1 会话文件条目（对应 `.jsonl` 每行，`SessionEntry` 判别联合）
 
@@ -87,13 +87,13 @@
 | 类型 | 要点 |
 |---|---|
 | `AgentState`（`get_state` 返回） | `sessionId/sessionFile/isStreaming/isPromptRunning/isBashRunning/isCompacting/autoCompactionEnabled/autoRetryEnabled/model/messageCount/pendingMessageCount/queuedMessages{steering,followUp}/contextUsage/systemPrompt/thinkingLevel/extensionStatuses/extensionWidgets` |
-| `SessionStatsInfo` | userMessages/assistantMessages/toolCalls/toolResults/tokens/cost/contextUsage/totalActiveMs |
+| `SessionStatsInfo` | userMessages/assistantMessages/toolCalls/toolResults/tokens/cost/contextUsage/totalActiveMs/**sessionName**（rpc 层附加） |
 | `ToolInfo` | `name/description/parameters/promptGuidelines/sourceInfo` + `active`（get_tools 时叠加） |
 | `SlashCommandInfo` | `name/description/source("prompt"|"skill"|"extension")/sourceInfo`（斜杠命令面板） |
 
 ### 3.5 扩展 UI 协议
 
-- `ExtensionUiRequest`（9 种 method）：`select / confirm / input / editor / notify / setStatus / setWidget / setTitle / custom`，阻塞型（select/confirm/input/editor/custom）带 `id/timeout/expiresAt`
+- `ExtensionUiRequest`（**10 种 method**）：`select / confirm / input / editor / notify / setStatus / setWidget / setTitle / set_editor_text / custom`，阻塞型（select/confirm/input/editor/custom）带 `id/timeout/expiresAt`；各 method 载荷：`notify {message, notifyType?}`、`setStatus {statusKey, statusText?}`（statusText=undefined 即清除该项）、`setWidget {widgetKey, widgetLines?, widgetPlacement?}`（同上，undefined 即清除）、`setTitle {title}`、`set_editor_text {text}`（向编辑器插入文本）、`custom {…, closed?}`（closed=true 为服务端关闭通知，客户端据此撤下 UI）
 - `ExtensionUiResponse`：`{id, value} | {id, confirmed} | {id, cancelled:true}`
 - `ExtensionStatusItem / ExtensionWidgetItem`
 - ⚠️ 最容易被漏掉的协议成员；扩展交互经命令通道（`extension_ui_response/input`）与事件通道（`extension_ui_request`）双向完成
@@ -106,7 +106,7 @@
 
 ## 4. ③ Agent 命令通道（commands）
 
-`POST /api/agent/:id` 请求体判别联合（31 命令，pi-web `lib/rpc-manager.ts` switch 完整提取）：
+`POST /api/agent/:id` 请求体判别联合（**28 命令** = 命令通道 27 个 + `agent/new` 专属 `ensure_session`。⚠️ `custom_message` 不是命令——它是会话条目类型 `CustomMessageEntry`，见 §3.1）：
 
 | 分组 | 命令（参数 → 返回） |
 |---|---|
@@ -115,9 +115,9 @@
 | 模型/思考 | `set_model {provider, modelId}` → `{id, provider}`；`set_thinking_level {level}` |
 | 压缩 | `compact {customInstructions?}`；`abort_compaction`；`set_auto_compaction {enabled}`；`set_auto_retry {enabled}` |
 | 分支 | `fork {entryId}` → `{cancelled, newSessionId}`（**破坏性原地替换**，见概要设计 §8-1）；`fork_branch {entryId}` → 新会话不改当前；`clone {leafId?}`；`navigate_tree {targetId}` → `{cancelled, editorText?}` |
-| 工具 | `get_tools` → ToolInfo[]（含 active）；`set_tools {toolNames}` |
+| 工具 | `get_tools` → ToolInfo[]（含 active）；`set_tools {toolNames}` → **双路径**：运行中会话走 switch 返回 null；冷会话走 route 层 `setRpcSessionTools` 重建 runtime，信封 data 为 `{sessionId, recreated}`（返回形状不同，协议需两态） |
 | 命令面板 | `get_commands` → `{commands: SlashCommandInfo[]}` |
-| 会话管理 | `set_session_name {name}`；`reload`；`custom_message {customType, content, display, details?, triggerTurn?, deliverAs?}`；`ensure_session` |
+| 会话管理 | `set_session_name {name}` → null（空白名报错）；`reload` → `{success}`（重绑扩展/同步信任/刷新模型缓存）；`ensure_session`（仅 `agent/new` 的 type 值：只建 runtime 不发首条消息，供客户端预查命令） |
 | Shell | `bash {command, excludeFromContext?}` → `{output, exitCode?, cancelled?, truncated?, fullOutputPath?}`；`abort_bash` |
 | 扩展 UI | `extension_ui_response`；`extension_ui_input {id, data}` |
 
@@ -133,19 +133,24 @@
 
 ### 5.1 wire 类型 `ClientAgentEvent`
 
-**投影规则**（pi-web `lib/agent-event-wire.ts`，固化进 schema 文档）：
+**投影规则**（`toClientAgentEvent()` 归 core，此处将其固化为 schema 约束）：
 
 - 剔除 `turn_start / turn_end`
 - `toolcall_start / toolcall_delta` 补齐 `id / toolName`（从 `partial.content[contentIndex]` 提取，双字段容错）
 - 剥离 `partial`（完整消息只经快照/历史下发）
+- `message_update` 附带 `usage`（SDK JSON 协议固定携带累积用量，尺寸恒定不随流增长）
 
-**事件清单**：
+**事件全集**（= SDK `JsonAgentSessionEvent` 透传 ∪ 服务层自加；SDK 0.85.1 `.d.ts` 实测，共 ~31 种）：
 
-| 来源 | 事件 |
+| 来源 | 事件（载荷） |
 |---|---|
-| SDK 透传（投影后） | `message_start`、`message_update`（assistantMessageEvent: `text_delta / thinking_delta / toolcall_start / toolcall_delta / …`）、`message_end`、`tool_execution_start / update / end`、`agent_end`、`notice`、`error` |
-| **PiBoat 服务层自加**（pi-web 已实践，SDK 没有，必须定义） | `connected {sessionId, isStreaming}`、`startup_error {errorMessage}`、`prompt_done`、`prompt_error {errorMessage}`、`session_shutdown {reason}`、`extension_ui_request`、`extension_error` |
+| SDK：消息流（pi-agent-core `AgentEvent`） | `agent_start`；`message_start {message}`；`message_update {usage, assistantMessageEvent}`；`message_end {message}`；`tool_execution_start / update {toolCallId, toolName, partialResult} / end`；`agent_end {messages: AgentMessage[], willRetry}`（AgentSessionEvent 增强版，非裸 turn 结束）；~~`turn_start / turn_end`~~（投影剔除） |
+| SDK：assistantMessageEvent 子事件（pi-ai，内嵌于 message_update） | `start`、`done`、`error`、`text_start / text_delta / text_end`、`thinking_start / thinking_delta / thinking_end`、`toolcall_start / toolcall_delta / toolcall_end`（start/delta 投影补齐 `id / toolName`）、`adaptive` —— 共 13 种，Zod 需全量定义，不可用省略号带过 |
+| SDK：会话生命周期（agent-session 扩展） | `agent_settled`（agent 完全静止，客户端 UI settle 依据）；`queue_update {steering[], followUp[]}`；`compaction_start {reason: manual\|threshold\|overflow}`；`compaction_end {reason, result?, aborted, willRetry, errorMessage?}`；`auto_retry_start {attempt, maxAttempts, delayMs, errorMessage}`；`auto_retry_end {success, attempt, finalError?}`；`summarization_retry_scheduled / _attempt_start（branchSummary 与 compaction 两种变体）/ _finished`；`entry_appended {entry: SessionEntry}`；`session_info_changed {name}`；`thinking_level_changed {level}`；`bash_execution_update {id?, delta}` |
+| **服务层自加**（SDK 没有，server 必须自行定义） | `connected {sessionId, isStreaming}`、`startup_error {errorMessage}`、`prompt_done`、`prompt_error {errorMessage}`、`session_shutdown {reason?}`、`extension_ui_request`（§3.5）、`extension_error`、`extension_ui_closed {id}` |
 | PiBoat 新增 | 每事件附 `seq`（会话级单调递增；快照携带 `lastSeq`，客户端丢弃 `seq ≤ lastSeq`） |
+
+> ⚠️ 两点边界（v0.2 勘误）：① wire 上**不定义** `notice` 与顶层 `error` 事件——通知条属前端 UI 概念，错误一律走 `prompt_error / startup_error / extension_error`（及 assistantMessageEvent.error）；② 不定义 `auto_compaction_start/end`——SDK 0.85 只发 `compaction_start/end`（reason 字段区分 auto/manual），不留旧别名。
 
 ### 5.2 接入时序（late join）
 
@@ -153,7 +158,7 @@
 
 ### 5.3 终端事件流 `TerminalEvent`
 
-- `output {data, offset}`（offset 做 `Last-Event-ID`/`?after=` 游标重放）、`exit {exitCode}`、`closed`
+- `output {data, offset, reset?}`（offset 做 `Last-Event-ID`/`?after=` 游标重放，SSE `id:` 帧即 offset；`reset=true` 表示 backlog 被清空需整体重绘）、`exit {exitCode}`、`closed`
 - 心跳 30s；exit/closed 后关流
 
 ---
@@ -166,6 +171,7 @@
 |---|---|
 | `GET /api/sessions?force=1` | → `{ sessions: SessionInfo[], sessionListVersion, runningSessionIds[], completionNotificationSuppressedSessionIds[] }`（磁盘扫描与运行时注册表合并） |
 | `GET /api/agent/running` | 轻量轮询（可见 Tab 池）：`{ sessionListVersion, runningSessionIds, 通知抑制ids }` |
+| `GET /api/agent/:id` | **单会话状态轻查**：`{running: false}` 或 `{running: true, state: AgentState}`（未运行不报错；客户端在 `agent_end` 后靠它同步模型/上下文/队列状态） |
 | `GET /api/sessions/search?q` | → 搜索结果（q ≤ 200 字符） |
 
 ### 6.2 会话详情与生命周期
@@ -175,6 +181,7 @@
 | `GET /api/sessions/:id` | → `{ sessionId, filePath, info, leafId, tree, context, stats, totalActiveMs, toolNames? }`（tail 默认 50，上限 1000） |
 | `PATCH /api/sessions/:id` | `{name}` 改名（历史未运行会话直接追加 session_info 行） |
 | `DELETE /api/sessions/:id` | 删除（**级联删除全部 subagent 子会话**，返回受影响 id） |
+| `GET /api/sessions/:id/state` | 同 `/api/agent/:id` 形状，但会话文件不存在时 **404**（而非 `{running:false}`；语义差异需保留） |
 | `GET /api/sessions/:id/export` | → HTML 导出（attachment/inline） |
 | `POST /api/sessions/:id/auto-name` | → `{title, usage}`（LLM 生成会话名） |
 
@@ -202,7 +209,7 @@
 | 端点 | 形状 |
 |---|---|
 | `GET /api/auth/providers` | → `{ providers, oauthProviders, apiKeyProviders }` |
-| `GET /api/auth/login/:provider` | **SSE**：OAuth 流（`url` 事件给跳转地址 + 等待码回填） |
+| `GET /api/auth/login/:provider` | **SSE**：登录流事件全集 8 种——`auth {url, instructions, token}`（跳转地址 + 等待码回填用 token）、`select_request {message, options, token}`（多账号选择）、`prompt_request {message, placeholder, token}`（手动输码）、`device_code {userCode, verificationUri, intervalSeconds, expiresInSeconds}`、`progress {message}`、`success`、`error {message}`、`cancelled` |
 | `POST /api/auth/login/:provider` | `{token, code}` → `{ok, provider}`（token 即 SSE 流下发的登录令牌） |
 | `POST /api/auth/api-key/:provider` | `{apiKey}` → `{success}` |
 | `POST /api/auth/logout/:provider` | → `{ok}`（OAuth/API Key 类型不匹配返回 409） |
@@ -216,8 +223,8 @@
 | `POST /api/default-cwd` | → `{cwd}`（创建 `~/pi-cwd-YYYYMMDD`） |
 | `GET /api/cwd/browse?path` | → `{path, parentPath, directories[], drives?}`（目录选择器；Windows 盘符列表） |
 | `POST /api/cwd/validate` | `{cwd}` → `{success, cwd, projectRoot, projectKey}`（支持 `~` 展开；选定即加入 allowed-roots） |
-| `GET /api/files/*?type=` | `list / read / download / meta / preview / watch` 五种请求类型（见 pi-web `files/[...path]/route.ts`；忽略 node_modules/.git 等目录） |
-| `POST /api/files/*` | multipart 上传：单文件 ≤ 25MB、总量 ≤ 100MB、文件名校验、冲突策略参数 |
+| `GET /api/files/*?type=&sessionId=` | `list / read / download / meta / preview / watch` 六种请求类型（忽略 node_modules/.git 等目录）；`sessionId` = **会话引用放行**：allowed-roots 之外的文件若被该会话引用（如工具产出的图片）则可读（type=list 不适用）——协议级访问控制语义，非实现细节 |
+| `POST /api/files/*?type=` | `type=upload`（multipart 上传：单文件 ≤ 25MB、总量 ≤ 100MB、文件名校验、冲突策略参数）或 `type=upload-check`（JSON `{fileNames[]}` 上传前冲突预检 → 冲突检查结果） |
 | `GET /api/file-index?cwd&q` | → 模糊搜索索引（无 q 时全量索引 ≤ 5000 条；git 仓库走 tracked 文件，硬上限 20 万） |
 
 ### 6.7 Git
@@ -257,7 +264,7 @@
 | `GET/PUT /api/tools/settings` | → `{isWindows, powerShellEnabled}` |
 | `GET/PUT /api/subagents/settings` | → `{enabled, maxConcurrent}` |
 | `GET/PUT/PATCH/DELETE /api/subagents/profiles?cwd` | subagent 档案 CRUD |
-| `GET/POST /api/subagents/:id` | 子代理运行详情 / abort |
+| `GET/POST /api/subagents/:id` | GET → `{run: SubagentRunInfo}`（`sessionId/sessionPath/parentSessionId/parentToolCallId/profile/description/task/runInBackground/status/createdAt/completedAt?/result?/error?/worktreePath?/worktreeBranch?/worktreeCleanupError?`）；POST `{action: "steer"\|"abort", message?}` → `{ok, run}`（steer 需非空 message；不在运行 409） |
 
 ---
 
@@ -269,8 +276,8 @@
 | `GET /api/push/config` | → `{publicKey}` | VAPID 公钥（私钥不出服务端） |
 | `POST /api/push/subscribe` | `{subscription{endpoint,keys{p256dh,auth}}, locale}` | 按 endpoint upsert |
 | `GET /api/health` | → `{ok, name}` | M0 已落地 |
-| 鉴权 bootstrap | token 经同源接口下发（跨源页面不可读） | **PiBoat 重新定义**：随机 token + Origin/Host 校验 + SSE 一次性票据（概要设计 §5.6）；不照抄 pi-web 的密码 + cookie 模型（`web-auth` 路由 + 限流）。若将来开 LAN 再评估密码模型 |
-| 应用更新检查 | —（裁剪） | pi-web 查 npm registry（`GET /api/app-update`）；PiBoat 发布通道未定，暂不纳入协议 |
+| 鉴权 bootstrap | token 经同源接口下发（跨源页面不可读） | 随机 token + Origin/Host 校验 + SSE 一次性票据（概要设计 §5.6）；不采用密码 + cookie + 限流模型，若将来开 LAN 再评估 |
+| 应用更新检查 | —（暂缓） | 发布通道未定，暂不纳入协议 |
 
 ---
 
@@ -278,7 +285,7 @@
 
 以下为实现细节，归各包自行消化，**禁止**泄漏进 protocol：
 
-- ANSI 清洗/渲染、MIME 与文件类型判断、预览字节数上限（`lib/ansi.ts`、`file-types.ts`、`text-preview.ts`）
+- ANSI 清洗/渲染、MIME 与文件类型判断、预览字节数上限
 - markdown/mermaid/katex 渲染配置（前端 ui 层）
 - 各类缓存策略（models-cache、session-list 缓存、catalog 缓存）
 - allowed-roots 判定逻辑本身（protocol 只定义"403 Access denied"错误形状；判定归 server/core）
@@ -287,16 +294,16 @@
 
 ---
 
-## 9. 与 pi-web 的差异决策点（已定）
+## 9. 关键设计决策（已定）
 
-| # | 差异 | 决策 |
+| # | 议题 | 决策 |
 |---|---|---|
-| 1 | agent 事件流无 seq 重放（pi-web 断线靠整体刷新） | PiBoat wire 事件附 `seq` + `Last-Event-ID` 差量重放（概要设计 §5.4） |
-| 2 | 命令信封 `{success, data}` 内联在 route | 收敛为 protocol 的泛型信封类型 + 每命令返回类型 |
-| 3 | pi-web 无独立协议包，形状散在 46 个 route + lib | PiBoat 全量收敛进 `@ice-ai/protocol`，server 路由即协议实现层 |
-| 4 | 密码登录（web-auth + cookie + 限流） | 纯本地定位改为随机 token + 同源 bootstrap + SSE 票据（§5.6）；LAN 场景另议 |
-| 5 | `app-update` 查 npm | 裁剪（PiBoat 发布通道未定） |
-| 6 | 路径风格 `/api/agent/new`、`/api/sessions/:id/...` | 沿用 pi-web 路径（降低迁移与对照成本）；仅鉴权相关端点不同 |
+| 1 | agent 事件流断线恢复 | 事件附会话级 `seq` + `Last-Event-ID` 差量重放，不做整体刷新（概要设计 §5.4） |
+| 2 | 命令信封 | 收敛为 protocol 的泛型信封类型 + 每命令返回类型，不内联在路由实现里 |
+| 3 | 协议归置 | 全量收敛进 `@ice-ai/protocol`，server 路由即协议实现层 |
+| 4 | 鉴权模型 | 纯本地定位：随机 token + 同源 bootstrap + SSE 一次性票据（§5.6）；LAN 场景另议 |
+| 5 | 应用更新检查 | 暂缓（发布通道未定） |
+| 6 | 路径风格 | `/api/agent/new`、`/api/sessions/:id/...` 常规 RESTful 风格；鉴权相关端点单独设计 |
 
 ## 10. 协议包目录结构
 
@@ -334,26 +341,8 @@ packages/protocol/src/
 |---|---|---|
 | **M1 对话 MVP** | §2 全部 + §3 领域类型全量 + §4 命令子集（prompt/steer/followUp/abort/get_state/get_commands/get_tools/set_tools/get_last_assistant_text）+ 新建会话 + §5 事件全量 + §6.1/6.2/6.3（列表/详情/分页）+ health | 浏览器完成一轮带工具调用的编程任务 |
 | **M2 会话与模型** | §4 剩余命令（分支组/压缩组/set_model/set_thinking_level/set_session_name/reload/custom_message）+ §6.4 模型 + §6.5 认证 | 日常可替代 TUI |
-| **M3 完整体验** | §6.6 文件 + §6.7 git + §6.8 终端 + §6.9 资源 + §7 辅助（lease/push） | 功能对齐 pi-web |
+| **M3 完整体验** | §6.6 文件 + §6.7 git + §6.8 终端 + §6.9 资源 + §7 辅助（lease/push） | 端到端功能完整 |
 | **M4 桌面端** | 无新增（Electron 复用同一协议） | — |
-
-## 12. pi-web 源文件映射（形状挖掘索引）
-
-| PiBoat 域 | pi-web 源（相对 `pi-web/`） |
-|---|---|
-| 领域类型 | `lib/types.ts`、`lib/pi-types.ts` |
-| 命令分发（31 命令权威来源） | `lib/rpc-manager.ts`（`send()` 的 switch） |
-| 事件投影规则 | `lib/agent-event-wire.ts`（`toClientAgentEvent`） |
-| SSE 流时序（connected/快照/心跳） | `lib/agent-event-stream.ts` |
-| 新建会话 / 命令路由 | `app/api/agent/new/route.ts`、`app/api/agent/[id]/route.ts` |
-| 会话列表/详情/分页 | `app/api/sessions/**`、`lib/session-reader.ts`、`lib/chat-lazy-load.ts` |
-| 模型 | `app/api/models*/**`、`lib/models-cache.ts`、`lib/model-catalog.ts` |
-| 认证 | `app/api/auth/**`、`lib/provider-listing.ts`、`lib/provider-credential-store.ts` |
-| 文件 | `app/api/files/[...path]/route.ts`、`app/api/file-index/route.ts`、`lib/file-*.ts` |
-| Git/worktree | `lib/git-types.ts`、`lib/git-changes.ts`、`lib/worktree.ts` |
-| 终端 | `app/api/terminal/**`、`lib/terminal-manager.ts` |
-| skills/plugins/subagents | `lib/skills-service.ts`、`lib/skill-*.ts`、`app/api/plugins/**`、`lib/subagents.ts` |
-| 客户端命令封装（信封语义） | `lib/agent-client.ts` |
 
 ---
 
