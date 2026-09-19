@@ -4,4 +4,4 @@
  * M1 计划：/api/sessions、/api/agent/:id 命令通道、/api/agent/:id/events SSE 事件流、
  * 静态托管 web 构建产物（docs/01-overview.md §3.1、§5.2、§10）。
  */
-export { createAgentServer } from './server.js';
+export { createAgentServer } from './server';
