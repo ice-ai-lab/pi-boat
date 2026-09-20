@@ -9,6 +9,8 @@
 
 ### 1.1 protocol-first，但按里程碑切片
 
+> 为什么需要独立的 protocol 层：决策记录见 [ADR-0006](adr/0006-protocol-package.md)。
+
 - **protocol 优先是对的**：它是零依赖叶子包，core/server/client/ui 全部依赖它，先定它则各包可并行开工；契约先行则争议前置，接口即产品
 - **但"先定义" ≠ "先全量定义"**：一次定完全部协议会推迟首个可运行功能 1~2 周。每个里程碑开工的第一件事是定该里程碑的 schema（切片见 §11）
 - 本文档是**全量清单**（产品功能全集），各里程碑从中取子集
@@ -66,7 +68,7 @@
 
 ### 3.2 消息与内容块
 
-- `AgentMessage = UserMessage | AssistantMessage | ToolResultMessage | CustomMessage | BashExecutionMessage`（后者含 `command/output/exitCode/cancelled/truncated/fullOutputPath`）
+- `AgentMessage = UserMessage | AssistantMessage | ToolResultMessage | CustomMessage | BashExecutionMessage | BranchSummaryMessage | CompactionSummaryMessage`（与 SDK AgentMessage 完全一致；bashExecution 含 `command/output/exitCode/cancelled/truncated/fullOutputPath`；branch/compactionSummary 为注入 LLM 上下文的合成消息，无 display 字段）
 - 内容块：`TextContent | ImageContent | ThinkingContent | ToolCallContent`
   - `ThinkingContent.deferred`：历史 thinking 只存短预览，全文按需加载（配套 §6.3 惰性端点）
   - `ToolCallContent.rawInput`：流式工具入参的客户端缓冲，**永不落盘**

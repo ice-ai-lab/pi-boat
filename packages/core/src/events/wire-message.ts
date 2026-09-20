@@ -4,41 +4,19 @@ import type { AgentMessage } from '@ice-ai/protocol';
 /**
  * SDK AgentMessage → wire AgentMessage 消息投影。
  *
- * SDK 侧联合比 protocol 宽：coding-agent 经模块增强给 CustomAgentMessages
- * 追加了 bashExecution / custom / branchSummary / compactionSummary 四种角色，
- * 其中 branchSummary / compactionSummary 不在 protocol 的 5 角色联合内
- * （docs/02 §3.2 定稿口径），投影为 CustomMessage 承载：
- * - customType 保留原角色名，前端可按 customType 特化渲染
- * - summary 进 content，结构性元数据（fromId / tokensBefore）进 details
- * - display=false：两者均为注入上下文的合成消息，非用户输入
+ * 为什么需要：protocol 与 SDK 的 AgentMessage 联合已完全对齐（七角色一致，
+ * 2026-09-18 定案：不做额外收敛设计），本函数只剩两件小事：
+ * - 剥离 readonly（SDK 侧深度 readonly，wire 类型可变）
+ * - 类型边界：SDK 类型 → protocol 契约类型（SDK 字段变动不许泄漏出 core）
  *
- * user/assistant/toolResult/bashExecution/custom 五种角色结构一致，直接透传
- * （展开拷贝剥 readonly，wire 类型可变）。
+ * 提供：toWireAgentMessage（单条投影）；SdkAgentMessage 类型
+ * （coding-agent 未从根导出 AgentMessage，经 AgentSession 派生）。
  */
 
 /** SDK 侧消息类型（coding-agent 未从根导出 AgentMessage，经 AgentSession 派生） */
 export type SdkAgentMessage = AgentSession['messages'][number];
 
+/** 七角色结构一致，展开拷贝剥 readonly 即可 */
 export function toWireAgentMessage(message: SdkAgentMessage): AgentMessage {
-  if (message.role === 'branchSummary') {
-    return {
-      role: 'custom',
-      customType: 'branchSummary',
-      content: message.summary,
-      display: false,
-      details: { fromId: message.fromId },
-      timestamp: message.timestamp,
-    };
-  }
-  if (message.role === 'compactionSummary') {
-    return {
-      role: 'custom',
-      customType: 'compactionSummary',
-      content: message.summary,
-      display: false,
-      details: { tokensBefore: message.tokensBefore },
-      timestamp: message.timestamp,
-    };
-  }
   return { ...message } as AgentMessage;
 }
