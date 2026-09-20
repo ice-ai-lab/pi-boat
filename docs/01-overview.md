@@ -288,7 +288,7 @@ interface SessionEntry {
 ```ts
 // core 暴露的服务接口（transport-agnostic）
 interface AgentService {
-  create(input: NewSessionInput): Promise<SessionSnapshot>;
+  create(input: NewSessionRequest): Promise<SessionSnapshot>;
   send(sessionId: string, cmd: AgentCommand): Promise<void>;   // prompt/steer/abort/setModel…
   subscribe(sessionId: string, listener: (e: ClientAgentEvent) => void): () => void;
   // …

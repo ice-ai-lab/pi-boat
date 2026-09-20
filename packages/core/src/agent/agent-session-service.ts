@@ -56,8 +56,6 @@ export class PromptRejectedError extends Error {
 // 新建会话
 // ---------------------------------------------------------------------------
 
-export type NewSessionInput = NewSessionRequest;
-
 /** 会话工厂签名（默认真实 SDK；测试注入 fake） */
 export type CreateSessionFn = (
   options: CreateAgentSessionOptions,
@@ -78,7 +76,7 @@ export class AgentSessionService {
   // 新建会话（POST /api/agent/new，docs/02 §4.1）
   // ------------------------------------------------------------------
 
-  async create(input: NewSessionInput): Promise<NewSessionOk> {
+  async create(input: NewSessionRequest): Promise<NewSessionOk> {
     const { cwd, message, images, provider, modelId, toolNames, thinkingLevel } = input;
     const ensureOnly = input.type === 'ensure_session';
 

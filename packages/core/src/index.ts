@@ -17,7 +17,6 @@
 export {
   AgentSessionService,
   type CreateSessionFn,
-  type NewSessionInput,
   PromptRejectedError,
   SessionNotFoundError,
 } from './agent/agent-session-service';
