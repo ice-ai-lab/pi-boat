@@ -1,31 +1,31 @@
 import type { AgentSession, AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { ClientAgentEvent } from '@ice-ai/protocol';
-import { projectAgentSessionEvent } from '../events/to-client-agent-event';
+import { type ClientAgentEventPayload, toClientAgentEventPayload } from '../events/to-client-agent-event';
 import type { SdkAgentMessage } from '../events/wire-message';
 
 /**
  * 会话注册表单元（docs/01 §3.1 AgentSessionService 的最小组成）。
  *
- * 职责：
- * - 委托订阅：订阅者挂在 Entry 上而非 SDK session 上，屏蔽 runtime 替换
- *   （§8-2：new/fork/switch 后旧 subscribe 指向死对象——替换发生在 M2 fork，
- *   届时只需在 Entry 上换 session 引用并重绑）
+ * 为什么需要：SDK 的订阅与状态查询直接挂在 session 对象上，存在三个缺口——
+ * runtime 替换后旧订阅指向死对象（§8-2）；事件流无序号，无法去重与差量重放；
+ * 没有排队消息/进行中消息的快照查询（只有事件，无当前值）。
+ *
+ * 相对 SDK 新增：
+ * - 委托订阅：订阅者挂 Entry 而非 SDK session，屏蔽 runtime 替换
+ *   （替换发生在 M2 fork，届时只需在 Entry 上换 session 引用并重绑）
  * - seq 分配：会话级单调递增，SDK 事件与服务层事件共用同一计数器
+ *   （Last-Event-ID 差量重放与快照去重的依据，docs/01 §5.4）
+ * - 服务层自加事件：connected / prompt_done / prompt_error / session_shutdown
+ *   （docs/02 §5.1，SDK 事件流中不存在）
  * - 流内状态跟踪：queue 快照（get_state 用）、进行中的流式消息（late join 快照用）
- * - prompt 生命周期：派发时标记，agent_settled 时补发 prompt_done
- *   （docs/02 §5.1 服务层自加事件）
+ *
+ * 提供：subscribe / emitServiceEvent（服务层事件入流）、prompt 生命周期
+ * （markPromptDispatched / failPrompt / waitForSettle）、快照 getters
+ * （lastSeq / isStreaming / queuedMessages / isPromptRunning / inFlightMessage）、
+ * dispose（广播 shutdown → 解绑订阅 → 释放 SDK 会话）。
  */
 
 export type ClientAgentEventListener = (event: ClientAgentEvent) => void;
-
-/** 分配律 Omit（直接 Omit<Union, K> 会塌缩成公共键，丢失判别信息） */
-type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
-
-/**
- * 服务层自加事件与快照事件（seq 之外的载荷部分）。
- * 覆盖 docs/02 §5.1 服务层自加行 + late join 快照的 message_start。
- */
-export type WireEventInput = DistributiveOmit<ClientAgentEvent, 'seq'>;
 
 export class SessionRegistryEntry {
   readonly sessionId: string;
@@ -110,7 +110,7 @@ export class SessionRegistryEntry {
       for (const w of waiters) w();
     }
 
-    const wire = this.projectWithSeq(event);
+    const wire = this.payloadWithSeq(event);
     if (wire === null) return; // turn_* 已剔除（不消耗 seq）
     this.dispatch(wire);
 
@@ -121,14 +121,14 @@ export class SessionRegistryEntry {
   }
 
   /** 先投影后分配 seq：被剔除的事件不消耗序号 */
-  private projectWithSeq(event: AgentSessionEvent): ClientAgentEvent | null {
-    const projected = projectAgentSessionEvent(event);
-    if (projected === null) return null;
-    return { ...projected, seq: this.nextSeq() } as ClientAgentEvent;
+  private payloadWithSeq(event: AgentSessionEvent): ClientAgentEvent | null {
+    const payload = toClientAgentEventPayload(event);
+    if (payload === null) return null;
+    return { ...payload, seq: this.nextSeq() } as ClientAgentEvent;
   }
 
   /** 服务层事件（connected / prompt_done / …）走同一 seq 计数器与分发通道 */
-  emitServiceEvent(event: WireEventInput): ClientAgentEvent {
+  emitServiceEvent(event: ClientAgentEventPayload): ClientAgentEvent {
     this.assertLive();
     const wire = { ...event, seq: this.nextSeq() } as ClientAgentEvent;
     this.dispatch(wire);

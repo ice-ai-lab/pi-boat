@@ -39,7 +39,7 @@ describe('events/client-agent-event', () => {
     expect(parsed.assistantMessageEvent).toMatchObject({ id: 'tc_1', toolName: 'read' });
   });
 
-  it('rejects toolcall_start missing the projected id/toolName', () => {
+  it('rejects toolcall_start missing id/toolName', () => {
     const event = {
       type: 'message_update',
       seq,
@@ -107,7 +107,7 @@ describe('events/client-agent-event', () => {
     expect(() => ClientAgentEventSchema.parse({ type: 'auto_compaction_start', seq })).toThrow();
   });
 
-  it('rejects turn_start/turn_end (projected away)', () => {
+  it('rejects turn_start/turn_end (dropped before wire)', () => {
     expect(() => ClientAgentEventSchema.parse({ type: 'turn_start', seq })).toThrow();
     expect(() => ClientAgentEventSchema.parse({ type: 'turn_end', seq })).toThrow();
   });
