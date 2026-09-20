@@ -1,6 +1,6 @@
 import type { AgentSession, AgentSessionEvent } from '@earendil-works/pi-coding-agent';
-import type { ClientAgentEvent } from '@ice-ai/protocol';
-import { type ClientAgentEventPayload, toClientAgentEventPayload } from '../events/to-client-agent-event';
+import type { WireAgentEvent } from '@ice-ai/protocol';
+import { type WireAgentEventPayload, toWireAgentEventPayload } from '../events/to-wire-agent-event';
 import type { SdkAgentMessage } from '../events/wire-message';
 
 /**
@@ -26,7 +26,7 @@ import type { SdkAgentMessage } from '../events/wire-message';
  * dispose（广播 shutdown → 解绑订阅 → 释放 SDK 会话）。
  */
 
-export type ClientAgentEventListener = (event: ClientAgentEvent) => void;
+export type WireAgentEventListener = (event: WireAgentEvent) => void;
 
 export class SessionRegistryEntry {
   readonly sessionId: string;
@@ -34,7 +34,7 @@ export class SessionRegistryEntry {
   session: AgentSession;
 
   private seq = 0;
-  private subscribers = new Set<ClientAgentEventListener>();
+  private subscribers = new Set<WireAgentEventListener>();
   private unsubscribeSdk: () => void;
   private disposed = false;
 
@@ -59,7 +59,7 @@ export class SessionRegistryEntry {
   // 订阅（委托）
   // ------------------------------------------------------------------
 
-  subscribe(listener: ClientAgentEventListener): () => void {
+  subscribe(listener: WireAgentEventListener): () => void {
     this.assertLive();
     this.subscribers.add(listener);
     return () => {
@@ -84,7 +84,7 @@ export class SessionRegistryEntry {
     return this.seq;
   }
 
-  private dispatch(event: ClientAgentEvent): void {
+  private dispatch(event: WireAgentEvent): void {
     for (const listener of [...this.subscribers]) {
       try {
         listener(event);
@@ -115,16 +115,16 @@ export class SessionRegistryEntry {
   }
 
   /** 先投影后分配 seq：防御性丢弃的事件不消耗序号 */
-  private payloadWithSeq(event: AgentSessionEvent): ClientAgentEvent | null {
-    const payload = toClientAgentEventPayload(event);
+  private payloadWithSeq(event: AgentSessionEvent): WireAgentEvent | null {
+    const payload = toWireAgentEventPayload(event);
     if (payload === null) return null;
-    return { ...payload, seq: this.nextSeq() } as ClientAgentEvent;
+    return { ...payload, seq: this.nextSeq() } as WireAgentEvent;
   }
 
   /** 服务层事件（connected / session_shutdown）走同一 seq 计数器与分发通道 */
-  emitServiceEvent(event: ClientAgentEventPayload): ClientAgentEvent {
+  emitServiceEvent(event: WireAgentEventPayload): WireAgentEvent {
     this.assertLive();
-    const wire = { ...event, seq: this.nextSeq() } as ClientAgentEvent;
+    const wire = { ...event, seq: this.nextSeq() } as WireAgentEvent;
     this.dispatch(wire);
     return wire;
   }
@@ -200,7 +200,7 @@ export class SessionRegistryEntry {
   dispose(reason: 'idle' | 'server_shutdown' | 'error' = 'server_shutdown'): void {
     if (this.disposed) return;
     this.disposed = true;
-    const shutdown = { type: 'session_shutdown', reason, seq: this.nextSeq() } as ClientAgentEvent;
+    const shutdown = { type: 'session_shutdown', reason, seq: this.nextSeq() } as WireAgentEvent;
     this.dispatch(shutdown);
     this.subscribers.clear();
     this.unsubscribeSdk();

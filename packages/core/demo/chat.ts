@@ -9,7 +9,7 @@
  *   pnpm --filter @ice-ai/core demo:chat --cwd ~/some-project "列出这个项目的入口文件"
  */
 import process from 'node:process';
-import type { ClientAgentEvent } from '@ice-ai/protocol';
+import type { WireAgentEvent } from '@ice-ai/protocol';
 import { AgentSessionService, SessionNotFoundError } from '../src/agent/agent-session-service';
 
 function arg(name: string): string | undefined {
@@ -28,7 +28,7 @@ const cwd = arg('cwd') ?? process.cwd();
 
 const service = new AgentSessionService();
 
-function render(event: ClientAgentEvent): void {
+function render(event: WireAgentEvent): void {
   switch (event.type) {
     case 'connected':
       console.log(

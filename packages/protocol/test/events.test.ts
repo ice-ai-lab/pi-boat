@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
-  CLIENT_AGENT_EVENT_TYPES,
-  type ClientAgentEvent,
-  ClientAgentEventSchema,
+  WIRE_AGENT_EVENT_TYPES,
+  type WireAgentEvent,
+  WireAgentEventSchema,
 } from '../src/index';
 
 const seq = 7;
 
-describe('events/client-agent-event', () => {
+describe('events/wire-agent-event', () => {
   it('parses service-layer connected event', () => {
     const event = { type: 'connected', seq, sessionId: 's1', isStreaming: false };
-    expect(ClientAgentEventSchema.parse(event)).toEqual(event);
+    expect(WireAgentEventSchema.parse(event)).toEqual(event);
   });
 
   it('parses message_update with toolcall_start carrying id/toolName', () => {
@@ -32,8 +32,8 @@ describe('events/client-agent-event', () => {
         toolName: 'read',
       },
     };
-    const parsed = ClientAgentEventSchema.parse(event) as Extract<
-      ClientAgentEvent,
+    const parsed = WireAgentEventSchema.parse(event) as Extract<
+      WireAgentEvent,
       { type: 'message_update' }
     >;
     expect(parsed.assistantMessageEvent).toMatchObject({ id: 'tc_1', toolName: 'read' });
@@ -53,7 +53,7 @@ describe('events/client-agent-event', () => {
       },
       assistantMessageEvent: { type: 'toolcall_start', contentIndex: 0 },
     };
-    expect(() => ClientAgentEventSchema.parse(event)).toThrow();
+    expect(() => WireAgentEventSchema.parse(event)).toThrow();
   });
 
   it('parses compaction_end with compaction result', () => {
@@ -65,7 +65,7 @@ describe('events/client-agent-event', () => {
       aborted: false,
       willRetry: false,
     };
-    expect(ClientAgentEventSchema.parse(event)).toEqual(event);
+    expect(WireAgentEventSchema.parse(event)).toEqual(event);
   });
 
   it('parses entry_appended with a session entry payload', () => {
@@ -80,35 +80,35 @@ describe('events/client-agent-event', () => {
         thinkingLevel: 'max',
       },
     };
-    expect(ClientAgentEventSchema.parse(event)).toEqual(event);
+    expect(WireAgentEventSchema.parse(event)).toEqual(event);
   });
 
   it('parses session_info_changed with omitted name (clear semantics)', () => {
     const event = { type: 'session_info_changed', seq };
-    const parsed = ClientAgentEventSchema.parse(event) as Extract<
-      ClientAgentEvent,
+    const parsed = WireAgentEventSchema.parse(event) as Extract<
+      WireAgentEvent,
       { type: 'session_info_changed' }
     >;
     expect(parsed.name).toBeUndefined();
   });
 
   it('rejects removed notice/error top-level events (docs/02 §5.1 勘误)', () => {
-    expect(() => ClientAgentEventSchema.parse({ type: 'notice', seq })).toThrow();
-    expect(() => ClientAgentEventSchema.parse({ type: 'error', seq, message: 'x' })).toThrow();
-    expect(() => ClientAgentEventSchema.parse({ type: 'auto_compaction_start', seq })).toThrow();
+    expect(() => WireAgentEventSchema.parse({ type: 'notice', seq })).toThrow();
+    expect(() => WireAgentEventSchema.parse({ type: 'error', seq, message: 'x' })).toThrow();
+    expect(() => WireAgentEventSchema.parse({ type: 'auto_compaction_start', seq })).toThrow();
   });
 
   it('parses turn_start/turn_end (passed through, aligned with SDK)', () => {
-    expect(ClientAgentEventSchema.parse({ type: 'turn_start', seq })).toEqual({
+    expect(WireAgentEventSchema.parse({ type: 'turn_start', seq })).toEqual({
       type: 'turn_start',
       seq,
     });
     // turn_end 必须携带 message + toolResults
-    expect(() => ClientAgentEventSchema.parse({ type: 'turn_end', seq })).toThrow();
+    expect(() => WireAgentEventSchema.parse({ type: 'turn_end', seq })).toThrow();
   });
 
   it('requires seq on every event', () => {
-    expect(() => ClientAgentEventSchema.parse({ type: 'agent_start' })).toThrow();
+    expect(() => WireAgentEventSchema.parse({ type: 'agent_start' })).toThrow();
   });
 
   it('parses a minimal sample of every event type (shape regression)', () => {
@@ -169,15 +169,15 @@ describe('events/client-agent-event', () => {
       turn_end: { message: assistantSample, toolResults: [] },
     };
     // 每个已声明事件类型都有最小样例且可解析（防新增类型漏样例/漏字段）
-    for (const type of CLIENT_AGENT_EVENT_TYPES) {
+    for (const type of WIRE_AGENT_EVENT_TYPES) {
       const sample = minimal[type];
       if (sample === undefined) throw new Error(`missing minimal sample for ${type}`);
-      const parsed = ClientAgentEventSchema.parse({ type, seq, ...sample });
+      const parsed = WireAgentEventSchema.parse({ type, seq, ...sample });
       expect(parsed).toMatchObject({ type, seq });
     }
     // 反向：样例表不存在未声明类型
-    expect(Object.keys(minimal).sort()).toEqual([...CLIENT_AGENT_EVENT_TYPES].sort());
+    expect(Object.keys(minimal).sort()).toEqual([...WIRE_AGENT_EVENT_TYPES].sort());
     // 25 种：SDK 透传 23 + 服务层自加 2（2026-09-20 删 startup_error/prompt_done/prompt_error/extension 三事件）
-    expect(CLIENT_AGENT_EVENT_TYPES).toHaveLength(25);
+    expect(WIRE_AGENT_EVENT_TYPES).toHaveLength(25);
   });
 });

@@ -14,7 +14,7 @@
  * - .jsonl 只读浏览（列表/详情/分页/搜索/改名，与 pi CLI 天然互见）
  *
  * M1 已落地模块（docs/01-overview.md §3.1 / docs/02 §11）：
- *   - events/to-client-agent-event  SDK 事件 → wire 事件投影（防腐层）
+ *   - events/to-wire-agent-event  SDK 事件 → wire 事件投影（防腐层）
  *   - events/wire-message           SDK 消息 → wire 消息投影（readonly 剥离）
  *   - agent/SessionRegistryEntry    会话注册表单元：委托订阅 / seq / 快照跟踪
  *   - agent/AgentSessionService     命令分发 + 新建会话 + late-join 事件总线
@@ -33,14 +33,14 @@ export {
   SessionNotFoundError,
 } from './agent/agent-session-service';
 export {
-  type ClientAgentEventListener,
+  type WireAgentEventListener,
   SessionRegistryEntry,
 } from './agent/session-entry';
 export {
-  type ClientAgentEventPayload,
-  toClientAgentEvent,
-  toClientAgentEventPayload,
-} from './events/to-client-agent-event';
+  type WireAgentEventPayload,
+  toWireAgentEvent,
+  toWireAgentEventPayload,
+} from './events/to-wire-agent-event';
 export {
   computeStats,
   type SessionReadOptions,

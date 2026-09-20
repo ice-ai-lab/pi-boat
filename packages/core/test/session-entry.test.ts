@@ -1,5 +1,5 @@
 import type { AgentSession, AgentSessionEvent } from '@earendil-works/pi-coding-agent';
-import type { ClientAgentEvent } from '@ice-ai/protocol';
+import type { WireAgentEvent } from '@ice-ai/protocol';
 import { describe, expect, it, vi } from 'vitest';
 import { SessionRegistryEntry } from '../src/agent/session-entry';
 
@@ -27,7 +27,7 @@ describe('SessionRegistryEntry', () => {
   it('SDK 事件投影后分发且 seq 单调递增（turn_* 透传，2026-09-20 定案）', () => {
     const { session, emit } = fakeSession();
     const entry = new SessionRegistryEntry(session);
-    const seen: ClientAgentEvent[] = [];
+    const seen: WireAgentEvent[] = [];
     entry.subscribe((e) => seen.push(e));
 
     emit({ type: 'turn_start' });
@@ -48,8 +48,8 @@ describe('SessionRegistryEntry', () => {
   it('多播：多个订阅者收到同一事件；退订只影响自己', () => {
     const { session, emit } = fakeSession();
     const entry = new SessionRegistryEntry(session);
-    const a: ClientAgentEvent[] = [];
-    const b: ClientAgentEvent[] = [];
+    const a: WireAgentEvent[] = [];
+    const b: WireAgentEvent[] = [];
     const offA = entry.subscribe((e) => a.push(e));
     entry.subscribe((e) => b.push(e));
 
@@ -64,7 +64,7 @@ describe('SessionRegistryEntry', () => {
   it('订阅者抛错不影响其他订阅者', () => {
     const { session, emit } = fakeSession();
     const entry = new SessionRegistryEntry(session);
-    const b: ClientAgentEvent[] = [];
+    const b: WireAgentEvent[] = [];
     entry.subscribe(() => {
       throw new Error('boom');
     });
@@ -97,7 +97,7 @@ describe('SessionRegistryEntry', () => {
   it('prompt 生命周期：isPromptRunning 随派发与 settled 翻转（settle 依据 = agent_settled）', () => {
     const { session, emit } = fakeSession();
     const entry = new SessionRegistryEntry(session);
-    const seen: ClientAgentEvent[] = [];
+    const seen: WireAgentEvent[] = [];
     entry.subscribe((e) => seen.push(e));
 
     entry.markPromptDispatched();
@@ -111,7 +111,7 @@ describe('SessionRegistryEntry', () => {
   it('clearPromptPending：清除标记（错误经 REST 信封回发送方，不发事件）', () => {
     const { session } = fakeSession();
     const entry = new SessionRegistryEntry(session);
-    const seen: ClientAgentEvent[] = [];
+    const seen: WireAgentEvent[] = [];
     entry.subscribe((e) => seen.push(e));
     entry.markPromptDispatched();
     entry.clearPromptPending();
@@ -122,7 +122,7 @@ describe('SessionRegistryEntry', () => {
   it('emitServiceEvent 与 SDK 事件共用 seq 计数器', () => {
     const { session, emit } = fakeSession();
     const entry = new SessionRegistryEntry(session);
-    const seen: ClientAgentEvent[] = [];
+    const seen: WireAgentEvent[] = [];
     entry.subscribe((e) => seen.push(e));
 
     emit({ type: 'agent_start' }); // seq 1
@@ -135,7 +135,7 @@ describe('SessionRegistryEntry', () => {
   it('dispose：广播 session_shutdown → 清订阅 → dispose SDK；之后再订阅报错', () => {
     const { session } = fakeSession();
     const entry = new SessionRegistryEntry(session);
-    const seen: ClientAgentEvent[] = [];
+    const seen: WireAgentEvent[] = [];
     entry.subscribe((e) => seen.push(e));
 
     entry.dispose('idle');

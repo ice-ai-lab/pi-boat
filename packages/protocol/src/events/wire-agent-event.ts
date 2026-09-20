@@ -4,10 +4,10 @@ import { AgentMessageSchema, ToolCallContentSchema, ToolResultMessageSchema, Usa
 import { SessionEntrySchema } from '../domain/session-entry';
 
 /**
- * ④ Agent 事件通道（docs/02 §5.1）：SSE wire 类型 ClientAgentEvent
+ * ④ Agent 事件通道（docs/02 §5.1）：事件 wire 类型 WireAgentEvent
  * = SDK JsonAgentSessionEvent 透传 ∪ 服务层自加，每事件附会话级单调递增 seq。
  *
- * 投影规则（toClientAgentEvent() 归 core，此处固化为 schema 约束）：
+ * 投影规则（toWireAgentEvent() 归 core，此处固化为 schema 约束）：
  * 1. toolcall_start / toolcall_delta 补齐 id / toolName（双字段容错后收敛）
  * 2. 剥离 partial（完整消息只经快照/历史下发，流上只有增量）
  * 3. message_update 附带 usage（SDK JSON 协议固定携带累积用量）
@@ -89,14 +89,14 @@ export const SessionShutdownReasonSchema = z.enum(SESSION_SHUTDOWN_REASONS);
 export type SessionShutdownReason = z.infer<typeof SessionShutdownReasonSchema>;
 
 // ---------------------------------------------------------------------------
-// ClientAgentEvent 全集
+// WireAgentEvent 全集
 // ---------------------------------------------------------------------------
 
 /**
  * wire 事件联合。`seq` 为会话级单调递增序号：SSE `id:` 帧即 seq，
  * 断线重连经 Last-Event-ID 差量重放；快照携带 lastSeq，客户端丢弃 seq ≤ lastSeq。
  */
-export const ClientAgentEventSchema = z.discriminatedUnion('type', [
+export const WireAgentEventSchema = z.discriminatedUnion('type', [
   // —— SDK：消息流（AgentEvent 透传）——
   z.object({ type: z.literal('agent_start'), seq: z.number() }),
   z.object({ type: z.literal('turn_start'), seq: z.number() }),
@@ -228,10 +228,10 @@ export const ClientAgentEventSchema = z.discriminatedUnion('type', [
     reason: SessionShutdownReasonSchema.optional(),
   }),
 ]);
-export type ClientAgentEvent = z.infer<typeof ClientAgentEventSchema>;
+export type WireAgentEvent = z.infer<typeof WireAgentEventSchema>;
 
 /** 事件全集字面量（供客户端 switch 穷尽检查与测试枚举） */
-export const CLIENT_AGENT_EVENT_TYPES = [
+export const WIRE_AGENT_EVENT_TYPES = [
   'agent_start',
   'turn_start',
   'turn_end',
@@ -258,7 +258,7 @@ export const CLIENT_AGENT_EVENT_TYPES = [
   'connected',
   'session_shutdown',
 ] as const;
-export type ClientAgentEventType = (typeof CLIENT_AGENT_EVENT_TYPES)[number];
+export type WireAgentEventType = (typeof WIRE_AGENT_EVENT_TYPES)[number];
 
 /** message_update 内嵌子事件类型直通（避免外部重复 import） */
 export type AssistantStreamEvent = JsonAssistantMessageEvent;
