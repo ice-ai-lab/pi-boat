@@ -68,14 +68,12 @@ function render(event: ClientAgentEvent): void {
     case 'agent_end':
       console.log(`🏁 agent_end (messages=${event.messages.length}, willRetry=${event.willRetry})`);
       break;
-    case 'prompt_done':
-      console.log('✅ prompt_done');
+    case 'agent_settled':
+      console.log('✅ agent settled（prompt 轮完成）');
       break;
-    case 'prompt_error':
-      console.error(`\n❌ prompt_error: ${event.errorMessage}`);
+    case 'agent_end':
+      console.log(`agent_end（willRetry=${(event as { willRetry?: boolean }).willRetry ?? false}）`);
       break;
-    case 'startup_error':
-      console.error(`❌ startup_error: ${event.errorMessage}`);
       break;
     case 'session_shutdown':
       console.log(`🔌 session_shutdown (${event.reason ?? 'unknown'})`);
@@ -96,19 +94,19 @@ async function main(): Promise<void> {
     `📝 session created: ${sessionId}\n   model: ${created.model ? `${created.model.provider}/${created.model.modelId}` : '(default)'}  thinking: ${created.thinkingLevel}`,
   );
 
-  // 单一订阅：渲染 + 完成信号（prompt_done / prompt_error / 超时）
+  // 单一订阅：渲染 + 完成信号（agent_settled / 超时；错误经 REST 信封回发送方）
   let resolveFinish: () => void = () => {};
   const finish = new Promise<void>((resolve) => {
     resolveFinish = resolve;
   });
   const timer = setTimeout(() => {
-    console.error('\n⏱  超时（5 分钟）未收到 prompt_done，强制退出');
+    console.error('\n⏱  超时（5 分钟）未收到 agent_settled，强制退出');
     resolveFinish();
   }, 5 * 60_000);
 
   const unsubscribe = service.subscribe(sessionId, (event) => {
     render(event);
-    if (event.type === 'prompt_done' || event.type === 'prompt_error') {
+    if (event.type === 'agent_settled') {
       clearTimeout(timer);
       resolveFinish();
     }

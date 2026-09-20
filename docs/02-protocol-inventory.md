@@ -23,7 +23,7 @@
 | SSE 事件流 | 3（agent 事件 + 终端输出 + auth 登录流） | `agent/[id]/events`、`terminal/[id]/events`、`auth/login/[provider]`（GET） |
 | RPC 命令 | 28（命令通道 27 + `agent/new` 专属 `ensure_session`） | `POST /api/agent/:id` 请求体判别联合（§4） |
 | 领域类型 | ~40 个 | domain/ 七文件（§3、§10） |
-| 事件 wire 类型 | 29 种（SDK 透传 21 + 服务层自加 8；0.85.1 实测勘误，原记 ~31） | SDK `JsonAgentSessionEvent` 投影 + 服务层事件（§5.1） |
+| 事件 wire 类型 | 25 种（SDK 透传 23 + 服务层自加 2；2026-09-20：turn_* 改透传 +2、删自加 6） | SDK `JsonAgentSessionEvent` 投影 + 服务层事件（§5.1） |
 
 ### 1.3 铁律（源自 AGENTS.md / 概要设计，本文档所有条目受其约束）
 
@@ -50,7 +50,7 @@
 
 ## 3. ② 领域类型（domain）—— protocol 最大的一块资产
 
-**惰性资产，建议 M1 一次定完**（后续里程碑直接复用；基础形状须与 SDK 0.85.1 对应类型保持同步，升级时核对）。
+**按需定义，不养期货**：schema 随所属里程碑开工再定（§1.1 切片原则）；已定义而无人消费的类型视同期货，删除待消费方出现再加回（加字段是非破坏性的；2026-09-20 定案，取代此前"M1 一次定完惰性资产"）。基础形状须与 SDK 0.85.1 对应类型保持同步，升级时核对。
 
 ### 3.1 会话文件条目（对应 `.jsonl` 每行，`SessionEntry` 判别联合）
 
@@ -70,8 +70,6 @@
 
 - `AgentMessage = UserMessage | AssistantMessage | ToolResultMessage | CustomMessage | BashExecutionMessage | BranchSummaryMessage | CompactionSummaryMessage`（与 SDK AgentMessage 完全一致；bashExecution 含 `command/output/exitCode/cancelled/truncated/fullOutputPath`；branch/compactionSummary 为注入 LLM 上下文的合成消息，无 display 字段）
 - 内容块：`TextContent | ImageContent | ThinkingContent | ToolCallContent`
-  - `ThinkingContent.deferred`：历史 thinking 只存短预览，全文按需加载（配套 §6.3 惰性端点）
-  - `ToolCallContent.rawInput`：流式工具入参的客户端缓冲，**永不落盘**
 - `AgentUsage`：input/output/cacheRead/cacheWrite token 数 + cost 四项分解 + total
 - `ContextUsage`：`percent | null`、`contextWindow`、`tokens | null`
 
@@ -81,7 +79,7 @@
 |---|---|
 | `SessionInfo` | `path/id/cwd/name/created/modified/messageCount/firstMessage`；`relation: {kind:"fork", originSessionId?} \| {kind:"subagent", parentSessionId, profile, description, status}`（fork 仍为顶层，仅 subagent 形成父子树；原列出的独立 `parentSessionId` 字段已并入 relation，0.85.1 实现勘误）；`projectRoot/projectKey`（项目分组键，Windows 大小写/分隔符不敏感）；`branch/isWorktree`；`transient`（内存会话未落盘） |
 | `SubagentSessionStatus` | `starting/queued/running/completed/failed/aborted/interrupted` |
-| `SessionTreeNode` | `entry/children/label?/compressedEntryIds?/branchPreview?` |
+| `SessionTreeNode` | `entry/children/label?/labelTimestamp?` |
 | `SessionContext` | `messages[] + entryIds[]`（平行数组）、`oldestEntryId/hasMore`（向上分页）、`thinkingLevel`、`model` |
 
 ### 3.4 状态与统计
@@ -93,7 +91,7 @@
 | `ToolInfo` | `name/description/parameters/promptGuidelines/sourceInfo` + `active`（get_tools 时叠加） |
 | `SlashCommandInfo` | `name/description/source("prompt"|"skill"|"extension")/sourceInfo`（斜杠命令面板） |
 
-### 3.5 扩展 UI 协议
+### 3.5 扩展 UI 协议（M2 规划；schema 未定义，2026-09-20 定案随里程碑再定）
 
 - `ExtensionUiRequest`（**10 种 method**）：`select / confirm / input / editor / notify / setStatus / setWidget / setTitle / set_editor_text / custom`，阻塞型（select/confirm/input/editor/custom）带 `id/timeout/expiresAt`；各 method 载荷：`notify {message, notifyType?}`、`setStatus {statusKey, statusText?}`（statusText=undefined 即清除该项）、`setWidget {widgetKey, widgetLines?, widgetPlacement?}`（同上，undefined 即清除）、`setTitle {title}`、`set_editor_text {text}`（向编辑器插入文本）、`custom {…, closed?}`（closed=true 为服务端关闭通知，客户端据此撤下 UI）
 - `ExtensionUiResponse`：`{id, value} | {id, confirmed} | {id, cancelled:true}`
@@ -137,22 +135,22 @@
 
 **投影规则**（`toClientAgentEvent()` 归 core，此处将其固化为 schema 约束）：
 
-- 剔除 `turn_start / turn_end`
 - `toolcall_start / toolcall_delta` 补齐 `id / toolName`（从 `partial.content[contentIndex]` 提取，双字段容错）
 - 剥离 `partial`（完整消息只经快照/历史下发）
 - `message_update` 附带 `usage`（SDK JSON 协议固定携带累积用量，尺寸恒定不随流增长）
+- `turn_*` 及其余结构一致的事件原样透传（与 SDK 对齐，2026-09-20 定案：删除剔除规则，减少分支与心智负担）
 
-**事件全集**（= SDK `JsonAgentSessionEvent` 透传 ∪ 服务层自加；SDK 0.85.1 `.d.ts` 实测，共 29 种）：
+**事件全集**（= SDK `JsonAgentSessionEvent` 透传 ∪ 服务层自加；SDK 0.85.1 `.d.ts` 实测，共 25 种 = 透传 23 + 自加 2）：
 
 | 来源 | 事件（载荷） |
 |---|---|
-| SDK：消息流（pi-agent-core `AgentEvent`） | `agent_start`；`message_start {message}`；`message_update {usage, assistantMessageEvent}`；`message_end {message}`；`tool_execution_start / update {toolCallId, toolName, partialResult} / end`；`agent_end {messages: AgentMessage[], willRetry}`（AgentSessionEvent 增强版，非裸 turn 结束）；~~`turn_start / turn_end`~~（投影剔除） |
+| SDK：消息流（pi-agent-core `AgentEvent`） | `agent_start`；`message_start {message}`；`message_update {usage, assistantMessageEvent}`；`message_end {message}`；`tool_execution_start / update {toolCallId, toolName, partialResult} / end`；`agent_end {messages: AgentMessage[], willRetry}`（AgentSessionEvent 增强版，非裸 turn 结束）；`turn_start {}`；`turn_end {message, toolResults[]}`（2026-09-20 改透传） |
 | SDK：assistantMessageEvent 子事件（pi-ai，内嵌于 message_update） | `start`、`done`、`error`、`text_start / text_delta / text_end`、`thinking_start / thinking_delta / thinking_end`、`toolcall_start / toolcall_delta / toolcall_end`（start/delta 投影补齐 `id / toolName`）—— 共 12 种，Zod 需全量定义，不可用省略号带过（0.85.1 实测无 `adaptive`，原记 13 种系笔误勘误） |
 | SDK：会话生命周期（agent-session 扩展） | `agent_settled`（agent 完全静止，客户端 UI settle 依据）；`queue_update {steering[], followUp[]}`；`compaction_start {reason: manual\|threshold\|overflow}`；`compaction_end {reason, result?, aborted, willRetry, errorMessage?}`；`auto_retry_start {attempt, maxAttempts, delayMs, errorMessage}`；`auto_retry_end {success, attempt, finalError?}`；`summarization_retry_scheduled / _attempt_start（branchSummary 与 compaction 两种变体）/ _finished`；`entry_appended {entry: SessionEntry}`；`session_info_changed {name}`；`thinking_level_changed {level}`；`bash_execution_update {id?, delta}` |
-| **服务层自加**（SDK 没有，server 必须自行定义） | `connected {sessionId, isStreaming}`、`startup_error {errorMessage}`、`prompt_done`、`prompt_error {errorMessage}`、`session_shutdown {reason?}`、`extension_ui_request`（§3.5）、`extension_error`、`extension_ui_closed {id}` |
+| **服务层自加**（SDK 没有，server 必须自行定义） | `connected {sessionId, isStreaming}`、`session_shutdown {reason?}`。~~`startup_error` / `prompt_done` / `prompt_error` / `extension_ui_request` / `extension_error` / `extension_ui_closed`~~（2026-09-20 删除：死 schema / agent_settled 平替 / REST 信封覆盖 / M2 再定） |
 | PiBoat 新增 | 每事件附 `seq`（会话级单调递增；快照携带 `lastSeq`，客户端丢弃 `seq ≤ lastSeq`） |
 
-> ⚠️ 两点边界（v0.2 勘误）：① wire 上**不定义** `notice` 与顶层 `error` 事件——通知条属前端 UI 概念，错误一律走 `prompt_error / startup_error / extension_error`（及 assistantMessageEvent.error）；② 不定义 `auto_compaction_start/end`——SDK 0.85 只发 `compaction_start/end`（reason 字段区分 auto/manual），不留旧别名。
+> ⚠️ 两点边界（v0.2 勘误）：① wire 上**不定义** `notice` 与顶层 `error` 事件——通知条属前端 UI 概念，错误一律走 REST 信封 `CommandError`（及 assistantMessageEvent.error；prompt_error/startup_error/extension_error 事件已删，2026-09-20）；② 不定义 `auto_compaction_start/end`——SDK 0.85 只发 `compaction_start/end`（reason 字段区分 auto/manual），不留旧别名。
 
 ### 5.2 接入时序（late join）
 
@@ -194,7 +192,7 @@
 
 | 端点 | 形状 |
 |---|---|
-| `GET /api/sessions/:id/context?leafId&before&tail≤1000&deferThinking&deferMedia` | → `SessionContext`；`before` = 客户端已有最老条目（excludeLeaf 向上翻页）；`defer*` = thinking/工具结果图片以占位符下发 |
+| `GET /api/sessions/:id/context?leafId&before&tail≤1000&deferMedia` | → `SessionContext`；`before` = 客户端已有最老条目（excludeLeaf 向上翻页）；`deferMedia` = 工具结果图片以占位符下发（deferThinking 已删，历史 thinking 全文直发，2026-09-20） |
 | `GET /api/sessions/:id/entries/:entryId/thinking?blockIndex` | → `{thinking}`（全量推理文本） |
 | `GET /api/sessions/:id/entries/:entryId/tool-result-image?blockIndex` | → 二进制图片 |
 | `GET /api/agent/:id/bash-output?path&download=1` | → bash 超长输出临时文件（内联有大小上限；download 流式） |
@@ -322,7 +320,7 @@ packages/protocol/src/
 │   ├── session-info.ts     # SessionInfo / SessionContext / SessionTreeNode / SubagentSessionStatus
 │   ├── state.ts            # AgentState / SessionStatsInfo / ContextUsage
 │   ├── tool.ts             # ToolInfo / SlashCommandInfo
-│   ├── extension-ui.ts     # ExtensionUiRequest / Response / Status / Widget
+│   ├── extension-ui.ts     # Status/Widget 快照（AgentState 用；Request/Response 交互通道随 M2 再定）
 │   └── normalize.ts        # normalizeToolCalls()
 ├── commands/           # ③命令通道
 │   └── agent-command.ts    # AgentCommand 联合 + NewSessionRequest/Response + 各命令返回类型
