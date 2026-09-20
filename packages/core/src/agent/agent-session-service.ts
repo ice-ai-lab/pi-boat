@@ -24,11 +24,25 @@ import { type ClientAgentEventListener, SessionRegistryEntry } from './session-e
 /**
  * Agent 命令通道 + 事件总线的核心服务（docs/01 §3.1、§5.5 transport-agnostic 接口）。
  *
- * - create：createAgentSession() 包装（与 pi 共用 ~/.pi 凭据/模型/会话文件）
+ * 为什么需要：pi SDK 只提供单个 AgentSession 对象（方法调用 + 原生事件回调），
+ * 没有多会话管理与统一命令分发——直接暴露给 server 会让传输层耦合 SDK 内部结构。
+ *
+ * 相对 SDK 新增：
+ * - 多会话注册表：按 sessionId 寻址、创建/销毁、listVersion 供列表轻量轮询
+ * - 统一命令通道：AgentCommand 判别联合分发（protocol 契约即方法面）；
+ *   同会话命令 FIFO 串行、跨会话并行，错误不传染队列链；
+ *   失败走类型化异常（SessionNotFoundError / PromptRejectedError）
+ * - get_commands / get_tools：SDK 分散的能力（扩展命令/模板/技能/工具）聚合成面板数据
+ * - late join 时序保证：①订阅 → ②connected → ③快照 → ④增量（docs/01 §5.4）
+ *
+ * 提供：
+ * - create：createAgentSession() 包装（与 pi 共用 ~/.pi 凭据/模型/会话文件），
+ *   可选首条消息与显式模型切换（ensure_session 预建不发消息）
  * - send：M1 命令子集分发（prompt/steer/follow_up/abort/clear_queue/
  *   get_state/get_session_stats/get_last_assistant_text/get_commands/get_tools/set_tools）
- * - subscribe：late join 时序 ①订阅 → ②connected → ③快照 → ④增量（docs/01 §5.4）
- * - 命令按会话串行化（同一会话的命令 FIFO，跨会话并行）
+ * - subscribe：late join 事件订阅（时序同上）
+ * - 轻查与生命周期：getRunningState / isRunning / runningSessionIds /
+ *   disposeSession / disposeAll
  *
  * M1 不做：idle 回收与 lease（M3）、fork/压缩/模型组命令（M2）、扩展 UI 通道（M2）。
  */
