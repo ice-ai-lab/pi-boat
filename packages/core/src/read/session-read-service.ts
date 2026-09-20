@@ -21,6 +21,11 @@ import { type SdkAgentMessage, toWireAgentMessage } from '../events/wire-message
 /**
  * 只读会话浏览（docs/01 §3.1 SessionReadService，M1 子集：列表/详情/分页/改名）。
  *
+ * 为什么需要：SDK 的 SessionManager 只有裸的 .jsonl 读取原语；浏览视图需要的
+ * 分页截断、详情装配、统计摘要、运行态合并、改名写入都没有现成入口。
+ *
+ * 相对 SDK 新增：list / search（客户端过滤）、detail（tail 分页 + toolCall
+ * 归一化装配）、context（上下文窗口装配）、rename、computeStats。
  * 数据源是 pi 共享的 .jsonl 会话文件（~/.pi/agent/sessions 及项目目录），
  * 与 pi CLI 天然互见。文件加载路径的 toolCall 归一化由 protocol 的
  * normalizeToolCalls() 负责（两条路径共用，AGENTS.md）。
