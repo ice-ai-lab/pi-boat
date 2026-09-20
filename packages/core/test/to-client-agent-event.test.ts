@@ -1,7 +1,7 @@
 import type { AgentSession, AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import { ClientAgentEventSchema } from '@ice-ai/protocol';
 import { describe, expect, it } from 'vitest';
-import { isDroppedEvent, toClientAgentEvent } from '../src/events/to-client-agent-event';
+import { toClientAgentEvent } from '../src/events/to-client-agent-event';
 
 /**
  * 事件投影测试 + 快照回归基线（AGENTS.md：SDK 相关改动须跑事件快照回归）。
@@ -58,13 +58,15 @@ const e = (event: AgentSessionEvent) => event;
 // 剔除规则
 // ---------------------------------------------------------------------------
 
-describe('toClientAgentEvent：剔除规则', () => {
-  it('turn_start / turn_end 返回 null（agent_end 增强版已覆盖）', () => {
-    expect(toClientAgentEvent(e({ type: 'turn_start' }), 1)).toBeNull();
+describe('toClientAgentEvent：turn_* 透传（与 SDK 对齐，2026-09-20 定案）', () => {
+  it('turn_start / turn_end 原样投影', () => {
+    expect(toClientAgentEvent(e({ type: 'turn_start' }), 1)).toEqual({
+      type: 'turn_start',
+      seq: 1,
+    });
     expect(
-      toClientAgentEvent(e({ type: 'turn_end', message: assistantMessage, toolResults: [] }), 1),
-    ).toBeNull();
-    expect(isDroppedEvent(e({ type: 'turn_start' }))).toBe(true);
+      toClientAgentEvent(e({ type: 'turn_end', message: assistantMessage, toolResults: [] }), 2),
+    ).toEqual({ type: 'turn_end', message: assistantMessage, toolResults: [], seq: 2 });
   });
 });
 

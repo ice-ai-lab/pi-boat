@@ -24,7 +24,7 @@ function fakeSession(id = 's1') {
 }
 
 describe('SessionRegistryEntry', () => {
-  it('SDK 事件投影后分发且 seq 单调递增；turn_* 不消耗 seq', () => {
+  it('SDK 事件投影后分发且 seq 单调递增（turn_* 透传，2026-09-20 定案）', () => {
     const { session, emit } = fakeSession();
     const entry = new SessionRegistryEntry(session);
     const seen: ClientAgentEvent[] = [];
@@ -37,9 +37,11 @@ describe('SessionRegistryEntry', () => {
     emit({ type: 'bash_execution_update', delta: 'x' });
 
     expect(seen.map((e) => [e.type, e.seq])).toEqual([
-      ['agent_start', 1],
-      ['agent_settled', 2],
-      ['bash_execution_update', 3],
+      ['turn_start', 1],
+      ['agent_start', 2],
+      ['agent_settled', 3],
+      ['turn_end', 4],
+      ['bash_execution_update', 5],
     ]);
   });
 
@@ -92,7 +94,7 @@ describe('SessionRegistryEntry', () => {
     expect(entry.inFlightMessage).toBeNull();
   });
 
-  it('prompt 生命周期：派发标记 → agent_settled 补发 prompt_done', () => {
+  it('prompt 生命周期：isPromptRunning 随派发与 settled 翻转（settle 依据 = agent_settled）', () => {
     const { session, emit } = fakeSession();
     const entry = new SessionRegistryEntry(session);
     const seen: ClientAgentEvent[] = [];
@@ -103,18 +105,18 @@ describe('SessionRegistryEntry', () => {
     emit({ type: 'agent_settled' });
 
     expect(entry.isPromptRunning).toBe(false);
-    expect(seen.map((e) => `${e.type}:${e.seq}`)).toEqual(['agent_settled:1', 'prompt_done:2']);
+    expect(seen.map((e) => `${e.type}:${e.seq}`)).toEqual(['agent_settled:1']);
   });
 
-  it('failPrompt：清除标记并广播 prompt_error', () => {
+  it('clearPromptPending：清除标记（错误经 REST 信封回发送方，不发事件）', () => {
     const { session } = fakeSession();
     const entry = new SessionRegistryEntry(session);
     const seen: ClientAgentEvent[] = [];
     entry.subscribe((e) => seen.push(e));
     entry.markPromptDispatched();
-    entry.failPrompt('no auth');
+    entry.clearPromptPending();
     expect(entry.isPromptRunning).toBe(false);
-    expect(seen[0]).toMatchObject({ type: 'prompt_error', errorMessage: 'no auth' });
+    expect(seen).toEqual([]);
   });
 
   it('emitServiceEvent 与 SDK 事件共用 seq 计数器', () => {

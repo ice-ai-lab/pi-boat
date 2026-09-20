@@ -1,5 +1,5 @@
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
-import type { ClientAgentEvent, JsonAssistantMessageEvent } from '@ice-ai/protocol';
+import type { ClientAgentEvent, JsonAssistantMessageEvent, ToolResultMessage } from '@ice-ai/protocol';
 import { toWireAgentMessage } from './wire-message';
 
 /**
@@ -11,23 +11,18 @@ import { toWireAgentMessage } from './wire-message';
  * （AGENTS.md：SDK 事件字段变动不许泄漏出 core，升级只改这里）。
  *
  * 相对 SDK 新增：可序列化、契约化的 wire 事件形态。投影规则：
- * 1. 剔除 turn_start / turn_end（agent_end 增强版已覆盖其语义）
- * 2. toolcall_start / toolcall_delta 从 partial.content[contentIndex] 补齐 id / toolName
- * 3. 剥离 partial（完整消息只经快照/历史下发，流上只有增量）
- * 4. message_update 附带 usage（SDK 流式消息的累积用量，尺寸恒定）
+ * 1. toolcall_start / toolcall_delta 从 partial.content[contentIndex] 补齐 id / toolName
+ * 2. 剥离 partial（完整消息只经快照/历史下发，流上只有增量）
+ * 3. message_update 附带 usage（SDK 流式消息的累积用量，尺寸恒定）
+ * turn_* 及其余结构一致的事件原样透传（与 SDK 对齐，2026-09-20 定案）
  *
- * 提供：toClientAgentEventPayload（单事件转载荷，被剔除的返回 null）、
- * toClientAgentEvent（载荷 + 附 seq）、isDroppedEvent。
+ * 提供：toClientAgentEventPayload（单事件转载荷，防御性丢弃返回 null）、
+ * toClientAgentEvent（载荷 + 附 seq）。
  * seq 由调用方（SessionRegistryEntry）附上；本函数不维护计数。
  */
 
 /** 分配律 Omit（直接 Omit<Union, K> 会塌缩成公共键，丢失判别信息） */
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
-
-/** 投影剔除的事件（不消耗 seq，不出现在 wire 上） */
-export function isDroppedEvent(event: AgentSessionEvent): boolean {
-  return event.type === 'turn_start' || event.type === 'turn_end';
-}
 
 /**
  * ClientAgentEvent 的载荷部分（不含 seq）。
@@ -65,11 +60,17 @@ function projectAssistantMessageEvent(
   return event as JsonAssistantMessageEvent;
 }
 
-/** 单个 SDK 事件投影（不含 seq）。被剔除的事件返回 null。 */
+/** 单个 SDK 事件投影（不含 seq）。防御性丢弃（非 assistant 的 message_update）返回 null。 */
 export function toClientAgentEventPayload(event: AgentSessionEvent): ClientAgentEventPayload | null {
-  if (isDroppedEvent(event)) return null;
-
   switch (event.type) {
+    case 'turn_start':
+      return { type: 'turn_start' };
+    case 'turn_end':
+      return {
+        type: 'turn_end',
+        message: toWireAgentMessage(event.message),
+        toolResults: event.toolResults.map(toWireAgentMessage) as ToolResultMessage[],
+      };
     case 'message_update': {
       // SDK 不变量：message_update 只发生于 assistant 流（toJsonEvent 同样断言）；
       // 违反时防御性丢弃而非崩溃

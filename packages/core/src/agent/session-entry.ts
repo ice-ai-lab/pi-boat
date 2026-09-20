@@ -15,12 +15,13 @@ import type { SdkAgentMessage } from '../events/wire-message';
  *   （替换发生在 M2 fork，届时只需在 Entry 上换 session 引用并重绑）
  * - seq 分配：会话级单调递增，SDK 事件与服务层事件共用同一计数器
  *   （Last-Event-ID 差量重放与快照去重的依据，docs/01 §5.4）
- * - 服务层自加事件：connected / prompt_done / prompt_error / session_shutdown
- *   （docs/02 §5.1，SDK 事件流中不存在）
+ * - 服务层自加事件：connected / session_shutdown
+ *   （docs/02 §5.1，SDK 事件流中不存在；prompt_done/prompt_error 已删，
+ *   settle 依据 = SDK agent_settled，同步失败经 REST 信封回发送方，2026-09-20）
  * - 流内状态跟踪：queue 快照（get_state 用）、进行中的流式消息（late join 快照用）
  *
  * 提供：subscribe / emitServiceEvent（服务层事件入流）、prompt 生命周期
- * （markPromptDispatched / failPrompt / waitForSettle）、快照 getters
+ * （markPromptDispatched / clearPromptPending / waitForSettle）、快照 getters
  * （lastSeq / isStreaming / queuedMessages / isPromptRunning / inFlightMessage）、
  * dispose（广播 shutdown → 解绑订阅 → 释放 SDK 会话）。
  */
@@ -95,7 +96,6 @@ export class SessionRegistryEntry {
 
   private handleSdkEvent(event: AgentSessionEvent): void {
     // 流内状态跟踪（投影前先看原始事件：message_update 的 partial 只在此处使用）
-    let hadPrompt = false;
     if (event.type === 'queue_update') {
       this.queueSnapshot = { steering: [...event.steering], followUp: [...event.followUp] };
     } else if (event.type === 'message_update' && event.message.role === 'assistant') {
@@ -103,7 +103,6 @@ export class SessionRegistryEntry {
     } else if (event.type === 'message_end') {
       this.streamingMessage = null;
     } else if (event.type === 'agent_settled') {
-      hadPrompt = this.promptPending;
       this.promptPending = false;
       const waiters = this.settleWaiters;
       this.settleWaiters = [];
@@ -111,23 +110,18 @@ export class SessionRegistryEntry {
     }
 
     const wire = this.payloadWithSeq(event);
-    if (wire === null) return; // turn_* 已剔除（不消耗 seq）
+    if (wire === null) return; // 防御性丢弃：不消耗 seq
     this.dispatch(wire);
-
-    // 本轮 prompt 至此完全静止：补发 prompt_done（docs/02 §5.1）
-    if (hadPrompt) {
-      this.emitServiceEvent({ type: 'prompt_done' });
-    }
   }
 
-  /** 先投影后分配 seq：被剔除的事件不消耗序号 */
+  /** 先投影后分配 seq：防御性丢弃的事件不消耗序号 */
   private payloadWithSeq(event: AgentSessionEvent): ClientAgentEvent | null {
     const payload = toClientAgentEventPayload(event);
     if (payload === null) return null;
     return { ...payload, seq: this.nextSeq() } as ClientAgentEvent;
   }
 
-  /** 服务层事件（connected / prompt_done / …）走同一 seq 计数器与分发通道 */
+  /** 服务层事件（connected / session_shutdown）走同一 seq 计数器与分发通道 */
   emitServiceEvent(event: ClientAgentEventPayload): ClientAgentEvent {
     this.assertLive();
     const wire = { ...event, seq: this.nextSeq() } as ClientAgentEvent;
@@ -144,10 +138,14 @@ export class SessionRegistryEntry {
     this.promptPending = true;
   }
 
-  /** prompt 同步失败（派发即抛）时清除标记并广播 prompt_error */
-  failPrompt(errorMessage: string): void {
+  /**
+   * 清除挂起的 prompt 标记（与 markPromptDispatched 配对的回滚）。
+   * 用于同步失败（派发即抛 / preflight 拒绝）：此时 SDK 不会开跑，
+   * 永远等不到 agent_settled 销账，不手动清除 isPromptRunning 将永久为 true。
+   * 错误本身经 REST 信封回给发送方，本方法不发任何事件。
+   */
+  clearPromptPending(): void {
     this.promptPending = false;
-    this.emitServiceEvent({ type: 'prompt_error', errorMessage });
   }
 
   /** 等待下一次 agent_settled（demo/测试用途） */

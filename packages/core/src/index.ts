@@ -38,7 +38,6 @@ export {
 } from './agent/session-entry';
 export {
   type ClientAgentEventPayload,
-  isDroppedEvent,
   toClientAgentEvent,
   toClientAgentEventPayload,
 } from './events/to-client-agent-event';

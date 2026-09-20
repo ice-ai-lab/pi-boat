@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { ThinkingLevelSchema } from '../constants';
-import { ExtensionUiRequestSchema } from '../domain/extension-ui';
-import { AgentMessageSchema, ToolCallContentSchema, UsageSchema } from '../domain/message';
+import { AgentMessageSchema, ToolCallContentSchema, ToolResultMessageSchema, UsageSchema } from '../domain/message';
 import { SessionEntrySchema } from '../domain/session-entry';
 
 /**
@@ -9,10 +8,10 @@ import { SessionEntrySchema } from '../domain/session-entry';
  * = SDK JsonAgentSessionEvent 透传 ∪ 服务层自加，每事件附会话级单调递增 seq。
  *
  * 投影规则（toClientAgentEvent() 归 core，此处固化为 schema 约束）：
- * 1. 剔除 turn_start / turn_end（AgentSessionEvent 增强版 agent_end 已覆盖）
- * 2. toolcall_start / toolcall_delta 补齐 id / toolName（双字段容错后收敛）
- * 3. 剥离 partial（完整消息只经快照/历史下发，流上只有增量）
- * 4. message_update 附带 usage（SDK JSON 协议固定携带累积用量）
+ * 1. toolcall_start / toolcall_delta 补齐 id / toolName（双字段容错后收敛）
+ * 2. 剥离 partial（完整消息只经快照/历史下发，流上只有增量）
+ * 3. message_update 附带 usage（SDK JSON 协议固定携带累积用量）
+ * turn_* 及其余结构一致的事件原样透传（与 SDK 对齐，2026-09-20 定案）
  *
  * 边界（docs/02 §5.1 勘误）：不定义 notice 与顶层 error 事件；
  * 不定义 auto_compaction_start/end（SDK 0.85 用 compaction_start/end + reason 区分）。
@@ -98,8 +97,15 @@ export type SessionShutdownReason = z.infer<typeof SessionShutdownReasonSchema>;
  * 断线重连经 Last-Event-ID 差量重放；快照携带 lastSeq，客户端丢弃 seq ≤ lastSeq。
  */
 export const ClientAgentEventSchema = z.discriminatedUnion('type', [
-  // —— SDK：消息流（AgentEvent 透传，剔除 turn_start/turn_end）——
+  // —— SDK：消息流（AgentEvent 透传）——
   z.object({ type: z.literal('agent_start'), seq: z.number() }),
+  z.object({ type: z.literal('turn_start'), seq: z.number() }),
+  z.object({
+    type: z.literal('turn_end'),
+    seq: z.number(),
+    message: AgentMessageSchema,
+    toolResults: z.array(ToolResultMessageSchema),
+  }),
   z.object({ type: z.literal('message_start'), seq: z.number(), message: AgentMessageSchema }),
   z.object({
     type: z.literal('message_update'),
@@ -216,32 +222,19 @@ export const ClientAgentEventSchema = z.discriminatedUnion('type', [
     sessionId: z.string(),
     isStreaming: z.boolean(),
   }),
-  z.object({ type: z.literal('startup_error'), seq: z.number(), errorMessage: z.string() }),
-  z.object({ type: z.literal('prompt_done'), seq: z.number() }),
-  z.object({ type: z.literal('prompt_error'), seq: z.number(), errorMessage: z.string() }),
   z.object({
     type: z.literal('session_shutdown'),
     seq: z.number(),
     reason: SessionShutdownReasonSchema.optional(),
   }),
-  z.object({
-    type: z.literal('extension_ui_request'),
-    seq: z.number(),
-    request: ExtensionUiRequestSchema,
-  }),
-  z.object({
-    type: z.literal('extension_error'),
-    seq: z.number(),
-    extensionPath: z.string(),
-    errorMessage: z.string(),
-  }),
-  z.object({ type: z.literal('extension_ui_closed'), seq: z.number(), id: z.string() }),
 ]);
 export type ClientAgentEvent = z.infer<typeof ClientAgentEventSchema>;
 
 /** 事件全集字面量（供客户端 switch 穷尽检查与测试枚举） */
 export const CLIENT_AGENT_EVENT_TYPES = [
   'agent_start',
+  'turn_start',
+  'turn_end',
   'message_start',
   'message_update',
   'message_end',
@@ -263,13 +256,7 @@ export const CLIENT_AGENT_EVENT_TYPES = [
   'thinking_level_changed',
   'bash_execution_update',
   'connected',
-  'startup_error',
-  'prompt_done',
-  'prompt_error',
   'session_shutdown',
-  'extension_ui_request',
-  'extension_error',
-  'extension_ui_closed',
 ] as const;
 export type ClientAgentEventType = (typeof CLIENT_AGENT_EVENT_TYPES)[number];
 

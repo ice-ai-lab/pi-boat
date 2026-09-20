@@ -170,7 +170,7 @@ describe('AgentSessionService.send：命令分发', () => {
     );
   });
 
-  it('prompt：派发并带 preflight 回调；事件流出现 agent_settled 后补 prompt_done', async () => {
+  it('prompt：派发并带 preflight 回调；settle 依据 = SDK agent_settled（2026-09-20 定案）', async () => {
     const { service, fake } = serviceWith(fakeAgentSession());
     await service.create({ cwd: '/tmp', type: 'ensure_session' });
     const events: ClientAgentEvent[] = [];
@@ -178,12 +178,11 @@ describe('AgentSessionService.send：命令分发', () => {
 
     await service.send('sess-1', { type: 'prompt', message: 'hi' });
     expect(fake.session.prompt).toHaveBeenCalledOnce();
-    // settle 到达：prompt_done 由 Entry 补发
     fake.emit({ type: 'agent_settled' });
-    expect(events.map((e) => e.type)).toContain('prompt_done');
+    expect(events.map((e) => e.type)).toContain('agent_settled');
   });
 
-  it('prompt 被拒（preflight false）：抛 PromptRejectedError 并广播 prompt_error', async () => {
+  it('prompt 被拒（preflight false）：抛 PromptRejectedError（错误经 REST 信封回发送方）', async () => {
     const fake = fakeAgentSession({
       prompt: vi.fn(async (_t: string, options?: { preflightResult?: (ok: boolean) => void }) => {
         options?.preflightResult?.(false);
@@ -191,13 +190,10 @@ describe('AgentSessionService.send：命令分发', () => {
     });
     const { service } = serviceWith(fake);
     await service.create({ cwd: '/tmp', type: 'ensure_session' });
-    const events: ClientAgentEvent[] = [];
-    service.subscribe('sess-1', (e) => events.push(e));
 
     await expect(
       service.send('sess-1', { type: 'prompt', message: '/blocked' }),
     ).rejects.toBeInstanceOf(PromptRejectedError);
-    expect(events.some((e) => e.type === 'prompt_error')).toBe(true);
   });
 
   it('clear_queue 返回可变数组映射', async () => {

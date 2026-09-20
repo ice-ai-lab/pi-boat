@@ -83,15 +83,6 @@ describe('events/client-agent-event', () => {
     expect(ClientAgentEventSchema.parse(event)).toEqual(event);
   });
 
-  it('parses extension_ui_request with a blocking select', () => {
-    const event = {
-      type: 'extension_ui_request',
-      seq,
-      request: { method: 'select', id: 'ui_1', title: 'pick one', options: ['a', 'b'] },
-    };
-    expect(ClientAgentEventSchema.parse(event)).toEqual(event);
-  });
-
   it('parses session_info_changed with omitted name (clear semantics)', () => {
     const event = { type: 'session_info_changed', seq };
     const parsed = ClientAgentEventSchema.parse(event) as Extract<
@@ -107,8 +98,12 @@ describe('events/client-agent-event', () => {
     expect(() => ClientAgentEventSchema.parse({ type: 'auto_compaction_start', seq })).toThrow();
   });
 
-  it('rejects turn_start/turn_end (dropped before wire)', () => {
-    expect(() => ClientAgentEventSchema.parse({ type: 'turn_start', seq })).toThrow();
+  it('parses turn_start/turn_end (passed through, aligned with SDK)', () => {
+    expect(ClientAgentEventSchema.parse({ type: 'turn_start', seq })).toEqual({
+      type: 'turn_start',
+      seq,
+    });
+    // turn_end 必须携带 message + toolResults
     expect(() => ClientAgentEventSchema.parse({ type: 'turn_end', seq })).toThrow();
   });
 
@@ -126,6 +121,16 @@ describe('events/client-agent-event', () => {
       cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
     };
     const userMessage = { role: 'user', content: 'hi', timestamp: 1 };
+    const assistantSample = {
+      role: 'assistant',
+      content: [],
+      api: 'a',
+      provider: 'p',
+      model: 'm',
+      usage,
+      stopReason: 'stop',
+      timestamp: 1,
+    };
     const minimal: Record<string, unknown> = {
       agent_start: {},
       message_start: { message: userMessage },
@@ -159,15 +164,9 @@ describe('events/client-agent-event', () => {
       thinking_level_changed: { level: 'high' },
       bash_execution_update: { delta: 'out' },
       connected: { sessionId: 's1', isStreaming: false },
-      startup_error: { errorMessage: 'boom' },
-      prompt_done: {},
-      prompt_error: { errorMessage: 'boom' },
       session_shutdown: {},
-      extension_ui_request: {
-        request: { method: 'notify', message: 'hi' },
-      },
-      extension_error: { extensionPath: '/ext/a.js', errorMessage: 'boom' },
-      extension_ui_closed: { id: 'ui_1' },
+      turn_start: {},
+      turn_end: { message: assistantSample, toolResults: [] },
     };
     // 每个已声明事件类型都有最小样例且可解析（防新增类型漏样例/漏字段）
     for (const type of CLIENT_AGENT_EVENT_TYPES) {
@@ -178,7 +177,7 @@ describe('events/client-agent-event', () => {
     }
     // 反向：样例表不存在未声明类型
     expect(Object.keys(minimal).sort()).toEqual([...CLIENT_AGENT_EVENT_TYPES].sort());
-    // 29 种：SDK 透传 21 + 服务层自加 8（docs/02 §5.1，SDK 0.85.1 实测无 adaptive）
-    expect(CLIENT_AGENT_EVENT_TYPES).toHaveLength(29);
+    // 25 种：SDK 透传 23 + 服务层自加 2（2026-09-20 删 startup_error/prompt_done/prompt_error/extension 三事件）
+    expect(CLIENT_AGENT_EVENT_TYPES).toHaveLength(25);
   });
 });
