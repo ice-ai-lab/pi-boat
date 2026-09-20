@@ -169,11 +169,11 @@ export class SessionReadService {
     };
   }
 
-  /** context 装配 + 分页（before/tail）+ deferThinking 占位 */
+  /** context 装配 + 分页（before/tail） */
   private buildContext(
     entries: SessionEntry[],
     leafId: string | null | undefined,
-    query: Pick<SessionContextQuery, 'before' | 'tail' | 'deferThinking'>,
+    query: Pick<SessionContextQuery, 'before' | 'tail'>,
   ): SessionContext {
     const ctx = buildSessionContext(entries, leafId ?? undefined);
 
@@ -200,9 +200,7 @@ export class SessionReadService {
     if (window.length > tail) window = window.slice(window.length - tail);
     const hasMore = window.length < preTail;
 
-    const messages = query.deferThinking
-      ? window.map((p) => deferThinking(p.message))
-      : window.map((p) => p.message);
+    const messages = window.map((p) => p.message);
 
     return {
       messages,
@@ -226,17 +224,6 @@ function userMessageText(message: SdkAgentMessage): string {
     .filter((b) => b.type === 'text')
     .map((b) => b.text)
     .join(' ');
-}
-
-/** deferThinking：thinking 块替换为短预览占位（docs/02 §6.3 惰性下发） */
-function deferThinking(message: AgentMessage): AgentMessage {
-  if (message.role !== 'assistant') return message;
-  const content = message.content.map((block) =>
-    block.type === 'thinking'
-      ? { ...block, thinking: block.thinking.slice(0, 100), deferred: true }
-      : block,
-  );
-  return { ...message, content };
 }
 
 /** 冷会话统计（对齐 SDK AgentSession.getSessionStats 聚合口径） */

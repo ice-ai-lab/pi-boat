@@ -23,14 +23,13 @@ const usage: Usage = {
 const assistant: AssistantMessage = {
   role: 'assistant',
   content: [
-    { type: 'thinking', thinking: 'let me think', deferred: true },
+    { type: 'thinking', thinking: 'let me think' },
     { type: 'text', text: 'hello' },
     {
       type: 'toolCall',
       id: 'tc_1',
       name: 'read',
       arguments: { path: '/tmp/a.ts' },
-      rawInput: '{"path"',
     },
   ],
   api: 'anthropic-messages',
@@ -77,10 +76,6 @@ describe('domain/message', () => {
     expect(UsageSchema.parse(usage)).toEqual(usage);
   });
 
-  it('keeps rawInput as wire-only tool call buffer', () => {
-    const parsed = AssistantMessageSchema.parse(assistant);
-    expect(parsed.content[2]).toMatchObject({ rawInput: '{"path"' });
-  });
 });
 
 describe('domain/session-entry', () => {
@@ -125,7 +120,6 @@ describe('domain/session-info', () => {
       entry: { type: 'session_info', id: 'e1', parentId: null, timestamp: 't1' },
       children: [leaf],
       label: 'root branch',
-      compressedEntryIds: ['e0'],
     };
     expect(SessionTreeNodeSchema.parse(tree)).toEqual(tree);
   });

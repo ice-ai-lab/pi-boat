@@ -128,13 +128,12 @@ export type SessionAutoNameResponse = z.infer<typeof SessionAutoNameResponseSche
  * - leafId：从该叶向根回溯（缺省 = 当前 leaf）
  * - before：客户端已有最老条目 id（excludeLeaf 向上翻页）
  * - tail：窗口大小（默认 50，上限 1000）
- * - deferThinking / deferMedia：thinking / 工具结果图片以占位符下发
+ * - deferMedia：工具结果图片以占位符下发
  */
 export const SessionContextQuerySchema = z.object({
   leafId: z.string().optional(),
   before: z.string().optional(),
   tail: z.number().int().min(1).max(1000).optional(),
-  deferThinking: z.boolean().optional(),
   deferMedia: z.boolean().optional(),
 });
 export type SessionContextQuery = z.infer<typeof SessionContextQuerySchema>;

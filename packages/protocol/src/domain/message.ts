@@ -21,12 +21,10 @@ export type TextContent = z.infer<typeof TextContentSchema>;
 
 export const ThinkingContentSchema = z.object({
   type: z.literal('thinking'),
-  /** thinking 全文；`deferred=true` 时仅存短预览，全文按需加载（§6.3 惰性端点） */
+  /** thinking 全文 */
   thinking: z.string(),
   thinkingSignature: z.string().optional(),
   redacted: z.boolean().optional(),
-  /** PiBoat 扩展：true 表示本块为惰性占位，`thinking` 只是预览 */
-  deferred: z.boolean().optional(),
 });
 export type ThinkingContent = z.infer<typeof ThinkingContentSchema>;
 
@@ -49,8 +47,6 @@ export const ToolCallContentSchema = z.object({
   arguments: z.record(z.string(), z.unknown()),
   thoughtSignature: z.string().optional(),
   namespace: z.string().optional(),
-  /** PiBoat 扩展：流式工具入参的原始文本缓冲，仅存在于 wire 增量中，永不落盘 */
-  rawInput: z.string().optional(),
 });
 export type ToolCallContent = z.infer<typeof ToolCallContentSchema>;
 

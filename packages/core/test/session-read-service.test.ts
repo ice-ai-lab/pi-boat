@@ -161,15 +161,12 @@ describe('SessionReadService', () => {
     expect(older.hasMore).toBe(false);
   });
 
-  it('context deferThinking：thinking 块替换为占位预览', async () => {
-    const page = await service().context(sessionId, { deferThinking: true });
+  it('context：assistant 消息携带 thinking 全文', async () => {
+    const page = await service().context(sessionId, {});
     if (!page) throw new Error('missing context');
     const assistant = page.messages.find((m) => m.role === 'assistant');
     const thinking = assistant?.content.find((b) => b.type === 'thinking');
-    expect(thinking).toMatchObject({ deferred: true });
-    if (thinking?.type === 'thinking') {
-      expect(thinking.thinking.length).toBeLessThanOrEqual(100);
-    }
+    expect(thinking?.type).toBe('thinking');
   });
 
   it('rename：追加 session_info 行并体现在列表', async () => {
