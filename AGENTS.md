@@ -45,7 +45,7 @@ packages/config/  typescript-config（Biome 配置在根 biome.json，见 ADR-00
 ## 代码规范（只列 lint 管不了的，按需增长）
 
 - 简单优先：默认写最朴素的可行实现；“简洁”指最少概念与间接层，不是最短代码。抽象/别名/包装层须有第二个真实用例或已记录的分叉需求；条件/递归类型等高级语法仅在简单方案确实不够时使用，就近注释一句为什么（出处：NewSessionInput 无变化轴别名教训，2026-09-18）
-- 事件对外投影统一走 `toClientAgentEvent()`（core），wire 类型只在 protocol 定义；SDK 事件字段变动不许泄漏出 core
+- 事件对外投影统一走 `toWireAgentEvent()`（core），wire 类型只在 protocol 定义；SDK 事件字段变动不许泄漏出 core
 - toolCall 双字段归一化统一走 `normalizeToolCalls()`（protocol），文件加载与流式两条路径共用
 - 新增路由必须过 allowed-roots / 鉴权检查清单（server 拥有宿主机文件系统全部权限）
 - 提交消息用 Conventional Commits：`<type>(<scope>): <描述>`；type 限定 feat/fix/docs/style/refactor/perf/test/build/ci/chore/revert；scope 用包名或目录（core/server/protocol/client/ui/web/docs）；破坏性变更用 `!` 或 `BREAKING CHANGE:` 脚注（采纳 Conventional Commits 1.0.0，2026-09-18）

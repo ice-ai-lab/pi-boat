@@ -130,7 +130,7 @@ pi-coding-agent（产品层：CLI/SDK、会话管理、扩展机制、内置工�
 | `error` | 原样 | `reason` + `error`：错误消息 | `{type:"error",reason:"error",error:{…}}` |
 
 
-### 表 5：`ClientAgentEvent` —— pi-boat protocol，SSE wire（25 种 = SDK 透传 23 + 服务层自加 2）
+### 表 5：`WireAgentEvent` —— pi-boat protocol，SSE wire（25 种 = SDK 透传 23 + 服务层自加 2）
 > 前后端唯一契约。**所有事件统一携带 **`seq`：会话级单调递增序号，即 SSE `id:` 帧，断线重连按 Last-Event-ID 差量重放；快照带 `lastSeq`，客户端丢弃重复。SDK 事件语义同表 2/3，此处不赘述，重点列差异与服务层自加事件。
 >
 

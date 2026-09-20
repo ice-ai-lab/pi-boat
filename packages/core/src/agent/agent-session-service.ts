@@ -19,7 +19,7 @@ import type {
   ToolInfo,
 } from '@ice-ai/protocol';
 import { toWireAgentMessage } from '../events/wire-message';
-import { type ClientAgentEventListener, SessionRegistryEntry } from './session-entry';
+import { type WireAgentEventListener, SessionRegistryEntry } from './session-entry';
 
 /**
  * Agent 命令通道 + 事件总线的核心服务（docs/01 §3.1、§5.5 transport-agnostic 接口）。
@@ -326,7 +326,7 @@ export class AgentSessionService {
    * ①先注册 listener → ②connected → ③快照 message_start（有半截消息时）
    * → ④此后增量。②③与④之间无窗口（同步分发），seq 全程单调。
    */
-  subscribe(sessionId: string, listener: ClientAgentEventListener): () => void {
+  subscribe(sessionId: string, listener: WireAgentEventListener): () => void {
     const entry = this.requireEntry(sessionId);
     const unsubscribe = entry.subscribe(listener);
     entry.emitServiceEvent({

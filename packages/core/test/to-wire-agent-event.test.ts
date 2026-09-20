@@ -1,7 +1,7 @@
 import type { AgentSession, AgentSessionEvent } from '@earendil-works/pi-coding-agent';
-import { ClientAgentEventSchema } from '@ice-ai/protocol';
+import { WireAgentEventSchema } from '@ice-ai/protocol';
 import { describe, expect, it } from 'vitest';
-import { toClientAgentEvent } from '../src/events/to-client-agent-event';
+import { toWireAgentEvent } from '../src/events/to-wire-agent-event';
 
 /**
  * 事件投影测试 + 快照回归基线（AGENTS.md：SDK 相关改动须跑事件快照回归）。
@@ -58,14 +58,14 @@ const e = (event: AgentSessionEvent) => event;
 // 剔除规则
 // ---------------------------------------------------------------------------
 
-describe('toClientAgentEvent：turn_* 透传（与 SDK 对齐，2026-09-20 定案）', () => {
+describe('toWireAgentEvent：turn_* 透传（与 SDK 对齐，2026-09-20 定案）', () => {
   it('turn_start / turn_end 原样投影', () => {
-    expect(toClientAgentEvent(e({ type: 'turn_start' }), 1)).toEqual({
+    expect(toWireAgentEvent(e({ type: 'turn_start' }), 1)).toEqual({
       type: 'turn_start',
       seq: 1,
     });
     expect(
-      toClientAgentEvent(e({ type: 'turn_end', message: assistantMessage, toolResults: [] }), 2),
+      toWireAgentEvent(e({ type: 'turn_end', message: assistantMessage, toolResults: [] }), 2),
     ).toEqual({ type: 'turn_end', message: assistantMessage, toolResults: [], seq: 2 });
   });
 });
@@ -74,7 +74,7 @@ describe('toClientAgentEvent：turn_* 透传（与 SDK 对齐，2026-09-20 定�
 // message_update 投影（partial 剥离 / 双字段补齐 / usage 附带）
 // ---------------------------------------------------------------------------
 
-describe('toClientAgentEvent：message_update 子事件投影', () => {
+describe('toWireAgentEvent：message_update 子事件投影', () => {
   const update = (assistantMessageEvent: object) =>
     e({
       type: 'message_update',
@@ -83,7 +83,7 @@ describe('toClientAgentEvent：message_update 子事件投影', () => {
     });
 
   it('text_delta：剥离 partial，保留增量字段', () => {
-    const wire = toClientAgentEvent(
+    const wire = toWireAgentEvent(
       update({ type: 'text_delta', contentIndex: 0, delta: 'abc', partial: partialMessage }),
       7,
     );
@@ -97,7 +97,7 @@ describe('toClientAgentEvent：message_update 子事件投影', () => {
   });
 
   it('toolcall_start：从 partial.content[contentIndex] 补齐 id / toolName', () => {
-    const wire = toClientAgentEvent(
+    const wire = toWireAgentEvent(
       update({ type: 'toolcall_start', contentIndex: 1, partial: partialMessage }),
       1,
     );
@@ -115,7 +115,7 @@ describe('toClientAgentEvent：message_update 子事件投影', () => {
   });
 
   it('toolcall_delta：同样补齐 id / toolName（SDK toJsonEvent 未做，PiBoat wire 要求）', () => {
-    const wire = toClientAgentEvent(
+    const wire = toWireAgentEvent(
       update({ type: 'toolcall_delta', contentIndex: 1, delta: '{"pa', partial: partialMessage }),
       2,
     );
@@ -131,7 +131,7 @@ describe('toClientAgentEvent：message_update 子事件投影', () => {
   });
 
   it('toolcall_end：透传完整 toolCall，剥离 partial', () => {
-    const wire = toClientAgentEvent(
+    const wire = toWireAgentEvent(
       update({
         type: 'toolcall_end',
         contentIndex: 1,
@@ -150,7 +150,7 @@ describe('toClientAgentEvent：message_update 子事件投影', () => {
   });
 
   it('done / error：无 partial 字段，原样透传', () => {
-    const wire = toClientAgentEvent(
+    const wire = toWireAgentEvent(
       update({ type: 'done', reason: 'toolUse', message: assistantMessage }),
       4,
     );
@@ -162,22 +162,22 @@ describe('toClientAgentEvent：message_update 子事件投影', () => {
 // 透传事件 + seq 附着
 // ---------------------------------------------------------------------------
 
-describe('toClientAgentEvent：透传与 seq', () => {
+describe('toWireAgentEvent：透传与 seq', () => {
   it('agent_start 附 seq', () => {
-    expect(toClientAgentEvent(e({ type: 'agent_start' }), 1)).toEqual({
+    expect(toWireAgentEvent(e({ type: 'agent_start' }), 1)).toEqual({
       type: 'agent_start',
       seq: 1,
     });
   });
 
   it('message_start / message_end 附 seq', () => {
-    expect(toClientAgentEvent(e({ type: 'message_start', message: userMessage }), 2)).toEqual({
+    expect(toWireAgentEvent(e({ type: 'message_start', message: userMessage }), 2)).toEqual({
       type: 'message_start',
       seq: 2,
       message: userMessage,
     });
     expect(
-      toClientAgentEvent(e({ type: 'message_end', message: assistantMessage }), 3),
+      toWireAgentEvent(e({ type: 'message_end', message: assistantMessage }), 3),
     ).toMatchObject({
       type: 'message_end',
       seq: 3,
@@ -186,7 +186,7 @@ describe('toClientAgentEvent：透传与 seq', () => {
 
   it('tool_execution_* 三连透传', () => {
     expect(
-      toClientAgentEvent(
+      toWireAgentEvent(
         e({
           type: 'tool_execution_start',
           toolCallId: 'tc_1',
@@ -203,7 +203,7 @@ describe('toClientAgentEvent：透传与 seq', () => {
       args: { path: 'a' },
     });
     expect(
-      toClientAgentEvent(
+      toWireAgentEvent(
         e({
           type: 'tool_execution_update',
           toolCallId: 'tc_1',
@@ -215,7 +215,7 @@ describe('toClientAgentEvent：透传与 seq', () => {
       ),
     ).toMatchObject({ type: 'tool_execution_update', seq: 2, partialResult: 'x' });
     expect(
-      toClientAgentEvent(
+      toWireAgentEvent(
         e({
           type: 'tool_execution_end',
           toolCallId: 'tc_1',
@@ -236,7 +236,7 @@ describe('toClientAgentEvent：透传与 seq', () => {
   });
 
   it('agent_end 增强版透传（messages + willRetry）', () => {
-    const wire = toClientAgentEvent(
+    const wire = toWireAgentEvent(
       e({ type: 'agent_end', messages: [userMessage], willRetry: false }),
       9,
     );
@@ -245,15 +245,15 @@ describe('toClientAgentEvent：透传与 seq', () => {
 
   it('queue_update：readonly 数组拷贝为可变数组', () => {
     const steering: readonly string[] = ['a'];
-    const wire = toClientAgentEvent(e({ type: 'queue_update', steering, followUp: [] }), 1);
+    const wire = toWireAgentEvent(e({ type: 'queue_update', steering, followUp: [] }), 1);
     expect(wire).toEqual({ type: 'queue_update', seq: 1, steering: ['a'], followUp: [] });
   });
 
   it('session_info_changed：name=undefined 时字段缺省（清除命名语义）', () => {
-    const wire = toClientAgentEvent(e({ type: 'session_info_changed', name: undefined }), 1);
+    const wire = toWireAgentEvent(e({ type: 'session_info_changed', name: undefined }), 1);
     expect(wire).toEqual({ type: 'session_info_changed', seq: 1 });
     expect('name' in (wire as object)).toBe(false);
-    expect(toClientAgentEvent(e({ type: 'session_info_changed', name: '新名字' }), 2)).toEqual({
+    expect(toWireAgentEvent(e({ type: 'session_info_changed', name: '新名字' }), 2)).toEqual({
       type: 'session_info_changed',
       seq: 2,
       name: '新名字',
@@ -261,7 +261,7 @@ describe('toClientAgentEvent：透传与 seq', () => {
   });
 
   it('compaction_end 透传（result 可缺省）', () => {
-    const wire = toClientAgentEvent(
+    const wire = toWireAgentEvent(
       e({
         type: 'compaction_end',
         reason: 'threshold',
@@ -288,11 +288,11 @@ describe('toClientAgentEvent：透传与 seq', () => {
       timestamp: '2026-01-01T00:00:00.000Z',
       message: userMessage,
     } as never;
-    expect(toClientAgentEvent(e({ type: 'entry_appended', entry }), 1)).toMatchObject({
+    expect(toWireAgentEvent(e({ type: 'entry_appended', entry }), 1)).toMatchObject({
       type: 'entry_appended',
       seq: 1,
     });
-    expect(toClientAgentEvent(e({ type: 'bash_execution_update', delta: 'out' }), 2)).toEqual({
+    expect(toWireAgentEvent(e({ type: 'bash_execution_update', delta: 'out' }), 2)).toEqual({
       type: 'bash_execution_update',
       seq: 2,
       delta: 'out',
@@ -304,7 +304,7 @@ describe('toClientAgentEvent：透传与 seq', () => {
 // wire 契约校验：全部投影结果可被 protocol schema 解析（防字段漂移）
 // ---------------------------------------------------------------------------
 
-describe('toClientAgentEvent：wire schema 兼容性', () => {
+describe('toWireAgentEvent：wire schema 兼容性', () => {
   const samples: Array<AgentSessionEvent> = [
     { type: 'agent_start' },
     { type: 'message_start', message: userMessage },
@@ -335,11 +335,11 @@ describe('toClientAgentEvent：wire schema 兼容性', () => {
     { type: 'bash_execution_update', id: 'b1', delta: 'x' },
   ];
 
-  it('每个样本投影后均通过 ClientAgentEventSchema.parse', () => {
+  it('每个样本投影后均通过 WireAgentEventSchema.parse', () => {
     for (const event of samples) {
-      const wire = toClientAgentEvent(e(event), 1);
+      const wire = toWireAgentEvent(e(event), 1);
       expect(wire, `event type: ${event.type}`).not.toBeNull();
-      const parsed = ClientAgentEventSchema.safeParse(wire);
+      const parsed = WireAgentEventSchema.safeParse(wire);
       expect(parsed.success, `schema parse failed for ${event.type}`).toBe(true);
     }
   });
