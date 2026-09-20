@@ -158,13 +158,33 @@ export const CustomMessageSchema = z.object({
 });
 export type CustomMessage = z.infer<typeof CustomMessageSchema>;
 
-/** wire 层统一消息联合（SDK AgentMessage 的 PiBoat 投影） */
+/** 分支回归摘要（对齐 core/messages.ts BranchSummaryMessage；注入 LLM 上下文的合成消息，无 display 字段） */
+export const BranchSummaryMessageSchema = z.object({
+  role: z.literal('branchSummary'),
+  summary: z.string(),
+  fromId: z.string().nullable(),
+  timestamp: z.number(),
+});
+export type BranchSummaryMessage = z.infer<typeof BranchSummaryMessageSchema>;
+
+/** 压缩摘要（对齐 core/messages.ts CompactionSummaryMessage；注入 LLM 上下文的合成消息，无 display 字段） */
+export const CompactionSummaryMessageSchema = z.object({
+  role: z.literal('compactionSummary'),
+  summary: z.string(),
+  tokensBefore: z.number(),
+  timestamp: z.number(),
+});
+export type CompactionSummaryMessage = z.infer<typeof CompactionSummaryMessageSchema>;
+
+/** wire 层统一消息联合（与 SDK AgentMessage 完全一致：七角色，2026-09-18 定案不做额外收敛） */
 export const AgentMessageSchema = z.discriminatedUnion('role', [
   UserMessageSchema,
   AssistantMessageSchema,
   ToolResultMessageSchema,
   BashExecutionMessageSchema,
   CustomMessageSchema,
+  BranchSummaryMessageSchema,
+  CompactionSummaryMessageSchema,
 ]);
 export type AgentMessage = z.infer<typeof AgentMessageSchema>;
 
