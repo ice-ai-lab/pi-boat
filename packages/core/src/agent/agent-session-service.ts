@@ -186,14 +186,14 @@ export class AgentSessionService {
             },
           });
         } catch (error) {
-          entry.failPrompt(error instanceof Error ? error.message : String(error));
+          entry.clearPromptPending();
           throw error;
         }
         if (!accepted) {
-          entry.failPrompt('Prompt rejected');
+          entry.clearPromptPending();
           throw new PromptRejectedError();
         }
-        return null; // 完成信号走事件流：agent_settled → prompt_done
+        return null; // 完成信号走事件流：agent_settled
       }
       case 'steer':
       case 'follow_up': {
@@ -202,7 +202,7 @@ export class AgentSessionService {
           if (command.type === 'steer') await session.steer(command.message, command.images);
           else await session.followUp(command.message, command.images);
         } catch (error) {
-          entry.failPrompt(error instanceof Error ? error.message : String(error));
+          entry.clearPromptPending();
           throw error;
         }
         return null;
