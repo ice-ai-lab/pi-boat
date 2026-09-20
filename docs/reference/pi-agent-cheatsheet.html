@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pi-Agent 速查手册</title>
+<style>
+  :root{
+    --bg:#ffffff;
+    --fg:#1f2328;
+    --muted:#656d76;
+    --line:#d8dee4;
+    --line-soft:#eaeef2;
+    --code-bg:#f6f8fa;
+    --accent:#0969da;
+    --note-bg:#f6f8fa;
+    --note-line:#0969da;
+    --warn-bg:#fff8f0;
+    --warn-line:#d1242f;
+    --sidebar-bg:#fafbfc;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    font-size:14px;
+    line-height:1.6;
+    color:var(--fg);
+    background:var(--bg);
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--accent);text-decoration:none;}
+  a:hover{text-decoration:underline;}
+
+  .layout{display:flex;align-items:flex-start;}
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{
+    width:236px;
+    flex:0 0 236px;
+    position:sticky;
+    top:0;
+    height:100vh;
+    overflow-y:auto;
+    padding:20px 10px 40px 16px;
+    background:var(--sidebar-bg);
+    border-right:1px solid var(--line);
+  }
+  .sidebar h1{
+    font-size:14px;
+    margin:0 0 2px;
+    letter-spacing:.2px;
+  }
+  .sidebar .sub{
+    font-size:11px;
+    color:var(--muted);
+    margin-bottom:14px;
+    line-height:1.4;
+  }
+  .sidebar nav ol{
+    list-style:none;
+    margin:0;
+    padding:0;
+    counter-reset:toc;
+  }
+  .sidebar nav li{margin:0;padding:0;}
+  .sidebar nav a{
+    display:block;
+    font-size:12.5px;
+    color:var(--fg);
+    padding:3px 8px;
+    border-radius:4px;
+    border-left:2px solid transparent;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .sidebar nav a:hover{background:#eef1f4;text-decoration:none;}
+  .sidebar nav a.active{
+    color:var(--accent);
+    background:#eaf2fb;
+    border-left-color:var(--accent);
+    font-weight:600;
+  }
+
+  /* ---------- Main ---------- */
+  .main{
+    flex:1 1 auto;
+    min-width:0;
+    max-width:1600px;
+    padding:28px 32px 120px;
+  }
+  .page-title{
+    font-size:20px;
+    margin:0 0 4px;
+    padding-bottom:10px;
+    border-bottom:1px solid var(--line);
+  }
+  .page-title .meta{font-size:12px;color:var(--muted);font-weight:400;margin-left:10px;}
+
+  h2{
+    font-size:17px;
+    margin:34px 0 8px;
+    padding:4px 0 5px;
+    border-bottom:1px solid var(--line);
+    scroll-margin-top:12px;
+  }
+  h2:first-of-type{margin-top:22px;}
+  h3{
+    font-size:14.5px;
+    margin:20px 0 6px;
+    color:#24292f;
+    scroll-margin-top:12px;
+  }
+
+  p{margin:6px 0;}
+  ul,ol{margin:6px 0;padding-left:20px;}
+  li{margin:2px 0;}
+
+  code{
+    font-family:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+    font-size:12.5px;
+    background:var(--code-bg);
+    border:1px solid var(--line-soft);
+    border-radius:3px;
+    padding:.5px 3.5px;
+    white-space:normal;
+    overflow-wrap:break-word;
+  }
+  a>code{color:inherit;}
+
+  pre{
+    background:var(--code-bg);
+    border:1px solid var(--line-soft);
+    border-radius:5px;
+    padding:10px 12px;
+    margin:8px 0;
+    overflow-x:auto;
+    line-height:1.5;
+  }
+  pre code{
+    background:none;
+    border:0;
+    padding:0;
+    font-size:12.5px;
+    white-space:pre;
+  }
+
+  /* ---------- Compact tables（铺满、无横向滚动、允许折行） ---------- */
+  table{
+    border-collapse:collapse;
+    width:100%;
+    margin:8px 0 12px;
+    font-size:12.5px;
+    line-height:1.45;
+    table-layout:fixed;
+  }
+  th,td{
+    border:1px solid var(--line);
+    padding:3px 7px;
+    text-align:left;
+    vertical-align:top;
+    white-space:normal;
+    overflow-wrap:break-word;
+  }
+  th{
+    background:#f2f5f8;
+    font-weight:600;
+    overflow-wrap:anywhere;
+  }
+  td code,th code{
+    font-size:12px;
+    padding:.3px 3px;
+    background:#f2f5f8;
+    overflow-wrap:anywhere;
+  }
+  tbody tr:nth-child(even){background:#fcfdfe;}
+  .tbl-wrap{overflow:visible;width:100%;}
+
+  /* ---------- 列宽配比（配合 table-layout:fixed 精确铺满） ---------- */
+  .t3a th:nth-child(1),.t3a td:nth-child(1){width:20%;}
+  .t3a th:nth-child(2),.t3a td:nth-child(2){width:32%;}
+  .t3a th:nth-child(3),.t3a td:nth-child(3){width:48%;}
+
+  .t3b th:nth-child(1),.t3b td:nth-child(1){width:14%;}
+  .t3b th:nth-child(2),.t3b td:nth-child(2){width:20%;}
+  .t3b th:nth-child(3),.t3b td:nth-child(3){width:66%;}
+
+  .t3c th:nth-child(1),.t3c td:nth-child(1){width:18%;}
+  .t3c th:nth-child(2),.t3c td:nth-child(2){width:26%;}
+  .t3c th:nth-child(3),.t3c td:nth-child(3){width:56%;}
+
+  .t3d th:nth-child(1),.t3d td:nth-child(1){width:16%;}
+  .t3d th:nth-child(2),.t3d td:nth-child(2){width:42%;}
+  .t3d th:nth-child(3),.t3d td:nth-child(3){width:42%;}
+
+  .t3e th:nth-child(1),.t3e td:nth-child(1){width:14%;}
+  .t3e th:nth-child(2),.t3e td:nth-child(2){width:32%;}
+  .t3e th:nth-child(3),.t3e td:nth-child(3){width:54%;}
+
+  .t3f th:nth-child(1),.t3f td:nth-child(1){width:18%;}
+  .t3f th:nth-child(2),.t3f td:nth-child(2){width:20%;}
+  .t3f th:nth-child(3),.t3f td:nth-child(3){width:62%;}
+
+  .t4a th:nth-child(1),.t4a td:nth-child(1){width:15%;}
+  .t4a th:nth-child(2),.t4a td:nth-child(2){width:25%;}
+  .t4a th:nth-child(3),.t4a td:nth-child(3){width:36%;}
+  .t4a th:nth-child(4),.t4a td:nth-child(4){width:24%;}
+
+  .t4b th:nth-child(1),.t4b td:nth-child(1){width:6%;}
+  .t4b th:nth-child(2),.t4b td:nth-child(2){width:16%;}
+  .t4b th:nth-child(3),.t4b td:nth-child(3){width:18%;}
+  .t4b th:nth-child(4),.t4b td:nth-child(4){width:60%;}
+
+  .t4c th:nth-child(1),.t4c td:nth-child(1){width:11%;}
+  .t4c th:nth-child(2),.t4c td:nth-child(2){width:33%;}
+  .t4c th:nth-child(3),.t4c td:nth-child(3){width:29%;}
+  .t4c th:nth-child(4),.t4c td:nth-child(4){width:27%;}
+
+  .t2a th:nth-child(1),.t2a td:nth-child(1){width:16%;}
+  .t2a th:nth-child(2),.t2a td:nth-child(2){width:84%;}
+
+  .t2b th:nth-child(1),.t2b td:nth-child(1){width:12%;}
+  .t2b th:nth-child(2),.t2b td:nth-child(2){width:88%;}
+
+  .t2c th:nth-child(1),.t2c td:nth-child(1){width:42%;}
+  .t2c th:nth-child(2),.t2c td:nth-child(2){width:58%;}
+
+  /* ---------- Notes ---------- */
+  .note{
+    background:var(--note-bg);
+    border-left:3px solid var(--note-line);
+    padding:6px 12px;
+    margin:8px 0;
+    font-size:12.5px;
+    color:#3a4148;
+    border-radius:0 4px 4px 0;
+  }
+  .note.warn{
+    background:var(--warn-bg);
+    border-left-color:var(--warn-line);
+    color:#5c1a1e;
+  }
+  .note p{margin:3px 0;}
+  .note code{background:#eaeef2;border-color:#dfe4ea;}
+
+  .star{color:#bc4c00;font-weight:600;}
+  .dim{color:var(--muted);}
+
+  @media (max-width:860px){
+    .layout{display:block;}
+    .sidebar{
+      position:static;
+      width:auto;
+      height:auto;
+      flex:none;
+      border-right:0;
+      border-bottom:1px solid var(--line);
+      padding:16px;
+    }
+    .sidebar nav a{white-space:normal;}
+    .main{padding:20px 16px 80px;}
+  }
+  @media print{
+    .sidebar{display:none;}
+    .main{max-width:none;padding:0;}
+    h2{page-break-after:avoid;}
+    table,pre{page-break-inside:avoid;}
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+
+<aside class="sidebar">
+  <h1>Pi-Agent 速查手册</h1>
+  <div class="sub">v0.85.1 本地 fork · 对照教程 v0.80.x</div>
+  <nav>
+    <ol>
+      <li><a href="#s1">1. 架构总览</a></li>
+      <li><a href="#s2">2. 事件系统全景</a></li>
+      <li><a href="#s3">3. pi.on 全部 36 个事件</a></li>
+      <li><a href="#s4">4. Agent Loop 循环机制</a></li>
+      <li><a href="#s5">5. 工具系统</a></li>
+      <li><a href="#s6">6. 核心 API 速查</a></li>
+      <li><a href="#s7">7. 扩展系统</a></li>
+      <li><a href="#s8">8. Harness 新架构</a></li>
+      <li><a href="#s9">9. pi-ai 模型层速查</a></li>
+      <li><a href="#s10">10. 配置与资源体系</a></li>
+      <li><a href="#s11">11. 常见坑</a></li>
+      <li><a href="#s12">12. 源码文件索引</a></li>
+    </ol>
+  </nav>
+</aside>
+
+<main class="main">
+  <h1 class="page-title">Pi-Agent 速查手册<span class="meta">v0.85.1</span></h1>
+
+  <!-- ============ 1 ============ -->
+  <h2 id="s1">1. 架构总览</h2>
+
+  <h3>1.1 三层堆栈 + 正交 UI 库</h3>
+  <pre><code>pi-coding-agent（产品层：CLI/SDK、会话管理、扩展机制、内置工具）
+    ├──&gt; pi-agent-core（引擎层：Agent、AgentLoop、AgentEvent、harness）
+    │        └──&gt; pi-ai（模型层：35+ Provider 抽象、流式协议、成本追踪）
+    └──&gt; pi-tui（终端 UI 库，零依赖 pi-* 兄弟包，可独立复用）</code></pre>
+
+  <div class="tbl-wrap">
+  <table class="t3a">
+    <thead>
+      <tr><th>包（npm scope <code>@earendil-works/</code>）</th><th>职责</th><th>关键导出</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>pi-ai</code></td><td>多供应商 LLM 抽象、流式输出、上下文跨供应商交接</td><td><code>createModels</code>、<code>streamSimple</code>、<code>AssistantMessageEvent</code>、<code>Message</code></td></tr>
+      <tr><td><code>pi-agent-core</code></td><td>Agent 引擎：循环、工具执行、事件流</td><td><code>Agent</code>、<code>runAgentLoop</code>、<code>AgentEvent</code>、<code>AgentTool</code>、<code>AgentHarness</code></td></tr>
+      <tr><td><code>pi-coding-agent</code></td><td>完整 CLI 产品 + SDK</td><td><code>createAgentSession</code>、<code>AgentSession</code>、<code>ExtensionAPI</code>、内置工具</td></tr>
+      <tr><td><code>pi-tui</code></td><td>差分渲染终端组件库</td><td><code>TUI</code>、<code>Component</code></td></tr>
+      <tr><td><code>chord</code></td><td>传输无关 facet 服务原语</td><td><code>JsonRepresentation</code></td></tr>
+      <tr><td><code>protocol</code></td><td>framed CBOR RPC 协议（client/server）</td><td>—</td></tr>
+      <tr><td><code>session-backends</code></td><td>会话存储后端（SQLite 独立包）</td><td><code>pi-session-backend-sqlite-node</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p><strong>每层可独立使用</strong>：只用 pi-ai 调模型、只用 agent-core 跑循环、或直接用 coding-agent 全家桶。</p>
+
+  <h3>1.2 版本差异速览（教程 v0.80.x → 本地 0.85.1）</h3>
+  <div class="tbl-wrap">
+  <table class="t3b">
+    <thead>
+      <tr><th>项</th><th>v0.80.x（教程）</th><th>v0.85.1（本地 fork）</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>内核事件名</td><td><code>AgencyEvent</code></td><td><code>AgentEvent</code>（同一批事件，改名）</td></tr>
+      <tr><td><code>pi.on</code> 重载数</td><td>30</td><td><strong>36</strong>（新增 <code>project_trust</code>、<code>resources_discover</code>、<code>before_provider_headers</code>、<code>ui_prompt_start/end</code>、<code>session_before_tree</code>、<code>session_tree</code> 等）</td></tr>
+      <tr><td>内置工具</td><td>7 个</td><td><strong>8 个</strong>（新增 <code>powershell</code>）</td></tr>
+      <tr><td>harness</td><td>无</td><td>新增 <code>AgentHarness</code>（lane / drive / HookMap 11 钩子）</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- ============ 2 ============ -->
+  <h2 id="s2">2. 事件系统全景</h2>
+
+  <h3>表 1：<code>AssistantMessageEvent</code> —— pi-ai，LLM token 流（12 种）</h3>
+  <div class="note">描述"一条 assistant 消息是怎么逐字长出来的"。除 <code>done/error</code> 外，每个事件都携带 <code>partial</code>（累积到当前时刻的半成品消息快照，UI 可直接渲染）。</div>
+  <div class="tbl-wrap">
+  <table class="t4a">
+    <thead>
+      <tr><th>事件</th><th>语义（何时触发）</th><th>载荷字段含义</th><th>示例</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>start</code></td><td>一条 assistant 消息开始流式生成</td><td>仅 <code>partial</code> 初始骨架</td><td><code>{type:"start"}</code></td></tr>
+      <tr><td><code>text_start</code></td><td>一个文本块开始</td><td><code>contentIndex</code>：该块在消息 content 数组中的下标</td><td><code>{type:"text_start",contentIndex:0}</code></td></tr>
+      <tr><td><code>text_delta</code></td><td>文本块收到新字符</td><td><code>contentIndex</code> + <code>delta</code>：本批新增文本</td><td><code>{type:"text_delta",contentIndex:0,delta:"你好"}</code></td></tr>
+      <tr><td><code>text_end</code></td><td>文本块结束</td><td><code>contentIndex</code> + <code>content</code>：该块最终全文（权威值）</td><td><code>{type:"text_end",contentIndex:0,content:"你好，世界"}</code></td></tr>
+      <tr><td><code>thinking_start</code></td><td>一个思考（reasoning）块开始</td><td>同 <code>text_start</code>，对象是思考内容</td><td><code>{type:"thinking_start",contentIndex:0}</code></td></tr>
+      <tr><td><code>thinking_delta</code></td><td>思考块收到新字符</td><td>同 <code>text_delta</code></td><td><code>{type:"thinking_delta",contentIndex:0,delta:"让我想想"}</code></td></tr>
+      <tr><td><code>thinking_end</code></td><td>思考块结束</td><td>同 <code>text_end</code>；注：被审查(redact)的思考可能 start 即完整、无 delta</td><td><code>{type:"thinking_end",contentIndex:0,content:"…全文"}</code></td></tr>
+      <tr><td><code>toolcall_start</code></td><td>一个工具调用块开始</td><td><code>contentIndex</code>；此时尚无 id/name，参数是 provider 原始格式，藏在 <code>partial</code> 里</td><td><code>{type:"toolcall_start",contentIndex:1}</code></td></tr>
+      <tr><td><code>toolcall_delta</code></td><td>工具调用参数 JSON 增量到达</td><td><code>contentIndex</code> + <code>delta</code>：参数 JSON 的新增片段</td><td><code>{type:"toolcall_delta",contentIndex:1,delta:"\"command\":\"ls\""}</code></td></tr>
+      <tr><td><code>toolcall_end</code></td><td>工具调用解析完成</td><td><code>contentIndex</code> + <code>toolCall</code>：结构化结果（id、工具名、参数）</td><td><code>{type:"toolcall_end",contentIndex:1,toolCall:{id:"tc_1",name:"bash",…}}</code></td></tr>
+      <tr><td><code>done</code></td><td>消息正常结束</td><td><code>reason</code>：停止原因（<code>stop</code> 正常；<code>length</code> 超 token；<code>toolUse</code> 要调工具；<code>deferred</code> 延后）+ <code>message</code>：最终完整消息</td><td><code>{type:"done",reason:"stop",message:{…}}</code></td></tr>
+      <tr><td><code>error</code></td><td>消息异常终止</td><td><code>reason</code>：<code>aborted</code>（用户中断）或 <code>error</code>（出错）+ <code>error</code>：承载错误信息的消息</td><td><code>{type:"error",reason:"aborted",error:{…}}</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>表 2：<code>AgentEvent</code> —— pi-agent-core，Agent 循环（10 种）</h3>
+  <div class="note">描述"一次 run（agent_start → agent_end）的执行过程"。<code>message_update</code> 内嵌表 1 的子事件。</div>
+  <div class="tbl-wrap">
+  <table class="t4a">
+    <thead>
+      <tr><th>事件</th><th>语义（何时触发）</th><th>载荷字段含义</th><th>示例</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>agent_start</code></td><td>一次 agent run 开始</td><td>无载荷</td><td><code>{type:"agent_start"}</code></td></tr>
+      <tr><td><code>turn_start</code></td><td>一轮（LLM 调用 + 工具执行）开始</td><td>无载荷</td><td><code>{type:"turn_start"}</code></td></tr>
+      <tr><td><code>message_start</code></td><td>一条 assistant 消息开始</td><td><code>message</code>：消息初始骨架</td><td><code>{type:"message_start",message:{…}}</code></td></tr>
+      <tr><td><code>message_update</code></td><td>消息流式更新（每个 token 事件一次）</td><td><code>message</code>：累积快照 + <code>assistantMessageEvent</code>：触发的底层 token 事件（表 1）</td><td><code>{type:"message_update",message:{…},assistantMessageEvent:{type:"text_delta",…}}</code></td></tr>
+      <tr><td><code>message_end</code></td><td>一条消息最终定稿</td><td><code>message</code>：权威完整消息</td><td><code>{type:"message_end",message:{…}}</code></td></tr>
+      <tr><td><code>tool_execution_start</code></td><td>某工具调用开始执行</td><td><code>toolCallId</code> + <code>toolName</code>：定位哪个调用；<code>args</code>：参数</td><td><code>{type:"tool_execution_start",toolCallId:"tc_1",toolName:"bash",args:{command:"ls"}}</code></td></tr>
+      <tr><td><code>tool_execution_update</code></td><td>工具执行中间输出（如 bash 流式输出）</td><td>同上 + <code>partialResult</code>：中间结果</td><td><code>{type:"tool_execution_update",toolCallId:"tc_1",…,partialResult:"file1\n"}</code></td></tr>
+      <tr><td><code>tool_execution_end</code></td><td>工具执行结束</td><td>同上 + <code>result</code>：最终结果；<code>isError</code>：是否失败</td><td><code>{type:"tool_execution_end",toolCallId:"tc_1",…,result:"…",isError:false}</code></td></tr>
+      <tr><td><code>turn_end</code></td><td>一轮结束</td><td><code>message</code>：本轮 assistant 消息 + <code>toolResults</code>：本轮工具结果消息</td><td><code>{type:"turn_end",message:{…},toolResults:[…]}</code></td></tr>
+      <tr><td><code>agent_end</code></td><td>一次 run 结束</td><td><code>messages</code>：本次 run 产生的全部消息</td><td><code>{type:"agent_end",messages:[…]}</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>表 3：<code>AgentSessionEvent</code> —— pi-coding-agent SDK，会话级（23 种）</h3>
+  <div class="note">在 AgentEvent 之上描述"会话生命周期"：多轮重试、历史压缩、队列、持久化。前 10 种继承自表 2（<code>agent_end</code> 增加了 <code>willRetry</code> 字段：run 失败后是否会自动重试），此处只列新增的 13 种 + 增强的 1 种。</div>
+  <div class="tbl-wrap">
+  <table class="t4a">
+    <thead>
+      <tr><th>事件</th><th>语义（何时触发）</th><th>载荷字段含义</th><th>示例</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>agent_end</code>（增强）</td><td>run 结束</td><td>同表 2 + <code>willRetry</code>：将自动重试（此时 UI 不应显示为最终失败）</td><td><code>{type:"agent_end",messages:[…],willRetry:true}</code></td></tr>
+      <tr><td><code>agent_settled</code></td><td>run 完全落定：监听器回调执行完、历史已持久化</td><td>无载荷</td><td><code>{type:"agent_settled"}</code></td></tr>
+      <tr><td><code>queue_update</code></td><td>用户在 run 进行中排队了新输入</td><td><code>steering</code>：插队消息（下轮立即生效）；<code>followUp</code>：追加消息（run 结束后触发新 run）</td><td><code>{type:"queue_update",steering:["改用 pnpm"],followUp:[]}</code></td></tr>
+      <tr><td><code>compaction_start</code></td><td>会话历史压缩开始（手动 / 超阈值 / 超上下文溢出）</td><td><code>reason</code>：触发方式</td><td><code>{type:"compaction_start",reason:"threshold"}</code></td></tr>
+      <tr><td><code>compaction_end</code></td><td>压缩结束（成功/中止/失败）</td><td><code>reason</code> + <code>result</code>：摘要、首个保留条目 id、压缩前后 token 数；<code>aborted</code>：是否被中断；<code>willRetry</code>：将重试；<code>errorMessage</code>：失败原因</td><td><code>{type:"compaction_end",reason:"manual",result:{summary:"…",…},aborted:false,willRetry:false}</code></td></tr>
+      <tr><td><code>auto_retry_start</code></td><td>run 失败、安排自动重试</td><td><code>attempt</code>/<code>maxAttempts</code>：第几次/上限；<code>delayMs</code>：等待毫秒数；<code>errorMessage</code>：上次失败原因</td><td><code>{type:"auto_retry_start",attempt:1,maxAttempts:3,delayMs:2000,errorMessage:"429"}</code></td></tr>
+      <tr><td><code>auto_retry_end</code></td><td>自动重试流程收尾</td><td><code>success</code>：最终是否成功；<code>attempt</code>：总次数；<code>finalError</code>：仍失败时的原因</td><td><code>{type:"auto_retry_end",success:true,attempt:2}</code></td></tr>
+      <tr><td><code>summarization_retry_scheduled</code></td><td>摘要生成失败、安排重试</td><td>同 <code>auto_retry_start</code></td><td><code>{type:"summarization_retry_scheduled",…}</code></td></tr>
+      <tr><td><code>summarization_retry_attempt_start</code></td><td>一次摘要重试开始</td><td><code>source</code>：重试来源——分支摘要（<code>branchSummary</code>）或压缩摘要（<code>compaction</code>，此时附 <code>reason</code>）</td><td><code>{type:"summarization_retry_attempt_start",source:"compaction",reason:"threshold"}</code></td></tr>
+      <tr><td><code>summarization_retry_finished</code></td><td>摘要重试全部结束</td><td>无载荷</td><td><code>{type:"summarization_retry_finished"}</code></td></tr>
+      <tr><td><code>entry_appended</code></td><td>会话持久化追加一条历史条目（用户输入/工具调用…）</td><td><code>entry</code>：条目对象（含 id、角色、内容、时间戳等）</td><td><code>{type:"entry_appended",entry:{…}}</code></td></tr>
+      <tr><td><code>session_info_changed</code></td><td>会话元信息变更</td><td><code>name</code>：新会话名；<code>undefined</code> 表示清除命名</td><td><code>{type:"session_info_changed",name:"修 bug"}</code></td></tr>
+      <tr><td><code>thinking_level_changed</code></td><td>思考级别被调整</td><td><code>level</code>：<code>off</code>/<code>minimal</code>/<code>low</code>/<code>medium</code>/<code>high</code></td><td><code>{type:"thinking_level_changed",level:"medium"}</code></td></tr>
+      <tr><td><code>bash_execution_update</code></td><td>bash 工具执行中的增量输出</td><td><code>delta</code>：新增输出文本；<code>id</code>：可选定位</td><td><code>{type:"bash_execution_update",delta:"done\n"}</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>表 4：<code>JsonAssistantMessageEvent</code> —— pi-boat protocol，wire 子事件（12 种）</h3>
+  <div class="note">表 1 的 <strong>wire 投影形态</strong>：语义完全相同，但剥掉 <code>partial</code>（完整消息只走快照，流上只有增量、省带宽），且 <code>toolcall_start/delta</code> <strong>补齐</strong> <code>id</code>/<code>toolName</code>（双字段容错后收敛，客户端不用自己去挖）。</div>
+  <div class="tbl-wrap">
+  <table class="t4a">
+    <thead>
+      <tr><th>事件</th><th>与表 1 的差异</th><th>新增/保留字段含义</th><th>示例</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>start</code></td><td>剥 <code>partial</code></td><td>无载荷，仅标记消息开始</td><td><code>{type:"start"}</code></td></tr>
+      <tr><td><code>text_start</code></td><td>同上</td><td><code>contentIndex</code></td><td><code>{type:"text_start",contentIndex:0}</code></td></tr>
+      <tr><td><code>text_delta</code></td><td>同上</td><td><code>contentIndex</code> + <code>delta</code></td><td><code>{type:"text_delta",contentIndex:0,delta:"你好"}</code></td></tr>
+      <tr><td><code>text_end</code></td><td>同上</td><td><code>contentIndex</code> + <code>content</code>（最终全文）</td><td><code>{type:"text_end",contentIndex:0,content:"…"}</code></td></tr>
+      <tr><td><code>thinking_start</code></td><td>同上</td><td><code>contentIndex</code></td><td><code>{type:"thinking_start",contentIndex:0}</code></td></tr>
+      <tr><td><code>thinking_delta</code></td><td>同上</td><td><code>contentIndex</code> + <code>delta</code></td><td><code>{type:"thinking_delta",contentIndex:0,delta:"…"}</code></td></tr>
+      <tr><td><code>thinking_end</code></td><td>同上</td><td><code>contentIndex</code> + <code>content</code></td><td><code>{type:"thinking_end",contentIndex:0,content:"…"}</code></td></tr>
+      <tr><td><code>toolcall_start</code></td><td>剥 <code>partial</code>，<strong>投影补齐</strong></td><td>+ <code>id</code>：工具调用 id；<code>toolName</code>：工具名</td><td><code>{type:"toolcall_start",contentIndex:1,id:"tc_1",toolName:"bash"}</code></td></tr>
+      <tr><td><code>toolcall_delta</code></td><td>同上</td><td><code>contentIndex</code> + <code>delta</code> + <code>id</code> + <code>toolName</code></td><td><code>{type:"toolcall_delta",contentIndex:1,id:"tc_1",toolName:"bash",delta:"\"cmd…\""}</code></td></tr>
+      <tr><td><code>toolcall_end</code></td><td>同上</td><td><code>contentIndex</code> + <code>toolCall</code>（结构化结果）</td><td><code>{type:"toolcall_end",contentIndex:1,toolCall:{…}}</code></td></tr>
+      <tr><td><code>done</code></td><td>原样</td><td><code>reason</code> + <code>message</code>：最终消息</td><td><code>{type:"done",reason:"toolUse",message:{…}}</code></td></tr>
+      <tr><td><code>error</code></td><td>原样</td><td><code>reason</code> + <code>error</code>：错误消息</td><td><code>{type:"error",reason:"error",error:{…}}</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>表 5：<code>ClientAgentEvent</code> —— pi-boat protocol，SSE wire（25 种 = SDK 透传 23 + 服务层自加 2）</h3>
+  <div class="note">前后端唯一契约。<strong>所有事件统一携带 <code>seq</code></strong>：会话级单调递增序号，即 SSE <code>id:</code> 帧，断线重连按 Last-Event-ID 差量重放；快照带 <code>lastSeq</code>，客户端丢弃重复。SDK 事件语义同表 2/3，此处不赘述，重点列差异与服务层自加事件。</div>
+  <div class="tbl-wrap">
+  <table class="t4a">
+    <thead>
+      <tr><th>事件</th><th>语义（何时触发）</th><th>相对 SDK 的载荷差异</th><th>示例</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>agent_start</code></td><td>run 开始</td><td>+seq</td><td><code>{type:"agent_start",seq:10}</code></td></tr>
+      <tr><td><code>turn_start</code></td><td>单轮开始（透传，与 SDK 对齐）</td><td>+seq</td><td><code>{type:"turn_start",seq:11}</code></td></tr>
+      <tr><td><code>turn_end</code></td><td>单轮结束（透传，与 SDK 对齐）</td><td>+seq；<code>message</code> 定稿 + <code>toolResults</code></td><td><code>{type:"turn_end",seq:29,message:{…},toolResults:[…]}</code></td></tr>
+      <tr><td><code>message_start</code></td><td>消息开始</td><td>+seq</td><td><code>{type:"message_start",seq:11,message:{…}}</code></td></tr>
+      <tr><td><code>message_update</code></td><td>消息流式更新</td><td>+seq；<code>message</code> 换成 <code>usage</code>（累积用量：输入/输出/缓存 token 数）；<code>assistantMessageEvent</code> 用表 4 形态</td><td><code>{type:"message_update",seq:12,usage:{…},assistantMessageEvent:{type:"text_delta",…}}</code></td></tr>
+      <tr><td><code>message_end</code></td><td>消息定稿</td><td>+seq</td><td><code>{type:"message_end",seq:30,message:{…}}</code></td></tr>
+      <tr><td><code>tool_execution_start</code></td><td>工具开始执行</td><td>+seq</td><td><code>{type:"tool_execution_start",seq:31,toolCallId:"tc_1",toolName:"bash",args:{…}}</code></td></tr>
+      <tr><td><code>tool_execution_update</code></td><td>工具中间输出</td><td>+seq</td><td><code>{type:"tool_execution_update",seq:32,…,partialResult:"…"}</code></td></tr>
+      <tr><td><code>tool_execution_end</code></td><td>工具执行结束</td><td>+seq</td><td><code>{type:"tool_execution_end",seq:40,…,result:"…",isError:false}</code></td></tr>
+      <tr><td><code>agent_end</code></td><td>run 结束</td><td>+seq（含 <code>willRetry</code>）</td><td><code>{type:"agent_end",seq:41,messages:[…],willRetry:false}</code></td></tr>
+      <tr><td><code>agent_settled</code></td><td>run 完全落定</td><td>+seq</td><td><code>{type:"agent_settled",seq:42}</code></td></tr>
+      <tr><td><code>queue_update</code></td><td>排队输入变更</td><td>+seq</td><td><code>{type:"queue_update",seq:43,steering:[],followUp:["继续"]}</code></td></tr>
+      <tr><td><code>compaction_start</code></td><td>历史压缩开始</td><td>+seq</td><td><code>{type:"compaction_start",seq:50,reason:"threshold"}</code></td></tr>
+      <tr><td><code>compaction_end</code></td><td>压缩结束</td><td>+seq；<code>result</code> 可选（失败时缺省）</td><td><code>{type:"compaction_end",seq:55,reason:"threshold",result:{…},aborted:false,willRetry:false}</code></td></tr>
+      <tr><td><code>auto_retry_start</code></td><td>自动重试开始</td><td>+seq</td><td><code>{type:"auto_retry_start",seq:60,attempt:1,maxAttempts:3,delayMs:2000,errorMessage:"…"}</code></td></tr>
+      <tr><td><code>auto_retry_end</code></td><td>自动重试收尾</td><td>+seq</td><td><code>{type:"auto_retry_end",seq:65,success:true,attempt:2}</code></td></tr>
+      <tr><td><code>summarization_retry_scheduled</code></td><td>摘要重试安排</td><td>+seq</td><td><code>{type:"summarization_retry_scheduled",seq:70,…}</code></td></tr>
+      <tr><td><code>summarization_retry_attempt_start</code></td><td>摘要重试一次尝试开始</td><td>+seq；<code>source</code> 二选一，仅 <code>compaction</code> 附 <code>reason</code></td><td><code>{type:"summarization_retry_attempt_start",seq:71,source:"branchSummary"}</code></td></tr>
+      <tr><td><code>summarization_retry_finished</code></td><td>摘要重试结束</td><td>+seq</td><td><code>{type:"summarization_retry_finished",seq:75}</code></td></tr>
+      <tr><td><code>entry_appended</code></td><td>历史条目追加</td><td>+seq</td><td><code>{type:"entry_appended",seq:80,entry:{…}}</code></td></tr>
+      <tr><td><code>session_info_changed</code></td><td>会话名变更</td><td>+seq；<code>name</code> 缺省 = 清除命名</td><td><code>{type:"session_info_changed",seq:81,name:"修 bug"}</code></td></tr>
+      <tr><td><code>thinking_level_changed</code></td><td>思考级别变更</td><td>+seq</td><td><code>{type:"thinking_level_changed",seq:82,level:"high"}</code></td></tr>
+      <tr><td><code>bash_execution_update</code></td><td>bash 增量输出</td><td>+seq</td><td><code>{type:"bash_execution_update",seq:83,delta:"done\n"}</code></td></tr>
+      <tr><td><code>connected</code></td><td><strong>服务层自加</strong>：SSE 建流成功，随发快照再续流</td><td><code>sessionId</code>；<code>isStreaming</code>：是否有进行中的半截消息</td><td><code>{type:"connected",seq:0,sessionId:"s_1",isStreaming:true}</code></td></tr>
+                        <tr><td><code>session_shutdown</code></td><td><strong>服务层自加</strong>：会话被关停</td><td><code>reason</code>：<code>idle</code>（闲置回收）/ <code>server_shutdown</code>（服务关闭）/ <code>error</code></td><td><code>{type:"session_shutdown",seq:100,reason:"idle"}</code></td></tr>
+                      </tbody>
+  </table>
+  </div>
+
+  <div class="note">2026-09-20 定案：turn_* 改为透传；<code>startup_error</code>（死 schema）、<code>prompt_done</code>（<code>agent_settled</code> 平替）、<code>prompt_error</code>（REST 信封 <code>CommandError</code> 覆盖）、extension 三事件（M2 再定）已删除。settle 依据 = <code>agent_settled</code>。</div>
+
+  <!-- ============ 3 ============ -->
+  <h2 id="s3">3. pi.on 全部 36 个事件</h2>
+  <div class="note">
+    <p>定义：<code>packages/coding-agent/src/core/extensions/types.ts:1252-1301</code>（<code>ExtensionAPI.on</code> 重载）。</p>
+    <p>Handler 签名统一为 <code>(event, ctx: ExtensionContext) =&gt; Result | void</code>。<span class="star">★</span> = Agent 等待返回值并能改变行为。</p>
+  </div>
+
+  <h3>3.1 决策点事件（14 个，有返回值）</h3>
+  <div class="tbl-wrap">
+  <table class="t3c">
+    <thead>
+      <tr><th>事件</th><th>时机</th><th>返回值能力</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><span class="star">★</span> <code>tool_call</code></td><td>工具执行前（"安检门"）</td><td><code>{ block, reason, terminate }</code>；<strong>可直接原地改 <code>event.input</code> 改参数</strong></td></tr>
+      <tr><td><span class="star">★</span> <code>tool_result</code></td><td>工具执行后</td><td><code>{ content, details, isError, usage }</code> 字段级覆盖，链式</td></tr>
+      <tr><td><span class="star">★</span> <code>input</code></td><td>用户输入后、skill/template 展开前</td><td><code>{ action: "continue" | "transform" | "handled" }</code>，handled 可短路</td></tr>
+      <tr><td><span class="star">★</span> <code>before_agent_start</code></td><td>Agent 开跑前</td><td><code>{ message, systemPrompt }</code> 覆盖本轮系统提示词</td></tr>
+      <tr><td><span class="star">★</span> <code>context</code></td><td>每次 LLM 调用前</td><td><code>{ messages }</code> 链式改写最终发给 LLM 的消息列表</td></tr>
+      <tr><td><span class="star">★</span> <code>before_provider_request</code></td><td>HTTP 请求发出前</td><td>替换 payload</td></tr>
+      <tr><td><span class="star">★</span> <code>before_provider_headers</code></td><td>请求头组装后</td><td><strong>原地 mutate</strong> <code>headers</code>（注入 tracing 等），返回值忽略</td></tr>
+      <tr><td><span class="star">★</span> <code>after_provider_response</code></td><td>收到响应、消费流之前</td><td>通知型（status/headers）</td></tr>
+      <tr><td><span class="star">★</span> <code>message_end</code></td><td>消息定稿</td><td><code>{ message }</code> 替换定稿消息（角色不变）</td></tr>
+      <tr><td><span class="star">★</span> <code>user_bash</code></td><td>用户 <code>!</code>/<code>!!</code> 前缀执行 bash</td><td><code>{ operations, result }</code> 可接管执行</td></tr>
+      <tr><td><span class="star">★</span> <code>project_trust</code></td><td>项目信任判定</td><td><code>{ trusted: "yes"|"no"|"undecided", remember }</code></td></tr>
+      <tr><td><span class="star">★</span> <code>resources_discover</code></td><td>session_start 后发现资源路径</td><td><code>{ skillPaths, promptPaths, themePaths }</code></td></tr>
+      <tr><td><span class="star">★</span> <code>session_before_switch</code></td><td>切换会话前</td><td><code>{ cancel }</code></td></tr>
+      <tr><td><span class="star">★</span> <code>session_before_fork</code></td><td>分叉会话前</td><td><code>{ cancel, skipConversationRestore }</code></td></tr>
+      <tr><td><span class="star">★</span> <code>session_before_compact</code></td><td>压缩前</td><td><code>{ cancel, compaction }</code>（可自带压缩结果）</td></tr>
+      <tr><td><span class="star">★</span> <code>session_before_tree</code></td><td>树导航前</td><td><code>{ cancel, summary, customInstructions, label }</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>3.2 通知型事件（22 个，返回值忽略）</h3>
+  <div class="tbl-wrap">
+  <table class="t2b">
+    <thead>
+      <tr><th>分类</th><th>事件</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>会话生命周期</td><td><code>session_start</code>（reason: startup/reload/new/resume/fork）、<code>session_info_changed</code>、<code>session_shutdown</code>、<code>session_tree</code></td></tr>
+      <tr><td>压缩结果</td><td><code>session_compact</code>、<code>session_compact_failed</code></td></tr>
+      <tr><td>Agent 生命周期</td><td><code>agent_start</code>、<code>agent_end</code>、<code>agent_settled</code></td></tr>
+      <tr><td>Turn/Message/Tool</td><td><code>turn_start</code>、<code>turn_end</code>、<code>message_start</code>、<code>message_update</code>、<code>tool_execution_start</code>、<code>tool_execution_update</code>、<code>tool_execution_end</code></td></tr>
+      <tr><td>模型</td><td><code>model_select</code>（model/previousModel/source: set/cycle/restore）、<code>thinking_level_select</code></td></tr>
+      <tr><td>UI</td><td><code>ui_prompt_start</code>、<code>ui_prompt_end</code>（kind: select/confirm/input/editor/custom）</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="note warn">⚠️ <code>tool_call</code> ≠ <code>tool_execution_start</code>：在 <code>subscribe</code> 里写 <code>event.type === "tool_call"</code> 分支永远命中不了（那是管道 B 独占事件）。</div>
+
+  <!-- ============ 4 ============ -->
+  <h2 id="s4">4. Agent Loop 循环机制</h2>
+  <div class="note">源码：<code>packages/agent/src/agent-loop.ts</code>、<code>packages/agent/src/agent.ts</code>；教程第 3 章。</div>
+
+  <h3>4.1 入口与签名</h3>
+  <pre><code>// 低层
+async function runAgentLoop(
+  prompts: AgentMessage[],     // 本次注入的消息
+  context: AgentContext,       // 快照 { systemPrompt, messages, tools }
+  config: AgentLoopConfig,     // 模型 + 全部钩子
+  emit: AgentEventSink,        // 事件发射器
+  signal?: AbortSignal,
+  streamFn?: StreamFn,
+): Promise&lt;AgentMessage[]&gt;
+
+// 高层（常用）
+const agent = new Agent({ initialState, convertToLlm, streamFn });
+await agent.prompt("Hello!");</code></pre>
+
+  <h3>4.2 双层循环</h3>
+  <pre><code>Agent.prompt() → runAgentLoop() → runLoop()
+  外层 while(true)：followUp 续命
+    内层 while(有工具调用 || 有 pendingMessages)：
+      ① 注入 pendingMessages（steering）
+      ② streamAssistantResponse()：transformContext → convertToLlm → 调 LLM 流式
+      ③ 检查 stopReason：error/aborted → 硬停止
+      ④ executeToolCalls()：准备(顺序) → 执行(并行) → 事件(有序)
+      ⑤ emit turn_end
+      ⑥ prepareNextTurn → shouldStopAfterTurn → 再查 steering
+    → 查 followUp 队列：有则续命，无则 emit agent_end</code></pre>
+
+  <p>消息流转：<code>AgentMessage[] → transformContext() → convertToLlm() → Message[] → LLM</code>。<br>
+  <code>convertToLlm</code> 只保留 <code>user</code>/<code>assistant</code>/<code>toolResult</code> 三种标准消息，其余（自定义/UI 消息）过滤。</p>
+
+  <h3>4.3 steering vs followUp</h3>
+  <div class="tbl-wrap">
+  <table class="t3d">
+    <thead>
+      <tr><th>维度</th><th>steering（转向）</th><th>followUp（追发）</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>检查时机</td><td>循环开始前 + 内层每圈结尾</td><td>内层循环全部结束后</td></tr>
+      <tr><td>语义</td><td>紧急插队（工具执行间隙注入）</td><td>排队等叫号（当前任务完成后继续）</td></tr>
+      <tr><td>QueueMode</td><td><code>"all" | "one-at-a-time"</code></td><td>同左</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>4.4 四条退出路径</h3>
+  <div class="tbl-wrap">
+  <table class="t3e">
+    <thead>
+      <tr><th>路径</th><th>条件</th><th>说明</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>正常退出</td><td><code>stop</code>/<code>length</code> + 队列空</td><td>实际驱动循环的是 <code>toolCalls.length &gt; 0 &amp;&amp; !terminate</code></td></tr>
+      <tr><td>硬停止</td><td><code>error</code> / <code>aborted</code></td><td>立即退出，<strong>不检查 followUp</strong>（fail-fast）</td></tr>
+      <tr><td>钩子停</td><td><code>shouldStopAfterTurn()</code> 返回 true</td><td>上下文快满、最大 Turn 数</td></tr>
+      <tr><td>工具终止</td><td>一批工具结果<strong>全部</strong> <code>terminate: true</code></td><td>用 every 而非 some（保守策略）</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p><code>StopReason</code>：<code>"pending" | "stop" | "length" | "toolUse" | "error" | "aborted" | "deferred"</code>（前 3+toolUse 来自模型 API，error/aborted 由框架注入，deferred 为 0.85 新增异步工具语义）。</p>
+
+  <!-- ============ 5 ============ -->
+  <h2 id="s5">5. 工具系统</h2>
+  <div class="note">源码：<code>packages/agent/src/types.ts</code>、<code>packages/coding-agent/src/core/tools/</code>；教程第 5 章。</div>
+
+  <h3>5.1 三层类型体系</h3>
+  <div class="tbl-wrap">
+  <table class="t4b">
+    <thead>
+      <tr><th>层</th><th>包</th><th>接口</th><th>职责</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>pi-ai</td><td><code>Tool</code></td><td><code>name</code> + <code>description</code>（给 LLM）+ <code>parameters</code>（TypeBox Schema）+ 可选 <code>constrainedSampling</code></td></tr>
+      <tr><td>2</td><td>pi-agent-core</td><td><code>AgentTool</code></td><td>+ <code>label</code>（给 UI）、<code>prepareArguments</code>（参数兼容垫片）、<code>execute(toolCallId, params, signal?, onUpdate?)</code>、<code>executionMode</code>、<code>replay</code></td></tr>
+      <tr><td>3</td><td>pi-coding-agent</td><td><code>ToolDefinition</code></td><td>+ <code>execute</code> 第 5 参 <code>ctx: ExtensionContext</code>（闭包注入）、<code>renderCall</code>/<code>renderResult</code>（TUI 自定义渲染）、<code>promptSnippet</code>/<code>promptGuidelines</code>（注入系统提示词）</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <pre><code>// AgentToolResult 结构
+{
+  content: (TextContent | ImageContent)[],  // 返回给模型
+  details: T,                               // 给日志/UI 的结构化数据
+  usage?: Usage,                            // 工具自身 token 消耗
+  addedToolNames?: string[],                // 延迟加载工具（deferred tool loading）
+  terminate?: boolean,                      // 提前停止提示
+}</code></pre>
+
+  <h3>5.2 内置工具（8 个）</h3>
+  <div class="note"><code>packages/coding-agent/src/core/tools/index.ts</code>。默认只启用前 4 个（<code>defaultActiveToolNames = ["read", "bash", "edit", "write"]</code>）。</div>
+  <div class="tbl-wrap">
+  <table class="t4c">
+    <thead>
+      <tr><th>工具</th><th>功能</th><th>关键参数</th><th>Operations 依赖</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>read</code></td><td>读文件（支持行偏移、图片 MIME 检测、截断）</td><td><code>path</code>, <code>offset?</code>, <code>limit?</code></td><td>readFile, access</td></tr>
+      <tr><td><code>bash</code></td><td>执行 shell（超时/中止/退出码包装）</td><td><code>command</code>, <code>timeout?</code>, <code>runInBackground?</code></td><td>exec</td></tr>
+      <tr><td><code>powershell</code></td><td>Windows 对应物（0.85 新增）</td><td>同 bash</td><td>exec</td></tr>
+      <tr><td><code>edit</code></td><td>多段文本替换 <code>edits: [{oldText, newText}]</code></td><td><code>path</code>, <code>edits</code></td><td>readFile, writeFile</td></tr>
+      <tr><td><code>write</code></td><td>写文件（自动 mkdir）</td><td><code>path</code>, <code>content</code></td><td>writeFile, mkdir</td></tr>
+      <tr><td><code>grep</code></td><td>按模式搜内容（上下文行、文件过滤）</td><td><code>pattern</code>, <code>path?</code>, <code>include?</code>, <code>contextLines?</code></td><td>isDirectory, readFile</td></tr>
+      <tr><td><code>find</code></td><td>glob 查找文件</td><td><code>pattern</code>, <code>path?</code></td><td>exists, glob</td></tr>
+      <tr><td><code>ls</code></td><td>列目录</td><td><code>path</code></td><td>exists, stat, readdir</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>分组工厂：</p>
+  <pre><code>import { createCodingTools, createReadOnlyTools, createAllToolDefinitions } from "@earendil-works/pi-coding-agent";
+
+createCodingTools(cwd)   // [read, bash, edit, write]
+createReadOnlyTools(cwd) // [read, grep, find, ls]
+createAllToolDefinitions(cwd) // 全部 8 个（含 powershell）
+// 单个：createReadTool(cwd) / createBashTool(cwd) / ...</code></pre>
+
+  <p>关键设计：</p>
+  <ul>
+    <li><strong>Operations 抽象</strong>：工具不直接碰 <code>fs</code>/<code>child_process</code>，通过最小接口（<code>BashOperations</code> 等）调用 → 可 Mock、可远程化。</li>
+    <li><strong>文件安全</strong>：<code>withFileMutationQueue</code> 保证对同一文件的编辑串行化（第二道防线）。</li>
+    <li><strong>harness 层工具</strong>（<code>packages/agent/src/harness/tools/</code>）：bash/edit/read/write 的 ExecutionToolContext 版本 + <code>image</code> 工具。</li>
+  </ul>
+
+  <h3>5.3 五步执行管道</h3>
+  <pre><code>LLM 输出 ToolCall
+→ ① prepareArguments（参数垫片，处理模型怪癖）
+→ ② validateToolArguments（TypeBox 运行时校验）
+→ ③ beforeToolCall（前置钩子，可 block）
+→ ④ tool.execute（onUpdate 流式进度）
+→ ⑤ afterToolCall（结果覆盖）
+→ ToolResultMessage</code></pre>
+
+  <p><strong>错误即消息</strong>：6 种失败（工具未找到 / 垫片异常 / 校验失败 / beforeToolCall 阻止 / execute 异常 / afterToolCall 异常）全部编码为 <code>isError: true</code> 的正常 ToolResultMessage，<strong>循环永不中断</strong>。</p>
+
+  <h3>5.4 执行模式</h3>
+  <ul>
+    <li><code>"parallel"</code>（默认）：准备阶段顺序（beforeToolCall 有副作用）→ 执行并行 → <code>tool_execution_end</code> 按完成顺序发、toolResult 消息按 assistant 源顺序发。</li>
+    <li><code>"sequential"</code>：逐个执行。</li>
+    <li><strong>一票否决</strong>：批次中任一工具 <code>executionMode: "sequential"</code> → 整批串行。全局 <code>toolExecution</code> 或 per-tool <code>executionMode</code> 设置。</li>
+  </ul>
+
+  <!-- ============ 6 ============ -->
+  <h2 id="s6">6. 核心 API 速查</h2>
+
+  <h3>6.1 <code>Agent</code>（pi-agent-core，<code>packages/agent/src/agent.ts</code>）</h3>
+  <pre><code>const agent = new Agent({
+  initialState: { systemPrompt, model, thinkingLevel, tools, messages },
+  convertToLlm,             // 必需
+  streamFn,                 // Models.streamSimple 满足该签名
+  transformContext?, getApiKey?, shouldStopAfterTurn?, prepareNextTurn?,
+  getSteeringMessages?, getFollowUpMessages?,
+  toolExecution?, beforeToolCall?, afterToolCall?,
+  onPayload?, onResponse?,  // provider 请求/响应拦截
+  steeringMode?, followUpMode?,
+});
+
+agent.subscribe((event: AgentEvent) =&gt; void);   // 返回注销函数
+await agent.prompt("Hello!")                     // string 或 AgentMessage[]
+await agent.continue();                          // 继续上次
+agent.steer(msg); agent.followUp(msg);           // 入队
+agent.clearAllQueues(); agent.hasQueuedMessages();
+agent.abort(); await agent.waitForIdle(); agent.reset();
+agent.state;  // { systemPrompt, model, thinkingLevel, tools, messages, isStreaming, pendingToolCalls... }</code></pre>
+
+  <h3>6.2 <code>AgentSession</code>（pi-coding-agent，<code>agent-session.ts:310</code>）</h3>
+  <div class="tbl-wrap">
+  <table class="t2b">
+    <thead>
+      <tr><th>分类</th><th>方法</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>驱动</td><td><code>prompt(text, options?: PromptOptions)</code>、<code>steer(text, images?)</code>、<code>followUp(text, images?)</code>、<code>sendUserMessage(content, options?)</code></td></tr>
+      <tr><td>订阅</td><td><code>subscribe(listener): () =&gt; void</code></td></tr>
+      <tr><td>队列</td><td><code>clearQueue()</code>、<code>getSteeringMessages()</code>、<code>getFollowUpMessages()</code></td></tr>
+      <tr><td>中止/等待</td><td><code>abort()</code>、<code>waitForIdle()</code></td></tr>
+      <tr><td>模型</td><td><code>setModel(model, opts?)</code>、<code>cycleModel(...)</code>、<code>setThinkingLevel(level, opts?)</code>、<code>cycleThinkingLevel()</code>、<code>getAvailableThinkingLevels()</code>、<code>supportsThinking()</code>、<code>setScopedModels()</code></td></tr>
+      <tr><td>工具</td><td><code>getActiveToolNames()</code>、<code>getAllTools()</code>、<code>getToolDefinition(name)</code>、<code>setActiveToolsByName(names)</code></td></tr>
+      <tr><td>压缩</td><td><code>compact(customInstructions?)</code>、<code>abortCompaction()</code>、<code>abortBranchSummary()</code>、<code>setAutoCompactionEnabled(b)</code></td></tr>
+      <tr><td>重试</td><td><code>abortRetry()</code>、<code>setAutoRetryEnabled(b)</code></td></tr>
+      <tr><td>bash</td><td><code>executeBash(...)</code>、<code>recordBashResult(...)</code>、<code>abortBash()</code></td></tr>
+      <tr><td>会话树</td><td><code>navigateTree(targetId, options?)</code>、<code>getUserMessagesForForking()</code></td></tr>
+      <tr><td>元信息</td><td><code>setSessionName(name)</code>、<code>getSessionStats()</code>、<code>getContextUsage()</code>、<code>getLastAssistantText()</code></td></tr>
+      <tr><td>导出</td><td><code>exportToHtml(path?)</code>、<code>exportToJsonl(path?)</code></td></tr>
+      <tr><td>生命周期</td><td><code>bindExtensions(...)</code>、<code>reload()</code>、<code>dispose()</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p><code>PromptOptions</code>：<code>{ expandPromptTemplates?, images?, streamingBehavior?: "steer"|"followUp", source? }</code>。</p>
+
+  <h3>6.3 <code>createAgentSession</code>（SDK 主入口，<code>core/sdk.ts</code>）</h3>
+  <pre><code>import { createAgentSession } from "@earendil-works/pi-coding-agent";
+import { getModel } from "@earendil-works/pi-ai";
+
+const { session, extensionsResult, modelFallbackMessage } = await createAgentSession({
+  cwd?,                 // 默认 process.cwd()
+  agentDir?,            // 默认 ~/.pi/agent
+  model?,               // getModel('anthropic', 'claude-sonnet-4-6')
+  thinkingLevel?,       // 默认 'medium'（clamp 到模型能力）
+  scopedModels?,        // Ctrl+P 循环切换的模型集
+  tools?: string[],     // 启用白名单；默认 ["read","bash","edit","write"]
+  excludeTools?: string[],
+  noTools?: "all" | "builtin",
+  customTools?: ToolDefinition[],
+  resourceLoader?, sessionManager?, settingsManager?, modelRuntime?,
+});
+
+session.subscribe((e) =&gt; { /* 管道 A */ });
+await session.prompt("hi");</code></pre>
+
+  <!-- ============ 7 ============ -->
+  <h2 id="s7">7. 扩展系统（Extension API）</h2>
+  <div class="note">定义：<code>packages/coding-agent/src/core/extensions/types.ts</code>。扩展 = 接收 <code>pi: ExtensionAPI</code> 的工厂函数。</div>
+
+  <h3>7.1 <code>pi.*</code> 全清单（ExtensionAPI）</h3>
+  <div class="tbl-wrap">
+  <table class="t2b">
+    <thead>
+      <tr><th>分类</th><th>API</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>事件订阅</td><td><code>on(event, handler)</code> —— 36 个事件（见第 3 节）</td></tr>
+      <tr><td>工具</td><td><code>registerTool(ToolDefinition)</code></td></tr>
+      <tr><td>命令</td><td><code>registerCommand(name, { description, handler, getArgumentCompletions? })</code></td></tr>
+      <tr><td>快捷键</td><td><code>registerShortcut(KeyId, { description, handler })</code></td></tr>
+      <tr><td>CLI 旗标</td><td><code>registerFlag(name, { type: "boolean"|"string", default?, description? })</code>、<code>getFlag(name)</code></td></tr>
+      <tr><td>渲染</td><td><code>registerMessageRenderer(customType, renderer)</code>、<code>registerMarkdownTransformer(fn)</code>、<code>registerEntryRenderer(customType, renderer)</code></td></tr>
+      <tr><td>消息动作</td><td><code>sendMessage(customMsg, { triggerTurn?, deliverAs?: "steer"|"followUp"|"nextTurn" })</code>、<code>sendUserMessage(content, { deliverAs?, expandPromptTemplates? })</code>、<code>appendEntry(customType, data?)</code>（持久化、不进 LLM）</td></tr>
+      <tr><td>会话元数据</td><td><code>setSessionName(name)</code>、<code>getSessionName()</code>、<code>setLabel(entryId, label?)</code></td></tr>
+      <tr><td>工具查询</td><td><code>getActiveTools()</code>、<code>getAllTools()</code>、<code>setActiveTools(names)</code></td></tr>
+      <tr><td>模型</td><td><code>setModel(model): Promise&lt;boolean&gt;</code>、<code>getThinkingLevel()</code>、<code>setThinkingLevel(level)</code></td></tr>
+      <tr><td>Provider</td><td><code>registerProvider(name, config)</code> / <code>registerProvider(provider)</code>、<code>unregisterProvider(name)</code></td></tr>
+      <tr><td>其他</td><td><code>exec(cmd, args, opts)</code>、<code>getCommands()</code>、<code>events: EventBus</code>（扩展间通信总线）</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>7.2 <code>ctx.*</code>（ExtensionContext，事件处理器的第二参数）</h3>
+  <div class="tbl-wrap">
+  <table class="t2b">
+    <thead>
+      <tr><th>能力</th><th>字段/方法</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>UI</td><td><code>ctx.ui.select/confirm/input/notify/editor/custom/setWidget/setFooter/setHeader/setTitle/setStatus/setTheme/...</code></td></tr>
+      <tr><td>运行环境</td><td><code>ctx.mode</code>（"tui"|"rpc"|"json"|"print"）、<code>ctx.hasUI</code>、<code>ctx.cwd</code></td></tr>
+      <tr><td>状态</td><td><code>ctx.sessionManager</code>（<strong>只读</strong> ReadonlySessionManager）、<code>ctx.model</code>、<code>ctx.scopedModels</code>、<code>ctx.thinkingLevel</code>、<code>ctx.modelRegistry</code></td></tr>
+      <tr><td>运行控制</td><td><code>ctx.isIdle()</code>、<code>ctx.signal</code>、<code>ctx.abort()</code>、<code>ctx.hasPendingMessages()</code>、<code>ctx.shutdown()</code>、<code>ctx.compact()</code>、<code>ctx.getContextUsage()</code>、<code>ctx.getSystemPrompt()</code>、<code>ctx.isProjectTrusted()</code></td></tr>
+      <tr><td>命令上下文加成</td><td><code>ExtensionCommandContext</code>：+ <code>waitForIdle()</code>、<code>newSession()</code>、<code>fork(entryId)</code>、<code>navigateTree()</code>、<code>switchSession()</code>、<code>reload()</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <h3>7.3 最小扩展示例</h3>
+  <pre><code>import type { ExtensionFactory } from "@earendil-works/pi-coding-agent";
+
+export const timeExtension: ExtensionFactory = (pi) =&gt; {
+  pi.on("context", (event) =&gt; {
+    return { messages: [{ role: "user", content: `当前时间：${new Date().toISOString()}` }, ...event.messages] };
+  });
+  pi.registerTool({
+    name: "get_weather", label: "天气", description: "查询天气",
+    parameters: Type.Object({ city: Type.String() }),
+    async execute(toolCallId, params, signal, onUpdate, ctx) {
+      return { content: [{ type: "text", text: `${params.city} 晴` }], details: {} };
+    },
+  });
+};</code></pre>
+
+  <p>挂载方式：<code>~/.pi/agent/extensions/</code>（全局）或项目 <code>.pi/extensions/</code> 目录，或 <code>DefaultResourceLoader({ extensionFactories: [...] })</code> 内联传入。</p>
+
+  <!-- ============ 8 ============ -->
+  <h2 id="s8">8. Harness 新架构（v0.85+）</h2>
+  <div class="note">源码：<code>packages/agent/src/harness/</code>。0.85 把"多 lane 会话树 + 持久化运行"抽象为 AgentHarness，是未来主推架构；Agent/AgentSession 仍并行存在。</div>
+
+  <h3>8.1 核心概念</h3>
+  <ul>
+    <li><code>AgentHarness.create(options, context)</code>：把 harness 绑定到一个 open session。</li>
+    <li><strong>Lane（车道）</strong>：会话树中的一条分支。<code>harness.lane(name)</code> 获取，lane 上可以 <code>prompt()/steer()/followUp()/compact()/navigateTree()/resume()/abort()</code>。</li>
+    <li><strong>OperationRequest</strong>：<code>{ kind: "prompt" | "skill" | "prompt_template" | "compaction" | "navigation" }</code>。</li>
+    <li><strong>accept → drive 两段式</strong>：先准入（admission），再驱动执行（drive），支持 <code>waitForRetry</code>、<code>pollDeferred</code>。</li>
+    <li><strong>watch 快照</strong>：<code>lane.watch(ctx)</code> 返回 <code>WatchHandle&lt;LaneSnapshot&gt;</code>（transcript + operation + queues 的严格 JSON 快照），支持 <code>resnapshot()</code>。</li>
+  </ul>
+
+  <h3>8.2 HarnessEvent（28 种 payload）</h3>
+  <div class="note">定义：<code>packages/agent/src/harness/agent-harness.ts:255-373</code>。lane 事件携带 <code>lane</code> 字段。</div>
+  <div class="tbl-wrap">
+  <table class="t2b">
+    <thead>
+      <tr><th>分类</th><th>事件</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Run 生命周期</td><td><code>run_start</code>、<code>run_resume</code>、<code>run_suspend</code>（deferred）、<code>run_end</code>（completed/aborted/failed）、<code>operation_abort</code></td></tr>
+      <tr><td>Turn/Message</td><td><code>turn_start</code>、<code>turn_end</code>、<code>message_start</code>、<code>message_update</code>、<code>message_end</code></td></tr>
+      <tr><td>Tool</td><td><code>tool_start</code>、<code>tool_update</code>、<code>tool_end</code>（含 <code>terminate</code>）</td></tr>
+      <tr><td>重试</td><td><code>retry_scheduled</code>、<code>retry_start</code>、<code>retry_end</code></td></tr>
+      <tr><td>压缩/导航</td><td><code>compaction_start/end</code>、<code>navigation_start/end</code></td></tr>
+      <tr><td>会话结构</td><td><code>entry_added</code>、<code>queue_update</code>、<code>lane_created</code>、<code>value_update</code>（session_name/entry_label）</td></tr>
+      <tr><td>配置</td><td><code>config_update</code>（property: model/thinkingLevel/activeTools/tools/resources/streamOptions/retryPolicy/compactionSettings/steeringMode/followUpMode）</td></tr>
+      <tr><td>统计/错误</td><td><code>usage</code>（lane + totals）、<code>fault</code>、<code>handler_error</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>订阅：<code>harness.events.on(type, listener)</code>；观察：<code>harness.watchSession(ctx)</code>。</p>
+
+  <h3>8.3 Harness 钩子（HookMap，11 个）</h3>
+  <div class="note"><code>harness.hooks.on(name, handler)</code>。区别于事件（观察），钩子直接参与执行语义。</div>
+  <div class="tbl-wrap">
+  <table class="t3f">
+    <thead>
+      <tr><th>钩子</th><th>时机</th><th>可改变什么</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>before_run</code></td><td>Run 开始前</td><td>替换 messages</td></tr>
+      <tr><td><code>before_drive</code></td><td>每次驱动前</td><td>—</td></tr>
+      <tr><td><code>before_run_end</code></td><td>Run 收尾</td><td><code>{ followUp }</code> 续命</td></tr>
+      <tr><td><code>transform_context</code></td><td>LLM 调用前</td><td>messages + systemPrompt</td></tr>
+      <tr><td><code>before_request</code></td><td>模型请求前</td><td>streamOptions</td></tr>
+      <tr><td><code>before_payload</code></td><td>请求体发出前</td><td>payload</td></tr>
+      <tr><td><code>after_response</code></td><td>响应后</td><td>修正 SettledAssistantMessage</td></tr>
+      <tr><td><code>before_tool</code></td><td>工具执行前</td><td>args / block</td></tr>
+      <tr><td><code>after_tool</code></td><td>工具执行后</td><td>content/details/isError/usage/terminate</td></tr>
+      <tr><td><code>before_compaction</code></td><td>压缩前</td><td>decline / 自带 compaction</td></tr>
+      <tr><td><code>before_navigation</code></td><td>树导航前</td><td>decline / 自带 summary</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <!-- ============ 9 ============ -->
+  <h2 id="s9">9. pi-ai 模型层速查</h2>
+  <div class="note">源码：<code>packages/ai/src/types.ts</code>。详细文档见本地 <code>packages/ai/README_CN.md</code>（已翻译）。</div>
+
+  <h3>9.1 关键类型</h3>
+  <pre><code>type KnownApi =
+  | "openai-completions" | "mistral-conversations" | "openai-responses"
+  | "azure-openai-responses" | "openai-codex-responses" | "anthropic-messages"
+  | "bedrock-converse-stream" | "google-generative-ai" | "google-vertex" | "pi-messages";
+
+type Message = UserMessage | AssistantMessage | ToolResultMessage;
+type StopReason = "pending" | "stop" | "length" | "toolUse" | "error" | "aborted" | "deferred";
+type ThinkingLevel = "off" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max";</code></pre>
+
+  <ul>
+    <li><code>AssistantMessage.content</code>：<code>(TextContent | ThinkingContent | ToolCall)[]</code>，带 <code>usage</code>、<code>stopReason</code>、<code>deferred?</code>、<code>diagnostics?</code>。</li>
+    <li><code>DeferredHandle</code>：异步/延迟响应的轮询句柄（provider、id、expiresAt、pollAfterMs）。</li>
+  </ul>
+
+  <h3>9.2 Models API</h3>
+  <pre><code>import { createModels, streamSimple } from "@earendil-works/pi-ai";
+import { anthropicProvider } from "@earendil-works/pi-ai/providers/anthropic";
+
+const models = createModels();
+models.setProvider(anthropicProvider());
+const model = models.getModel("anthropic", "claude-sonnet-4-6");
+const stream = models.streamSimple(model, context, options); // AssistantMessageEventStream</code></pre>
+
+  <ul>
+    <li>Providers 目录约 <strong>48 个文件 / 35+ 品牌</strong>（anthropic、openai、google、deepseek、moonshotai、minimax、groq、mistral、xai、github-copilot、amazon-bedrock、nvidia、cerebras、fireworks、huggingface、baseten、cloudflare、azure、openrouter…含 -cn 变体）。</li>
+    <li><code>OpenAICompletionsCompat</code>：30+ 兼容开关（thinkingFormat 含 "zai"/"qwen"/"deepseek" 等，maxTokensField、cacheControlFormat…）——接自建网关时用。</li>
+  </ul>
+
+  <!-- ============ 10 ============ -->
+  <h2 id="s10">10. 配置与资源体系</h2>
+  <div class="tbl-wrap">
+  <table class="t2a">
+    <thead>
+      <tr><th>路径</th><th>作用</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>~/.pi/agent/</code></td><td>全局：<code>settings.json</code>、<code>auth.json</code>（API key/OAuth）、<code>models.json</code>（自定义模型目录）、<code>extensions/</code>、<code>skills/</code>、<code>themes/</code>、<code>templates/</code></td></tr>
+      <tr><td>项目 <code>.pi/</code></td><td>项目级扩展/技能/主题</td></tr>
+      <tr><td><code>AGENTS.md</code></td><td>项目根系统提示词补充（透明注入，可用 <code>SYSTEM.md</code> 整体替换系统提示词）</td></tr>
+      <tr><td><code>SKILL.md</code></td><td>技能定义（渐进式披露，正文按需读取）</td></tr>
+      <tr><td>会话文件</td><td>JSONL 树状结构（DAG），支持 fork/navigate；目录 <code>getDefaultSessionDir()</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>五种定制杠杆：<strong>Extensions</strong>（热重载，Agent 可改自己的能力）、<strong>Skills</strong>、<strong>Prompt Templates</strong>、<strong>Themes</strong>、<strong>Pi Packages</strong>（npm/git 分发）。</p>
+  <p>四种运行模式：<code>tui</code>（交互）/ <code>rpc</code> / <code>json</code> / <code>print</code>。</p>
+  <p>CLI 常用：<code>pi</code>（交互）、<code>pi -p "prompt"</code>（print）、<code>pi --model provider/id</code>、<code>pi resume</code>、<code>pi --mode rpc</code>。</p>
+
+  <!-- ============ 11 ============ -->
+  <h2 id="s11">11. 常见坑</h2>
+  <ol>
+    <li><code>message_end</code> <strong>一轮触发多次</strong> → 整轮收尾用 <code>agent_settled</code>（session 层）。</li>
+    <li><strong>管道 A 收不到 <code>tool_call</code>/<code>context</code> 等决策点事件</strong> → 那些是 <code>pi.on</code>（管道 B）独占。</li>
+    <li><code>session.subscribe</code> <strong>的 async listener 错误被吞</strong> → 必须自己 try-catch。</li>
+    <li><code>sessionManager</code> <strong>只读</strong> → 写入走 <code>pi.sendMessage()</code> / <code>pi.appendEntry()</code>，或命令上下文。</li>
+    <li><strong>并行批次的 <code>tool_execution_end</code> 顺序 ≠ 消息顺序</strong> → 结束事件按完成序，toolResult 消息按 assistant 源顺序。</li>
+    <li><strong>扩展在 <code>tool_call</code> 崩溃 = fail-closed</strong> → 工具直接被拦（宁可拦错不可放过）。</li>
+    <li><strong>教程（v0.80.x）的 <code>AgencyEvent</code>、30 个 <code>pi.on</code> 重载、7 个工具</strong> → 本地 0.85.1 对应 <code>AgentEvent</code>、36 个、8 个（+powershell）。</li>
+  </ol>
+
+  <!-- ============ 12 ============ -->
+  <h2 id="s12">12. 源码文件索引</h2>
+  <div class="tbl-wrap">
+  <table class="t2c">
+    <thead>
+      <tr><th>主题</th><th>文件（相对 <code>packages/</code>）</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>AgentEvent / AgentTool / AgentLoopConfig</td><td><code>agent/src/types.ts</code></td></tr>
+      <tr><td>Agent 类</td><td><code>agent/src/agent.ts</code></td></tr>
+      <tr><td>Agent Loop 实现</td><td><code>agent/src/agent-loop.ts</code></td></tr>
+      <tr><td>HarnessEvent / HookMap / AgentHarness</td><td><code>agent/src/harness/agent-harness.ts</code></td></tr>
+      <tr><td>Harness 事件总线</td><td><code>agent/src/harness/events.ts</code></td></tr>
+      <tr><td>Harness 运行时（drive/lane/reducer）</td><td><code>agent/src/harness/runtime/</code></td></tr>
+      <tr><td>内置工具（harness 版）</td><td><code>agent/src/harness/tools/</code></td></tr>
+      <tr><td>pi-ai 流协议事件 / Api / Message</td><td><code>ai/src/types.ts</code></td></tr>
+      <tr><td>Providers</td><td><code>ai/src/providers/</code></td></tr>
+      <tr><td>AgentSessionEvent / AgentSession 类</td><td><code>coding-agent/src/core/agent-session.ts</code></td></tr>
+      <tr><td>SDK 入口 createAgentSession</td><td><code>coding-agent/src/core/sdk.ts</code></td></tr>
+      <tr><td>ExtensionAPI（pi.on 36 重载 / ctx）</td><td><code>coding-agent/src/core/extensions/types.ts</code></td></tr>
+      <tr><td>扩展加载/运行</td><td><code>coding-agent/src/core/extensions/loader.ts</code>、<code>runner.ts</code></td></tr>
+      <tr><td>内置工具（8 个，产品版）</td><td><code>coding-agent/src/core/tools/index.ts</code></td></tr>
+      <tr><td>会话管理（树/fork）</td><td><code>coding-agent/src/core/session-manager.ts</code></td></tr>
+      <tr><td>设置</td><td><code>coding-agent/src/core/settings-manager.ts</code></td></tr>
+    </tbody>
+  </table>
+  </div>
+
+</main>
+</div>
+
+<script>
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar nav a'));
+  var targets = links.map(function (a) { return document.querySelector(a.getAttribute('href')); });
+  function onScroll() {
+    var y = window.scrollY + 80, idx = 0;
+    for (var i = 0; i < targets.length; i++) {
+      if (targets[i] && targets[i].offsetTop <= y) idx = i;
+    }
+    links.forEach(function (a, i) { a.classList.toggle('active', i === idx); });
+  }
+  window.addEventListener('scroll', onScroll, { passive: true });
+  window.addEventListener('resize', onScroll);
+  onScroll();
+})();
+</script>
+</body>
+</html>
