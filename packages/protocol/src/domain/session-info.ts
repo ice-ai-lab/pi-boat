@@ -68,17 +68,13 @@ export const SessionInfoSchema = z.object({
 });
 export type SessionInfo = z.infer<typeof SessionInfoSchema>;
 
-/** 会话树节点（对齐 SDK SessionTreeNode + PiBoat 压缩/分支预览扩展） */
+/** 会话树节点（对齐 SDK SessionTreeNode） */
 export const SessionTreeNodeSchema: z.ZodType<SessionTreeNode> = z.lazy(() =>
   z.object({
     entry: SessionEntrySchema,
     children: z.array(SessionTreeNodeSchema),
     label: z.string().optional(),
     labelTimestamp: z.string().optional(),
-    /** PiBoat 扩展：已被压缩吞并的条目 id（UI 高亮"此段已压缩"） */
-    compressedEntryIds: z.array(z.string()).optional(),
-    /** PiBoat 扩展：未走分支的预览文本 */
-    branchPreview: z.string().optional(),
   }),
 );
 export interface SessionTreeNode {
@@ -86,8 +82,6 @@ export interface SessionTreeNode {
   children: SessionTreeNode[];
   label?: string;
   labelTimestamp?: string;
-  compressedEntryIds?: string[];
-  branchPreview?: string;
 }
 
 /**
