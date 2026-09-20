@@ -155,10 +155,8 @@ export class AgentSessionService {
   ): Promise<CommandData<T>> {
     const entry = this.requireEntry(sessionId);
     const run = this.commandTails.get(sessionId) ?? Promise.resolve();
-    const task = run.then(
-      () => this.dispatchCommand(entry, command),
-      () => this.dispatchCommand(entry, command),
-    );
+    // 队列尾恒为 fulfilled（入队时已 catch）：前一条命令失败不阻塞后续命令
+    const task = run.then(() => this.dispatchCommand(entry, command));
     this.commandTails.set(
       sessionId,
       task.catch(() => {

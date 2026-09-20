@@ -310,6 +310,21 @@ describe('AgentSessionService.send：命令分发', () => {
     await Promise.all([p1, p2]);
     expect(order).toEqual(['prompt-start', 'prompt-end', 'state(sess-1)']);
   });
+
+  it('命令串行化：前一条失败不阻塞后续命令（队列尾恒 fulfilled）', async () => {
+    const fake = fakeAgentSession({
+      prompt: vi.fn(async () => {
+        throw new Error('boom');
+      }),
+    });
+    const { service } = serviceWith(fake);
+    await service.create({ cwd: '/tmp', type: 'ensure_session' });
+
+    const failed = service.send('sess-1', { type: 'prompt', message: 'a' });
+    const next = service.send('sess-1', { type: 'get_state' });
+    await expect(failed).rejects.toThrow('boom');
+    await expect(next).resolves.toMatchObject({ sessionId: 'sess-1' });
+  });
 });
 
 describe('AgentSessionService.subscribe（late join 时序 ①②③）', () => {
