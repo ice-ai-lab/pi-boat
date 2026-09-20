@@ -439,7 +439,7 @@
   </table>
   </div>
 
-  <h3>表 5：<code>ClientAgentEvent</code> —— pi-boat protocol，SSE wire（25 种 = SDK 透传 23 + 服务层自加 2）</h3>
+  <h3>表 5：<code>WireAgentEvent</code> —— pi-boat protocol，SSE wire（25 种 = SDK 透传 23 + 服务层自加 2）</h3>
   <div class="note">前后端唯一契约。<strong>所有事件统一携带 <code>seq</code></strong>：会话级单调递增序号，即 SSE <code>id:</code> 帧，断线重连按 Last-Event-ID 差量重放；快照带 <code>lastSeq</code>，客户端丢弃重复。SDK 事件语义同表 2/3，此处不赘述，重点列差异与服务层自加事件。</div>
   <div class="tbl-wrap">
   <table class="t4a">

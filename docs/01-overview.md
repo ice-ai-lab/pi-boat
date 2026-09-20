@@ -91,7 +91,7 @@ pi-boat/
 #### `packages/protocol`（零运行时依赖，纯类型 + Zod schema）
 
 - REST API 请求/响应类型（`/api/sessions`、`/api/agent/:id`、`/api/models`…）
-- **事件 wire 格式**：`ClientAgentEvent` —— 对 SDK 原生事件做投影/裁剪（补齐 toolcall 的 `id/toolName`、剔除 `turn_start/turn_end`、历史快照过滤）。这是前后端解耦的"防腐层"，SDK 事件字段变动被隔离在 core 内。
+- **事件 wire 格式**：`WireAgentEvent` —— 对 SDK 原生事件做投影/裁剪（补齐 toolcall 的 `id/toolName`、剔除 `turn_start/turn_end`、历史快照过滤）。这是前后端解耦的"防腐层"，SDK 事件字段变动被隔离在 core 内。
 - 会话/消息/工具调用的领域类型（含 §8.3 的 toolCall 字段归一化规则）
 - Zod schema 用于服务端入参校验与运行时兼容检查
 
@@ -272,11 +272,11 @@ interface SessionEntry {
    │────────────────────────────▶│ 立即建立 SSE 流 + 心跳        │
    │                             │ subscribe() ───────────────▶│
    │◀── snapshot(当前完整状态) ───│                             │
-   │◀── data: ClientAgentEvent ──│ onEvent 投影 ───────────────│ SDK 原生事件
+   │◀── data: WireAgentEvent ──│ onEvent 投影 ───────────────│ SDK 原生事件
    │   (text_delta / toolcall_* / message_end / …)             │
 ```
 
-- `toClientAgentEvent()` 投影函数放 **core**，wire 类型放 **protocol**；SDK 升级只改投影函数
+- `toWireAgentEvent()` 投影函数放 **core**，wire 类型放 **protocol**；SDK 升级只改投影函数
 - **任意时刻可接入（late join）**：Agent 流式输出中途连接 SSE 完全支持。时序保证：①建流 → ②先订阅事件总线 → ③再抓快照（当前完整状态，含进行中的半截消息/工具执行状态）+ `lastSeq` → ④后续增量续播。"②③之间"重叠窗口的少量事件用每会话单调递增 `seq` 去重（客户端丢弃 `seq ≤ lastSeq`）
 - 同一机制支撑三个场景：**新客户端中途接入**（新 Tab / Electron 窗口）/ **断线重连与刷新**（`Last-Event-ID` 携带 seq 重放差量）/ **关掉浏览器再打开**（Agent 在服务端继续运行，与是否有人观看无关；重开时从内存状态或 `.jsonl` 重建历史，任务仍在进行则继续直播）
 - 多端同时观看：core 事件总线多播，每个接入者独立拿快照 + 增量
@@ -290,7 +290,7 @@ interface SessionEntry {
 interface AgentService {
   create(input: NewSessionRequest): Promise<SessionSnapshot>;
   send(sessionId: string, cmd: AgentCommand): Promise<void>;   // prompt/steer/abort/setModel…
-  subscribe(sessionId: string, listener: (e: ClientAgentEvent) => void): () => void;
+  subscribe(sessionId: string, listener: (e: WireAgentEvent) => void): () => void;
   // …
 }
 ```
@@ -378,7 +378,7 @@ POST /api/sessions                      → SessionInfo[]
 POST /api/agent                         { cwd, message?, toolNames?, modelId? } → SessionSnapshot
 GET  /api/agent/:id/state               → SessionSnapshot
 POST /api/agent/:id                     AgentCommand → void        // 命令通道
-GET  /api/agent/:id/events              SSE: ClientAgentEvent      // 事件通道
+GET  /api/agent/:id/events              SSE: WireAgentEvent      // 事件通道
 GET  /api/sessions/:id/context?leafId=  → 指定叶子上下文（树内分支）
 GET  /api/sessions/:id/export           → HTML 导出
 POST /api/auth/api-key/:provider | /api/auth/login/:provider | GET /api/auth/providers
@@ -392,7 +392,7 @@ type AgentCommand =
   | { type: "setModel"; modelId } | { type: "setThinkingLevel"; level }
   | { type: "navigateTree"; targetId; options? } | { type: "fork" };
 
-type ClientAgentEvent =
+type WireAgentEvent =
   | { type: "message_start" | "message_end" }
   | { type: "message_update"; assistantMessageEvent: … }   // text_delta / thinking_delta / toolcall_*
   | { type: "tool_execution_start" | "tool_execution_update" | "tool_execution_end"; … }

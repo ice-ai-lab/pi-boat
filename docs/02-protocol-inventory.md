@@ -28,7 +28,7 @@
 ### 1.3 铁律（源自 AGENTS.md / 概要设计，本文档所有条目受其约束）
 
 1. 纯类型 + Zod schema，**零业务逻辑、零运行时依赖**（zod 除外）
-2. wire 类型（`ClientAgentEvent`）只在 protocol 定义；SDK 事件→wire 的投影函数 `toClientAgentEvent()` 在 **core**（SDK 字段变动不许泄漏出 core）
+2. wire 类型（`WireAgentEvent`）只在 protocol 定义；SDK 事件→wire 的投影函数 `toWireAgentEvent()` 在 **core**（SDK 字段变动不许泄漏出 core）
 3. toolCall 双字段归一化 `normalizeToolCalls()` 收敛在 **protocol**（文件加载与流式两条路径共用）
 4. 每个领域类型同时给 TS type 与 Zod schema（服务端入参校验 + 将来 zod-openapi 导出移动端客户端，见概要设计 §5.5）
 5. REST 路由形状一旦定稿即是对前端的承诺，变更需 bump `PROTOCOL_VERSION`
@@ -131,9 +131,9 @@
 
 ## 5. ④ Agent 事件通道（events，SSE wire）
 
-### 5.1 wire 类型 `ClientAgentEvent`
+### 5.1 wire 类型 `WireAgentEvent`
 
-**投影规则**（`toClientAgentEvent()` 归 core，此处将其固化为 schema 约束）：
+**投影规则**（`toWireAgentEvent()` 归 core，此处将其固化为 schema 约束）：
 
 - `toolcall_start / toolcall_delta` 补齐 `id / toolName`（从 `partial.content[contentIndex]` 提取，双字段容错）
 - 剥离 `partial`（完整消息只经快照/历史下发）
@@ -325,7 +325,7 @@ packages/protocol/src/
 ├── commands/           # ③命令通道
 │   └── agent-command.ts    # AgentCommand 联合 + NewSessionRequest/Response + 各命令返回类型
 ├── events/             # ④事件通道
-│   ├── client-agent-event.ts  # ClientAgentEvent + seq 语义
+│   ├── wire-agent-event.ts  # WireAgentEvent + seq 语义
 │   └── terminal-event.ts      # TerminalEvent
 └── rest/               # ⑤⑥REST 资源（按域一文件：类型 + 路径常量 + Zod）
     ├── sessions.ts         # 列表/详情/分页/惰性加载/搜索/导出/auto-name
@@ -339,7 +339,7 @@ packages/protocol/src/
 ```
 
 > 落地状态：M1 的 protocol 侧已定稿（2026-01）——domain/ 七文件全量、commands M1 子集、
-> events/client-agent-event（终端 TerminalEvent 已按 2026-01 决策移除）、rest/misc + rest/sessions；
+> events/wire-agent-event（终端 TerminalEvent 已按 2026-01 决策移除）、rest/misc + rest/sessions；
 > M2/M3 条目按里程碑追加。
 
 ## 11. 里程碑切片（从本清单取子集）

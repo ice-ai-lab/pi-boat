@@ -1,9 +1,9 @@
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
-import type { ClientAgentEvent, JsonAssistantMessageEvent, ToolResultMessage } from '@ice-ai/protocol';
+import type { WireAgentEvent, JsonAssistantMessageEvent, ToolResultMessage } from '@ice-ai/protocol';
 import { toWireAgentMessage } from './wire-message';
 
 /**
- * SDK AgentSessionEvent → wire ClientAgentEvent 投影（docs/02 §5.1）。
+ * SDK AgentSessionEvent → WireAgentEvent 投影（docs/02 §5.1）。
  *
  * 为什么需要：SDK 事件是进程内内存对象——partial 是累积快照（尺寸随流增长）、
  * 数组带 readonly、toolcall 增量缺 id/toolName——既不可序列化上线，也不在
@@ -16,8 +16,8 @@ import { toWireAgentMessage } from './wire-message';
  * 3. message_update 附带 usage（SDK 流式消息的累积用量，尺寸恒定）
  * turn_* 及其余结构一致的事件原样透传（与 SDK 对齐，2026-09-20 定案）
  *
- * 提供：toClientAgentEventPayload（单事件转载荷，防御性丢弃返回 null）、
- * toClientAgentEvent（载荷 + 附 seq）。
+ * 提供：toWireAgentEventPayload（单事件转载荷，防御性丢弃返回 null）、
+ * toWireAgentEvent（载荷 + 附 seq）。
  * seq 由调用方（SessionRegistryEntry）附上；本函数不维护计数。
  */
 
@@ -25,17 +25,17 @@ import { toWireAgentMessage } from './wire-message';
 type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K> : never;
 
 /**
- * ClientAgentEvent 的载荷部分（不含 seq）。
+ * WireAgentEvent 的载荷部分（不含 seq）。
  * seq 由 SessionRegistryEntry 统一分配——入参不携带该字段，调用侧无法伪造序号；
- * 载荷工厂（toClientAgentEventPayload）与服务层事件入口（emitServiceEvent）共用此形态。
+ * 载荷工厂（toWireAgentEventPayload）与服务层事件入口（emitServiceEvent）共用此形态。
  */
-export type ClientAgentEventPayload = DistributiveOmit<ClientAgentEvent, 'seq'>;
+export type WireAgentEventPayload = DistributiveOmit<WireAgentEvent, 'seq'>;
 
 /**
  * assistantMessageEvent 子事件投影：剥离 partial + 补齐 toolcall 双字段。
  * partial 是累积快照（尺寸随流增长），wire 上永不携带。
  */
-function projectAssistantMessageEvent(
+function toJsonAssistantMessageEvent(
   event: Extract<AgentSessionEvent, { type: 'message_update' }>['assistantMessageEvent'],
 ): JsonAssistantMessageEvent {
   // toolcall_start / toolcall_delta：从累积 partial 里提取 id / toolName
@@ -61,7 +61,7 @@ function projectAssistantMessageEvent(
 }
 
 /** 单个 SDK 事件投影（不含 seq）。防御性丢弃（非 assistant 的 message_update）返回 null。 */
-export function toClientAgentEventPayload(event: AgentSessionEvent): ClientAgentEventPayload | null {
+export function toWireAgentEventPayload(event: AgentSessionEvent): WireAgentEventPayload | null {
   switch (event.type) {
     case 'turn_start':
       return { type: 'turn_start' };
@@ -78,7 +78,7 @@ export function toClientAgentEventPayload(event: AgentSessionEvent): ClientAgent
       return {
         type: 'message_update',
         usage: event.message.usage,
-        assistantMessageEvent: projectAssistantMessageEvent(event.assistantMessageEvent),
+        assistantMessageEvent: toJsonAssistantMessageEvent(event.assistantMessageEvent),
       };
     }
     case 'message_start':
@@ -104,7 +104,7 @@ export function toClientAgentEventPayload(event: AgentSessionEvent): ClientAgent
         : { type: 'session_info_changed', name: event.name };
     default:
       // 其余事件字段结构与 wire 一致，透传（TS 结构化检查兜底 SDK 变动）
-      return { ...event } as ClientAgentEventPayload;
+      return { ...event } as WireAgentEventPayload;
   }
 }
 
@@ -112,8 +112,8 @@ export function toClientAgentEventPayload(event: AgentSessionEvent): ClientAgent
  * SDK 事件 + seq → wire 事件。seq 由会话级单调计数器分配（SessionRegistryEntry），
  * 客户端以其做 Last-Event-ID 差量重放与快照去重（docs/01 §5.4）。
  */
-export function toClientAgentEvent(event: AgentSessionEvent, seq: number): ClientAgentEvent | null {
-  const payload = toClientAgentEventPayload(event);
+export function toWireAgentEvent(event: AgentSessionEvent, seq: number): WireAgentEvent | null {
+  const payload = toWireAgentEventPayload(event);
   if (payload === null) return null;
-  return { ...payload, seq } as ClientAgentEvent;
+  return { ...payload, seq } as WireAgentEvent;
 }

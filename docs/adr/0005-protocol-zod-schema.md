@@ -20,7 +20,7 @@ M1 协议层成型后出现一次针对 zod 必要性的质疑，依据是一个
 
 但 schema 已承担三类手写 type 无法表达的东西：
 
-1. **大规模判别联合**：`ClientAgentEventSchema` 29 变体、`SessionEntrySchema` 9 变体、`AgentMessageSchema` 5 角色、`JsonAssistantMessageEventSchema` 12 种子事件（`packages/protocol/src/events/client-agent-event.ts`、`src/domain/session-entry.ts`、`src/domain/message.ts`）
+1. **大规模判别联合**：`WireAgentEventSchema` 29 变体、`SessionEntrySchema` 9 变体、`AgentMessageSchema` 5 角色、`JsonAssistantMessageEventSchema` 12 种子事件（`packages/protocol/src/events/wire-agent-event.ts`、`src/domain/session-entry.ts`、`src/domain/message.ts`）
 2. **递归结构**：`SessionTreeNodeSchema` 以 `z.lazy` 表达自引用（`packages/protocol/src/domain/session-info.ts:72`）
 3. **跨字段约束**：`provider` / `modelId` 必须同时出现或同时缺省（`packages/protocol/src/commands/agent-command.ts:148` 的 `.refine`）
 
@@ -42,7 +42,7 @@ M1 协议层成型后出现一次针对 zod 必要性的质疑，依据是一个
 |---|---|---|
 | REST 入参（`/api/*` body / query / params） | 随 M1 路由落地 | schema 校验通过后才进 core；新路由须同时提交入参 schema（并入 AGENTS.md 的「新增路由检查清单」） |
 | 会话文件解析（core 读 `.jsonl`） | M1 | 逐行 `FileEntrySchema` 校验，坏行跳过并计数上报，不整体失败——该文件可被旧版本写入或手工编辑，是最需要运行时校验的入口 |
-| SSE wire（client 逐帧消费） | M1 | `ClientAgentEventSchema.safeParse` 逐帧校验；失败帧记录后丢弃（不 crash），作为 SDK 事件漂移的运行时探针（与 `PROTOCOL_VERSION` 的非运行时定位不冲突，见 `src/constants.ts:6`） |
+| SSE wire（client 逐帧消费） | M1 | `WireAgentEventSchema.safeParse` 逐帧校验；失败帧记录后丢弃（不 crash），作为 SDK 事件漂移的运行时探针（与 `PROTOCOL_VERSION` 的非运行时定位不冲突，见 `src/constants.ts:6`） |
 
 ## 理由
 

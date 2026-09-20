@@ -4,7 +4,7 @@ import type {
   CreateAgentSessionOptions,
   CreateAgentSessionResult,
 } from '@earendil-works/pi-coding-agent';
-import type { ClientAgentEvent } from '@ice-ai/protocol';
+import type { WireAgentEvent } from '@ice-ai/protocol';
 import { describe, expect, it, vi } from 'vitest';
 import {
   AgentSessionService,
@@ -173,7 +173,7 @@ describe('AgentSessionService.send：命令分发', () => {
   it('prompt：派发并带 preflight 回调；settle 依据 = SDK agent_settled（2026-09-20 定案）', async () => {
     const { service, fake } = serviceWith(fakeAgentSession());
     await service.create({ cwd: '/tmp', type: 'ensure_session' });
-    const events: ClientAgentEvent[] = [];
+    const events: WireAgentEvent[] = [];
     service.subscribe('sess-1', (e) => events.push(e));
 
     await service.send('sess-1', { type: 'prompt', message: 'hi' });
@@ -325,7 +325,7 @@ describe('AgentSessionService.subscribe（late join 时序 ①②③）', () => 
       assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: '半' } as never,
     });
 
-    const events: ClientAgentEvent[] = [];
+    const events: WireAgentEvent[] = [];
     service.subscribe('sess-1', (e) => events.push(e));
     expect(events.map((e) => `${e.type}:${e.seq}`)).toEqual(['connected:2', 'message_start:3']);
     expect(events[0]).toMatchObject({ sessionId: 'sess-1', isStreaming: true });
@@ -335,7 +335,7 @@ describe('AgentSessionService.subscribe（late join 时序 ①②③）', () => 
   it('无流内消息时只发 connected', async () => {
     const { service } = serviceWith(fakeAgentSession());
     await service.create({ cwd: '/tmp', type: 'ensure_session' });
-    const events: ClientAgentEvent[] = [];
+    const events: WireAgentEvent[] = [];
     service.subscribe('sess-1', (e) => events.push(e));
     expect(events.map((e) => e.type)).toEqual(['connected']);
   });
@@ -353,7 +353,7 @@ describe('AgentSessionService 轻查与销毁', () => {
     const { service } = serviceWith(fakeAgentSession());
     await service.create({ cwd: '/tmp', type: 'ensure_session' });
     const v0 = service.sessionListVersion;
-    const events: ClientAgentEvent[] = [];
+    const events: WireAgentEvent[] = [];
     service.subscribe('sess-1', (e) => events.push(e));
 
     service.disposeSession('sess-1', 'idle');
