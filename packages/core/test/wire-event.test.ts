@@ -1,7 +1,7 @@
 import type { AgentSession, AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import { WireAgentEventSchema } from '@ice-ai/protocol';
 import { describe, expect, it } from 'vitest';
-import { toWireAgentEvent } from '../src/events/to-wire-agent-event';
+import { toWireAgentEvent } from '../src/events/wire-event';
 
 /**
  * 事件投影测试 + 快照回归基线（AGENTS.md：SDK 相关改动须跑事件快照回归）。
