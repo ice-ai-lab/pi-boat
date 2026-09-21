@@ -35,11 +35,18 @@ export const bashOutputPath = (id: string) => `/api/agent/${id}/bash-output` as 
 // §6.1 会话列表
 // ---------------------------------------------------------------------------
 
-/** GET /api/sessions?force=1（磁盘扫描与运行时注册表合并） */
+/**
+ * GET /api/sessions?force=1（磁盘扫描与运行时注册表合并）
+ *
+ * ⚠️ `registryVersion` 只反映**运行时注册表**的结构性变动（create/dispose）。
+ * 磁盘扫描侧的变动（其他进程写入会话、本 server 建的会话首条 assistant 消息落盘、
+ * 改名/fork）都不在此列——客户端不能只靠它决定要不要全量刷新列表；
+ * 跨进程/磁盘侧的变更通知待 M2 定（2026-09-21 改名定案）。
+ */
 export const SessionListResponseSchema = z.object({
   sessions: z.array(SessionInfoSchema),
-  /** 列表版本号：轻量轮询据此判断是否需要全量刷新 */
-  sessionListVersion: z.number(),
+  /** 运行时注册表版本号：每次 create/dispose +1 */
+  registryVersion: z.number(),
   runningSessionIds: z.array(z.string()),
   /** 已抑制完成通知的会话（避免轮询刷新期间重复弹通知） */
   completionNotificationSuppressedSessionIds: z.array(z.string()),
@@ -58,7 +65,8 @@ export type SessionSearchResponse = z.infer<typeof SessionSearchResponseSchema>;
 
 /** GET /api/agent/running —— 可见 Tab 池的轻量轮询 */
 export const RunningSessionsResponseSchema = z.object({
-  sessionListVersion: z.number(),
+  /** 同 SessionListResponse.registryVersion */
+  registryVersion: z.number(),
   runningSessionIds: z.array(z.string()),
   completionNotificationSuppressedSessionIds: z.array(z.string()),
 });

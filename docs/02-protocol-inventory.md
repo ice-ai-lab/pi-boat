@@ -173,10 +173,14 @@
 
 | 端点 | 形状 |
 |---|---|
-| `GET /api/sessions?force=1` | → `{ sessions: SessionInfo[], sessionListVersion, runningSessionIds[], completionNotificationSuppressedSessionIds[] }`（磁盘扫描与运行时注册表合并） |
-| `GET /api/agent/running` | 轻量轮询（可见 Tab 池）：`{ sessionListVersion, runningSessionIds, 通知抑制ids }` |
+| `GET /api/sessions?force=1` | → `{ sessions: SessionInfo[], registryVersion, runningSessionIds[], completionNotificationSuppressedSessionIds[] }`（磁盘扫描与运行时注册表合并） |
+| `GET /api/agent/running` | 轻量轮询（可见 Tab 池）：`{ registryVersion, runningSessionIds, 通知抑制ids }` |
 | `GET /api/agent/:id` | **单会话状态轻查**：`{running: false}` 或 `{running: true, state: AgentState}`（未运行不报错；客户端在 `agent_end` 后靠它同步模型/上下文/队列状态）。⚠️ 走 `getRunningState()` 直读注册表、**不进命令 FIFO**；`get_state` **命令**则与运行中的 prompt 串行，run 期间发它会排队到 run 结束——轮询实时状态必须走这个路由 |
 | `GET /api/sessions/search?q` | → 搜索结果（q ≤ 200 字符） |
+
+> ⚠️ `registryVersion` **只反映运行时注册表的结构性变动**（`create` / `disposeSession`，core 的 `#registryVersion`）。列表本身是「磁盘扫描 ∪ 注册表」合并出来的，但以下磁盘侧变化**不会**改变它：其他进程写入会话（终端 pi / 第二个 server 实例）、本 server 建的会话首条 assistant 消息落盘（空会话在首次落盘前不写文件，见 §3.3 `transient`）、改名 / fork。
+>
+> 所以它回答的是「**本进程的注册表变了吗**」，不是「列表内容变了吗」。客户端不能只靠它决定要不要全量刷新；跨进程与磁盘侧变更的通知机制待 M2 定（2026-09-21 由 `sessionListVersion` 改名定案）。
 
 ### 6.2 会话详情与生命周期
 

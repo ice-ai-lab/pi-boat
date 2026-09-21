@@ -7,7 +7,7 @@
  * 进程内直连留路，docs/01 §3.1）。
  *
  * 相对 SDK 新增的能力：
- * - 多会话注册表与生命周期（create/dispose/listVersion 轻量轮询）
+ * - 多会话注册表与生命周期（create/dispose/registryVersion 轻量轮询）
  * - SDK 事件/消息 → wire JSON 投影（防腐层：SDK 字段变动不出 core）
  * - 会话级单调 seq + late join 快照时序（断线重连与多端观看，docs/01 §5.4）
  * - 统一命令通道（AgentCommand 判别联合分发 + 同会话 FIFO 串行 + 类型化错误）
