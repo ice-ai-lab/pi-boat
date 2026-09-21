@@ -5,7 +5,6 @@
 
 export * from './extension-ui';
 export * from './message';
-export * from './normalize';
 export * from './session-entry';
 export * from './session-info';
 export * from './state';

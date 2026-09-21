@@ -348,7 +348,7 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 |---|---|---|
 | 1 | **fork 是破坏性原地变异**：`fork()` 后 wrapper 内 `sessionId` 已变，旧注册表若不销毁会读到脏状态，后续 fork 产生损坏的 parentSession 链 | core 的 `fork()` 捕获新 id 后**立即销毁旧 SessionEntry** 再重建 |
 | 2 | **Runtime 替换后事件订阅失效**：new/fork/switch 后 `runtime.session` 已换，旧 subscribe 指向死对象 | core 统一在 SessionEntry 层做"委托订阅"，对上层屏蔽替换；替换后重绑 extensions |
-| 3 | **toolCall 双字段体系**：文件存储 `{id,name,arguments}` vs SDK 类型 `{toolCallId,toolName,input}` | `normalizeToolCalls()` 收敛到 protocol，文件加载与流式两条路径共用 |
+| 3 | **toolCall 双字段体系**：文件存储 `{id,name,arguments}` vs SDK 类型 `{toolCallId,toolName,input}` | 文件存储本就是前者无需归一化；流式增量的双字段在 core 投影层补齐（`toWireAgentEvent`；normalizeToolCalls 已删——零调用点，2026-09-21） |
 | 4 | **parentSession 只是展示元数据**，pi 自身迁移会整文件重写 | sidebar 树构建只把它当元数据；级联改父时允许整文件重写 |
 | 5 | **SDK 事件格式随版本漂移**（0.84 曾改 message_update 投影） | wire 投影层（§5.4）+ protocol schema 版本号；SDK 升级跑事件快照回归测试 |
 | 6 | **node-pty 等原生模块**跨平台安装/打包（Electron 需重编） | 原生模块只进 server/core；Electron 打包用 utilityProcess 跑独立 server 进程，避免在渲染进程 ABI 重编 |
