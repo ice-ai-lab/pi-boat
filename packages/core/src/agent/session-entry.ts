@@ -22,8 +22,8 @@ import type { SdkAgentMessage } from '../events/wire-message';
  *   （调用生命周期）；只认事件会让不起 run 的扩展命令永久卡 true（2026-09-21）
  * - 流内状态跟踪：queue 快照（get_state 用）、进行中的流式消息（late join 快照用）
  *
- * 提供：subscribe / emitServiceEvent（服务层事件入流）、prompt 生命周期
- * （markPromptDispatched / clearPromptPending / waitForSettle）、快照 getters
+ * 提供：subscribe / emitEvent（服务层事件入流）、prompt 生命周期
+ * （markPromptDispatched / clearPromptPending）、快照 getters
  * （lastSeq / isStreaming / queuedMessages / isPromptRunning / inFlightMessage）、
  * dispose（广播 shutdown → 解绑订阅 → 释放 SDK 会话）。
  */
@@ -53,7 +53,6 @@ export class SessionRegistryEntry {
    * 不起 run 也不发 agent_settled，只认事件会让本标记永久为 true。
    */
   private promptPending = false;
-  private settleWaiters: Array<() => void> = [];
 
   constructor(session: AgentSession) {
     this.session = session;
@@ -112,9 +111,6 @@ export class SessionRegistryEntry {
       // steer/follow_up 的销账依据（它们入队即返回，没有可等的 prompt() 调用）；
       // prompt 命令的主销账在 AgentSessionService，此处是幂等兜底
       this.promptPending = false;
-      const waiters = this.settleWaiters;
-      this.settleWaiters = [];
-      for (const w of waiters) w();
     }
 
     const wire = this.payloadWithSeq(event);
@@ -130,7 +126,7 @@ export class SessionRegistryEntry {
   }
 
   /** 服务层事件（connected / session_shutdown）走同一 seq 计数器与分发通道 */
-  emitServiceEvent(event: WireAgentEventPayload): WireAgentEvent {
+  emitEvent(event: WireAgentEventPayload): WireAgentEvent {
     this.assertLive();
     const wire = { ...event, seq: this.nextSeq() } as WireAgentEvent;
     this.dispatch(wire);
@@ -155,25 +151,6 @@ export class SessionRegistryEntry {
    */
   clearPromptPending(): void {
     this.promptPending = false;
-  }
-
-  /** 等待下一次 agent_settled（demo/测试用途） */
-  waitForSettle(timeoutMs?: number): Promise<void> {
-    if (!this.promptPending && !this.session.isStreaming) return Promise.resolve();
-    return new Promise<void>((resolve) => {
-      const done = () => {
-        if (timer !== undefined) clearTimeout(timer);
-        resolve();
-      };
-      const timer =
-        timeoutMs === undefined
-          ? undefined
-          : setTimeout(() => {
-              this.settleWaiters = this.settleWaiters.filter((w) => w !== done);
-              resolve();
-            }, timeoutMs);
-      this.settleWaiters.push(done);
-    });
   }
 
   // ------------------------------------------------------------------

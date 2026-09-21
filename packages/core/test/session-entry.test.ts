@@ -119,14 +119,14 @@ describe('SessionRegistryEntry', () => {
     expect(seen).toEqual([]);
   });
 
-  it('emitServiceEvent 与 SDK 事件共用 seq 计数器', () => {
+  it('emitEvent 与 SDK 事件共用 seq 计数器', () => {
     const { session, emit } = fakeSession();
     const entry = new SessionRegistryEntry(session);
     const seen: WireAgentEvent[] = [];
     entry.subscribe((e) => seen.push(e));
 
     emit({ type: 'agent_start' }); // seq 1
-    entry.emitServiceEvent({ type: 'connected', sessionId: 's1', isStreaming: false }); // seq 2
+    entry.emitEvent({ type: 'connected', sessionId: 's1', isStreaming: false }); // seq 2
     emit({ type: 'agent_settled' }); // seq 3
 
     expect(seen.map((e) => e.seq)).toEqual([1, 2, 3]);
