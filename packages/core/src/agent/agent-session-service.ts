@@ -183,15 +183,15 @@ export class AgentSessionService {
               accepted = ok;
             },
           });
-        } catch (error) {
+          if (!accepted) throw new PromptRejectedError();
+          return null; // 完成信号走事件流：agent_settled；此处只销账 isPromptRunning
+        } finally {
+          // 无条件销账：SDK 的 prompt() 有三条提前 return 路径（扩展命令 / input
+          // handler hit / streaming 入队）不进 _runAgentPrompt，永远不发 agent_settled；
+          // 而正常路径的 prompt() 在 _runAgentPrompt 的 finally 之后才 resolve
+          // （agent-session.js:776/784/949），所以此处只会晚不会早。
           entry.clearPromptPending();
-          throw error;
         }
-        if (!accepted) {
-          entry.clearPromptPending();
-          throw new PromptRejectedError();
-        }
-        return null; // 完成信号走事件流：agent_settled
       }
       case 'steer':
       case 'follow_up': {

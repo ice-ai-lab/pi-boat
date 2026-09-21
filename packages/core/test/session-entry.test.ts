@@ -94,7 +94,7 @@ describe('SessionRegistryEntry', () => {
     expect(entry.inFlightMessage).toBeNull();
   });
 
-  it('prompt 生命周期：isPromptRunning 随派发与 settled 翻转（settle 依据 = agent_settled）', () => {
+  it('prompt 生命周期：agent_settled 销账（steer/follow_up 的销账依据，prompt 命令的幂等兜底）', () => {
     const { session, emit } = fakeSession();
     const entry = new SessionRegistryEntry(session);
     const seen: WireAgentEvent[] = [];
