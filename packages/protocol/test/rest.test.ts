@@ -23,7 +23,7 @@ describe('rest/sessions', () => {
   it('parses the session list envelope', () => {
     const body = {
       sessions: [sessionInfo],
-      sessionListVersion: 3,
+      registryVersion: 3,
       runningSessionIds: ['s1'],
       completionNotificationSuppressedSessionIds: [],
     };
