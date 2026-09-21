@@ -334,6 +334,14 @@ export class AgentSessionService {
     });
     const inFlight = entry.inFlightMessage;
     if (inFlight !== null) {
+      // 服务端**合成**的 message_start（不是 SDK 事件转发），补 late join 丢掉的头部：
+      // 真实那次 message_start 发生在订阅之前，而 wire 上的 message_update 只有
+      // 增量（累积 message 已剔、partial 已剥），没有 open 的 message_start 客户端
+      // 就接不上后续 delta，只能等到 *=end 才拿到全量。
+      // 载荷 inFlightMessage = SDK message_update.message 的累积快照，所以这里
+      // message **非空**（SDK 真实那次是空壳）——客户端应整体替换，不能假设为空。
+      // 走 emitServiceEvent 是为了复用同一 seq 计数器（序号在 connected 之后单调）。
+      // 注意：工具执行不重放（isStreaming 为 true 而 inFlight 为 null 是正常态）。
       entry.emitServiceEvent({ type: 'message_start', message: toWireAgentMessage(inFlight) });
     }
     return unsubscribe;
