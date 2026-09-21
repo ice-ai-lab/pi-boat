@@ -87,6 +87,7 @@
 | 类型 | 要点 |
 |---|---|
 | `AgentState`（`get_state` 返回） | `sessionId/sessionFile/isStreaming/isPromptRunning/isBashRunning/isCompacting/autoCompactionEnabled/autoRetryEnabled/model/messageCount/pendingMessageCount/queuedMessages{steering,followUp}/contextUsage/systemPrompt/thinkingLevel/extensionStatuses/extensionWidgets` |
+| `isPromptRunning` 语义 | **服务端尚有 prompt/steer/follow_up 调用未销账**（不是「agent run 未结束」）。为什么不能只认 `agent_settled`：SDK `prompt()` 有三条提前 return 路径不进 `_runAgentPrompt`——扩展命令（`/tui` 这类只执行 handler 的）、input handler 返回 `handled` 的、streaming 入队的——它们永**不发** `agent_settled`（`agent-session.js:828/844/864` vs `_emitAgentSettled` 只在 `:784`）。它是事件流盲区（handler 执行期、预检期 `isStreaming=false` 但有事在跑）的唯一判据，客户端用 `isStreaming \|\| isPromptRunning` 判定「还没完」（2026-09-21 修订） |
 | `SessionStatsInfo` | userMessages/assistantMessages/toolCalls/toolResults/tokens/cost/contextUsage/totalActiveMs/**sessionName**（rpc 层附加） |
 | `ToolInfo` | `name/description/parameters/promptGuidelines/sourceInfo` + `active`（get_tools 时叠加） |
 | `SlashCommandInfo` | `name/description/source("prompt"|"skill"|"extension")/sourceInfo`（斜杠命令面板） |
@@ -174,7 +175,7 @@
 |---|---|
 | `GET /api/sessions?force=1` | → `{ sessions: SessionInfo[], sessionListVersion, runningSessionIds[], completionNotificationSuppressedSessionIds[] }`（磁盘扫描与运行时注册表合并） |
 | `GET /api/agent/running` | 轻量轮询（可见 Tab 池）：`{ sessionListVersion, runningSessionIds, 通知抑制ids }` |
-| `GET /api/agent/:id` | **单会话状态轻查**：`{running: false}` 或 `{running: true, state: AgentState}`（未运行不报错；客户端在 `agent_end` 后靠它同步模型/上下文/队列状态） |
+| `GET /api/agent/:id` | **单会话状态轻查**：`{running: false}` 或 `{running: true, state: AgentState}`（未运行不报错；客户端在 `agent_end` 后靠它同步模型/上下文/队列状态）。⚠️ 走 `getRunningState()` 直读注册表、**不进命令 FIFO**；`get_state` **命令**则与运行中的 prompt 串行，run 期间发它会排队到 run 结束——轮询实时状态必须走这个路由 |
 | `GET /api/sessions/search?q` | → 搜索结果（q ≤ 200 字符） |
 
 ### 6.2 会话详情与生命周期
