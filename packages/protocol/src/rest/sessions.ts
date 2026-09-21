@@ -134,9 +134,13 @@ export type SessionAutoNameResponse = z.infer<typeof SessionAutoNameResponseSche
 /**
  * GET /api/sessions/:id/context 查询参数：
  * - leafId：从该叶向根回溯（缺省 = 当前 leaf）
- * - before：客户端已有最老条目 id（excludeLeaf 向上翻页）
- * - tail：窗口大小（默认 50，上限 1000）
+ * - before：客户端已有最老条目 id（excludeLeaf 向上翻页；不在会话中/即根 → 空页）
+ * - tail：窗口大小（默认 50，上限 1000；只计 user/assistant/压缩分隔条，toolResult 不吃预算）
  * - deferMedia：工具结果图片以占位符下发
+ *
+ * 行为保证：历史分页不做压缩过滤——压缩前条目照常可翻（compaction 投影为
+ * compactionSummary 分隔条，不是翻页终点）；LLM 上下文投影（SDK
+ * buildContextEntries）是另一回事，不用于本接口。
  */
 export const SessionContextQuerySchema = z.object({
   leafId: z.string().optional(),

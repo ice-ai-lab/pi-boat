@@ -197,7 +197,7 @@
 
 | 端点 | 形状 |
 |---|---|
-| `GET /api/sessions/:id/context?leafId&before&tail≤1000&deferMedia` | → `SessionContext`；`before` = 客户端已有最老条目（excludeLeaf 向上翻页）；`deferMedia` = 工具结果图片以占位符下发（deferThinking 已删，历史 thinking 全文直发，2026-09-20） |
+| `GET /api/sessions/:id/context?leafId&before&tail≤1000&deferMedia` | → `SessionContext`；`before` = 客户端已有最老条目（excludeLeaf 向上翻页，不在会话中/即根 → 空页）；`tail` 只计 user/assistant/压缩分隔条；`deferMedia` = 工具结果图片以占位符下发（deferThinking 已删，历史 thinking 全文直发，2026-09-20）。**分页不做压缩过滤**：压缩前条目照常可翻，compaction 投影为 compactionSummary 分隔条而非翻页终点（2026-09-21） |
 | `GET /api/sessions/:id/entries/:entryId/thinking?blockIndex` | → `{thinking}`（全量推理文本） |
 | `GET /api/sessions/:id/entries/:entryId/tool-result-image?blockIndex` | → 二进制图片 |
 | `GET /api/agent/:id/bash-output?path&download=1` | → bash 超长输出临时文件（内联有大小上限；download 流式） |
