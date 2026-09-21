@@ -28,7 +28,8 @@ import { type WireAgentEventListener, SessionRegistryEntry } from './session-ent
  * 没有多会话管理与统一命令分发——直接暴露给 server 会让传输层耦合 SDK 内部结构。
  *
  * 相对 SDK 新增：
- * - 多会话注册表：按 sessionId 寻址、创建/销毁、listVersion 供列表轻量轮询
+ * - 多会话注册表：按 sessionId 寻址、创建/销毁、registryVersion 供列表轻量轮询
+ *   （只含注册表变动；磁盘侧变更不在内，见 protocol rest/sessions.ts 注释）
  * - 统一命令通道：AgentCommand 判别联合分发（protocol 契约即方法面）；
  *   同会话命令 FIFO 串行、跨会话并行，错误不传染队列链；
  *   失败走类型化异常（SessionNotFoundError / PromptRejectedError）
@@ -79,12 +80,15 @@ export class AgentSessionService {
   private entries = new Map<string, SessionRegistryEntry>();
   /** 每会话命令串行队列尾（FIFO 链） */
   private commandTails = new Map<string, Promise<unknown>>();
+  /**
+   * 运行时注册表版本号：每次结构性变动（create/disposeSession）+1。
+   * ⚠️ 只含注册表变动；磁盘扫描侧的变化（其他进程写入会话、会话首条 assistant 消息
+   * 落盘、改名/fork）不在此列，客户端不能只靠它决定要不要全量刷新列表
+   * （详见 protocol rest/sessions.ts 的 SessionListResponseSchema 注释）。
+   */
+  #registryVersion = 0;
 
-  constructor(
-    private readonly createSession: CreateSessionFn = createAgentSession,
-    /** list 版本号：注册表每次结构性变动 +1（会话列表轻量轮询用） */
-    private listVersion = 0,
-  ) {}
+  constructor(private readonly createSession: CreateSessionFn = createAgentSession) {}
 
   // ------------------------------------------------------------------
   // 新建会话（POST /api/agent/new，docs/02 §4.1）
@@ -122,7 +126,7 @@ export class AgentSessionService {
 
     const entry = new SessionRegistryEntry(session);
     this.entries.set(entry.sessionId, entry);
-    this.listVersion += 1;
+    this.#registryVersion += 1;
 
     // ensure_session：只建 runtime 不发首条消息（供客户端预查命令/工具）
     if (!ensureOnly && message !== undefined) {
@@ -366,8 +370,8 @@ export class AgentSessionService {
     return [...this.entries.keys()];
   }
 
-  get sessionListVersion(): number {
-    return this.listVersion;
+  get registryVersion(): number {
+    return this.#registryVersion;
   }
 
   /** 关闭单个会话（idle 回收 / server 关停时调用；M1 仅显式调用） */
@@ -379,7 +383,7 @@ export class AgentSessionService {
     if (entry === undefined) return;
     this.entries.delete(sessionId);
     this.commandTails.delete(sessionId);
-    this.listVersion += 1;
+    this.#registryVersion += 1;
     entry.dispose(reason);
   }
 

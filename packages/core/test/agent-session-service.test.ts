@@ -413,14 +413,14 @@ describe('AgentSessionService 轻查与销毁', () => {
   it('disposeSession：广播 shutdown、出注册表、版本号 +1', async () => {
     const { service } = serviceWith(fakeAgentSession());
     await service.create({ cwd: '/tmp', type: 'ensure_session' });
-    const v0 = service.sessionListVersion;
+    const v0 = service.registryVersion;
     const events: WireAgentEvent[] = [];
     service.subscribe('sess-1', (e) => events.push(e));
 
     service.disposeSession('sess-1', 'idle');
     expect(events.map((e) => e.type)).toEqual(['connected', 'session_shutdown']);
     expect(service.isRunning('sess-1')).toBe(false);
-    expect(service.sessionListVersion).toBe(v0 + 1);
+    expect(service.registryVersion).toBe(v0 + 1);
     await expect(service.send('sess-1', { type: 'abort' })).rejects.toBeInstanceOf(
       SessionNotFoundError,
     );
