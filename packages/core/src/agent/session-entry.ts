@@ -17,7 +17,9 @@ import type { SdkAgentMessage } from '../events/wire-message';
  *   （Last-Event-ID 差量重放与快照去重的依据，docs/01 §5.4）
  * - 服务层自加事件：connected / session_shutdown
  *   （docs/02 §5.1，SDK 事件流中不存在；prompt_done/prompt_error 已删，
- *   settle 依据 = SDK agent_settled，同步失败经 REST 信封回发送方，2026-09-20）
+ *   同步失败经 REST 信封回发送方，2026-09-20）
+ * - isPromptRunning 双来源销账：`agent_settled`（模型跑完）+ `prompt()` 返回
+ *   （调用生命周期）；只认事件会让不起 run 的扩展命令永久卡 true（2026-09-21）
  * - 流内状态跟踪：queue 快照（get_state 用）、进行中的流式消息（late join 快照用）
  *
  * 提供：subscribe / emitServiceEvent（服务层事件入流）、prompt 生命周期
@@ -45,7 +47,11 @@ export class SessionRegistryEntry {
   };
   /** 进行中的流式 assistant 消息（message_update 累积 partial；message_end 清空） */
   private streamingMessage: SdkAgentMessage | null = null;
-  /** prompt 已派发、尚未 settle（get_state.isPromptRunning 数据源） */
+  /**
+   * 服务端有 prompt/steer/follow_up 调用尚未销账（get_state.isPromptRunning 数据源）。
+   * 语义是「调用生命周期」而非「agent run 生命周期」：扩展命令只跑 handler、
+   * 不起 run 也不发 agent_settled，只认事件会让本标记永久为 true。
+   */
   private promptPending = false;
   private settleWaiters: Array<() => void> = [];
 
@@ -103,6 +109,8 @@ export class SessionRegistryEntry {
     } else if (event.type === 'message_end') {
       this.streamingMessage = null;
     } else if (event.type === 'agent_settled') {
+      // steer/follow_up 的销账依据（它们入队即返回，没有可等的 prompt() 调用）；
+      // prompt 命令的主销账在 AgentSessionService，此处是幂等兜底
       this.promptPending = false;
       const waiters = this.settleWaiters;
       this.settleWaiters = [];
@@ -139,9 +147,10 @@ export class SessionRegistryEntry {
   }
 
   /**
-   * 清除挂起的 prompt 标记（与 markPromptDispatched 配对的回滚）。
-   * 用于同步失败（派发即抛 / preflight 拒绝）：此时 SDK 不会开跑，
-   * 永远等不到 agent_settled 销账，不手动清除 isPromptRunning 将永久为 true。
+   * 清除挂起的 prompt 标记（与 markPromptDispatched 配对的销账）。
+   * `prompt` 命令在 `await session.prompt()` 返回时**无条件**调用它：正常收尾、
+   * 同步失败（派发即抛 / preflight 拒绝）、以及不起 agent run 的扩展命令都要走。
+   * 后两者永远等不到 agent_settled，只靠事件销账 isPromptRunning 将永久为 true。
    * 错误本身经 REST 信封回给发送方，本方法不发任何事件。
    */
   clearPromptPending(): void {

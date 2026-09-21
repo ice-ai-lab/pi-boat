@@ -180,6 +180,45 @@ describe('AgentSessionService.send：命令分发', () => {
     expect(fake.session.prompt).toHaveBeenCalledOnce();
     fake.emit({ type: 'agent_settled' });
     expect(events.map((e) => e.type)).toContain('agent_settled');
+    expect(service.getRunningState('sess-1')).toMatchObject({
+      state: { isPromptRunning: false },
+    });
+  });
+
+  it('prompt：不起 agent run 的扩展命令也必须销账 isPromptRunning（事件流盲区）', async () => {
+    // 模拟 SDK 的扩展命令路径（agent-session.js:828）：执行 handler 后
+    // preflightResult(true) 直接 return，不进 _runAgentPrompt → 不发 agent_settled
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    const fake = fakeAgentSession({
+      prompt: vi.fn(async (_t: string, options?: { preflightResult?: (ok: boolean) => void }) => {
+        await gate;
+        options?.preflightResult?.(true);
+      }),
+    });
+    const { service } = serviceWith(fake);
+    await service.create({ cwd: '/tmp', type: 'ensure_session' });
+    const events: WireAgentEvent[] = [];
+    service.subscribe('sess-1', (e) => events.push(e));
+
+    const sent = service.send('sess-1', { type: 'prompt', message: '/tui' });
+    await new Promise((r) => setTimeout(r, 10));
+    // handler 执行期：既无 agent 事件、isStreaming 也为 false，
+    // isPromptRunning 是客户端唯一能看出"还在跑"的判据
+    expect(service.getRunningState('sess-1')).toMatchObject({
+      running: true,
+      state: { isStreaming: false, isPromptRunning: true },
+    });
+
+    release();
+    await sent;
+    expect(service.getRunningState('sess-1')).toMatchObject({
+      running: true,
+      state: { isPromptRunning: false },
+    });
+    expect(events.map((e) => e.type)).not.toContain('agent_settled');
   });
 
   it('prompt 被拒（preflight false）：抛 PromptRejectedError（错误经 REST 信封回发送方）', async () => {
@@ -194,6 +233,9 @@ describe('AgentSessionService.send：命令分发', () => {
     await expect(
       service.send('sess-1', { type: 'prompt', message: '/blocked' }),
     ).rejects.toBeInstanceOf(PromptRejectedError);
+    expect(service.getRunningState('sess-1')).toMatchObject({
+      state: { isPromptRunning: false },
+    });
   });
 
   it('clear_queue 返回可变数组映射', async () => {
@@ -324,6 +366,10 @@ describe('AgentSessionService.send：命令分发', () => {
     const next = service.send('sess-1', { type: 'get_state' });
     await expect(failed).rejects.toThrow('boom');
     await expect(next).resolves.toMatchObject({ sessionId: 'sess-1' });
+    // 派发即抛也走销账，不留永久 true
+    expect(service.getRunningState('sess-1')).toMatchObject({
+      state: { isPromptRunning: false },
+    });
   });
 });
 
