@@ -215,12 +215,17 @@ export const WireAgentEventSchema = z.discriminatedUnion('type', [
     delta: z.string(),
   }),
   // —— 服务层自加（SDK 没有，server 必须自行定义）——
-  /** SSE 建流成功；随后立即下发快照 message_start（进行中的半截消息）再续增量 */
+  /**
+   * SSE 建流成功；随后立即下发快照 message_start（进行中的半截消息）再续增量。
+   * lastSeq 为快照水位线：本连接的快照反映截至该 seq 的状态，客户端丢弃
+   * seq ≤ lastSeq 的事件（与 get_state 双通道对账，docs/01 §5.4）。
+   */
   z.object({
     type: z.literal('connected'),
     seq: z.number(),
     sessionId: z.string(),
     isStreaming: z.boolean(),
+    lastSeq: z.number(),
   }),
   z.object({
     type: z.literal('session_shutdown'),

@@ -9,7 +9,7 @@ const seq = 7;
 
 describe('events/wire-agent-event', () => {
   it('parses service-layer connected event', () => {
-    const event = { type: 'connected', seq, sessionId: 's1', isStreaming: false };
+    const event = { type: 'connected', seq, sessionId: 's1', isStreaming: false, lastSeq: seq - 1 };
     expect(WireAgentEventSchema.parse(event)).toEqual(event);
   });
 
@@ -163,7 +163,7 @@ describe('events/wire-agent-event', () => {
       session_info_changed: {},
       thinking_level_changed: { level: 'high' },
       bash_execution_update: { delta: 'out' },
-      connected: { sessionId: 's1', isStreaming: false },
+      connected: { sessionId: 's1', isStreaming: false, lastSeq: seq - 1 },
       session_shutdown: {},
       turn_start: {},
       turn_end: { message: assistantSample, toolResults: [] },

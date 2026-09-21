@@ -44,6 +44,12 @@ export const AgentStateSchema = z.object({
   messageCount: z.number(),
   pendingMessageCount: z.number(),
   queuedMessages: QueuedMessagesSchema,
+  /**
+   * 事件流水位线：本快照反映截至该 seq 的状态（与各字段同块同步读取，
+   * 单线程 + 同步 dispatch 保证「在快照里 ⇒ seq ≤ lastSeq」）；
+   * 客户端丢弃 SSE 流中 seq ≤ lastSeq 的事件（docs/01 §5.4 双通道对账）。
+   */
+  lastSeq: z.number(),
   contextUsage: ContextUsageSchema.nullable(),
   systemPrompt: z.string(),
   thinkingLevel: ThinkingLevelSchema,

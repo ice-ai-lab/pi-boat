@@ -126,7 +126,7 @@ describe('SessionRegistryEntry', () => {
     entry.subscribe((e) => seen.push(e));
 
     emit({ type: 'agent_start' }); // seq 1
-    entry.emitEvent({ type: 'connected', sessionId: 's1', isStreaming: false }); // seq 2
+    entry.emitEvent({ type: 'connected', sessionId: 's1', isStreaming: false, lastSeq: 1 }); // seq 2
     emit({ type: 'agent_settled' }); // seq 3
 
     expect(seen.map((e) => e.seq)).toEqual([1, 2, 3]);
