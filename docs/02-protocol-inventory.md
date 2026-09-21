@@ -29,9 +29,8 @@
 
 1. 纯类型 + Zod schema，**零业务逻辑、零运行时依赖**（zod 除外）
 2. wire 类型（`WireAgentEvent`）只在 protocol 定义；SDK 事件→wire 的投影函数 `toWireAgentEvent()` 在 **core**（SDK 字段变动不许泄漏出 core）
-3. toolCall 双字段归一化 `normalizeToolCalls()` 收敛在 **protocol**（文件加载与流式两条路径共用）
-4. 每个领域类型同时给 TS type 与 Zod schema（服务端入参校验 + 将来 zod-openapi 导出移动端客户端，见概要设计 §5.5）
-5. REST 路由形状一旦定稿即是对前端的承诺，变更需 bump `PROTOCOL_VERSION`
+3. 每个领域类型同时给 TS type 与 Zod schema（服务端入参校验 + 将来 zod-openapi 导出移动端客户端，见概要设计 §5.5）
+4. REST 路由形状一旦定稿即是对前端的承诺，变更需 bump `PROTOCOL_VERSION`
 
 ---
 
@@ -98,10 +97,6 @@
 - `ExtensionUiResponse`：`{id, value} | {id, confirmed} | {id, cancelled:true}`
 - `ExtensionStatusItem / ExtensionWidgetItem`
 - ⚠️ 最容易被漏掉的协议成员；扩展交互经命令通道（`extension_ui_response/input`）与事件通道（`extension_ui_request`）双向完成
-
-### 3.6 归一化函数（protocol 内唯一允许的"逻辑"）
-
-- `normalizeToolCalls()`：文件存储 `{id, name, arguments}` vs SDK `{toolCallId, toolName, input}` 双字段体系收敛（概要设计 §8-3；文件加载与流式两条路径共用）
 
 ---
 
@@ -326,7 +321,6 @@ packages/protocol/src/
 │   ├── state.ts            # AgentState / SessionStatsInfo / ContextUsage
 │   ├── tool.ts             # ToolInfo / SlashCommandInfo
 │   ├── extension-ui.ts     # Status/Widget 快照（AgentState 用；Request/Response 交互通道随 M2 再定）
-│   └── normalize.ts        # normalizeToolCalls()
 ├── commands/           # ③命令通道
 │   └── agent-command.ts    # AgentCommand 联合 + NewSessionRequest/Response + 各命令返回类型
 ├── events/             # ④事件通道

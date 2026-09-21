@@ -3,7 +3,6 @@ import {
   AgentMessageSchema,
   type AssistantMessage,
   AssistantMessageSchema,
-  normalizeToolCalls,
   type SessionEntry,
   SessionEntrySchema,
   SessionTreeNodeSchema,
@@ -122,32 +121,5 @@ describe('domain/session-info', () => {
       label: 'root branch',
     };
     expect(SessionTreeNodeSchema.parse(tree)).toEqual(tree);
-  });
-});
-
-describe('domain/normalize', () => {
-  it('normalizes file-shaped tool calls', () => {
-    expect(normalizeToolCalls([{ id: 'a', name: 'read', arguments: { path: '/x' } }])).toEqual([
-      { id: 'a', name: 'read', arguments: { path: '/x' } },
-    ]);
-  });
-
-  it('normalizes sdk streaming-shaped tool calls', () => {
-    expect(
-      normalizeToolCalls([{ toolCallId: 'b', toolName: 'bash', input: { command: 'ls' } }]),
-    ).toEqual([{ id: 'b', name: 'bash', arguments: { command: 'ls' } }]);
-  });
-
-  it('falls back to empty arguments and drops malformed items', () => {
-    expect(
-      normalizeToolCalls([
-        { id: 'c', toolName: 'grep' },
-        { name: 'no-id' },
-        { id: 'd', name: 'edit', arguments: 'not-an-object' },
-      ]),
-    ).toEqual([
-      { id: 'c', name: 'grep', arguments: {} },
-      { id: 'd', name: 'edit', arguments: {} },
-    ]);
   });
 });

@@ -38,7 +38,6 @@ export type ImageContent = z.infer<typeof ImageContentSchema>;
 
 /**
  * 工具调用内容块（文件存储形状 `{id, name, arguments}`，对齐 pi-ai ToolCall）。
- * 双字段归一化见 `normalizeToolCalls()`（domain/normalize.ts）。
  */
 export const ToolCallContentSchema = z.object({
   type: z.literal('toolCall'),
