@@ -13,7 +13,9 @@ import { toWireAgentMessage } from './wire-message';
  * 相对 SDK 新增：可序列化、契约化的 wire 事件形态。投影规则：
  * 1. toolcall_start / toolcall_delta 从 partial.content[contentIndex] 补齐 id / toolName
  * 2. 剥离 partial（完整消息只经快照/历史下发，流上只有增量）
- * 3. message_update 附带 usage（SDK 流式消息的累积用量，尺寸恒定）
+ * 3. message_update 整条丢弃累积 message（尺寸随流增长），仅提取 usage（尺寸恒定）
+ * 4. 携带 AgentMessage 的事件（turn_end / agent_end / message_start / message_end）
+ *    不丢字段，但消息逐条过 toWireAgentMessage（SDK→protocol 契约边界）
  * turn_* 及其余结构一致的事件原样透传（与 SDK 对齐，2026-09-20 定案）
  *
  * 提供：toWireAgentEventPayload（单事件转载荷，防御性丢弃返回 null）、
@@ -27,7 +29,7 @@ type DistributiveOmit<T, K extends PropertyKey> = T extends unknown ? Omit<T, K>
 /**
  * WireAgentEvent 的载荷部分（不含 seq）。
  * seq 由 SessionRegistryEntry 统一分配——入参不携带该字段，调用侧无法伪造序号；
- * 载荷工厂（toWireAgentEventPayload）与服务层事件入口（emitServiceEvent）共用此形态。
+ * 载荷工厂（toWireAgentEventPayload）与服务层事件入口（emitEvent）共用此形态。
  */
 export type WireAgentEventPayload = DistributiveOmit<WireAgentEvent, 'seq'>;
 
@@ -60,18 +62,31 @@ function toJsonAssistantMessageEvent(
   return event as JsonAssistantMessageEvent;
 }
 
-/** 单个 SDK 事件投影（不含 seq）。防御性丢弃（非 assistant 的 message_update）返回 null。 */
+/**
+ * 单个 SDK 事件投影（不含 seq）。防御性丢弃（非 assistant 的 message_update）返回 null。
+ * 各 case 的「丢了什么 / 为什么不能 spread 透传」就近注释；总原则：wire 上只发
+ * 增量与恒定尺寸数据，SDK 类型不经 toWireAgentMessage 收敛不得进入 wire 契约。
+ */
 export function toWireAgentEventPayload(event: AgentSessionEvent): WireAgentEventPayload | null {
   switch (event.type) {
     case 'turn_start':
       return { type: 'turn_start' };
     case 'turn_end':
+      // 无字段丢弃；message / toolResults 逐条过投影，理由同 agent_end
       return {
         type: 'turn_end',
         message: toWireAgentMessage(event.message),
         toolResults: event.toolResults.map(toWireAgentMessage) as ToolResultMessage[],
       };
     case 'message_update': {
+      // 丢弃项：event.message——累积到当前的整条 assistant 半成品消息。不透传它：
+      // (a) 尺寸随流线性增长，每条增量都会重复携带全部已生成内容，增量流变 O(n²) 流量；
+      // (b) 协议设计上完整消息只经 message_start/end、turn_end、agent_end 与
+      // late-join 快照下发，流上只有子事件增量（去 partial，见上方子事件投影）；
+      // 从 message 仅提取 usage——尺寸恒定，客户端可实时计量用量。这套取舍与
+      // SDK 自家 JSON 协议 toJsonEvent（modes/json-event）完全一致。
+      // 服务端要用这条累积消息时（streamingMessage 快照）由 Entry 在投影前取，不经 wire。
+      //
       // SDK 不变量：message_update 只发生于 assistant 流（toJsonEvent 同样断言）；
       // 违反时防御性丢弃而非崩溃
       if (event.message.role !== 'assistant') return null;
@@ -83,8 +98,16 @@ export function toWireAgentEventPayload(event: AgentSessionEvent): WireAgentEven
     }
     case 'message_start':
     case 'message_end':
+      // 无字段丢弃；单条 message 过投影（剥 readonly + SDK→protocol 类型边界）
       return { type: event.type, message: toWireAgentMessage(event.message) };
     case 'agent_end':
+      // 无字段丢弃：messages + willRetry 全保留。不能 {...event} 透传的原因在
+      // messages——元素是 SDK AgentMessage，须逐条过 toWireAgentMessage 收敛到
+      // protocol 契约类型，否则 SDK 消息字段变动会直接泄漏进 wire 契约
+      // （AGENTS.md：SDK 事件字段变动不许泄漏出 core）。
+      // willRetry 补充：底层 AgentEvent（pi-agent-core）的 agent_end 没有此字段，
+      // 由 AgentSession 发射时按 auto-retry 状态补上；wire 保留它供客户端
+      // 提示「即将自动重试」而非渲染成对话终止。
       return {
         type: 'agent_end',
         messages: event.messages.map(toWireAgentMessage),
@@ -103,7 +126,11 @@ export function toWireAgentEventPayload(event: AgentSessionEvent): WireAgentEven
         ? { type: 'session_info_changed' }
         : { type: 'session_info_changed', name: event.name };
     default:
-      // 其余事件字段结构与 wire 一致，透传（TS 结构化检查兜底 SDK 变动）
+      // 其余事件（agent_start / tool_execution_* / compaction_* / auto_retry_* /
+      // summarization_retry_* / entry_appended / thinking_level_changed /
+      // bash_execution_update 等）字段为基元、unknown 或已与 protocol 对齐的结构
+      // （entry_appended.entry），不含 AgentMessage 与 readonly 数组，故可结构透传
+      // （TS 结构化检查兜底 SDK 变动）
       return { ...event } as WireAgentEventPayload;
   }
 }
