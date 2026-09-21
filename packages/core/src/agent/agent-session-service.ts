@@ -331,7 +331,7 @@ export class AgentSessionService {
   subscribe(sessionId: string, listener: WireAgentEventListener): () => void {
     const entry = this.requireEntry(sessionId);
     const unsubscribe = entry.subscribe(listener);
-    entry.emitServiceEvent({
+    entry.emitEvent({
       type: 'connected',
       sessionId,
       isStreaming: entry.isStreaming,
@@ -344,9 +344,9 @@ export class AgentSessionService {
       // 就接不上后续 delta，只能等到 *=end 才拿到全量。
       // 载荷 inFlightMessage = SDK message_update.message 的累积快照，所以这里
       // message **非空**（SDK 真实那次是空壳）——客户端应整体替换，不能假设为空。
-      // 走 emitServiceEvent 是为了复用同一 seq 计数器（序号在 connected 之后单调）。
+      // 走 emitEvent 是为了复用同一 seq 计数器（序号在 connected 之后单调）。
       // 注意：工具执行不重放（isStreaming 为 true 而 inFlight 为 null 是正常态）。
-      entry.emitServiceEvent({ type: 'message_start', message: toWireAgentMessage(inFlight) });
+      entry.emitEvent({ type: 'message_start', message: toWireAgentMessage(inFlight) });
     }
     return unsubscribe;
   }
