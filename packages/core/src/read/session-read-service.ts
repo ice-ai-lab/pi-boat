@@ -1,5 +1,4 @@
 import {
-  buildContextEntries,
   buildSessionContext,
   type SessionInfo as SdkSessionInfo,
   type SessionEntry,
@@ -175,40 +174,33 @@ export class SessionReadService {
     leafId: string | null | undefined,
     query: Pick<SessionContextQuery, 'before' | 'tail'>,
   ): SessionContext {
+    // thinkingLevel/model 沿整条活跃分支取最新值（与页窗口无关）；借 SDK 投影防字段漂移
     const ctx = buildSessionContext(entries, leafId ?? undefined);
 
-    // 平行数组：每个参与上下文的条目展开为 0..n 条消息（compaction→summary 等）
-    // buildContextEntries 沿叶路径回溯并处理压缩/分支摘要语义（SDK 导出）
-    const contextEntries = buildContextEntries(entries, leafId ?? undefined);
-    const pairs: Array<{ entryId: string; message: AgentMessage }> = [];
-    for (const entry of contextEntries) {
+    // 分页走原始 parentId 父链（sliceBranchWindow）：历史浏览要「发生过什么」，
+    // 不是「模型看到什么」。SDK buildContextEntries 是 LLM 上下文投影，压缩点
+    // 之前会被整体折叠成摘要——before 游标落在压缩前条目时失配，向上翻页死路
+    // （对齐 pi-web sliceActiveBranch 的教训，2026-09-21）
+    const tail = Math.min(query.tail ?? DEFAULT_TAIL, MAX_TAIL);
+    const windowEntries = sliceBranchWindow(entries, leafId, query.before, tail);
+
+    // 平行数组：每个条目经 SDK 逐条投影展开为 0..1 条消息（compaction→分隔条等）
+    const messages: AgentMessage[] = [];
+    const entryIds: string[] = [];
+    for (const entry of windowEntries) {
       for (const raw of sessionEntryToContextMessages(entry)) {
-        pairs.push({ entryId: entry.id, message: toWireAgentMessage(raw) });
+        messages.push(toWireAgentMessage(raw));
+        entryIds.push(entry.id);
       }
     }
 
-    // before：客户端已有最老条目，取其之前的窗口（excludeLeaf 向上翻页）
-    let window = pairs;
-    if (query.before !== undefined) {
-      const idx = pairs.findIndex((p) => p.entryId === query.before);
-      if (idx > 0) window = pairs.slice(0, idx);
-    }
-    // hasMore 语义：返回窗口之外是否还有【更早】历史（仅前端截断贡献；
-    // before 切掉的是较新一侧，不产生“更早历史”）
-    const preTail = window.length;
-    const tail = Math.min(query.tail ?? DEFAULT_TAIL, MAX_TAIL);
-    if (window.length > tail) window = window.slice(window.length - tail);
-    const hasMore = window.length < preTail;
-
-    const messages = window.map((p) => p.message);
-
     return {
       messages,
-      entryIds: window.map((p) => p.entryId),
+      entryIds,
       thinkingLevel: (ctx.thinkingLevel || 'medium') as ThinkingLevel,
       model: ctx.model ? { provider: ctx.model.provider, modelId: ctx.model.modelId } : null,
-      oldestEntryId: window.length > 0 ? window[0]?.entryId : undefined,
-      hasMore,
+      oldestEntryId: windowEntries[0]?.id,
+      hasMore: windowEntries[0]?.parentId != null,
     };
   }
 }
@@ -216,6 +208,59 @@ export class SessionReadService {
 // ---------------------------------------------------------------------------
 // 纯函数工具
 // ---------------------------------------------------------------------------
+
+/**
+ * tail 预算只计入可见消息（user/assistant + compaction 分隔条）；toolResult 等
+ * 以附件形式渲染，不该吃预算——否则工具密集会话一页 50 条可能只剩 1 条用户消息。
+ */
+function countsTowardTail(entry: SessionEntry): boolean {
+  if (entry.type === 'compaction') return true;
+  return (
+    entry.type === 'message' &&
+    (entry.message.role === 'user' || entry.message.role === 'assistant')
+  );
+}
+
+/** 一页的原始条目下限：可见锚点稀疏的长工具流量段兜底，防单页 payload 失控 */
+const MIN_RAW_WINDOW_ENTRIES = 200;
+const rawWindowCap = (tail: number) => Math.max(MIN_RAW_WINDOW_ENTRIES, tail * 6);
+
+/**
+ * 沿原始 parentId 父链向上取一页历史（不做 compaction 过滤，压缩前条目照常可达）。
+ * - 无 before：从 leafId（缺省取末条）向上，凑满 tail 个可见条目为止
+ * - 有 before：从其父节点起（excludeLeaf，向上翻页 prepend 不重复）；
+ *   条目不在会话中（含 before 即根）→ 空页而非回退到最新窗口
+ * 迭代不递归：线性会话父链长度 = 条目数，递归遍历会爆栈。
+ */
+function sliceBranchWindow(
+  entries: SessionEntry[],
+  leafId: string | null | undefined,
+  before: string | undefined,
+  tail: number,
+): SessionEntry[] {
+  const byId = new Map<string, SessionEntry>(entries.map((entry) => [entry.id, entry]));
+  let start: SessionEntry | undefined;
+  if (before !== undefined) {
+    const anchor = byId.get(before);
+    start = anchor?.parentId != null ? byId.get(anchor.parentId) : undefined;
+  } else {
+    start = leafId ? byId.get(leafId) : entries[entries.length - 1];
+  }
+  if (start === undefined) return [];
+
+  const chain: SessionEntry[] = [];
+  const cap = rawWindowCap(tail);
+  let visible = 0;
+  let current: SessionEntry | undefined = start;
+  while (current !== undefined) {
+    chain.push(current);
+    if (countsTowardTail(current)) visible += 1;
+    if (visible >= tail || chain.length >= cap) break;
+    current = current.parentId != null ? byId.get(current.parentId) : undefined;
+  }
+  chain.reverse();
+  return chain;
+}
 
 function userMessageText(message: SdkAgentMessage): string {
   if (message.role !== 'user') return '';
