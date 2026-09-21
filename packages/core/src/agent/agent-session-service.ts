@@ -305,6 +305,9 @@ export class AgentSessionService {
       messageCount: session.messages.length,
       pendingMessageCount: session.pendingMessageCount,
       queuedMessages: entry.queuedMessages,
+      // 快照水位线：与上方各字段同块同步读取，客户端丢弃 SSE 流中
+      // seq ≤ lastSeq 的事件（docs/01 §5.4）
+      lastSeq: entry.lastSeq,
       contextUsage: cu
         ? {
             tokens: cu.tokens ?? null,
@@ -335,6 +338,10 @@ export class AgentSessionService {
       type: 'connected',
       sessionId,
       isStreaming: entry.isStreaming,
+      // 快照水位线：与下方 inFlightMessage 同块同步读取（本函数无 await，
+      // 单线程 + 同步 dispatch 保证「在快照里 ⇒ seq ≤ lastSeq」不变式）。
+      // 客户端据此丢弃与快照重复的事件
+      lastSeq: entry.lastSeq,
     });
     const inFlight = entry.inFlightMessage;
     if (inFlight !== null) {
