@@ -2,7 +2,7 @@
 
 - 日期：2026-09-22
 - 状态：已接受（Accepted）
-- 关联文档：`docs/01-overview.md` §5.6；`docs/02-protocol-inventory.md` §6.1 / §9；`docs/04-server-design.md` §3 / §9；`packages/server/README.md`
+- 关联文档：`docs/01-overview.md` §5.6；`docs/02-protocol-inventory.md` §6.1 / §9；`docs/04-server-design.md` §3 / §9
 - 关联决策：ADR-0007（本机鉴权无凭据，GET 不得有副作用）
 
 ## 背景

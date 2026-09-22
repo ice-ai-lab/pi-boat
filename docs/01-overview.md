@@ -119,15 +119,20 @@ pi-boat/
 
 #### `packages/client`
 
-- 框架无关的 typed fetch 封装（`AgentClient`：`sessions.list() / agent.send(id, cmd) / …`）
-- SSE 订阅封装：自动重连、事件分发
-- `client/react` 子导出：`useAgentSession` 等 React hooks（消息流、流式状态、fork/分支导航、和解逻辑）
+- **框架无关核心**（主入口不得 import React）：typed fetch 封装（端点 = protocol 路径常量 + Zod 解析）、
+  SSE 订阅与 seq 对账（`AgentStream`）、事件 → **视图模型**的折叠（`fold.ts` 实时 / `rebuild.ts` 历史）
+- `@ice-ai/client/react` 子导出：`useAgentSession` 等 hooks；TanStack Query 只在这一层（事件流不走 Query）
+- 详细设计见 `docs/05-client-design.md`——其中的**视图模型契约**是 ui 组件的消费依据
 
 #### `packages/ui`
 
-- 纯展示组件库：`ChatWindow / MessageView / ChatInput / SessionSidebar / FileExplorer / FileViewer / MarkdownBody / ModelsConfig / SkillsConfig / BranchNavigator …`
+- 纯展示组件库，三册目录：`primitives/`（基础件）、`chat/`（对话域）、`inspect/`（统计与检视）
+  ——组件清单、props 契约、token 映射见 `docs/06-ui-design.md` §4
 - 只依赖 `protocol` 类型与 `client` hooks，不依赖任何宿主框架（Next.js / Electron 等）→ Web 与桌面端直接复用
-- Tailwind 4 + 主题系统（CSS 变量，与 pi 主题 JSON 双向同步）
+- Tailwind 4 + token 单一来源 `ui/theme.css`（`:root` / `[data-theme="dark"]` 两套变量，经 `@theme inline`
+  暴露给 Tailwind；暗色不得写死在 `@theme` 里）
+- **视觉与交互基准 = `docs/design/piboat-web-v3.html`（原型 v3，2026-09-22 定稿）**：0.5px hairline /
+  superellipse 圆角 / `#4176E6` 业务蓝 / 毛玻璃浮层 / sticky 输入卡等签名细节必须保留（docs/06 §2）
 
 ### 3.2 拆包策略：先粗后细
 
@@ -144,13 +149,23 @@ pi-boat/
 | Agent 底层 | `@earendil-works/pi-coding-agent` 锁 `0.85.x` | SDK 主入口 + `./client`；升级走专门 ADR |
 | 服务框架 | **Hono**（Express/Fastify 同类的轻量 TS HTTP 框架，仅是工具选型，可替换） | TS-first、轻量、路由即类型（配合 `hc` 可自动生成 client 类型）、Node 适配好 |
 | 前端框架 | **Vite + React 19 SPA**（定案见 ADR-0002） | 纯本地 SPA：无 SSR/SEO/RSC 需求；静态产物由 server 托管，避免为弃用的框架能力付费 |
-| 样式 | Tailwind 4 | 原子化 CSS，组件库跨端复用友好 |
+| 样式 | Tailwind 4（token 单一来源 `ui/theme.css`，docs/06 §3） | 原子化 CSS，组件库跨端复用友好；CSS-first `@theme` 正好承接原型的双主题变量 |
+| 路由 | React Router v7（library 模式） | ADR-0002 留白的路由选型，在原型的 `/session/:id` 深链需求下定为库模式（纯 SPA 无 SSR/loader 需求） |
+| 服务端状态 | TanStack Query（仅 `client/react` 层） | REST 读的缓存/失效；`listFingerprint` 作为列表失效键（ADR-0008） |
+| 客户端状态 | Zustand（**M2 起**） | M1 单会话无全局 UI 状态，按需引入（不养期货） |
+| 组件与图标 | shadcn/ui（落位 `ui/primitives`）+ Lucide（ADR-0009） | 无障碍原语不手写；原型 sprite 的 31 个图标逐一换 Lucide（对账表 docs/06 §6） |
+| 前端 HTTP | **Axios 统一实例**；响应经 protocol 的 Zod 解析（ADR-0009） | 拦截器只管 baseURL + 错误信封归一（ADR-0007 删 token 后无凭据注入需求） |
+| 前端栈基准 | **ADR-0009 已收口（2026-09-22）** | 含 React Compiler、markdown（react-markdown + shiki）、**不引外部 skills**；唯一遗留：dev 接入方式（ADR-0009 文末） |
 | 实时通道 | **HTTP + SSE**（首期），WebSocket 预留 | 单向事件流足够；浏览器原生 EventSource、断线重连简单；protocol 不绑定传输 |
 | 终端 | node-pty（server 侧）+ xterm.js（ui 侧） | 事实标准组合 |
 | 代码质量 | **Biome 2**（lint + format 一体，ADR-0003）+ husky + lint-staged（待接入） | Rust 单工具替代 ESLint+Prettier；当前仅用非类型感知规则 |
 | TypeScript | **7.x 原生版**（Go 实现，ADR-0003） | tsc 亚秒级；lint 与 TS 版本解耦（Biome 自研解析器） |
 | 测试 | Vitest（core/protocol/client/ui）+ Playwright（web E2E） | |
 | 发布 | Changesets（如需发包）；桌面端 electron-builder | |
+
+> **原型登记**：`docs/design/piboat-web-v3.html` 是 v0.1 的视觉/交互基准（未走 ADR，属设计资产而非架构决策）。
+> 它定义了一层文档此前没有的东西——**事件上方的视图模型**（处理详情分组 / 折叠行 / 每轮 usage），
+> 该形状由 client 承载（docs/05 §6），不进 protocol。
 
 ---
 
@@ -174,7 +189,7 @@ pi-boat/
 | 开发 | 1 进程：`next dev` 兼任前后端 | 2 进程：`vite dev`（UI 热更新）+ agent server（会话常驻）；`turbo dev` 一条命令同时拉起 |
 | Electron | — | 主进程 + server 子进程（Electron 标准多进程形态） |
 
-开发模式下浏览器页面来自 `vite dev`（9528），API/SSE **直连** agent server（9527，dev 环境 CORS 白名单放行），不经代理转发，避免 SSE 被代理缓冲。
+开发模式下浏览器页面来自 `vite dev`（9528），`/api/*`（含 SSE）由 Vite dev server **代理**到 agent server（9527）——浏览器视角同源，与生产拓扑一致（ADR-0009，2026-09-22 定案）。CORS 白名单保留给直连场景（Electron / LAN / PWA）。
 
 **为何不采用内嵌式（即使它单进程）**：① Agent 会话生命周期与 `next dev` 绑死 —— Next 的模块图失效/热重载链路会波及承载 Agent 的路由模块，需要 `globalThis` hack 保活注册表，dev server 排障成本高；拆开后改 UI 代码不影响正在运行的 Agent 任务。② Electron 端将被迫内嵌整个 Next standalone 服务作为子进程（重、启动慢）；拉起精简 Hono server 子进程则很轻。③ node-pty 等原生模块在纯 Node 进程零特殊配置。
 
@@ -200,7 +215,7 @@ pi-boat/
 
 #### 5.2.2 web 与 agent server 如何交互
 
-**关键澄清：不存在 "web server → agent server" 的服务端调用链。** vite dev 只服务页面与 HMR，不代理任何 API；所有业务交互都发生在**浏览器（前端 JS）↔ agent server** 之间，统一走 `@ice-ai/client`（fetch + EventSource）。
+**关键澄清：不存在 "web server → agent server" 的服务端调用链。** vite dev 只是一层**纯转发的薄代理**（`/api/*` → 9527，不含业务逻辑），只有 dev 期的页面与 HMR 由它服务；所有业务交互都发生在**浏览器（前端 JS）↔ agent server** 之间，统一走 `@ice-ai/client`（axios + EventSource）。
 
 > 一句话心智模型：**agent server = 跑在本机的后端 HTTP 服务，Web / Electron = 它的两个客户端**（同 Ollama 本体与各 GUI 的关系）。浏览器始终通过 HTTP 与后端交互，区别只在接口由谁承载（全栈框架内嵌 vs 独立进程）。
 >
@@ -208,7 +223,7 @@ pi-boat/
 
 ```
 开发期（2 进程）：  浏览器 ──页面/HMR──▶ vite dev (9528)
-                    浏览器 ──API/SSE（CORS 白名单）──▶ agent server (9527)
+                    浏览器 ──/api/*（同源，含 SSE）──▶ vite dev ──转发──▶ agent server (9527)
 
 生产（1 进程）：    浏览器 ──页面+API+SSE（同源）──▶ agent server (127.0.0.1:port)
 
@@ -216,8 +231,16 @@ Electron：         renderer(=web UI) ──API/SSE──▶ agent server（子�
                     main ──spawn/健康检查/生命周期管理──▶ agent server
 ```
 
-- 开发期 CORS 白名单只放行 `http://localhost:9528`；防护靠 Host / Origin / Sec-Fetch-Site 三道闸，**无 token、无鉴权 bootstrap**（ADR-0007）——因此页面与 API 必须用同一主机名（都 `localhost` 或都 `127.0.0.1`），混用属 cross-site 会被拒。端口约定单一来源：`packages/protocol` 的 `PORTS`（`PORT` 环境变量可覆盖 server）
+- 开发期**走 Vite proxy**（ADR-0009）：浏览器只与 9528 同源通信，`AgentClient` 的 baseURL 是相对路径
+  `/api`，**前后端代码不因环境切换**，dev 与 prod 拓扑一致
+- 代理转发的请求**不带 Origin / Sec-Fetch-\***（由 Vite 的 Node 进程发出），因此 **②③ 闸在 dev 期不经浏览器路径**
+  ——它们防护的是直接打 9527 的来源（用户浏览器里的恶意网页、Electron / LAN / PWA 直连），
+  行为由 `packages/server/test/server.test.ts` 断言覆盖，不靠 dev 期人工触碰
+- **CORS 白名单保留**（`http://localhost:9528` / `http://127.0.0.1:9528`）供直连备选：该模式下
+  页面与 API **必须同一主机名**（`localhost` 与 `127.0.0.1` 混用属 cross-site，会被 ③ 拒）
+- 防护靠 Host / Origin / Sec-Fetch-Site 三道闸，**无 token、无鉴权 bootstrap**（ADR-0007）
 - 生产同源部署：页面由 agent server 托管，与 API 同源，无需凭据分发（ADR-0007）
+- 端口约定单一来源：`packages/protocol` 的 `PORTS`（`PORT` 环境变量可覆盖 server）
 
 #### 5.2.3 多会话并发与隔离
 
@@ -313,7 +336,7 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 | React Native 壳 | protocol + client；server 零改动 | ui 层（React DOM ≠ RN 组件） | ~40% |
 | 原生 App（Swift/Kotlin） | server + protocol 生成的 API 客户端 | 全部前端 | ~20%，但后端零改动 |
 
-为保持此路径畅通，现在只需三件低成本约定：① `packages/ui` 第一天遵守响应式约定（禁写死桌面假设，移动端以 useIsMobile/底部 drawer 模式预留适配位）；② protocol 保持 Zod schema → 将来用 zod-openapi 导出 OpenAPI 规范供原生客户端代码生成；③ LAN 开关 + 扫码配对在协议层预留。弱网断线重连（Last-Event-ID）已内建，web-push 完成通知已在 §6 范围内。
+为保持此路径畅通，现在只需三件低成本约定：① `packages/ui` 遵守「禁写死桌面假设」（不把三栏/固定宽度当硬前提）——但**响应式实现与移动端适配位在 M1 冻结**（2026-09-22 决策：M1 只保大屏、<880px 显示过窄提示，`useIsMobile`/drawer 随移动端路径一并排期；见 `docs/06` §9.1）；② protocol 保持 Zod schema → 将来用 zod-openapi 导出 OpenAPI 规范供原生客户端代码生成；③ LAN 开关 + 扫码配对在协议层预留。弱网断线重连（Last-Event-ID）已内建，web-push 完成通知已在 §6 范围内。
 
 ### 5.6 安全设计
 
@@ -328,6 +351,17 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 
 会话：列表/恢复/fork/树内分支/导出 HTML · 对话：流式输出、思考、工具调用展示、中断、steer/queue、压缩 · 输入：图片附件、prompt 模板、工具预设(只读/默认/全部/纯聊天) · 模型：models.json 可视化配置、provider 连通测试、OAuth/API Key 管理 · 上下文：文件浏览器、文件查看器(Tab)、git worktree、内置终端(xterm) · 资源：Skills 搜索/安装/开关、插件管理、子代理配置 · 体验：多 Tab、主题、快捷键、完成提示音、浏览器通知/web-push、i18n、PWA。
 
+**原型（v3）补充登记**（2026-09-22，交互形态已给出，组件已收录 docs/06 §4）：
+
+- 已在前述清单内、原型补了形态：会话搜索、工具预设分段控件、主题切换、工作区（项目）下拉
+- **新增项**：会话列表重命名/删除的 hover 操作 · 消息 minimap 快速导航 · 内容区宽度把手（可持久化） ·
+  footer 统计 pills（in / out / cache / tps / cost / 上下文环） · 会话统计与工具定义弹窗 · toast ·
+  输入卡模式菜单（默认/只读/全自动）
+- 里程碑落位：M1 只取对话域组件（docs/06 §4.1/§4.2）；统计弹窗、工具预设、会话列表操作属 M2；
+  minimap、内容宽度把手属 M2–M3（不影响 M1 验收）
+- ⚠️ 原型暴露五处**协议缺口**（性能统计字段缺失、“最近提交”字段、“工具预设”与“模式”语义重复、系统提示词版本号），
+  需先定取向再排期：`docs/02-protocol-inventory.md` §11.1
+
 二期（桌面端）：Electron 壳、托盘/全局快捷键、自动更新、原生文件对话框、多工作区窗口。
 
 ---
@@ -337,9 +371,9 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 | 里程碑 | 内容 | 验收标准 | 状态 |
 |---|---|---|---|
 | **M0 工程骨架**（~0.5 周） | pnpm+turbo、包脚手架、biome/tsconfig/husky、CI（lint+typecheck+test） | turbo build 全绿 | ✅ 完成（2026-09-18） |
-| **M1 对话 MVP**（~1.5 周） | core: create/prompt/subscribe/abort；server: REST+SSE+静态托管；web: 单会话聊天（流式+工具调用展示） | 浏览器完成一轮带工具调用的编程任务 | 进行中：protocol ✅ · core ✅（docs/03）· server ✅（docs/04，2026-09-22）· client/web 未开工 |
+| **M1 对话 MVP**（~1.5 周） | core: create/prompt/subscribe/abort；server: REST+SSE+静态托管；web: 单会话聊天（流式+工具调用展示） | 浏览器完成一轮带工具调用的编程任务 | 进行中：protocol ✅ · core ✅（docs/03）· server ✅（docs/04，2026-09-22）· web 原型 v3 定稿（docs/06，2026-09-22）· client/web 代码未开工 |
 | **M2 会话与模型**（~2 周） | 会话列表/恢复/fork/分支导航、模型配置、认证流程、工具预设 | 日常可替代 TUI 完成编码工作 | 未开工 |
-| **M3 完整体验**（~2 周） | 文件浏览/查看、终端、worktree、skills/插件、通知、多 Tab | 功能对齐 §6 一期清单 | 未开工 |
+| **M3 完整体验**（~2 周） | 文件浏览/查看、终端、worktree、skills/插件、通知、多 Tab、minimap 与内容宽度把手 | 功能对齐 §6 一期清单 | 未开工 |
 | **M4 桌面端**（~2 周） | Electron 壳 + 子进程 server + 打包分发 | macOS 安装包可用 | 未开工 |
 
 ---
@@ -368,8 +402,15 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 2. ~~Web 端实现与进程模型联动选择~~ **✅ 已决策（ADR-0002）**：选 A（独立 server + 纯前端，开发期 2 进程），且 Web 前端采用 Vite + React 19 SPA，不引入 Next.js（理由：纯本地 SPA 无 SSR/RSC 需求，静态产物由 server 托管）。详见 §5.1 与 `docs/adr/0002`
 3. 事件通道是否二期引入 WebSocket（多向交互如扩展 UI 面板实时渲染时再决策）
 4. 是否提供局域网访问开关（手机/平板临时连本机 Agent；默认关闭，仅在用户显式开启时绑定 0.0.0.0 并强制**用户可输入的口令**——随机 token 不适合手动输入，形态见 ADR-0007 备选方案；含 TLS/扫码配对评估）
-5. `packages/client` 是否用 Hono `hc` 自动生成 vs 手写类型（倾向 hc + protocol 手工收口）
+5. ~~`packages/client` 是否用 Hono `hc` 自动生成 vs 手写类型~~ **✅ 已决策（ADR-0009）**：**手写端点封装**——`hc` 只覆盖 REST 路由形状，而 client 主体是 SSE 消费与视图模型推导；且它会与 protocol（ADR-0006 的唯一契约）形成第二套类型来源
 6. 数据层是否引入 SQLite（当前全部复用 pi 的 `.jsonl` + `~/.pi/agent/` 体系，不引入新存储）
+7. **前端技术栈** ✅ **已决策（ADR-0009，2026-09-22）**：Tailwind v4、shadcn 落位 `packages/ui`、React Compiler、
+   Axios 统一实例（响应仍由 protocol Zod 解析）、TanStack Query 只管 REST（事件流走 client 自有 store）、
+   React Router v7 库模式；**外部前端规范不以 skills 引入**；**dev 接入走 Vite proxy**（§5.2.2）。
+8. **原型暴露的协议缺口**（已全部收口）：① 性能统计 ✅ **core 累加**（含“冷会话为 undefined”约束）；
+   ② 输入卡“模式”与“工具预设” ✅ **合并**（预设解析归 core，删掉 SDK 做不到的“全自动·免确认”）；
+   ③ 系统提示词 ✅ **展示**（无需协议改动，删掉无来源的“版本 r42”与 token 估算；参考 pi-web `SystemPromptPanel`）；
+   ④ “最近提交”已排入 M3 git 域。存量细节见 `docs/02-protocol-inventory.md` §11.1
 
 ---
 
@@ -404,4 +445,4 @@ type WireAgentEvent =
 
 ---
 
-*详细设计按包推进：《core 详细设计》见 `docs/03-core-design.md`（M1 已落地）、《server 详细设计》见 `docs/04-server-design.md`（M1 开工前评审稿）；client/ui 随开工追加 05/06。协议契约以 `docs/02-protocol-inventory.md` 为准（覆盖产品全量 API 面）。*
+*详细设计按包推进：《core 详细设计》见 `docs/03-core-design.md`（M1 已落地）、《server 详细设计》见 `docs/04-server-design.md`（M1 已落地）、《client 详细设计》见 `docs/05-client-design.md`、《ui 详细设计》见 `docs/06-ui-design.md`（后两篇为开工前设计稿，随 Web 原型 v3 定稿）；视觉/交互基准为 `docs/design/piboat-web-v3.html`。协议契约以 `docs/02-protocol-inventory.md` 为准（覆盖产品全量 API 面）。*

@@ -59,7 +59,7 @@ bash-output 端点已随 Shell 直连命令组移除（2026-09-22，docs/02 §4 
 | 正常返回 | 200 | `{success: true, data}`（CommandOk） |
 | `SessionNotFoundError` | 404 | `{error}`（CommandError） |
 | `PromptRejectedError` | 400 | `{error, code: 'prompt_rejected', accepted: false}` |
-| `UserInputError`（create 模型不可用 / rename 空白名等） | 400 | `{error}` |
+| `UserInputError`（create 模型不可用 / **cwd 不存在** / rename 空白名等） | 400 | `{error}`（无堆栈） |
 | 其余异常 | 500 | `{error: 'Internal server error'}`（堆栈只进服务端日志，不泄漏） |
 
 ### 4.2 请求校验
@@ -134,13 +134,16 @@ M3 实现：每个 SSE 连接持有会话 lease，观看中的空闲会话不被
     dev web 白名单 `http://localhost:9528` / `http://127.0.0.1:9528`
   - ③ **Sec-Fetch-Site**：值为 `cross-site` 一律 403——覆盖 `<img>`/`<script>`/表单导航等**无 Origin**
     的跨站子资源请求；`Sec-` 前缀是 forbidden header name，页面 JS 无法伪造；`same-site` 必须放行
-    （dev 期 `localhost:9528 → localhost:9527` 正是 same-site cross-origin，因此**页面与 API 须用同一主机名**）
+    （`localhost:9528 → localhost:9527` 是 same-site cross-origin，而 `localhost` ↔ `127.0.0.1` 互换是
+    cross-site——**直连模式下页面与 API 须用同一主机名**；dev 默认走 Vite proxy，见 §7）
 - **无凭据**（ADR-0007，2026-09-22）：token / SSE 一次性票据 / 鉴权 bootstrap 已全部删除。
   理由：token 相对 ①② 只多挡一格（无 Origin 的跨站请求，已由 ③ 覆盖），而票据层只为
   `EventSource` 无法带 header 而存在，且 dev 期跨源页面无从取得随机 token
 - **代价：GET 不得有副作用**——无 Origin 的跨站 GET 不再有凭据兜底；读的响应虽被 CORS 挡住，
   有副作用的 GET 会被直接利用。与下面清单第 ④ 条配套
-- **CORS**：dev 白名单 `http://localhost:9528`（`server.ts`）；生产同源无需 CORS
+- **CORS**：白名单 `http://localhost:9528` / `http://127.0.0.1:9528`（`server.ts` + `security.ts` 共享同一份
+  `DEV_WEB_ORIGINS`）；生产同源无需 CORS。**dev 默认走 Vite proxy（§7），浏览器路径不经三道闸**——白名单
+  保留给直连场景（Electron / LAN / PWA），闸门行为由 `test/server.test.ts` 断言覆盖
 - **LAN / 移动端接入**（docs/01 §9-4）另议：届时应引入**用户可输入的口令**（cookie 会话 / Basic，
   参见 ADR-0007 备选方案表），而非随机 token
 - 新增路由检查清单（AGENTS.md 强制）：①是否触碰文件系统 → allowed-roots？②错误响应是否泄漏
@@ -150,7 +153,10 @@ M3 实现：每个 SSE 连接持有会话 lease，观看中的空闲会话不被
 
 - 生产：`@hono/node-server` serveStatic 托管 `apps/web/dist`，SPA fallback 到
   `index.html`；单进程 = 页面 + API + SSE（同源，无凭据分发，ADR-0007）
-- dev：浏览器页面来自 vite 9528，API/SSE 直连 9527（不经代理，避免 SSE 缓冲）
+- dev：浏览器只与 vite 9528 同源通信，`/api/*`（含 SSE）由 Vite dev server **代理**到
+  `http://127.0.0.1:9527`（ADR-0009，2026-09-22 定案）——dev 与 prod 拓扑一致；代理转发的请求
+  不带 Origin / Sec-Fetch-*，故 ②③ 在 dev 期不经浏览器路径（它们防护直接打 9527 的来源，
+  行为已由单测覆盖）。CORS 白名单保留为直连备选。⚠️ 代理必须保持流式（勿开缓冲/压缩）。
 
 ## 8. 开工前置缺口清单（2026-09-22 server 落地后复盘）
 
@@ -178,8 +184,11 @@ M3 实现：每个 SSE 连接持有会话 lease，观看中的空闲会话不被
 6. ✅ **收尾**：优雅退出（SIGTERM 验收 session_shutdown 帧送达后进程干净退出）+
    `registryVersion` 轮询端点；静态托管代码就位（apps/web 待建，目录存在即挂载）
 
-验收线不变：浏览器完成一轮带工具调用的编程任务（docs/01 §7 M1，待 client/web）。
-**验收命令（curl 实测手册：安全层一键块 / 运行时域 / SSE 帧 / SIGTERM）见 `packages/server/README.md`。**
+验收线不变：浏览器完成一轮带工具调用的编程任务（docs/01 §7 M1）——前端设计已就位
+（`docs/05-client-design.md` 视图模型与事件折叠、`docs/06-ui-design.md` 组件与 token；视觉基准 `docs/design/piboat-web-v3.html`），
+待实现。
+**验收命令**：`packages/server/test/server.test.ts`（30 用例，安全层三闸 / 信封映射 / 浏览 / 项目 / SSE 均覆盖）；
+手工验证用 `curl -N` 对 SSE 端点即可（序列与时序见 §5.1）。
 代码地图：`src/server.ts`（DI 装配）、`src/security.ts`（三道闸，ADR-0007）、
 `src/sse.ts`（SSE 传输层与关停注册表）、`src/envelope.ts`（信封映射）、
 `src/routes/{agent,sessions,projects}.ts`（三域路由：agent 运行时 / 会话浏览 / 项目分组视图）、`src/main.ts`（启动与优雅退出）、
