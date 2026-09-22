@@ -13,3 +13,6 @@ coverage/
 .env*
 .DS_Store
 .idea/
+
+# 含绝对路径，仅限本地 AI 索引用，不入库
+docs/reference/codebase-map.md
