@@ -131,7 +131,6 @@ function render(event: WireAgentEvent): void {
     case 'entry_appended':
     case 'session_info_changed':
     case 'thinking_level_changed':
-    case 'bash_execution_update':
       break;
 
     default:

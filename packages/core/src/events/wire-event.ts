@@ -1,5 +1,9 @@
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
-import type { WireAgentEvent, JsonAssistantMessageEvent, ToolResultMessage } from '@ice-ai/protocol';
+import type {
+  JsonAssistantMessageEvent,
+  ToolResultMessage,
+  WireAgentEvent,
+} from '@ice-ai/protocol';
 import { toWireAgentMessage } from './wire-message';
 
 /**

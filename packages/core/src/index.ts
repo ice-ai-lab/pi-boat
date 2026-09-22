@@ -18,7 +18,8 @@
  *   - events/wire-message           SDK 消息 → wire 消息投影（readonly 剥离）
  *   - agent/SessionRegistryEntry    会话注册表单元：委托订阅 / seq / 快照跟踪
  *   - agent/AgentSessionService     命令分发 + 新建会话 + late-join 事件总线
- *   - read/SessionReadService       .jsonl 只读浏览：列表/详情/分页/改名
+ *   - read/SessionReadService       .jsonl 只读浏览：列表/项目清单/详情/分页/改名
+ *   - read/ProjectResolver          cwd → 项目归一（git 仓库根/worktree/分组键 + 60s 缓存）
  *
  * 待落地（按里程碑）：
  *   - M2：分支/压缩/模型组命令（fork 原地替换语义，§8-1）、扩展 UI 通道、
@@ -31,18 +32,25 @@ export {
   type CreateSessionFn,
   PromptRejectedError,
   SessionNotFoundError,
+  UserInputError,
 } from './agent/agent-session-service';
 export {
-  type WireAgentEventListener,
   SessionRegistryEntry,
+  type WireAgentEventListener,
 } from './agent/session-entry';
 export {
-  type WireAgentEventPayload,
   toWireAgentEvent,
   toWireAgentEventPayload,
+  type WireAgentEventPayload,
 } from './events/wire-event';
 export {
+  type ProjectResolution,
+  ProjectResolver,
+  projectKeyOf,
+} from './read/project-resolver';
+export {
   computeStats,
+  type SessionListOptions,
   type SessionReadOptions,
   SessionReadService,
 } from './read/session-read-service';

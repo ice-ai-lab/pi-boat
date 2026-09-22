@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   agentStatePath,
   entryThinkingPath,
+  ProjectsQuerySchema,
+  ProjectsResponseSchema,
   SESSIONS_PATH,
   SessionDetailResponseSchema,
+  SessionListQuerySchema,
   SessionListResponseSchema,
   sessionContextPath,
   sessionPath,
@@ -24,6 +27,7 @@ describe('rest/sessions', () => {
     const body = {
       sessions: [sessionInfo],
       registryVersion: 3,
+      listFingerprint: 'a1b2c3d4e5f60718',
       runningSessionIds: ['s1'],
       completionNotificationSuppressedSessionIds: [],
     };
@@ -70,5 +74,44 @@ describe('rest/sessions', () => {
     expect(agentStatePath('s1')).toBe('/api/agent/s1');
     expect(sessionContextPath('s1')).toBe('/api/sessions/s1/context');
     expect(entryThinkingPath('s1', 'e9')).toBe('/api/sessions/s1/entries/e9/thinking');
+  });
+});
+
+describe('rest/projects（ADR-0008）', () => {
+  it('parses a projects response（含 cwds 合并信息）', () => {
+    const body = {
+      listFingerprint: 'a1b2c3d4e5f60718',
+      projects: [
+        {
+          projectKey: '/repo',
+          projectRoot: '/repo',
+          cwd: '/repo',
+          cwds: ['/repo', '/repo/packages/core'],
+          sessionCount: 3,
+          lastModified: '2026-01-16T10:00:00.000Z',
+          isGit: true,
+          branch: 'main',
+        },
+        {
+          projectKey: '/plain',
+          projectRoot: '/plain',
+          cwd: '/plain',
+          cwds: ['/plain'],
+          sessionCount: 1,
+          lastModified: '2026-01-12T10:00:00.000Z',
+          isGit: false,
+        },
+      ],
+    };
+    expect(ProjectsResponseSchema.parse(body)).toEqual(body);
+  });
+
+  it('list 查询参数只接受 force=1（严格），其余值报错', () => {
+    expect(SessionListQuerySchema.parse({ force: '1', projectKey: '/repo' })).toEqual({
+      force: '1',
+      projectKey: '/repo',
+    });
+    expect(SessionListQuerySchema.safeParse({ force: 'true' }).success).toBe(false);
+    expect(ProjectsQuerySchema.safeParse({ force: '0' }).success).toBe(false);
   });
 });

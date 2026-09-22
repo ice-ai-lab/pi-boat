@@ -43,7 +43,6 @@
 | 命令响应信封 | `{ success: true, data: T } \| { error: string, code?, accepted? }` | agent 命令类路由统一信封 |
 | 错误码枚举 | `prompt_rejected`（+ `accepted: false`）等 | 区分"输入被拒"与"运行失败"；集中定义避免字符串散落 |
 | SSE 元约定 | 心跳 30s（注释帧 `:\n\n`）；断线重连 `Last-Event-ID` | 终端流用 offset 游标重放；agent 事件流附每会话单调递增 `seq`（去重 + 差量重放，概要设计 §5.4）——必须定义进 wire 类型 |
-| SSE 票据 | 一次性 query 票据（EventSource 无法带 header） | 与 token 鉴权配套（概要设计 §5.6） |
 
 ---
 
@@ -169,18 +168,25 @@
 
 ## 6. ⑤ REST 资源类型（rest，按功能域 9 组）
 
-### 6.1 会话列表
+### 6.1 会话列表与项目分组
 
 | 端点 | 形状 |
 |---|---|
-| `GET /api/sessions?force=1` | → `{ sessions: SessionInfo[], registryVersion, runningSessionIds[], completionNotificationSuppressedSessionIds[] }`（磁盘扫描与运行时注册表合并） |
+| `GET /api/sessions?force=1&projectKey=` | → `{ sessions: SessionInfo[], registryVersion, listFingerprint, runningSessionIds[], completionNotificationSuppressedSessionIds[] }`（磁盘扫描与运行时注册表合并）。`projectKey` 只返回该项目的会话；`force=1` 跳过服务端列表缓存并清空项目解析缓存 |
+| `GET /api/projects?force=1` | → `{ projects: ProjectInfo[], listFingerprint }`（ADR-0008）。项目是**会话目录的派生视图**：`readdir` + `stat` + 每目录一次首行头读取，不解析会话正文（实测 3–7 ms / 1.8 KB）。同一仓库的子目录与 worktree 按 `projectKey` 合并为一项，`cwds` 列出全部目录；空会话目录不出现在结果里。**不分页**（量级 10¹） |
 | `GET /api/agent/running` | 轻量轮询（可见 Tab 池）：`{ registryVersion, runningSessionIds, 通知抑制ids }` |
 | `GET /api/agent/:id` | **单会话状态轻查**：`{running: false}` 或 `{running: true, state: AgentState}`（未运行不报错；客户端在 `agent_end` 后靠它同步模型/上下文/队列状态）。⚠️ 走 `getRunningState()` 直读注册表、**不进命令 FIFO**；`get_state` **命令**则与运行中的 prompt 串行，run 期间发它会排队到 run 结束——轮询实时状态必须走这个路由 |
 | `GET /api/sessions/search?q` | → 搜索结果（q ≤ 200 字符） |
 
-> ⚠️ `registryVersion` **只反映运行时注册表的结构性变动**（`create` / `disposeSession`，core 的 `#registryVersion`）。列表本身是「磁盘扫描 ∪ 注册表」合并出来的，但以下磁盘侧变化**不会**改变它：其他进程写入会话（终端 pi / 第二个 server 实例）、本 server 建的会话首条 assistant 消息落盘（空会话在首次落盘前不写文件，见 §3.3 `transient`）、改名 / fork。
+`SessionInfo` 的 `projectRoot` / `projectKey` / `branch` / `isWorktree` 由 core 的 `ProjectResolver` 归一（git 仓库根收敛，worktree 归主仓库；非 git 回落 cwd；60s 缓存，ADR-0008）。前端分组键为 `projectKey`。
+
+> **两个版本号分工**（ADR-0008）：
+> - `registryVersion` **只反映运行时注册表的结构性变动**（`create` / `disposeSession`）——它回答「本进程的注册表变了吗」
+> - `listFingerprint` 是**会话目录指纹**（各项目目录名 + 每个 `.jsonl` 的 size + mtime）——它回答「磁盘侧列表内容变了吗」，覆盖其他进程写入（终端 pi / 第二个 server 实例）、首条消息落盘（§3.3 `transient`）、改名 / fork。不透明字符串、**无单调性**（只比较相等）
 >
-> 所以它回答的是「**本进程的注册表变了吗**」，不是「列表内容变了吗」。客户端不能只靠它决定要不要全量刷新；跨进程与磁盘侧变更的通知机制待 M2 定（2026-09-21 由 `sessionListVersion` 改名定案）。
+> 命名注意：它**不是** 2026-09-21 被改名的 `sessionListVersion`（那个是注册表计数器，现名 `registryVersion`，见 `36720e9`）；叫 fingerprint 是因为指纹无单调性、不能当版本号用（ADR-0008「命名考古」）
+>
+> 服务端列表缓存也以同一指纹为键，因此磁盘侧变化**自动**导致缓存失效，不存在 TTL 窗口；客户端比对 `listFingerprint` 决定是否重建列表。
 
 ### 6.2 会话详情与生命周期
 
@@ -285,7 +291,6 @@
 | `GET /api/push/config` | → `{publicKey}` | VAPID 公钥（私钥不出服务端） |
 | `POST /api/push/subscribe` | `{subscription{endpoint,keys{p256dh,auth}}, locale}` | 按 endpoint upsert |
 | `GET /api/health` | → `{ok, name}` | M0 已落地 |
-| 鉴权 bootstrap | token 经同源接口下发（跨源页面不可读） | 随机 token + Origin/Host 校验 + SSE 一次性票据（概要设计 §5.6）；不采用密码 + cookie + 限流模型，若将来开 LAN 再评估 |
 | 应用更新检查 | —（暂缓） | 发布通道未定，暂不纳入协议 |
 
 ---
@@ -310,9 +315,10 @@
 | 1 | agent 事件流断线恢复 | 事件附会话级 `seq` + `Last-Event-ID` 差量重放，不做整体刷新（概要设计 §5.4） |
 | 2 | 命令信封 | 收敛为 protocol 的泛型信封类型 + 每命令返回类型，不内联在路由实现里 |
 | 3 | 协议归置 | 全量收敛进 `@ice-ai/protocol`，server 路由即协议实现层 |
-| 4 | 鉴权模型 | 纯本地定位：随机 token + 同源 bootstrap + SSE 一次性票据（§5.6）；LAN 场景另议 |
+| 4 | 鉴权模型 | 纯本地定位：Host + Origin + Sec-Fetch-Site 三闸常开，**无凭据**（无 token / 无 SSE 票据 / 无 bootstrap，ADR-0007）；代价是 GET 不得有副作用。LAN 场景另议（届时用用户可输入的口令 + cookie，见 ADR-0007 备选方案表） |
 | 5 | 应用更新检查 | 暂缓（发布通道未定） |
 | 6 | 路径风格 | 资源身份进路径、子资源嵌套于所属资源（`/api/sessions/:id/entries/:entryId/thinking`），查询修饰进 query（`?before&tail`）。否决 ID 进 body：GET 无 body（fetch 抛错、SSE 物理不可带）、丢失缓存/重放/日志排查能力；否决 ID 进 query：混淆资源寻址与查询参数（2026-09-22 补记理由）。UUID 过长的排查痛点用日志缩写 ID 解决，不改寻址；鉴权相关端点单独设计 |
+| 7 | 项目分组与会话列表规模 | 项目是**会话目录的派生视图**（`GET /api/projects`，不分页）：服务端 git 归一成 `projectKey`，同一仓库的子目录/worktree 合并；列表缓存键 = 会话目录指纹（`listFingerprint`），磁盘变化自动失效（ADR-0008）。**会话列表暂不分页**，触发条件：10³–10⁴ 会话且实测单请求 > 100 ms 或 payload > 1 MB；届时按 `?projectKey&cursor&limit` 切，游标取目录内文件名时间戳（单调稳定），不做跨项目全量分页 |
 
 ## 10. 协议包目录结构
 
@@ -334,7 +340,8 @@ packages/protocol/src/
 │   └── terminal-event.ts      # TerminalEvent
 └── rest/               # ⑤⑥REST 资源（按域一文件：类型 + 路径常量 + Zod）
     ├── agent.ts           # agent 运行时域：new / 命令通道 / SSE / running / 轻查
-    ├── sessions.ts         # 列表/详情/分页/惰性加载/搜索/导出/auto-name
+    ├── sessions.ts         # 列表（projectKey/force）+ 详情/分页/惰性加载/搜索/导出/auto-name
+    ├── projects.ts         # 项目清单契约（projectKey 分组视图 + listFingerprint，ADR-0008；无路径常量）
     ├── models.ts           # models / models-config / discover / test / catalog
     ├── auth.ts             # providers / login(SSE) / api-key / logout / provider-usage
     ├── files.ts            # home / default-cwd / cwd browse+validate / files / file-index

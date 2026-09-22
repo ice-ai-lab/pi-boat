@@ -11,6 +11,7 @@ export * from './envelope';
 export * from './events/wire-agent-event';
 export * from './rest/agent';
 export * from './rest/misc';
+export * from './rest/projects';
 export * from './rest/sessions';
 // M2 追加：commands 分支/压缩/模型组 + rest/models + rest/auth
 // M3 追加：rest/files + rest/git + rest/resources + lease/push

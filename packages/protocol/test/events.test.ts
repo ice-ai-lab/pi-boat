@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  WIRE_AGENT_EVENT_TYPES,
-  type WireAgentEvent,
-  WireAgentEventSchema,
-} from '../src/index';
+import { WIRE_AGENT_EVENT_TYPES, type WireAgentEvent, WireAgentEventSchema } from '../src/index';
 
 const seq = 7;
 
