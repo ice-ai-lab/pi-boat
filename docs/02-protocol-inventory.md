@@ -306,7 +306,7 @@
 | 3 | 协议归置 | 全量收敛进 `@ice-ai/protocol`，server 路由即协议实现层 |
 | 4 | 鉴权模型 | 纯本地定位：随机 token + 同源 bootstrap + SSE 一次性票据（§5.6）；LAN 场景另议 |
 | 5 | 应用更新检查 | 暂缓（发布通道未定） |
-| 6 | 路径风格 | `/api/agent/new`、`/api/sessions/:id/...` 常规 RESTful 风格；鉴权相关端点单独设计 |
+| 6 | 路径风格 | 资源身份进路径、子资源嵌套于所属资源（`/api/sessions/:id/entries/:entryId/thinking`），查询修饰进 query（`?before&tail`）。否决 ID 进 body：GET 无 body（fetch 抛错、SSE 物理不可带）、丢失缓存/重放/日志排查能力；否决 ID 进 query：混淆资源寻址与查询参数（2026-09-22 补记理由）。UUID 过长的排查痛点用日志缩写 ID 解决，不改寻址；鉴权相关端点单独设计 |
 
 ## 10. 协议包目录结构
 
@@ -327,6 +327,7 @@ packages/protocol/src/
 │   ├── wire-agent-event.ts  # WireAgentEvent + seq 语义
 │   └── terminal-event.ts      # TerminalEvent
 └── rest/               # ⑤⑥REST 资源（按域一文件：类型 + 路径常量 + Zod）
+    ├── agent.ts           # agent 运行时域：new / 命令通道 / SSE / running / 轻查 / bash-output
     ├── sessions.ts         # 列表/详情/分页/惰性加载/搜索/导出/auto-name
     ├── models.ts           # models / models-config / discover / test / catalog
     ├── auth.ts             # providers / login(SSE) / api-key / logout / provider-usage
@@ -338,7 +339,8 @@ packages/protocol/src/
 ```
 
 > 落地状态：M1 的 protocol 侧已定稿（2026-01）——domain/ 七文件全量、commands M1 子集、
-> events/wire-agent-event（终端 TerminalEvent 已按 2026-01 决策移除）、rest/misc + rest/sessions；
+> events/wire-agent-event（终端 TerminalEvent 已按 2026-01 决策移除）、rest/agent + rest/misc +
+> rest/sessions（agent 域自 sessions 拆出，按 core 双服务边界分域，2026-09-22）；
 > M2/M3 条目按里程碑追加。
 
 ## 11. 里程碑切片（从本清单取子集）
