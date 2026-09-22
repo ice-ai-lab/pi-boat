@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { ThinkingLevelSchema } from '../constants';
-import { AgentMessageSchema, ToolCallContentSchema, ToolResultMessageSchema, UsageSchema } from '../domain/message';
+import {
+  AgentMessageSchema,
+  ToolCallContentSchema,
+  ToolResultMessageSchema,
+  UsageSchema,
+} from '../domain/message';
 import { SessionEntrySchema } from '../domain/session-entry';
 
 /**

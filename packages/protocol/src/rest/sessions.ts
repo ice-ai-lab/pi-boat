@@ -34,17 +34,34 @@ export const entryToolResultImagePath = (id: string, entryId: string) =>
 // ---------------------------------------------------------------------------
 
 /**
- * GET /api/sessions?force=1（磁盘扫描与运行时注册表合并）
+ * GET /api/sessions?force=1&projectKey=…（磁盘扫描与运行时注册表合并）
+ *
+ * - `force=1`：跳过服务端列表缓存（并清空项目解析缓存）——pi-web 同语义。
+ *   缓存按**会话目录指纹**（每个 .jsonl 的 size+mtime）失效，因此磁盘侧变动
+ *   （其他进程写入、首条消息落盘、改名）会自动命中失效；不需要只靠 force。
+ * - `projectKey`：只返回该项目的会话（分组键见 rest/projects）
  *
  * ⚠️ `registryVersion` 只反映**运行时注册表**的结构性变动（create/dispose）。
- * 磁盘扫描侧的变动（其他进程写入会话、本 server 建的会话首条 assistant 消息落盘、
- * 改名/fork）都不在此列——客户端不能只靠它决定要不要全量刷新列表；
- * 跨进程/磁盘侧的变更通知待 M2 定（2026-09-21 改名定案）。
+ * 磁盘扫描侧的变动看 `listFingerprint`（会话目录指纹）——它才回答“列表内容变了吗”。
+ *
+ * 命名：`listFingerprint` 不叫 `listVersion`/`sessionListVersion`——
+ * ① `sessionListVersion` 已于 2026-09-21（`36720e9`）因“名字暗示了它做不到的事”改名为
+ *    `registryVersion`（它只是注册表计数器，不反映磁盘侧变化），不要复活那个名字；
+ * ② 指纹**无单调性**（文件回退会让它变回旧值），不是版本号，只能比较相等。
  */
+export const SessionListQuerySchema = z.object({
+  force: z.literal('1').optional(),
+  projectKey: z.string().min(1).optional(),
+});
+export type SessionListQuery = z.infer<typeof SessionListQuerySchema>;
+
 export const SessionListResponseSchema = z.object({
   sessions: z.array(SessionInfoSchema),
   /** 运行时注册表版本号：每次 create/dispose +1 */
   registryVersion: z.number(),
+  /** 会话目录指纹：磁盘侧内容（会话增删/改名/写入）变化时改变，客户端据此重建列表。
+   *  不透明字符串，无单调性（**只比较相等**，不要拿它排序/做差）。 */
+  listFingerprint: z.string(),
   runningSessionIds: z.array(z.string()),
   /** 已抑制完成通知的会话（避免轮询刷新期间重复弹通知） */
   completionNotificationSuppressedSessionIds: z.array(z.string()),

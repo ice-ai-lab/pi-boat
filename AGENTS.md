@@ -18,6 +18,8 @@ pnpm turbo run test         # Vitest（core/protocol/client/ui）
 pnpm turbo run lint         # Biome 2（lint + format；修复用 pnpm lint:fix）
 ```
 
+server 验收（curl 实测手册：安全层一键块 / 运行时域 / SSE 帧 / SIGTERM）：`packages/server/README.md`
+
 - 开发期浏览器页面来自 9528（vite dev，web 待建），API/SSE 直连 9527（CORS 白名单已预留 `http://localhost:9528`）；端口单一来源为 `protocol` 的 `PORTS`，server 可用 `PORT` 环境变量覆盖
 - 提交前 `build + test` 全绿
 
@@ -46,9 +48,10 @@ packages/config/  typescript-config（Biome 配置在根 biome.json，见 ADR-00
 
 - 简单优先：默认写最朴素的可行实现；“简洁”指最少概念与间接层，不是最短代码。抽象/别名/包装层须有第二个真实用例或已记录的分叉需求；条件/递归类型等高级语法仅在简单方案确实不够时使用，就近注释一句为什么（出处：NewSessionInput 无变化轴别名教训，2026-09-18）
 - 事件对外投影统一走 `toWireAgentEvent()`（core），wire 类型只在 protocol 定义；SDK 事件字段变动不许泄漏出 core（流式 toolcall 增量的 id/toolName 补齐即在此层完成）
-- 新增路由必须过 allowed-roots / 鉴权检查清单（server 拥有宿主机文件系统全部权限）
+- 新增路由必须过检查清单（细则 docs/04 §6；server 拥有宿主机文件系统全部权限）：①触碰文件系统 → allowed-roots？②错误响应是否泄漏内部路径/堆栈？③新增 Origin / Sec-Fetch-* 例外？④是否为有副作用的 GET（禁止，ADR-0007：鉴权无凭据，GET 不再有兜底）
 - 提交消息用 Conventional Commits：`<type>(<scope>): <描述>`；type 限定 feat/fix/docs/style/refactor/perf/test/build/ci/chore/revert；scope 用包名或目录（core/server/protocol/client/ui/web/docs）；破坏性变更用 `!` 或 `BREAKING CHANGE:` 脚注（采纳 Conventional Commits 1.0.0，2026-09-18）
 - 提交纪律：AI 不主动 `git commit` / `git push`——完成改动后停在未提交状态，附建议的 commit 消息等用户明确指令（2026-09-18 定案）
+- 命名不得暗示它做不到的事：非单调的值不叫 `version`（只能比相等的指纹叫 `fingerprint`）；已退役的名字不复用。前例：`sessionListVersion` → `registryVersion`（36720e9，2026-09-21，它只是注册表计数器）；本次把目录指纹定为 `listFingerprint` 而非 `listVersion`（ADR-0008，2026-09-22）
 
 ## 测试
 

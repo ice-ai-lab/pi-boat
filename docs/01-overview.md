@@ -111,7 +111,8 @@ pi-boat/
 
 - Hono（Node 适配器）实现的 HTTP 服务，路由即 protocol 的实现层
 - SSE 事件流：30s 心跳、快照先行（先建流再回放快照）、断线重连 `Last-Event-ID` 支持
-- 本机访问防护：仅绑定 127.0.0.1 + 启动时随机 token + Origin/Host 校验（防恶意网页对本机发起 CSRF / DNS 重绑定，详见 §5.6）
+- 本机访问防护：仅绑定 127.0.0.1 + Host / Origin / Sec-Fetch-Site 三道闸（常开、无凭据；防恶意网页对本机发起 CSRF / DNS 重绑定，详见 §5.6 与 ADR-0007）
+- 会话列表与项目分组（ADR-0008）：`GET /api/projects` 按 git 仓库根归一 `projectKey`（子目录/worktree 合并为一项，不分页）；`GET /api/sessions?projectKey&force` 支持按项目拉取；列表缓存以**会话目录指纹**为键（磁盘变动自动失效），响应带 `listFingerprint`
 - 静态托管：生产模式直接托管 `apps/web` 构建产物 → **单进程即完整产品**（本地一键启动，Electron 同样受益）
 - PTY (node-pty)、原生模块全部收敛在此包与 core
 
@@ -185,7 +186,7 @@ pi-boat/
 本体是一个**普通 Node.js（≥22）进程**：`packages/server` 提供 bin 入口 `piboat-server`（开发用 `tsx watch src/main.ts`，构建产物为可分发单文件）。启动序列：
 
 ```
-解析参数(--port/--root/--token-env) → 绑定 127.0.0.1 → 生成随机 token
+解析参数(--port/--root) → 绑定 127.0.0.1
 → 初始化 core（SessionRegistry / ConfigService / SystemService）
 → [生产模式] 挂载 web 静态产物目录 → stdout 输出就绪信号
 ```
@@ -194,7 +195,7 @@ pi-boat/
 |---|---|---|
 | 开发 | `turbo run dev` | 并行任务：server（tsx watch，9527）+ web（vite dev，9528） |
 | 生产（本地） | 用户 | 执行 `piboat` 命令（npx/全局安装皆可），单进程即完整产品 |
-| Electron | 桌面端 main 进程 | `child_process.spawn`（或 utilityProcess）拉起 server 子进程，env 传 token/port，stdout 健康检查就绪后开窗口 |
+| Electron | 桌面端 main 进程 | `child_process.spawn`（或 utilityProcess）拉起 server 子进程，env 传 port，stdout 健康检查就绪后开窗口 |
 
 #### 5.2.2 web 与 agent server 如何交互
 
@@ -214,8 +215,8 @@ Electron：         renderer(=web UI) ──API/SSE──▶ agent server（子�
                     main ──spawn/健康检查/生命周期管理──▶ agent server
 ```
 
-- 开发期 CORS 白名单只放行 `http://localhost:9528`；token 校验在开发期可选。端口约定单一来源：`packages/protocol` 的 `PORTS`（`PORT` 环境变量可覆盖 server）
-- 生产同源部署：页面由 agent server 托管，token 经同源 bootstrap 接口下发（跨源页面无法读取响应，见 §5.6）
+- 开发期 CORS 白名单只放行 `http://localhost:9528`；防护靠 Host / Origin / Sec-Fetch-Site 三道闸，**无 token、无鉴权 bootstrap**（ADR-0007）——因此页面与 API 必须用同一主机名（都 `localhost` 或都 `127.0.0.1`），混用属 cross-site 会被拒。端口约定单一来源：`packages/protocol` 的 `PORTS`（`PORT` 环境变量可覆盖 server）
+- 生产同源部署：页面由 agent server 托管，与 API 同源，无需凭据分发（ADR-0007）
 
 #### 5.2.3 多会话并发与隔离
 
@@ -278,7 +279,7 @@ interface SessionEntry {
 
 - `toWireAgentEvent()` 投影函数放 **core**，wire 类型放 **protocol**；SDK 升级只改投影函数
 - **任意时刻可接入（late join）**：Agent 流式输出中途连接 SSE 完全支持。时序保证：①建流 → ②先订阅事件总线 → ③再抓快照（当前完整状态，含进行中的半截消息/工具执行状态）+ `lastSeq` → ④后续增量续播。"②③之间"重叠窗口的少量事件用每会话单调递增 `seq` 去重（客户端丢弃 `seq ≤ lastSeq`）
-- 同一机制支撑三个场景：**新客户端中途接入**（新 Tab / Electron 窗口）/ **断线重连与刷新**（`Last-Event-ID` 携带 seq 重放差量）/ **关掉浏览器再打开**（Agent 在服务端继续运行，与是否有人观看无关；重开时从内存状态或 `.jsonl` 重建历史，任务仍在进行则继续直播）
+- 同一机制支撑三个场景：**新客户端中途接入**（新 Tab / Electron 窗口）/ **断线重连与刷新**（`Last-Event-ID` 携带 seq 重放差量；分阶段兑现——M1 降级为忽略 Last-Event-ID、重连即 connected+快照+增量整体重建，客户端靠 seq 单调去重保证幂等，见 docs/04 §5.5）/ **关掉浏览器再打开**（Agent 在服务端继续运行，与是否有人观看无关；重开时从内存状态或 `.jsonl` 重建历史，任务仍在进行则继续直播）
 - 多端同时观看：core 事件总线多播，每个接入者独立拿快照 + 增量
 - 服务端为每个 SSE 连接持有 liveness lease：观看连接存在时推迟 idle 回收（空闲但被打开看的会话不被误杀）
 - 命令通道与事件通道分离：`POST /api/agent/:id`（命令）+ SSE（事件）
@@ -317,7 +318,7 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 
 - **allowed roots**：文件读写/浏览全部收敛到 server 侧白名单校验（白名单 + worktree 机制）
 - **项目信任**：进入 cwd 前的项目信任确认（`.pi` 项目级扩展/设置在信任前不加载）
-- **本机访问防护**：仅绑定 127.0.0.1；启动时生成随机 token 注入前端页面。纯本地≠无需防护 —— 用户浏览器里的**恶意网页**可以直接向 `http://127.0.0.1:<port>/api/agent` 发请求（CSRF / DNS 重绑定），让 Agent 在用户机器上执行任意命令。随机 token 让网页偷不到、也带不上；SSE 用一次性 query 票据规避浏览器无法带 header 的问题；校验 `Origin`/`Host` 头
+- **本机访问防护**：仅绑定 127.0.0.1；三道闸常开——① `Host` 只认回环主机名（防 DNS 重绑定）② `Origin` 白名单 = 同源 ∪ dev web（防 CSRF）③ `Sec-Fetch-Site: cross-site` 一律拒（覆盖 `<img>`/`<script>`/表单导航等**无 Origin** 的跨站请求；`Sec-` 前缀是 forbidden header name，页面 JS 无法伪造）。纯本地≠无需防护 —— 用户浏览器里的**恶意网页**可以直接向 `http://127.0.0.1:<port>/api/agent` 发请求，让 Agent 在用户机器上执行任意命令。**无 token、无 SSE 票据、无鉴权 bootstrap**（ADR-0007：token 相对 ①② 只多挡一格，而票据层只为 EventSource 无法带 header 而存在，且 dev 期跨源页面无从取得随机 token）；代价是一条硬约束——**GET 不得有副作用**。非回环绑定（LAN）另议，届时用用户可输入的口令而非随机 token
 - **服务拥有宿主机文件系统全部权限** —— 这是产品能力也是最大攻击面，任何路由新增必须过 allowed-roots/鉴权检查清单
 
 ---
@@ -335,7 +336,7 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 | 里程碑 | 内容 | 验收标准 | 状态 |
 |---|---|---|---|
 | **M0 工程骨架**（~0.5 周） | pnpm+turbo、包脚手架、biome/tsconfig/husky、CI（lint+typecheck+test） | turbo build 全绿 | ✅ 完成（2026-09-18） |
-| **M1 对话 MVP**（~1.5 周） | core: create/prompt/subscribe/abort；server: REST+SSE+静态托管；web: 单会话聊天（流式+工具调用展示） | 浏览器完成一轮带工具调用的编程任务 | 进行中：protocol ✅ · core ✅（docs/03）· server 设计定稿待实施（docs/04）· client/web 未开工 |
+| **M1 对话 MVP**（~1.5 周） | core: create/prompt/subscribe/abort；server: REST+SSE+静态托管；web: 单会话聊天（流式+工具调用展示） | 浏览器完成一轮带工具调用的编程任务 | 进行中：protocol ✅ · core ✅（docs/03）· server ✅（docs/04，2026-09-22）· client/web 未开工 |
 | **M2 会话与模型**（~2 周） | 会话列表/恢复/fork/分支导航、模型配置、认证流程、工具预设 | 日常可替代 TUI 完成编码工作 | 未开工 |
 | **M3 完整体验**（~2 周） | 文件浏览/查看、终端、worktree、skills/插件、通知、多 Tab | 功能对齐 §6 一期清单 | 未开工 |
 | **M4 桌面端**（~2 周） | Electron 壳 + 子进程 server + 打包分发 | macOS 安装包可用 | 未开工 |
@@ -356,6 +357,7 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 | 8 | **pi-coding-agent 0.x 快速演进**（API 可能破坏性变更） | 版本锁 minor；升级单独 PR + 变更清单 + e2e 全量回归 |
 | 9 | 会话注册表生命周期（内嵌式实现需用 `globalThis` 抗 HMR） | 独立 server 进程无 HMR 问题；但保留"启动去重锁"与 idle 回收 |
 | 10 | pi CLI 与 server 并发读写同一 `.jsonl` | proper-lockfile 文件锁（§5.3）；跨进程互斥 |
+| 11 | **会话目录名编码有损**：`/Users/x/pi-boat/packages` 与 `/Users/x/pi-boat-packages` 编码后同码 | 项目 cwd **只能从会话文件首行头读**（不猜目录名）；目录名仅用于诊断与指纹（ADR-0008） |
 
 ---
 
@@ -364,7 +366,7 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 1. ~~项目命名与 npm scope~~ **✅ 已决策（ADR-0001）**：定名 `pi-boat` / `@ice-ai/*`，bin `piboat` / `piboat-server`，代号 PiBoat（原占位 pi-studio 因 npm 被同生态同类工具占用而出局）
 2. ~~Web 端实现与进程模型联动选择~~ **✅ 已决策（ADR-0002）**：选 A（独立 server + 纯前端，开发期 2 进程），且 Web 前端采用 Vite + React 19 SPA，不引入 Next.js（理由：纯本地 SPA 无 SSR/RSC 需求，静态产物由 server 托管）。详见 §5.1 与 `docs/adr/0002`
 3. 事件通道是否二期引入 WebSocket（多向交互如扩展 UI 面板实时渲染时再决策）
-4. 是否提供局域网访问开关（手机/平板临时连本机 Agent；默认关闭，仅在用户显式开启时绑定 0.0.0.0 并强制 token）
+4. 是否提供局域网访问开关（手机/平板临时连本机 Agent；默认关闭，仅在用户显式开启时绑定 0.0.0.0 并强制**用户可输入的口令**——随机 token 不适合手动输入，形态见 ADR-0007 备选方案；含 TLS/扫码配对评估）
 5. `packages/client` 是否用 Hono `hc` 自动生成 vs 手写类型（倾向 hc + protocol 手工收口）
 6. 数据层是否引入 SQLite（当前全部复用 pi 的 `.jsonl` + `~/.pi/agent/` 体系，不引入新存储）
 

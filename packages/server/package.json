@@ -22,6 +22,7 @@
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsx watch src/main.ts",
     "start": "node dist/main.js",
+    "test": "vitest run",
     "lint": "biome check .",
     "typecheck": "tsc --noEmit"
   },
@@ -36,6 +37,7 @@
     "@ice-ai/typescript-config": "workspace:*",
     "@types/node": "^22",
     "tsx": "^4.23.13",
-    "typescript": "~7.0.2"
+    "typescript": "~7.0.2",
+    "vitest": "^5.0.1"
   }
 }

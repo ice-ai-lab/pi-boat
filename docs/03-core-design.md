@@ -27,7 +27,7 @@ core 是 pi SDK 之上的**传输无关**业务层，补齐 SDK 没有的三件�
 | `agent/session-entry.ts` | 注册表单元：委托订阅 / seq 计数 / 流内状态跟踪 / dispose | `session-entry.test.ts` |
 | `events/wire-event.ts` | SDK 事件 → wire 事件投影（**全仓唯一触碰 SDK 事件内部结构的文件**） | `wire-event.test.ts` |
 | `events/wire-message.ts` | SDK 消息 → wire 消息（七角色已对齐，仅剥 readonly + 类型边界） | — |
-| `read/session-read-service.ts` | `.jsonl` 只读浏览：列表/搜索/详情/分页/改名/统计 | `session-read-service.test.ts` |
+| `read/session-read-service.ts` | `.jsonl` 只读浏览：列表/搜索/详情/分页/改名/统计/级联删除/工具图片读取 | `session-read-service.test.ts` |
 
 ## 3. 会话注册表与生命周期
 
@@ -156,8 +156,13 @@ agent-session.js:776/784/949）②`agent_settled` 事件幂等兜底（steer/fol
 
 - `list/search`：`SessionManager.listAll` 扫描 + 客户端式过滤（M1 无索引，量大后加缓存）
 - `detail`：tree/stats/context 装配；`totalActiveMs` 冷会话置 0（需运行时埋点）
-- `rename`：`appendSessionInfo` 追加行（空白名抛错）；运行中会话改走命令通道（M2）
+- `rename`：`appendSessionInfo` 追加行（空白名抛 UserInputError）；运行中会话改走命令通道（M2）
 - `computeStats`：对齐 SDK `getSessionStats` 聚合口径（导出的纯函数）
+- `delete`（docs/04 §8-2）：按 header.parentSession（父会话文件路径）建子链，BFS 收集
+  传递闭包，**只级联带 subagent 标记的子会话**（custom 条目 `pi-web:subagent`，生态约定；
+  fork 子会话仍是顶层列表项，不级联）；运行中拦截归 server（409）
+- `toolResultImage`（docs/04 §8-3）：按 entryId + blockIndex 读 toolResult 消息的图片块，
+  base64 解码为二进制；deferMedia 占位符形状待 protocol 定稿（M1 历史图片全文直发）
 
 ## 8. 错误类型
 
@@ -165,7 +170,8 @@ agent-session.js:776/784/949）②`agent_settled` 事件幂等兜底（steer/fol
 |---|---|---|
 | `SessionNotFoundError` | 会话不在注册表（未运行/已销毁） | 404 + CommandError |
 | `PromptRejectedError` | prompt 输入被拒（扩展拦截），区别于运行失败 | CommandError `{code:'prompt_rejected', accepted:false}` |
-| 普通 `Error` | 命令运行失败 | CommandError `{error: message}` |
+| `UserInputError` | 客户端输入错误（模型不可用/空白名），可修正重试 | 400 `{error}`（2026-09-22 server 落地时补） |
+| 普通 `Error` | 命令运行失败 | 500 `{error: 'Internal server error'}`（不泄漏堆栈） |
 
 ## 9. 测试与事件快照回归
 
@@ -178,6 +184,7 @@ agent-session.js:776/784/949）②`agent_settled` 事件幂等兜底（steer/fol
 ## 10. 待落地（按里程碑）
 
 - **M2**：fork/压缩/模型组命令（fork 的 runtime 替换在 Entry 上换引用重绑）、扩展 UI 通道、
-  set_tools 冷会话重建、ConfigService、改名走命令通道、删除级联
+  set_tools 冷会话重建、ConfigService、改名走命令通道、列表 transient 合并
 - **M3**：idle 回收与 liveness lease、SystemService（文件/git worktree）、导出 HTML / auto-name
-- **server 前置**：SSE 重放缓冲、tool-result-image / thinking 惰性加载读取（见 docs/04 §8）
+- **server 前置**：SSE 重放缓冲（M1 已降级为忽略 Last-Event-ID，docs/04 §5.5）、
+  deferMedia 占位符（待 protocol 定稿；`toolResultImage` 读取已就位）

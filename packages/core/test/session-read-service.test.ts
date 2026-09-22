@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -349,5 +349,169 @@ describe('computeStats（纯函数）', () => {
   it('空条目返回全零', () => {
     const stats = computeStats([], 's');
     expect(stats).toMatchObject({ userMessages: 0, toolCalls: 0, cost: 0, tokens: { total: 0 } });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 项目清单 / 列表指纹缓存（ADR-0008）
+// ---------------------------------------------------------------------------
+
+/**
+ * 项目清单测试用独立夹具：sessionsRoot 下每项目一个子目录（SDK 真实布局），
+ * 外加一个空目录。注入假 resolver（避开 git 子进程），cwd → 项目键映射可控。
+ */
+describe('SessionReadService.listProjects', () => {
+  let root: string;
+  const session = (id: string, cwd: string, timestamp: string) =>
+    `${JSON.stringify({ type: 'session', version: 3, id, timestamp, cwd })}\n`;
+
+  /** 假解析器：把 cwd 归一到 /repo（模拟 git toplevel 收敛），非 /repo/* 则原样 */
+  const fakeResolver = () => {
+    const calls: string[] = [];
+    return {
+      calls,
+      resolve: async (cwd: string) => {
+        calls.push(cwd);
+        const isGit = cwd.startsWith('/repo');
+        const projectRoot = isGit ? '/repo' : cwd;
+        return {
+          projectRoot,
+          projectKey: projectRoot,
+          isGit,
+          ...(isGit ? { branch: 'main' } : {}),
+        };
+      },
+      clear: () => {
+        calls.push('<clear>');
+      },
+    };
+  };
+
+  beforeAll(() => {
+    root = mkdtempSync(join(tmpdir(), 'piboat-projects-'));
+    mkdirSync(join(root, '--repo--'), { recursive: true });
+    mkdirSync(join(root, '--repo-packages-core--'), { recursive: true });
+    mkdirSync(join(root, '--other--'), { recursive: true });
+    mkdirSync(join(root, '--empty--'), { recursive: true }); // 空目录：不出现在清单里
+    // mtime 显式设定：lastModified 与排序都取自 stat mtime（不解析正文）
+    const at = (day: number) => new Date(`2026-01-${day}T10:00:00.000Z`).getTime() / 1000;
+    const write = (dir: string, name: string, id: string, cwd: string, day: number) => {
+      const path = join(root, dir, name);
+      writeFileSync(path, session(id, cwd, `2026-01-${day}T10:00:00.000Z`));
+      utimesSync(path, at(day), at(day));
+    };
+    write('--repo--', '2026-01-15T10-00-00-000Z_aaaa.jsonl', 'aaaa', '/repo', 15);
+    write('--repo--', '2026-01-16T10-00-00-000Z_bbbb.jsonl', 'bbbb', '/repo', 16);
+    write(
+      '--repo-packages-core--',
+      '2026-01-10T10-00-00-000Z_cccc.jsonl',
+      'cccc',
+      '/repo/packages/core',
+      10,
+    );
+    write('--other--', '2026-01-12T10-00-00-000Z_dddd.jsonl', 'dddd', '/other', 12);
+  });
+  afterAll(() => rmSync(root, { recursive: true, force: true }));
+
+  const service = (resolver = fakeResolver()) =>
+    new SessionReadService({ sessionsRoot: root, sessionDir: root, resolver });
+
+  it('按项目目录聚合：子目录与仓库根同键、空目录跳过、按 lastModified 降序', async () => {
+    const resolver = fakeResolver();
+    const { projects, listFingerprint } = await service(resolver).listProjects();
+
+    expect(projects).toHaveLength(2); // --empty-- 被跳过，--repo-- 与子目录合并成一项
+    expect(listFingerprint).toMatch(/^[0-9a-f]{16}$/);
+    const [repoProject, otherProject] = projects;
+    expect(repoProject).toMatchObject({
+      projectKey: '/repo',
+      projectRoot: '/repo',
+      cwd: '/repo', // 代表 cwd = 最近有活动的目录（01-16）
+      cwds: ['/repo', '/repo/packages/core'],
+      sessionCount: 3,
+      isGit: true,
+      branch: 'main',
+    });
+    // 仓库根（01-16）比子目录（01-10）新 ⇒ 同一项目内取最新会话的 cwd 作代表
+    expect(otherProject).toMatchObject({
+      projectKey: '/other',
+      cwd: '/other',
+      sessionCount: 1,
+      isGit: false,
+    });
+    expect(projects.map((p) => p.lastModified)).toEqual(
+      [...projects].map((p) => p.lastModified).sort((a, b) => b.localeCompare(a)),
+    );
+    // cwd 去重后解析（/repo 与 /repo/packages/core 都会走到 resolver）
+    expect(new Set(resolver.calls)).toEqual(new Set(['/repo', '/repo/packages/core', '/other']));
+  });
+
+  it('force=1 清空项目解析缓存', async () => {
+    const resolver = fakeResolver();
+    await service(resolver).listProjects({ force: true });
+    expect(resolver.calls).toContain('<clear>');
+  });
+
+  it('列表项带 projectKey（与项目清单同键）', async () => {
+    const sessions = await service().list();
+    const ids = sessions.map((s) => s.id).sort();
+    expect(ids).toEqual(['aaaa', 'bbbb', 'cccc', 'dddd']);
+    expect(sessions.find((s) => s.id === 'cccc')?.projectKey).toBe('/repo');
+  });
+
+  it('projectKey 过滤只返回该项目；未知键返回空数组', async () => {
+    expect((await service().list({ projectKey: '/repo' })).map((s) => s.id)).toEqual([
+      'bbbb',
+      'aaaa',
+      'cccc',
+    ]);
+    expect(await service().list({ projectKey: '/nope' })).toEqual([]);
+  });
+});
+
+describe('SessionReadService 列表缓存（指纹失效）', () => {
+  let root: string;
+  const line = (id: string, timestamp: string) =>
+    `${JSON.stringify({ type: 'session', version: 3, id, timestamp, cwd: '/repo' })}\n`;
+  const resolver = {
+    resolve: async (cwd: string) => ({ projectRoot: cwd, projectKey: cwd, isGit: false }),
+    clear: () => {},
+  };
+  const at15 = new Date('2026-01-15T10:00:00.000Z').getTime() / 1000;
+  const at16 = new Date('2026-01-16T10:00:00.000Z').getTime() / 1000;
+
+  beforeAll(() => {
+    root = mkdtempSync(join(tmpdir(), 'piboat-cache-'));
+    mkdirSync(join(root, '--repo--'), { recursive: true });
+    const first = join(root, '--repo--', '2026-01-15T10-00-00-000Z_aaaa.jsonl');
+    writeFileSync(first, line('aaaa', '2026-01-15T10:00:00.000Z'));
+    utimesSync(first, at15, at15);
+  });
+  afterAll(() => rmSync(root, { recursive: true, force: true }));
+
+  const service = () => new SessionReadService({ sessionsRoot: root, sessionDir: root, resolver });
+
+  it('目录内容变化（新会话落盘）后指纹改变，列表不返回陈旧结果', async () => {
+    const svc = service();
+    const before = await svc.listFingerprint();
+    expect(await svc.list()).toHaveLength(1);
+
+    const second = join(root, '--repo--', '2026-01-16T10-00-00-000Z_bbbb.jsonl');
+    writeFileSync(second, line('bbbb', '2026-01-16T10:00:00.000Z'));
+    utimesSync(second, at16, at16);
+
+    const after = await svc.listFingerprint();
+    expect(after).not.toBe(before);
+    expect((await svc.list()).map((s) => s.id)).toEqual(['bbbb', 'aaaa']);
+  });
+
+  it('指纹不变时复用缓存；force / invalidate 重建', async () => {
+    const svc = service();
+    const cached = await svc.list();
+    expect(await svc.list()).toBe(cached); // 同一数组引用 ⇒ 走缓存
+    expect(await svc.list({ force: true })).not.toBe(cached);
+    const rebuilt = await svc.list();
+    svc.invalidate();
+    expect(await svc.list()).not.toBe(rebuilt); // 失效后重建
   });
 });

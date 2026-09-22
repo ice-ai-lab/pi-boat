@@ -1,6 +1,6 @@
 import type { AgentSession, AgentSessionEvent } from '@earendil-works/pi-coding-agent';
 import type { WireAgentEvent } from '@ice-ai/protocol';
-import { type WireAgentEventPayload, toWireAgentEventPayload } from '../events/wire-event';
+import { toWireAgentEventPayload, type WireAgentEventPayload } from '../events/wire-event';
 import type { SdkAgentMessage } from '../events/wire-message';
 
 /**

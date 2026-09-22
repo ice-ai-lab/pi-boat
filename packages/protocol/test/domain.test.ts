@@ -74,7 +74,6 @@ describe('domain/message', () => {
   it('parses usage with cost breakdown', () => {
     expect(UsageSchema.parse(usage)).toEqual(usage);
   });
-
 });
 
 describe('domain/session-entry', () => {
