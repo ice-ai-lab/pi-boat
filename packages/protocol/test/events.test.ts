@@ -162,7 +162,6 @@ describe('events/wire-agent-event', () => {
       },
       session_info_changed: {},
       thinking_level_changed: { level: 'high' },
-      bash_execution_update: { delta: 'out' },
       connected: { sessionId: 's1', isStreaming: false, lastSeq: seq - 1 },
       session_shutdown: {},
       turn_start: {},
@@ -177,7 +176,7 @@ describe('events/wire-agent-event', () => {
     }
     // 反向：样例表不存在未声明类型
     expect(Object.keys(minimal).sort()).toEqual([...WIRE_AGENT_EVENT_TYPES].sort());
-    // 25 种：SDK 透传 23 + 服务层自加 2（2026-09-20 删 startup_error/prompt_done/prompt_error/extension 三事件）
-    expect(WIRE_AGENT_EVENT_TYPES).toHaveLength(25);
+    // 24 种：SDK 透传 22 + 服务层自加 2（2026-09-20 删自加三事件；2026-09-22 删 bash_execution_update）
+    expect(WIRE_AGENT_EVENT_TYPES).toHaveLength(24);
   });
 });

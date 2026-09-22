@@ -297,7 +297,6 @@ export class AgentSessionService {
       sessionFile: session.sessionFile ?? undefined,
       isStreaming: session.isStreaming,
       isPromptRunning: entry.isPromptRunning,
-      isBashRunning: session.isBashRunning,
       isCompacting: session.isCompacting,
       autoCompactionEnabled: session.autoCompactionEnabled,
       autoRetryEnabled: session.autoRetryEnabled,

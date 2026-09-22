@@ -280,7 +280,7 @@ describe('toWireAgentEvent：透传与 seq', () => {
     });
   });
 
-  it('entry_appended / bash_execution_update 透传', () => {
+  it('entry_appended 透传；bash_execution_update 丢弃（Shell 直连不实现，2026-09-22）', () => {
     const entry = {
       type: 'message',
       id: 'en1',
@@ -292,11 +292,7 @@ describe('toWireAgentEvent：透传与 seq', () => {
       type: 'entry_appended',
       seq: 1,
     });
-    expect(toWireAgentEvent(e({ type: 'bash_execution_update', delta: 'out' }), 2)).toEqual({
-      type: 'bash_execution_update',
-      seq: 2,
-      delta: 'out',
-    });
+    expect(toWireAgentEvent(e({ type: 'bash_execution_update', delta: 'out' }), 2)).toBeNull();
   });
 });
 
@@ -332,7 +328,6 @@ describe('toWireAgentEvent：wire schema 兼容性', () => {
     { type: 'queue_update', steering: [], followUp: [] },
     { type: 'compaction_start', reason: 'manual' },
     { type: 'thinking_level_changed', level: 'high' },
-    { type: 'bash_execution_update', id: 'b1', delta: 'x' },
   ];
 
   it('每个样本投影后均通过 WireAgentEventSchema.parse', () => {
