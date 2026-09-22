@@ -86,7 +86,7 @@
 |---|---|
 | `AgentState`（`get_state` 返回） | `sessionId/sessionFile/isStreaming/isPromptRunning/isCompacting/autoCompactionEnabled/autoRetryEnabled/model/messageCount/pendingMessageCount/queuedMessages{steering,followUp}/lastSeq/contextUsage/systemPrompt/thinkingLevel/extensionStatuses/extensionWidgets`（`lastSeq` 为快照水位线，客户端丢弃 SSE 流中 `seq ≤ lastSeq` 的事件，docs/01 §5.4；`isBashRunning` 已随 Shell 直连组删除，2026-09-22） |
 | `isPromptRunning` 语义 | **服务端尚有 prompt/steer/follow_up 调用未销账**（不是「agent run 未结束」）。为什么不能只认 `agent_settled`：SDK `prompt()` 有三条提前 return 路径不进 `_runAgentPrompt`——扩展命令（`/tui` 这类只执行 handler 的）、input handler 返回 `handled` 的、streaming 入队的——它们永**不发** `agent_settled`（`agent-session.js:828/844/864` vs `_emitAgentSettled` 只在 `:784`）。它是事件流盲区（handler 执行期、预检期 `isStreaming=false` 但有事在跑）的唯一判据，客户端用 `isStreaming \|\| isPromptRunning` 判定「还没完」（2026-09-21 修订） |
-| `SessionStatsInfo` | userMessages/assistantMessages/toolCalls/toolResults/tokens/cost/contextUsage/totalActiveMs/**sessionName**（rpc 层附加） |
+| `SessionStatsInfo` | userMessages/assistantMessages/toolCalls/toolResults/tokens/cost/contextUsage/totalActiveMs/**sessionName**（rpc 层附加）。⚠️ 缺**性能统计**字段（对话轮数/步数、LLM 耗时、工具耗时、生成速度 t/s）——取向已定：**core 累加 + protocol 加可选字段**（§11.1 行 1） |
 | `ToolInfo` | `name/description/parameters/promptGuidelines/sourceInfo` + `active`（get_tools 时叠加） |
 | `SlashCommandInfo` | `name/description/source("prompt"|"skill"|"extension")/sourceInfo`（斜杠命令面板） |
 
@@ -126,6 +126,11 @@
 `POST /api/agent/new`，body：`{ cwd, type?, message?, images?, provider?, modelId?, toolNames?, thinkingLevel? }`
 → `{ success, sessionId, data, model: {provider, modelId} | null, thinkingLevel }`
 （provider 与 modelId 必须成对；thinkingLevel 枚举 `off/minimal/low/medium/high/xhigh/max`）
+
+> ⚠️ **`cwd` 必须存在且为目录——由 core 前置校验（`UserInputError` → 400）**。
+> 实证（2026-09-22）：SDK 的 `createAgentSession({ cwd: '/不存在的路径' })` **不报错、照样建会话**，
+> 后果是之后每一次 read/bash/edit 工具调用都在会话里失败，用户看到的是“agent 莫名其妙一直报错”
+> 而不是“路径错了”。因此该校验不是可选项（core 待补，M1 内完成）
 
 ---
 
@@ -319,6 +324,7 @@
 | 5 | 应用更新检查 | 暂缓（发布通道未定） |
 | 6 | 路径风格 | 资源身份进路径、子资源嵌套于所属资源（`/api/sessions/:id/entries/:entryId/thinking`），查询修饰进 query（`?before&tail`）。否决 ID 进 body：GET 无 body（fetch 抛错、SSE 物理不可带）、丢失缓存/重放/日志排查能力；否决 ID 进 query：混淆资源寻址与查询参数（2026-09-22 补记理由）。UUID 过长的排查痛点用日志缩写 ID 解决，不改寻址；鉴权相关端点单独设计 |
 | 7 | 项目分组与会话列表规模 | 项目是**会话目录的派生视图**（`GET /api/projects`，不分页）：服务端 git 归一成 `projectKey`，同一仓库的子目录/worktree 合并；列表缓存键 = 会话目录指纹（`listFingerprint`），磁盘变化自动失效（ADR-0008）。**会话列表暂不分页**，触发条件：10³–10⁴ 会话且实测单请求 > 100 ms 或 payload > 1 MB；届时按 `?projectKey&cursor&limit` 切，游标取目录内文件名时间戳（单调稳定），不做跨项目全量分页 |
+| 8 | UI 视图模型的归属 | 原型 v3 定义的「处理详情分组 / 折叠行 / 每轮 usage」是 **wire 事件之上的一层**，但不进 protocol——它承诺的是 UI 形状而非 API 能力，且历史（REST `entries`）与实时（SSE 事件）两条路径需蒸出同一种形状。**归 client 私有契约**（`fold.ts` + `rebuild.ts`），规格见 `docs/05-client-design.md` §6，消费侧见 `docs/06-ui-design.md` §4.2 |
 
 ## 10. 协议包目录结构
 
@@ -364,6 +370,19 @@ packages/protocol/src/
 | **M2 会话与模型** | §4 剩余命令（分支组/压缩组/set_model/set_thinking_level/set_session_name/reload/custom_message）+ §6.4 模型 + §6.5 认证 | 日常可替代 TUI |
 | **M3 完整体验** | §6.6 文件 + §6.7 git + ~~§6.8 终端~~（已移除） + §6.9 资源 + §7 辅助（lease/push） | 端到端功能完整 |
 | **M4 桌面端** | 无新增（Electron 复用同一协议） | — |
+
+### 11.1 原型 v3 暴露的缺口
+
+`docs/design/piboat-web-v3.html` 把前端需求具象化后，暴露出五处**协议面不足**。下表标出已定与未定；
+**未定项在定案前不得开工相应 UI**。
+
+| # | 缺口 | 现状 | 取向 |
+|---|---|---|---|
+| 1 | **性能统计**：对话轮数/步数、LLM 耗时、工具耗时、生成速度 t/s | `SessionStatsInfo` 与 `AgentState` 均无；**SDK `SessionStats` 也没有**（0.85.1 `.d.ts` 已核对） | ✅ **已定（2026-09-22）：core 累加**。`rounds` ← `agent_start` 计数；`steps` ← `turn_start` 计数；`llmMs` ← 每 turn 起止差；`toolMs` ← `tool_execution_start/end` 累加；`tps` ← output tokens / `llmMs`。字段形状（建议 `SessionStatsInfo.perf?`）随 M2 开工定。⚠️ **冷会话**（本进程未运行过）无耗时数据 → 字段必须可选，`undefined` 时前端不展示 |
+| 2 | **最近提交**（short hash） | `SessionInfo` 只有 `branch`/`isWorktree` | 维持原议：归 M3 git 域（`/api/git/status`）返回后拼装，不进 `SessionInfo` |
+| 3 | **工具预设**（`chat-only` / `read-only` / `default` / `full`） | protocol 无枚举，只有 `get_tools`/`set_tools` 的具名列表 | ✅ **已定（2026-09-22）：归 core 解析**——只有 core 知道 SDK 的默认工具集（`default` 无法在客户端静态枚举）。M2 开工时定命令形状（`set_tools` 收 preset 名或新命令 `set_tool_preset`），**不养期货** |
+| 4 | **输入卡「模式」**（默认/只读/**全自动·免确认执行命令**） | 与 #3 语义重叠；「免确认」在 SDK 0.85 无对应能力 | ✅ **已定（2026-09-22）：与工具预设合并**——模式菜单直接展示四项预设（标签用工具集描述），**删掉「全自动·免确认」**（AGENTS.md：命名不得暗示它做不到的事） |
+| 5 | 系统提示词「版本 r42」 | `AgentState.systemPrompt` 已在 M1 契约内（**无需协议改动**）；但无版本号字段 | ✅ **已定（2026-09-22）：展示，删掉「版本 r42」**（无数据来源）。参考 pi-web（`components/SystemPromptPanel.tsx`）：面板只渲染原始文本 + 三态（空 / 尚未加载 / 加载中），**不显示版本号也不做 token 估算**。详见 `docs/06` §11.2 行 5 |
 
 ---
 

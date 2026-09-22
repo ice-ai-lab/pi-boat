@@ -193,7 +193,18 @@ agent-session.js:776/784/949）②`agent_settled` 事件幂等兜底（steer/fol
 ## 10. 待落地（按里程碑）
 
 - **M2**：fork/压缩/模型组命令（fork 的 runtime 替换在 Entry 上换引用重绑）、扩展 UI 通道、
-  set_tools 冷会话重建、ConfigService、改名走命令通道、列表 transient 合并
+  set_tools 冷会话重建、ConfigService、改名走命令通道、列表 transient 合并、
+  **性能统计累加**（`rounds`←`agent_start`、`steps`←`turn_start`、`llmMs`、`toolMs`、`tps`→
+  `SessionStatsInfo.perf?`；累加在 SessionEntry 的流内状态上，**冷会话（本进程未跑过）为 `undefined`**，docs/02 §11.1）、
+  **工具预设解析**（模式菜单四项 → 工具名清单；`default` 集只有 core 知道 SDK 的默认工具，docs/02 §11.1）
 - **M3**：idle 回收与 liveness lease、SystemService（文件/git worktree）、导出 HTML / auto-name
+- **M1 内补**（开工时做，不拖到 M2）：`create()` 前置 **cwd 校验**——不存在或非目录 → `UserInputError` →
+  server 400（已有映射）。动机是一个实证结论：SDK `createAgentSession({ cwd })` 对不存在的路径
+  **不报错照样建会话**，之后每次 read/bash/edit 工具调用都在会话里失败，用户看到的是“agent 莫名一直报错”
+  而不是“路径错了”（docs/02 §4.1、docs/06 §11.3 行 1b）
+- **SDK 升级注意**：`systemPrompt` 的来源是 `session.systemPrompt`（0.85.x 即 `agent.state.systemPrompt` 直通）。
+  ⚠️ pi-web 记录 **Pi 0.86 起该字段改为“转录回放”且不可赋值**，宿主若要下发精确 prompt 只能靠
+  `before_agent_start` 扩展覆写——升级 SDK 时必须重验「系统提示词面板显示的仍是否实际发送的 prompt」
+  （docs/06 §11.2 附注）
 - **server 前置**：SSE 重放缓冲（M1 已降级为忽略 Last-Event-ID，docs/04 §5.5）、
   deferMedia 占位符（待 protocol 定稿；`toolResultImage` 读取已就位）
