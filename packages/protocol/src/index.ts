@@ -9,6 +9,7 @@ export * from './constants';
 export * from './domain/index';
 export * from './envelope';
 export * from './events/wire-agent-event';
+export * from './rest/agent';
 export * from './rest/misc';
 export * from './rest/sessions';
 // M2 追加：commands 分支/压缩/模型组 + rest/models + rest/auth

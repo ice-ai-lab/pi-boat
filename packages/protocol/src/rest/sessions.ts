@@ -4,10 +4,12 @@ import {
   SessionInfoSchema,
   SessionTreeNodeSchema,
 } from '../domain/session-info';
-import { AgentStateSchema, SessionStatsInfoSchema } from '../domain/state';
+import { SessionStatsInfoSchema } from '../domain/state';
+import { type AgentRunningState, AgentRunningStateSchema } from './agent';
 
 /**
- * ⑤ REST 资源——会话域（docs/02 §6.1 列表 / §6.2 详情与生命周期 / §6.3 分页与惰性加载）。
+ * ⑤ REST 资源——会话域（docs/02 §6.1 列表/搜索 / §6.2 详情与生命周期 / §6.3 分页与惰性加载）。
+ * agent 运行时域（/api/agent/*）拆至 ./agent——按 core 双服务边界分域（2026-09-22）。
  * 路径常量 + 请求/响应类型 + Zod schema 三件套（docs/02 §10）。
  */
 
@@ -17,9 +19,6 @@ import { AgentStateSchema, SessionStatsInfoSchema } from '../domain/state';
 
 export const SESSIONS_PATH = '/api/sessions' as const;
 export const SESSION_SEARCH_PATH = '/api/sessions/search' as const;
-export const AGENT_RUNNING_PATH = '/api/agent/running' as const;
-/** 单会话轻查（未运行不报错，返回 {running:false}） */
-export const agentStatePath = (id: string) => `/api/agent/${id}` as const;
 export const sessionPath = (id: string) => `/api/sessions/${id}` as const;
 export const sessionStatePath = (id: string) => `/api/sessions/${id}/state` as const;
 export const sessionExportPath = (id: string) => `/api/sessions/${id}/export` as const;
@@ -29,7 +28,6 @@ export const entryThinkingPath = (id: string, entryId: string) =>
   `/api/sessions/${id}/entries/${entryId}/thinking` as const;
 export const entryToolResultImagePath = (id: string, entryId: string) =>
   `/api/sessions/${id}/entries/${entryId}/tool-result-image` as const;
-export const bashOutputPath = (id: string) => `/api/agent/${id}/bash-output` as const;
 
 // ---------------------------------------------------------------------------
 // §6.1 会话列表
@@ -62,26 +60,6 @@ export const SessionSearchResponseSchema = z.object({
   sessions: z.array(SessionInfoSchema),
 });
 export type SessionSearchResponse = z.infer<typeof SessionSearchResponseSchema>;
-
-/** GET /api/agent/running —— 可见 Tab 池的轻量轮询 */
-export const RunningSessionsResponseSchema = z.object({
-  /** 同 SessionListResponse.registryVersion */
-  registryVersion: z.number(),
-  runningSessionIds: z.array(z.string()),
-  completionNotificationSuppressedSessionIds: z.array(z.string()),
-});
-export type RunningSessionsResponse = z.infer<typeof RunningSessionsResponseSchema>;
-
-/**
- * GET /api/agent/:id —— 单会话状态轻查：
- * 未运行返回 `{running:false}` 不报错；运行中附完整 AgentState
- * （客户端在 agent_end 后靠它同步模型/上下文/队列）。
- */
-export const AgentRunningStateSchema = z.union([
-  z.object({ running: z.literal(false) }),
-  z.object({ running: z.literal(true), state: AgentStateSchema }),
-]);
-export type AgentRunningState = z.infer<typeof AgentRunningStateSchema>;
 
 // ---------------------------------------------------------------------------
 // §6.2 会话详情与生命周期
@@ -165,10 +143,3 @@ export const ToolResultImageQuerySchema = z.object({
   blockIndex: z.number().int().min(0),
 });
 export type ToolResultImageQuery = z.infer<typeof ToolResultImageQuerySchema>;
-
-/** GET /api/agent/:id/bash-output?path&download=1 —— 超长输出临时文件（内联有大小上限；download 流式） */
-export const BashOutputQuerySchema = z.object({
-  path: z.string(),
-  download: z.boolean().optional(),
-});
-export type BashOutputQuery = z.infer<typeof BashOutputQuerySchema>;
