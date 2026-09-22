@@ -33,7 +33,6 @@ function fakeAgentSession(overrides: Record<string, unknown> = {}) {
     sessionFile: '/tmp/sess-1.jsonl',
     sessionName: undefined as string | undefined,
     isStreaming: false,
-    isBashRunning: false,
     isCompacting: false,
     autoCompactionEnabled: true,
     autoRetryEnabled: true,

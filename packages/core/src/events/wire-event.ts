@@ -125,10 +125,14 @@ export function toWireAgentEventPayload(event: AgentSessionEvent): WireAgentEven
       return event.name === undefined
         ? { type: 'session_info_changed' }
         : { type: 'session_info_changed', name: event.name };
+    case 'bash_execution_update':
+      // 2026-09-22 决策：Shell 直连（TUI 的 ! 直接执行）不实现，事件不入 wire
+      // （docs/02 §4 移除注）；防御性丢弃，不消耗 seq
+      return null;
     default:
       // 其余事件（agent_start / tool_execution_* / compaction_* / auto_retry_* /
-      // summarization_retry_* / entry_appended / thinking_level_changed /
-      // bash_execution_update 等）字段为基元、unknown 或已与 protocol 对齐的结构
+      // summarization_retry_* / entry_appended / thinking_level_changed 等）字段为
+      // 基元、unknown 或已与 protocol 对齐的结构
       // （entry_appended.entry），不含 AgentMessage 与 readonly 数组，故可结构透传
       // （TS 结构化检查兜底 SDK 变动）
       return { ...event } as WireAgentEventPayload;

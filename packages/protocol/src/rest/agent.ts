@@ -2,7 +2,8 @@ import { z } from 'zod';
 import { AgentStateSchema } from '../domain/state';
 
 /**
- * ⑤ REST 资源——agent 运行时域（docs/02 §4 命令通道 / §6.1 轮询与轻查 / §6.3 bash-output）。
+ * ⑤ REST 资源——agent 运行时域（docs/02 §4 命令通道 / §6.1 轮询与轻查）。
+ * Shell 直连（bash 命令与 /bash-output 端点）已按 2026-09-22 决策移除。
  * 与 sessions 域（rest/sessions，SessionReadService 磁盘只读）相对：本域端点全部面向
  * 运行时注册表（AgentSessionService）——命令进同会话 FIFO 串行，轻查直读注册表不排队。
  * 命令请求体（AgentCommand）与信封（CommandEnvelope）分别在 commands/ 与 envelope.ts。
@@ -27,9 +28,6 @@ export const agentStatePath = (id: string) => `/api/agent/${id}` as const;
 
 /** GET /api/agent/:id/events —— SSE 事件流（WireAgentEvent；Last-Event-ID 差量重放） */
 export const agentEventsPath = (id: string) => `/api/agent/${id}/events` as const;
-
-/** GET /api/agent/:id/bash-output —— bash 超长输出临时文件 */
-export const bashOutputPath = (id: string) => `/api/agent/${id}/bash-output` as const;
 
 // ---------------------------------------------------------------------------
 // §6.1 轮询与轻查
@@ -56,14 +54,3 @@ export const AgentRunningStateSchema = z.union([
   z.object({ running: z.literal(true), state: AgentStateSchema }),
 ]);
 export type AgentRunningState = z.infer<typeof AgentRunningStateSchema>;
-
-// ---------------------------------------------------------------------------
-// §6.3 bash 超长输出
-// ---------------------------------------------------------------------------
-
-/** GET /api/agent/:id/bash-output?path&download=1（内联有大小上限；download 流式） */
-export const BashOutputQuerySchema = z.object({
-  path: z.string(),
-  download: z.boolean().optional(),
-});
-export type BashOutputQuery = z.infer<typeof BashOutputQuerySchema>;

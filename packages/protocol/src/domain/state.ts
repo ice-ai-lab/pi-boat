@@ -36,7 +36,6 @@ export const AgentStateSchema = z.object({
   sessionFile: z.string().optional(),
   isStreaming: z.boolean(),
   isPromptRunning: z.boolean(),
-  isBashRunning: z.boolean(),
   isCompacting: z.boolean(),
   autoCompactionEnabled: z.boolean(),
   autoRetryEnabled: z.boolean(),
