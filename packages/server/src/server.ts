@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { serveStatic } from '@hono/node-server/serve-static';
-import type { AgentSessionService, SessionReadService } from '@ice-ai/core';
+import type { AgentSessionService, ProjectReadService, SessionReadService } from '@ice-ai/core';
 import type { HealthResponse } from '@ice-ai/protocol';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
@@ -17,6 +17,7 @@ import { DEV_WEB_ORIGINS, securityMiddleware } from './security';
 export interface AgentServerDeps {
   agentService: AgentSessionService;
   readService: SessionReadService;
+  projectService: ProjectReadService;
   /** 生产静态托管目录（apps/web/dist 的绝对路径）；缺省不托管（dev 页面来自 vite 9528） */
   staticRoot?: string;
 }
@@ -36,7 +37,7 @@ export function createAgentServer(deps: AgentServerDeps): Hono {
 
   registerAgentRoutes(app, { agentService: deps.agentService });
   registerSessionRoutes(app, { agentService: deps.agentService, readService: deps.readService });
-  registerProjectRoutes(app, { readService: deps.readService });
+  registerProjectRoutes(app, { projectService: deps.projectService });
 
   // 静态托管（docs/04 §7 生产形态）：apps/web/dist + SPA fallback，单进程即完整产品。
   // serveStatic 的 root 按 join(root, path) 解析，绝对路径可直接用

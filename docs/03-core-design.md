@@ -135,9 +135,17 @@ agent-session.js:776/784/949）②`agent_settled` 事件幂等兜底（steer/fol
 `get_state` **命令**与运行中的 prompt 串行（会排队到 run 结束）；`getRunningState()` **轻查**
 直读注册表不排队。轮询实时状态必须走轻查（`GET /api/agent/:id`），docs/02 §6.1 ⚠️。
 
-## 7. 只读浏览（SessionReadService）
+## 7. 只读浏览（read/ 模块组）
 
 数据源是 pi 共享的 `~/.pi/agent/sessions/*.jsonl`（无自建存储，与 pi CLI 天然互见）。
+按领域拆分（2026-09-22）：
+
+- `dir-scan.ts` —— 目录元数据扫描 + 指纹（readdir/stat，不解析正文；列表缓存键与
+  `listFingerprint` 的单一来源，项目清单与列表共用）
+- `ProjectResolver` —— cwd → 项目归一（git 仓库根/worktree/分组键，60s 缓存；ADR-0008）
+- `ProjectReadService` —— 项目清单（ADR-0008 分组视图；须与 SessionReadService 共享
+  同一 resolver 实例 ⇒ 两处 projectKey 按构造一致，server main.ts 装配）
+- `SessionReadService` —— 会话域其余全部（见下）
 
 ### 7.1 历史分页算法（`sliceBranchWindow`）
 
@@ -154,7 +162,7 @@ agent-session.js:776/784/949）②`agent_settled` 事件幂等兜底（steer/fol
 
 ### 7.2 其余方法
 
-- `list/search`：`SessionManager.listAll` 扫描 + 客户端式过滤（M1 无索引，量大后加缓存）
+- `list/search`：`SessionManager.listAll` 扫描（目录指纹缓存，ADR-0008）+ 客户端式过滤（搜索索引 M3）
 - `detail`：tree/stats/context 装配；`totalActiveMs` 冷会话置 0（需运行时埋点）
 - `rename`：`appendSessionInfo` 追加行（空白名抛 UserInputError）；运行中会话改走命令通道（M2）
 - `computeStats`：对齐 SDK `getSessionStats` 聚合口径（导出的纯函数）
@@ -175,8 +183,9 @@ agent-session.js:776/784/949）②`agent_settled` 事件幂等兜底（steer/fol
 
 ## 9. 测试与事件快照回归
 
-- 四个测试文件（约 1280 行）：service（FIFO/create/late-join）、entry（seq/dispose/销账）、
-  wire-event（**事件快照回归**）、read（分页/压缩边界）
+- 六个测试文件（约 1600 行）：service（FIFO/create/late-join）、entry（seq/dispose/销账）、
+  wire-event（**事件快照回归**）、read（分页/压缩边界）、project-resolver（归一/缓存）、
+  project-read（项目聚合）
 - **事件快照回归**（`wire-event.test.ts`）：SDK 事件样例 → wire 输出断言。SDK 升级
   （版本锁 0.85.x）或改投影代码时**必须跑**（AGENTS.md），防事件格式漂移
 - 运行：`pnpm turbo run test`（或 `pnpm --filter @ice-ai/core test`）

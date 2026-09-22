@@ -353,14 +353,15 @@ describe('computeStats（纯函数）', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 项目清单 / 列表指纹缓存（ADR-0008）
+// 列表项目归一（enrich）与列表指纹缓存（ADR-0008；项目清单本身的测试见
+// project-read-service.test.ts）
 // ---------------------------------------------------------------------------
 
 /**
- * 项目清单测试用独立夹具：sessionsRoot 下每项目一个子目录（SDK 真实布局），
- * 外加一个空目录。注入假 resolver（避开 git 子进程），cwd → 项目键映射可控。
+ * 多项目目录夹具：sessionsRoot 下每项目一个子目录（SDK 真实布局）。注入假
+ * resolver（避开 git 子进程），验证列表项 enrich 出的 projectKey 可用于过滤。
  */
-describe('SessionReadService.listProjects', () => {
+describe('SessionReadService 列表项目归一（enrich）', () => {
   let root: string;
   const session = (id: string, cwd: string, timestamp: string) =>
     `${JSON.stringify({ type: 'session', version: 3, id, timestamp, cwd })}\n`;
@@ -416,39 +417,9 @@ describe('SessionReadService.listProjects', () => {
   const service = (resolver = fakeResolver()) =>
     new SessionReadService({ sessionsRoot: root, sessionDir: root, resolver });
 
-  it('按项目目录聚合：子目录与仓库根同键、空目录跳过、按 lastModified 降序', async () => {
-    const resolver = fakeResolver();
-    const { projects, listFingerprint } = await service(resolver).listProjects();
-
-    expect(projects).toHaveLength(2); // --empty-- 被跳过，--repo-- 与子目录合并成一项
-    expect(listFingerprint).toMatch(/^[0-9a-f]{16}$/);
-    const [repoProject, otherProject] = projects;
-    expect(repoProject).toMatchObject({
-      projectKey: '/repo',
-      projectRoot: '/repo',
-      cwd: '/repo', // 代表 cwd = 最近有活动的目录（01-16）
-      cwds: ['/repo', '/repo/packages/core'],
-      sessionCount: 3,
-      isGit: true,
-      branch: 'main',
-    });
-    // 仓库根（01-16）比子目录（01-10）新 ⇒ 同一项目内取最新会话的 cwd 作代表
-    expect(otherProject).toMatchObject({
-      projectKey: '/other',
-      cwd: '/other',
-      sessionCount: 1,
-      isGit: false,
-    });
-    expect(projects.map((p) => p.lastModified)).toEqual(
-      [...projects].map((p) => p.lastModified).sort((a, b) => b.localeCompare(a)),
-    );
-    // cwd 去重后解析（/repo 与 /repo/packages/core 都会走到 resolver）
-    expect(new Set(resolver.calls)).toEqual(new Set(['/repo', '/repo/packages/core', '/other']));
-  });
-
   it('force=1 清空项目解析缓存', async () => {
     const resolver = fakeResolver();
-    await service(resolver).listProjects({ force: true });
+    await service(resolver).list({ force: true });
     expect(resolver.calls).toContain('<clear>');
   });
 
