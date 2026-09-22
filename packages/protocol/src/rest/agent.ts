@@ -26,7 +26,8 @@ export const agentCommandPath = (id: string) => `/api/agent/${id}` as const;
 /** GET /api/agent/:id —— 单会话轻查（与 agentCommandPath 同 URL 仅方法不同，二者不得漂移） */
 export const agentStatePath = (id: string) => `/api/agent/${id}` as const;
 
-/** GET /api/agent/:id/events —— SSE 事件流（WireAgentEvent；Last-Event-ID 差量重放） */
+/** GET /api/agent/:id/events —— SSE 事件流（WireAgentEvent；Last-Event-ID 差量重放）。
+ *  鉴权：靠 Host/Origin/Sec-Fetch-Site 头校验（ADR-0007），无 query 凭据。 */
 export const agentEventsPath = (id: string) => `/api/agent/${id}/events` as const;
 
 // ---------------------------------------------------------------------------

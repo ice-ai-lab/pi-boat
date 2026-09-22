@@ -962,15 +962,15 @@ const stream = models.streamSimple(model, context, options); // AssistantMessage
 </div>
 
 <script>
-(function () {
+(() => {
   var links = Array.prototype.slice.call(document.querySelectorAll('.sidebar nav a'));
-  var targets = links.map(function (a) { return document.querySelector(a.getAttribute('href')); });
+  var targets = links.map((a) => document.querySelector(a.getAttribute('href')));
   function onScroll() {
     var y = window.scrollY + 80, idx = 0;
     for (var i = 0; i < targets.length; i++) {
       if (targets[i] && targets[i].offsetTop <= y) idx = i;
     }
-    links.forEach(function (a, i) { a.classList.toggle('active', i === idx); });
+    links.forEach((a, i) => { a.classList.toggle('active', i === idx); });
   }
   window.addEventListener('scroll', onScroll, { passive: true });
   window.addEventListener('resize', onScroll);

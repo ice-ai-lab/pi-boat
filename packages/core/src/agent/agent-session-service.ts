@@ -19,7 +19,7 @@ import type {
   ToolInfo,
 } from '@ice-ai/protocol';
 import { toWireAgentMessage } from '../events/wire-message';
-import { type WireAgentEventListener, SessionRegistryEntry } from './session-entry';
+import { SessionRegistryEntry, type WireAgentEventListener } from './session-entry';
 
 /**
  * Agent 命令通道 + 事件总线的核心服务（docs/01 §3.1、§5.5 transport-agnostic 接口）。
@@ -64,6 +64,17 @@ export class PromptRejectedError extends Error {
   constructor(message = 'Prompt rejected') {
     super(message);
     this.name = 'PromptRejectedError';
+  }
+}
+
+/**
+ * 客户端输入错误（可修正后重试，如模型不可用 / 空白会话名）——
+ * server 映射 400（区别于运行失败的 500，docs/04 §4.1）
+ */
+export class UserInputError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'UserInputError';
   }
 }
 
@@ -119,7 +130,7 @@ export class AgentSessionService {
         .find((m) => m.provider === provider && m.id === modelId);
       if (!model) {
         session.dispose();
-        throw new Error(`Model not available: ${provider}/${modelId}`);
+        throw new UserInputError(`Model not available: ${provider}/${modelId}`);
       }
       await session.setModel(model);
     }

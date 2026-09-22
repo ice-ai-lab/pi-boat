@@ -11,3 +11,5 @@
 | [0004](0004-npm-scope-ice-ai.md) | npm scope 变更为 @ice-ai/*（修订 ADR-0001） | 已接受 | 2026-09-18 |
 | [0005](0005-protocol-zod-schema.md) | protocol 保留 Zod schema 作为类型单一真相源（否决纯 TS type 方案） | 已接受 | 2026-09-20 |
 | [0006](0006-protocol-package.md) | 独立 protocol 契约包——前后端唯一契约层 | 已接受 | 2026-09-20 |
+| [0007](0007-local-auth-without-token.md) | 本机鉴权删除 Bearer token 与 SSE 票据——Host / Origin / Sec-Fetch-Site 三闸常开 | 已接受 | 2026-09-22 |
+| [0008](0008-project-grouping-and-list-cache.md) | 项目分组（projectKey 归一）与会话列表缓存——列表性能分层 | 已接受 | 2026-09-22 |
