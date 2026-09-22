@@ -1,0 +1,13 @@
+/**
+ * 全局样式入口（docs/06-ui-design.md §2）：
+ * - Tailwind 与 token 由 `@ice-ai/ui/theme.css` 统一引入（`@theme inline` 映射见该文件）
+ * - `@source` 必须显式指向包外源码，否则 Tailwind 扫不到 ui 的类名（类名被摇掉）
+ */
+@import "@ice-ai/ui/theme.css";
+@source "../../../packages/ui/src";
+
+html,
+body,
+#root {
+  height: 100%;
+}

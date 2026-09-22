@@ -3,7 +3,8 @@
 > `@ice-ai/client`：类型安全的客户端 SDK。本文是 `docs/01-overview.md` §3.1 的实现细化，
 > API 契约以 `docs/02-protocol-inventory.md` 与 `@ice-ai/protocol` 为准，服务端语义见
 > `docs/04-server-design.md`，组件侧消费契约见 `docs/06-ui-design.md`。
-> 状态：**开工前设计稿**（2026-09-22，随 Web 原型 v3 定稿）。技术栈基准已由 ADR-0009 收口（Axios / TanStack Query 边界 / 路由）。
+> 状态：**M1 已落地**（2026-09-23，实现见 `packages/client/src/`）。技术栈基准由 ADR-0009 收口
+> （Axios / TanStack Query 边界 / 路由）。
 > 与代码不一致时以代码为准并当天更新本文档。
 
 ---
@@ -25,22 +26,34 @@ client 是**前端与 server 之间唯一的落地层**：把 protocol 的契约
 
 ```
 packages/client/src/
-├── http.ts              # 统一请求：Axios 实例 + protocol Zod 解析 + 错误信封解包（ADR-0009）
+├── http.ts              # Axios 实例 + protocol Zod 解析 + 错误信封归一（ADR-0009）
+│                        #   ApiError / NetworkError / ResponseSchemaError；baseURL 默认空串 = 同源
 ├── endpoints/           # 按 protocol 的 rest 域分批的薄封装（一个域一文件）
-│   ├── agent.ts         #   new / send(命令) / state /
-│   ├── sessions.ts      #   list / search / detail / context / rename / delete
-│   └── projects.ts      #   list
+│   ├── agent.ts         #   newSession / sendCommand / getRunningState / getRunningSessions / agentEventsUrl
+│   ├── sessions.ts      #   list / search / detail / context / state / rename / delete
+│   └── projects.ts      #   list / primaryCwd
 ├── stream/
-│   ├── event-source.ts  # SSE 连接、心跳、断线重连（EventSource 包装）
-│   ├── fold.ts          #   ★ 事件 → 视图模型（纯函数，本文 §6）
+│   ├── event-source.ts  #   ★ SSE 连接：单帧 Zod 校验、非法帧计数、session_shutdown 停流
+│   ├── fold.ts          #   ★ 事件 → 视图模型（纯函数）+ 形状定义 + groupTrail/mergeTurns/sumUsage
 │   ├── rebuild.ts       #   ★ REST 历史 → 视图模型（纯函数，本文 §6.4）
-│   └── agent-stream.ts  #   AgentStream：subscribe/getSnapshot + seq 对账
+│   └── agent-stream.ts  #   AgentStream：subscribe/getSnapshot + seq 对账 + 命令 + 轻查
 ├── index.ts             # 框架无关导出（无 React）
 └── react/
     ├── index.ts         # '@ice-ai/client/react' 子导出
+    ├── client.ts        # getApiClient / setApiClient（默认同源实例）
     ├── use-agent-session.ts
     └── queries.ts       # TanStack Query hooks + queryKeys 工厂
 ```
+
+实现备注（与设计稿的差异，均已落地）：
+- 视图模型的形状定义放在 **fold.ts**（而非独立 view-model 文件）——形状与折叠规则必须同文件演进
+- 新增 `TextRow`（过程文本行）：模拟在最终回答之前的旁白（如「先读文件」）；
+  不落这一行会让更早的文本在最终回答定稿时凭空消失（`TrailRow = thinking | tool | text | system`）
+- `ToolRow.startedAt` 是 fold 内部字段（算 durationMs 用），历史重建路径没有它
+- `ChatView.activeAssistantKey` 是 fold 内部状态：`message_update` 不带消息标识，
+  增量行必须挂到 `message_start` 定下的 key 上，`message_end` 才能按同一 id 覆盖
+- 折叠行/组的「用户手动展开过不被自动收起覆盖」由 **ui 组件本地 state** 实现，
+  不写回视图模型（docs/06 §8.1 的 `userToggled` 未落到数据形状上）
 
 `package.json` 需从单入口改为**双入口**：`"." → dist/index.js`、`"./react" → dist/react/index.js`
 （`tsconfig.build.json` 相应分两个 rootDir 产物，或统一 tsc 后按目录导出）。
@@ -62,13 +75,21 @@ packages/client/src/
 
 ## 4. HTTP 层
 
-- 单一 Axios 实例（`ADR-0009`）：`baseURL` 指向 server，**拦截器只做两件事**——错误信封归一
-  （非 2xx → 解出 `CommandError` 并以类型化异常抛出）与可选超时；**不做**凭据注入（ADR-0007 已无凭据）
+- 单一 Axios 实例（`ADR-0009`）：`baseURL` 默认 **空串 = 同源**——protocol 的路径常量自带 `/api`
+  前缀，dev 由 Vite proxy、生产由 server 同源托管，两种拓扑下前端代码一致（ADR-0009 的“相对路径”意图）；
+  直连场景（Electron / LAN）用 `createApiClient('http://127.0.0.1:9527')`。
+  **拦截器只做两件事**——错误信封归一（非 2xx → 解出 `CommandError` 并以类型化异常抛出）与可选超时；
+  **不做**凭据注入（ADR-0007 已无凭据）
 - 每个端点 = `protocol` 的路径常量 + 请求/响应 schema，**不自造形状**（与 server 路由同一份契约）
 - 流程固定为：`axios.request` → **`schema.safeParse`** → 成功返回 `data` / 失败抛带 path 的错误
   （ADR-0005 铁律：Axios 只负责把 JSON 拿回来，解析权归 Zod）
 - 错误信封（docs/04 §4.1）：非 2xx 统一解出 `CommandError`（含 `code`，如 `prompt_rejected`），
   **不**在组件里判断状态码
+- ⚠️ **信封解开点两处不同**（2026-09-23 端到端验收抓到的缺陷）：命令通道的响应是
+  `{success:true, data}`，所以 `sendCommand()` 用 `commandOkSchema(结果 schema)` 再取 `.data`；
+  而 REST 读端点直接返回资源体（列表/上下文/轻查），schema 直接套 body。
+  两者混用会得到 `expected null, received object` 这类只在真机上暴露的错误——
+  `test/http.test.ts` 用 axios adapter 把两条路径都钉住了
 - 不做重试、不做缓存——重试与缓存都是 Query 的职责
 
 ## 5. SSE 订阅与 seq 对账
@@ -95,8 +116,9 @@ packages/client/src/
 |---|---|
 | 心跳注释帧 | 忽略（仅用于保活） |
 | 未知事件类型 / 校验失败帧 | 丢弃 + 计数上报（不 crash、不断流） |
-| `session_shutdown` | 标记会话终止，停止重连 |
+| `session_shutdown` | 先折叠（`notice` + 末轮 `stopped`）再主动 `close()` 停流（否则会对着已销毁的会话无限重连） |
 | 标签页休眠 / 系统唤醒 | `EventSource` 的 `error` → 退避重连；唤醒后必定走整体重建 |
+| **首次建流就失败（从未 `connected`）** | 分两种情况：冷会话（server 对 SSE 回 404，docs/04 §5.3 阻塞项 3）**不算断线**——此时不写 `notice`，由宿主用 REST 历史渲染只读态并自行说明「未在运行」；只有**已经连上过再失败**才是真断线，写 `notice: 事件流已断开（重连失败…）`（2026-09-22：侧栏上线后点开历史会话是主路径，误报“会话不存在”会误导） |
 | 一页多会话 | 每个会话一个 `EventSource`（HTTP/1.1 同域 6 连接上限是已知风险 docs/01 §8-7；M1 只有单会话） |
 
 ---
@@ -283,7 +305,16 @@ queryKeys                    // 工厂：失效粒度与 domain 一一对应
 | 3 | 外部前端规范是否以 skills 引入 | **不引入**；规范沉淀在 ADR-0009 + 本文 + `docs/06` |
 | 4 | dev 接入方式 | **Vite proxy** `/api`（含 SSE）→ `127.0.0.1:9527`（ADR-0009）；浏览器视角同源，`http.ts` 的 `baseURL` 用相对路径 `/api` |
 | 5 | `ToolRow.diff` | **用 SDK 现成的串**：取 `toolResult.details.diff`（edit 工具已生成带行号的展示 diff），前端不做 diff 运算、不加依赖（§6.1 注解）→ ui 的 `DiffView` **在 M1 有真实消费方** |
-| 6 | 分组与自动展开时机 | ✅ **已定（2026-09-22）：方案 2（静止后收拢）**——组边界由消息序列决定（照 pi-web），流式期间末轮平铺不分组，轮结束才成组；`defaultExpanded = 本轮无最终回答`。规格见 §6.5，消费侧见 `docs/06` §8.1 |
+| 6 | 分组与自动展开时机 | ✅ **已定（2026-09-22）：方案 2（静止后收拢）**——组边界由消息序列决定（照 pi-web），流式期间末轮平铺不分组，轮结束才成组；`defaultExpanded = 本轮无最终回答`。规格见 §6.5，消费侧见 `docs/06` §8.1。**已落地**：`groupTrail(rows, {isLiveTail})` + 组件本地 open 状态 |
+
+### 8.3 M1 落地后的验收记录（2026-09-23）
+
+- **单测 17 例**（`packages/client/test/`）：fold↔rebuild 等价（含思考+工具调用+最终回答整轮）、
+  late-join 快照不重复、工具行跨两类事件、晚到工具结果补行、`groupTrail` 分组、
+  `mergeTurns` 合成轮并入、AgentStream 的 seq 去重 / 重连清空 + onReconnect / 非法帧计数 /
+  shutdown 停流 / prompt↔steer 分流
+- **事件流时序实测**（curl + 真实 server）：`:`(注释帧) → `connected{lastSeq:0}` → 增量，
+  `id:` 帧即 seq（docs/04 §5.2 一致）
 
 ### 8.2 未决项
 

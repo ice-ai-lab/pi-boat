@@ -9,3 +9,6 @@ allowBuilds:
   "@google/genai": true
   esbuild: true
   protobufjs: true
+
+minimumReleaseAgeExclude:
+  - jsdom@30.1.1

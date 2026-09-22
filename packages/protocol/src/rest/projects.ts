@@ -12,9 +12,13 @@ import { z } from 'zod';
  * O(项目数) 的目录元数据（不解析会话正文），因此廉价且不需要分页。
  * 同一仓库的多个会话目录（子目录、worktree）按 projectKey 合并为一项。
  *
- * 注：本文件只定义请求/响应契约，**不导出路径常量**——server 路由一律用字面量，
- * path 常量仅在出现 client SDK 消费方时再加（docs/02 §3 “不养期货”）。
+ * 注：路径常量在 client SDK 出现消费方后补齐（2026-09-23，`@ice-ai/client` 的
+ * `endpoints/projects.ts`）——server 路由仍用字面量（docs/02 §3 “不养期货”）。
  */
+
+/** GET /api/projects?force=1 —— 项目清单（client 端点封装与 server 路由共用的路径来源） */
+export const PROJECTS_PATH = '/api/projects' as const;
+
 export const ProjectInfoSchema = z.object({
   /** 分组键：projectRoot 的跨平台归一（Windows 大小写/分隔符不敏感），前端分组用 */
   projectKey: z.string(),
@@ -48,7 +52,7 @@ export const ProjectsResponseSchema = z.object({
 });
 export type ProjectsResponse = z.infer<typeof ProjectsResponseSchema>;
 
-/** GET /api/projects 查询参数 */
+/** GET /api/projects 查询参数（server 路由用字面量 query 名，此处仅契约） */
 export const ProjectsQuerySchema = z.object({
   /** force=1：清空项目解析（git）缓存后重算 */
   force: z.literal('1').optional(),

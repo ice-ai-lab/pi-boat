@@ -157,6 +157,9 @@ M3 实现：每个 SSE 连接持有会话 lease，观看中的空闲会话不被
   `http://127.0.0.1:9527`（ADR-0009，2026-09-22 定案）——dev 与 prod 拓扑一致；代理转发的请求
   不带 Origin / Sec-Fetch-*，故 ②③ 在 dev 期不经浏览器路径（它们防护直接打 9527 的来源，
   行为已由单测覆盖）。CORS 白名单保留为直连备选。⚠️ 代理必须保持流式（勿开缓冲/压缩）。
+  **M1 实测**（2026-09-23）：生产形态下 `GET /` 与 SPA fallback 均由 server 静态托管命中，
+  三道闸与信封映射逐项复验通过（evil origin / cross-site / 非回环 Host → 403）；
+  dev 形态下 `localhost:9528` 页面 + `/api`（含 404 passthrough）代理正常。
 
 ## 8. 开工前置缺口清单（2026-09-22 server 落地后复盘）
 
@@ -168,7 +171,7 @@ M3 实现：每个 SSE 连接持有会话 lease，观看中的空闲会话不被
 | 4 | 优雅退出信号处理 | server | ✅ main.ts 接 SIGINT/SIGTERM（§2），含关停硬断（§5.4，SIGTERM 验收） |
 | 5 | 会话存在性轻量检查（state 端点 404 判定） | core | M1 用 `detail() !== null`；量大后加 `exists(id)` |
 | 6 | `POST /api/agent/:id/sse-ticket` 端点 | protocol + server | ✅ M1 落地后于同日按 ADR-0007 撤销（票据层随 token 一并删除） |
-| 7 | 生产 bin 直跑 dist（extensionless import × bundler 解析） | 构建 | 遗留到 M4 打包（dev/test 全走 tsx，不影响 M1 验收） |
+| 7 | 生产 bin 直跑 dist（extensionless import × bundler 解析） | 构建 | 遗留到 M4 打包（dev/test 全走 tsx，不影响 M1 验收）。**2026-09-23 追加**：`apps/web/vite.config.ts` 在 Node ESM 下加载配置时撞上同一问题（`@ice-ai/protocol` 的 dist 入口 import `./commands/agent-command` 无扩展名）——M1 的临时做法是配置里直接引 `packages/protocol/src/constants.ts`（拿 `PORTS`），并在注释里标明 M4 统一收敛（tsc 产物带 `.js` 扩展名，或改为打包产物） |
 | 8 | 列表 transient 合并（ensure_session 未落盘会话不可见） | core/server | M2：列表 ∪ 注册表需要 SessionInfo 化的运行时快照 |
 | 9 | 前端无法正确分组（只能按 cwd 字符串） | core/server | ✅ ADR-0008：`ProjectResolver` 归一 + `GET /api/projects` + `?projectKey` 过滤 |
 | 10 | 全量列表成本随会话数线性增长，且无磁盘侧失效信号 | core | ✅ ADR-0008：目录指纹缓存（实测 75 ms → 3 ms）+ `listFingerprint` 响应字段 |
@@ -189,6 +192,9 @@ M3 实现：每个 SSE 连接持有会话 lease，观看中的空闲会话不被
 待实现。
 **验收命令**：`packages/server/test/server.test.ts`（30 用例，安全层三闸 / 信封映射 / 浏览 / 项目 / SSE 均覆盖）；
 手工验证用 `curl -N` 对 SSE 端点即可（序列与时序见 §5.1）。
+**端到端验收（2026-09-23 新增）**：`pnpm --filter @ice-ai/client run acceptance:m1`
+（需 server 在跑 + pi 凭据）——建流 → 发 prompt → 折叠事件，断言「工具行 ok 且有输出 +
+最终回答非空 + 零非法帧」。2026-09-23 实测通过：86 帧 / 0 非法帧 / 2198ms / usage 7168。
 代码地图：`src/server.ts`（DI 装配）、`src/security.ts`（三道闸，ADR-0007）、
 `src/sse.ts`（SSE 传输层与关停注册表）、`src/envelope.ts`（信封映射）、
 `src/routes/{agent,sessions,projects}.ts`（三域路由：agent 运行时 / 会话浏览 / 项目分组视图）、`src/main.ts`（启动与优雅退出）、

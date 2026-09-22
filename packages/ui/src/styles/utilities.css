@@ -1,0 +1,123 @@
+/* ============================================================================
+   PiBoat ui —— 共享 utility（docs/06-ui-design.md §5）
+   原型来源：.sq（48 处）/ 0.5px 描边 / 三档阴影 / .shimmer / 细滚动条 / .scrollbody mask
+   由 theme.css 统一 @import，随 token 一起进入同一个 Tailwind 编译。
+   ============================================================================ */
+
+/* 全站 0.5px 描边（四向变体） */
+@utility hairline {
+  border-width: 0.5px;
+  border-style: solid;
+}
+@utility hairline-t {
+  border-top-width: 0.5px;
+  border-top-style: solid;
+}
+@utility hairline-b {
+  border-bottom-width: 0.5px;
+  border-bottom-style: solid;
+}
+@utility hairline-l {
+  border-left-width: 0.5px;
+  border-left-style: solid;
+}
+@utility hairline-r {
+  border-right-width: 0.5px;
+  border-right-style: solid;
+}
+
+/* superellipse 圆角增强（必须保留 @supports 兜底：仅较新 Chromium/Safari 支持） */
+@utility sq {
+  @supports (corner-shape: superellipse(1.5)) {
+    corner-shape: superellipse(1.5);
+  }
+}
+
+/* 三档阴影：直接用 token（避免 @utility 与 theme 命名冲突） */
+@utility elev-panel {
+  box-shadow: var(--elev-panel);
+}
+@utility elev-soft {
+  box-shadow: var(--elev-soft);
+}
+@utility elev-soft-sm {
+  box-shadow: var(--elev-soft-sm);
+}
+
+/* 流式思考行：文字渐变扫光 */
+@utility shimmer {
+  background: linear-gradient(90deg, var(--fg-subtle) 35%, var(--fg) 50%, var(--fg-subtle) 65%);
+  background-size: 300% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: pi-shimmer 1.6s linear infinite;
+}
+@keyframes pi-shimmer {
+  to {
+    background-position: -300% 0;
+  }
+}
+
+/* 细滚动条：Firefox 与 WebKit 两套互斥规则（同时写会让 WebKit 丢弃全部伪元素规则） */
+@supports not selector(::-webkit-scrollbar) {
+  .scrollbar-thin,
+  .scrollbar-thin * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--sb-thumb) transparent;
+  }
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: var(--sb-width);
+  height: var(--sb-width);
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  border: 0 solid transparent;
+  border-radius: 999px;
+  background: var(--sb-thumb);
+  background-clip: content-box;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: var(--sb-thumb-hover);
+}
+.scrollbar-thin::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* 毛玻璃浮层里的滚动条换 l2 档 thumb */
+.pop-surface {
+  --sb-thumb: var(--sb-thumb-l2);
+  --sb-thumb-hover: var(--sb-thumb-hover-l2);
+}
+
+/* 顶部 content 渐隐（.scrollbody 的 mask） */
+@utility mask-fade-top {
+  mask-image: linear-gradient(to bottom, transparent 0, #000 16px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 16px);
+}
+
+/* 毛玻璃浮层（Popover / Toast / minimap tip 共用） */
+@utility glass {
+  background: var(--menu);
+  backdrop-filter: blur(40px) saturate(150%);
+  -webkit-backdrop-filter: blur(40px) saturate(150%);
+}
+
+@layer base {
+  body {
+    font-family: var(--font-ui);
+    font-size: 14px;
+    line-height: 22px;
+    color: var(--fg);
+    background: var(--surface);
+    -webkit-font-smoothing: antialiased;
+  }
+  button {
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+  }
+}

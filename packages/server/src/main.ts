@@ -45,6 +45,25 @@ const server = serve({ fetch: app.fetch, hostname: '127.0.0.1', port }, (info) =
 });
 
 /**
+ * 启动失败要能读懂（2026-09-22）：`serve()` 抛出的 EADDRINUSE 默认只给一段
+ * "Unhandled 'error' event" 堆栈，而 dev 期最容易踩的就是**上一轮残留的进程还占着端口**
+ * （turbo/tsx 被杀时不保证子进程退出：tsx 自己会打 “Previous process hasn't exited yet”）。
+ * 那一堆堆栈会被包在启动日志里、看起来像随机报错，所以这里换成一条能照着做的提示。
+ */
+server.on('error', (error: NodeJS.ErrnoException) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(
+      `[piboat-server] 端口 ${port} 已被占用：多半还有一个 piboat-server / tsx watch 在跑。\n` +
+        `  查看占用者：lsof -nP -iTCP:${port} -sTCP:LISTEN\n` +
+        `  处理：kill 掉该进程，或用 PORT=<其他端口> 启动。`,
+    );
+  } else {
+    console.error(`[piboat-server] 启动失败：${error.message}`);
+  }
+  process.exit(1);
+});
+
+/**
  * 优雅退出（docs/04 §2）：SIGINT/SIGTERM → disposeAll（core 广播 session_shutdown，
  * 尽力冲刷）→ 硬断全部 SSE（§5.4：graceful close 可能被响应管道吞掉，socket 保持
  * ESTABLISHED、server.close() 永不完成、进程变僵尸）→ 进程退出。

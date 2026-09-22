@@ -94,6 +94,11 @@ export async function readSessionCwd(path: string): Promise<string> {
     return typeof cwd === 'string' ? cwd : '';
   } catch {
     return '';
+  } finally {
+    // 必须显式关：靠 GC 回收会让 Node 在退出/GC 时报 “Closing file descriptor N on
+    // garbage collection”（新版本已升级为 ERR_INVALID_STATE 致命错）。
+    // 每个会话目录扫一次 × 每目录多文件 = 很容易堆出十几个 fd。
+    await handle?.close().catch(() => undefined);
   }
 }
 

@@ -111,11 +111,20 @@ return task;                                   // 错误由本次调用方接住
 
 同会话串行、跨会话并行；**前一条命令失败不阻塞后续命令**（错误不传染队列链）。
 
+⚠️ **串行的是「派发」，不是「run」**（2026-09-23 端到端验收修复）：SDK 的
+`session.prompt()` 在 `_runAgentPrompt` 的 finally 之后才 resolve（整轮跑完），
+若 FIFO 的队首 await 它，则运行期间的 `abort` / `steer` / `get_state` 与
+`POST /api/agent/new` 的首条消息全都会排队到 run 之后——中断与插队失效、
+建会话的响应卡到任务结束（前端拿不到 sessionId，就没法先建 SSE 再发消息）。
+正解：`dispatchPrompt()` 只等 SDK 的 `preflightResult(ok)` 回调（进 run 之前的
+唯一「派发结果」时点，agent-session.js:948），run 的结束/失败在后台收尾
+（销账 + 日志），错误经事件流下发。
+
 ### 6.2 M1 命令子集与实现要点
 
 | 命令 | 要点 |
 |---|---|
-| `prompt` | `preflightResult` 回调捕获拒稿 → `PromptRejectedError`；**finally 无条件销账**（见 6.3）；完成信号走事件流 `agent_settled`，返回 null |
+| `prompt` | `dispatchPrompt()`：**只等 `preflightResult`，不等 run**（见 6.1）；preflight 拒稿 → `PromptRejectedError`（保留 SDK 原始信息，映射 400 `prompt_rejected`）；派发异常（无 preflight 就抛）原样上抛（500）；完成信号走事件流 `agent_settled`，返回 null；**销账**在 run 落定时（成功或失败）执行 |
 | `steer` / `follow_up` | 标记 dispatched；同步失败销账后上抛；入队即返回（销账靠 `agent_settled` 幂等兜底） |
 | `abort` / `clear_queue` | 直通 SDK；clear_queue 返回 `{steering[], followUp[]}` 快照 |
 | `get_state` | 装配 AgentState：queued/isPromptRunning 来自 **Entry 流内跟踪**，其余直读 SDK；`lastSeq` 与各字段同块同步读取 |
@@ -132,8 +141,11 @@ agent-session.js:776/784/949）②`agent_settled` 事件幂等兜底（steer/fol
 
 ### 6.4 命令 vs 轻查——两条通道
 
-`get_state` **命令**与运行中的 prompt 串行（会排队到 run 结束）；`getRunningState()` **轻查**
-直读注册表不排队。轮询实时状态必须走轻查（`GET /api/agent/:id`），docs/02 §6.1 ⚠️。
+`get_state` **命令**与运行中的 prompt 串行；`getRunningState()` **轻查**直读注册表不排队。
+轮询实时状态必须走轻查（`GET /api/agent/:id`），docs/02 §6.1 ⚠️。
+
+（2026-09-23 修正：prompt 不再占住 FIFO 到 run 结束，所以 `get_state` 命令在运行期间
+也会被立即派发——串行的语义回到「不并发改状态」，而不是「等一轮跑完」。）
 
 ## 7. 只读浏览（read/ 模块组）
 

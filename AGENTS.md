@@ -12,11 +12,17 @@
 
 ```bash
 pnpm install                # Node ≥ 22.19（engines 强制）
-pnpm turbo run dev          # 目前仅 agent server (9527, tsx watch)；web 前端待建后加入（vite dev, 9528）
-pnpm turbo run build        # 全量构建（M0 验收线）
-pnpm turbo run test         # Vitest（core/protocol/client/ui）
+pnpm turbo run dev          # agent server (9527, tsx watch) + web (vite dev, 9528)
+pnpm turbo run dev:libs     # 需要改 packages/* 源码时另开：tsc watch 重编各包 dist
+                            #（dev 只起两个 app，包按 dist 消费；turbo 的 dev 依赖 ^build 先构建）
+pnpm turbo run build        # 全量构建（M1 验收线）
+pnpm turbo run test         # Vitest（core/protocol/client/ui；server 30 例）
 pnpm turbo run lint         # Biome 2（lint + format；修复用 pnpm lint:fix）
 ```
+
+M1 已完成（2026-09-23）：protocol / core / server / client / ui / apps/web 全部落地，
+175 个单测（core 74 / server 30 / protocol 30 / client 24 / ui 15 / web 2）。
+开发期请只访问 **http://localhost:9528**（Vite proxy 把 `/api` 含 SSE 转到 9527，ADR-0009）。
 
 server 验收：单测 `packages/server/test/server.test.ts`（30 用例：安全层三闸 403 / 信封映射 / 会话浏览 / 项目 / SSE）；
 路由与传输语义见 `docs/04-server-design.md`
@@ -27,13 +33,13 @@ server 验收：单测 `packages/server/test/server.test.ts`（30 用例：安�
 ## Monorepo 结构与依赖铁律
 
 ```
-apps/web          前端 SPA —— Vite + React 19 静态产物（待建，决策见 ADR-0002）
+apps/web          前端 SPA —— Vite + React 19 静态产物（ADR-0002），TanStack Query / React Router v7
 apps/desktop      Electron（二期，未建）
 packages/protocol 纯类型 + Zod schema，零业务逻辑 —— 前后端唯一契约
 packages/core     Agent 业务核心 —— 全仓唯一允许依赖 pi SDK 的包
 packages/server   Hono HTTP/SSE 服务，组装 core，原生模块收敛于此
-packages/client   类型安全 client SDK + React hooks
-packages/ui       纯展示组件，只依赖 protocol 类型与 client hooks
+packages/client   类型安全 client SDK（框架无关核心 + `./react` 子导出）+ React hooks
+packages/ui       纯展示组件（token 单一来源 `theme.css`），只依赖 protocol 类型与 client
 packages/config/  typescript-config（Biome 配置在根 biome.json，见 ADR-0003）
 ```
 
@@ -58,6 +64,7 @@ packages/config/  typescript-config（Biome 配置在根 biome.json，见 ADR-00
 
 - 单测 Vitest；web E2E 用 Playwright
 - 改动 SDK 相关代码须跑事件快照回归（防事件格式漂移）
+- **验证/自动化脚本对用户真实数据只读**：`~/.pi/agent/sessions/*.jsonl` 等用户文件不得作为写操作对象——重命名/删除/写入类验证必须打在临时会话或临时目录上，手点 UI 也适用（出处：2026-09-22 用 Playwright 验证侧栏重命名，`PATCH /api/sessions/:id` 真的往当时正在用的那条会话文件追加了一行 `session_info`，事后手工删行还原；这类"验证"污染的是用户最不可替代的数据）
 
 ## 文档与决策
 

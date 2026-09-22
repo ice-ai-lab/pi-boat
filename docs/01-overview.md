@@ -153,9 +153,10 @@ pi-boat/
 | 路由 | React Router v7（library 模式） | ADR-0002 留白的路由选型，在原型的 `/session/:id` 深链需求下定为库模式（纯 SPA 无 SSR/loader 需求） |
 | 服务端状态 | TanStack Query（仅 `client/react` 层） | REST 读的缓存/失效；`listFingerprint` 作为列表失效键（ADR-0008） |
 | 客户端状态 | Zustand（**M2 起**） | M1 单会话无全局 UI 状态，按需引入（不养期货） |
-| 组件与图标 | shadcn/ui（落位 `ui/primitives`）+ Lucide（ADR-0009） | 无障碍原语不手写；原型 sprite 的 31 个图标逐一换 Lucide（对账表 docs/06 §6） |
-| 前端 HTTP | **Axios 统一实例**；响应经 protocol 的 Zod 解析（ADR-0009） | 拦截器只管 baseURL + 错误信封归一（ADR-0007 删 token 后无凭据注入需求） |
+| 组件与图标 | shadcn/ui（落位 `ui/primitives`）+ Lucide（ADR-0009） | 无障碍原语不手写；原型 sprite 的 31 个图标逐一换 Lucide（对账表 docs/06 §6）。M1 实测：`primitives/` 手写（cva + clsx + tailwind-merge），shadcn CLI 未使用（P0–P2 组件均为自绘轻量件，shadcn 的价值在表单/复杂弹层，随 M2 再引入） |
+| 前端 HTTP | **Axios 统一实例**；响应经 protocol 的 Zod 解析（ADR-0009） | 拦截器只管 baseURL + 错误信封归一（ADR-0007 删 token 后无凭据注入需求）。M1 实现：`ApiClient.baseURL` 默认空串 = 同源，protocol 路径常量自带 `/api` 前缀（见 docs/05 §4） |
 | 前端栈基准 | **ADR-0009 已收口（2026-09-22）** | 含 React Compiler、markdown（react-markdown + shiki）、**不引外部 skills**；唯一遗留：dev 接入方式（ADR-0009 文末） |
+| 前端构建实测（M1 落地） | React Compiler 走 `react({ compiler: true })`（`oxc-transform-react` 的 Rust 实现）；shiki 用 `codeToTokens` 渲染 React 元素（**不**用 `codeToHtml` + innerHTML）；`theme.css` 由 `@ice-ai/ui` 导出、web 用 `@source` 扫包外源码 | 见 docs/06 §2/§11.1 与 ADR-0009；`vite.config.ts` 因 tsc 产物的 extensionless import 问题改引 `packages/protocol/src/constants.ts`（M4 统一收敛） |
 | 实时通道 | **HTTP + SSE**（首期），WebSocket 预留 | 单向事件流足够；浏览器原生 EventSource、断线重连简单；protocol 不绑定传输 |
 | 终端 | node-pty（server 侧）+ xterm.js（ui 侧） | 事实标准组合 |
 | 代码质量 | **Biome 2**（lint + format 一体，ADR-0003）+ husky + lint-staged（待接入） | Rust 单工具替代 ESLint+Prettier；当前仅用非类型感知规则 |
@@ -354,6 +355,10 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 **原型（v3）补充登记**（2026-09-22，交互形态已给出，组件已收录 docs/06 §4）：
 
 - 已在前述清单内、原型补了形态：会话搜索、工具预设分段控件、主题切换、工作区（项目）下拉
+- **M1 后补落（2026-09-22）**：左侧栏（品牌行 / 新会话 / 文件夹空间下拉 / 会话搜索与列表 / 底栏）
+  与两栏 AppShell——`/` 与 `/session/:id` 共用外壳，侧栏不重建；**默认打开最近一次对话的文件夹空间**
+  （docs/06 §4.4 与 §11.3 行 5）。侧栏会话项支持重命名/删除（复用已有 REST）。右栏（文件浏览器 dock）
+  依赖 `/api/files/*`，随 M3。
 - **新增项**：会话列表重命名/删除的 hover 操作 · 消息 minimap 快速导航 · 内容区宽度把手（可持久化） ·
   footer 统计 pills（in / out / cache / tps / cost / 上下文环） · 会话统计与工具定义弹窗 · toast ·
   输入卡模式菜单（默认/只读/全自动）
@@ -371,7 +376,12 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 | 里程碑 | 内容 | 验收标准 | 状态 |
 |---|---|---|---|
 | **M0 工程骨架**（~0.5 周） | pnpm+turbo、包脚手架、biome/tsconfig/husky、CI（lint+typecheck+test） | turbo build 全绿 | ✅ 完成（2026-09-18） |
-| **M1 对话 MVP**（~1.5 周） | core: create/prompt/subscribe/abort；server: REST+SSE+静态托管；web: 单会话聊天（流式+工具调用展示） | 浏览器完成一轮带工具调用的编程任务 | 进行中：protocol ✅ · core ✅（docs/03）· server ✅（docs/04，2026-09-22）· web 原型 v3 定稿（docs/06，2026-09-22）· client/web 代码未开工 |
+| **M1 对话 MVP**（~1.5 周） | core: create/prompt/subscribe/abort；server: REST+SSE+静态托管；web: 单会话聊天（流式+工具调用展示） | 浏览器完成一轮带工具调用的编程任务 | ✅ 完成（2026-09-23）：protocol / core（含 cwd 前置校验）/ server / client / ui / apps/web 全部落地，
+`build+test+lint+typecheck` 全绿（175 单测）；端到端脚本
+`pnpm --filter @ice-ai/client run acceptance:m1` 实跑通过（86 帧 / 0 非法帧 / 工具行 ok 有输出 + 最终回答）。
+端到端验收同时抓出并修掉两个缺陷：① core 的 prompt 命令等到 run 结束才回（abort/steer 被排队、
+建会话响应卡到任务结束）；② client 把命令通道的 `{success,data}` 信封当资源体解析。
+留待人工验收的是浏览器里的视觉/交互细节 |
 | **M2 会话与模型**（~2 周） | 会话列表/恢复/fork/分支导航、模型配置、认证流程、工具预设 | 日常可替代 TUI 完成编码工作 | 未开工 |
 | **M3 完整体验**（~2 周） | 文件浏览/查看、终端、worktree、skills/插件、通知、多 Tab、minimap 与内容宽度把手 | 功能对齐 §6 一期清单 | 未开工 |
 | **M4 桌面端**（~2 周） | Electron 壳 + 子进程 server + 打包分发 | macOS 安装包可用 | 未开工 |

@@ -1,0 +1,184 @@
+/* ============================================================================
+   PiBoat ui —— token 单一来源（docs/06-ui-design.md §2/§3）
+   视觉基准：docs/design/piboat-web-v3.html
+   签名细节：0.5px hairline / superellipse 圆角 / #4176E6 业务蓝 / 毛玻璃浮层 /
+             sticky 输入卡 + 渐变淡入 / 细滚动条
+
+   规则：
+   - 原始变量定义在 :root（暗色放 [data-theme="dark"]），再用 `@theme inline`
+     映射为 Tailwind 的语义 token → 暗色**不得写死在 @theme 里**（编译期常量，
+     写死则切主题失效）
+   - 深色主题 **M1 未启用**（docs/06 §11.3 行 4）：变量块照原型保留，切换入口在 M2
+   ============================================================================ */
+@import "tailwindcss";
+/* 共享 utility（原型 hairline/sq/elev/shimmer/滚动条/mask）与对话域样式（.md/.diff/.disc/.tag） */
+@import "./src/styles/utilities.css";
+@import "./src/styles/chat.css";
+
+:root {
+  /* 表面 */
+  --surface: #ffffff;
+  --surface-side: #f9fafb;
+  --surface-raised: #ffffff;
+  /* 4 档描边（由弱到强，1:1 保留不合并） */
+  --line-1: rgba(0, 0, 0, 0.04);
+  --line-2: rgba(0, 0, 0, 0.1);
+  --line-3: rgba(0, 0, 0, 0.12);
+  --line-4: rgba(0, 0, 0, 0.16);
+  /* 文字四级 */
+  --fg: #16181d;
+  --fg-muted: rgb(97, 102, 107);
+  --fg-subtle: rgb(129, 133, 140);
+  --fg-faint: rgb(173, 178, 184);
+  /* 业务蓝 */
+  --accent: #4176e6;
+  --accent-weak: rgba(65, 118, 230, 0.1);
+  /* 交互底 */
+  --hover: rgba(38, 49, 72, 0.06);
+  --bubble: #edf3fe;
+  --menu: rgba(248, 249, 250, 0.72);
+  /* 语义色 */
+  --success: rgb(34, 197, 94);
+  --success-soft: rgba(34, 197, 94, 0.12);
+  --danger: rgb(239, 68, 68);
+  --danger-soft: rgba(248, 113, 113, 0.13);
+  --warn: rgb(201, 123, 32);
+  --warn-soft: #fef5e7;
+  --teal: rgb(23, 165, 157);
+  --teal-soft: rgba(23, 165, 157, 0.1);
+  --info-soft: rgba(77, 147, 248, 0.1);
+  /* 轨迹分段指示色 */
+  --seg-sys: rgb(173, 178, 184);
+  --seg-tools: rgb(167, 139, 250);
+  --seg-msg: rgb(77, 147, 248);
+  /* 工具名 → 色（docs/06 §7） */
+  --tool-think: rgb(201, 123, 32);
+  --tool-bash: #16a34a;
+  --tool-read: #4176e6;
+  --tool-edit: rgb(23, 165, 157);
+  --tool-err: rgb(239, 68, 68);
+  /* markdown 排版专用（与业务 token 隔离，照搬 pi-web） */
+  --md-panel: #f5f5f5;
+  --md-border: #e0e0e0;
+  --md-subtle: rgba(0, 0, 0, 0.03);
+  --md-accent: #245bce;
+  /* 代码块 */
+  --code-bg: #f9fafb;
+  --code-banner: #f9fafb;
+  /* 三档阴影（均以 0.5px 环起始） */
+  --elev-panel:
+    0 0 0 0.5px var(--line-2), 0 3px 8px 0 rgba(0, 0, 0, 0.03), 0 0 16px 0 rgba(0, 0, 0, 0.02);
+  --elev-soft:
+    0 0 0 0.5px var(--line-2), 0 4px 16px 0 rgba(0, 0, 0, 0.03), 0 0 24px 0 rgba(0, 0, 0, 0.03);
+  --elev-soft-sm: 0 0 0 0.5px var(--line-2), 0 2px 6px 0 rgba(0, 0, 0, 0.025);
+  /* 字体（--font-noto-mono 在原型中未定义，此处按 docs/06 §10-1 删引用） */
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-code:
+    "JetBrains Mono", "Fira Code", Consolas, ui-monospace, "PingFang SC", "Microsoft YaHei",
+    monospace;
+  /* 细滚动条（l2 = 毛玻璃浮层内的 thumb） */
+  --sb-thumb: rgb(229, 229, 229);
+  --sb-thumb-hover: rgb(212, 212, 212);
+  --sb-thumb-l2: rgb(229, 229, 229);
+  --sb-thumb-hover-l2: rgb(212, 212, 212);
+  --sb-width: 5px;
+}
+
+/* 深色主题变量（M1 未启用，保留以承接 M2 的切换入口） */
+[data-theme="dark"] {
+  --surface: #151517;
+  --surface-side: #1b1b1c;
+  --surface-raised: #232324;
+  --line-1: rgba(255, 255, 255, 0.06);
+  --line-2: rgba(255, 255, 255, 0.12);
+  --line-3: rgba(255, 255, 255, 0.16);
+  --line-4: rgba(255, 255, 255, 0.2);
+  --fg: #f9fafb;
+  --fg-muted: rgb(207, 211, 214);
+  --fg-subtle: rgb(173, 178, 184);
+  --fg-faint: rgb(129, 133, 140);
+  --accent: #7aaaff;
+  --accent-weak: rgba(122, 170, 255, 0.14);
+  --hover: rgba(255, 255, 255, 0.08);
+  --bubble: #2c2c2e;
+  --menu: rgba(48, 49, 54, 0.6);
+  --warn: rgb(245, 158, 11);
+  --warn-soft: rgba(245, 158, 11, 0.14);
+  --teal: rgb(45, 212, 191);
+  --teal-soft: rgba(45, 212, 191, 0.12);
+  --info-soft: rgba(122, 170, 255, 0.14);
+  --tool-think: rgb(245, 158, 11);
+  --tool-bash: #4ade80;
+  --tool-read: #7aaaff;
+  --tool-edit: rgb(45, 212, 191);
+  --tool-err: rgb(248, 113, 113);
+  --md-panel: #242424;
+  --md-border: #454545;
+  --md-subtle: rgba(255, 255, 255, 0.04);
+  --md-accent: #a4c2f4;
+  --code-bg: #1b1b1c;
+  --code-banner: #2c2c2e;
+  --sb-thumb: rgb(60, 60, 61);
+  --sb-thumb-hover: rgb(84, 85, 87);
+  --sb-thumb-l2: rgb(84, 85, 87);
+  --sb-thumb-hover-l2: rgb(101, 103, 107);
+}
+
+/* 语义 token → Tailwind 工具类（bg-surface / border-line-2 / text-fg-muted / shadow-panel） */
+@theme inline {
+  --color-surface: var(--surface);
+  --color-surface-side: var(--surface-side);
+  --color-surface-raised: var(--surface-raised);
+
+  --color-line-1: var(--line-1);
+  --color-line-2: var(--line-2);
+  --color-line-3: var(--line-3);
+  --color-line-4: var(--line-4);
+
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-fg-faint: var(--fg-faint);
+
+  --color-accent: var(--accent);
+  --color-accent-weak: var(--accent-weak);
+
+  --color-hover: var(--hover);
+  --color-bubble: var(--bubble);
+  --color-menu: var(--menu);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-teal: var(--teal);
+  --color-teal-soft: var(--teal-soft);
+  --color-info-soft: var(--info-soft);
+
+  --color-seg-sys: var(--seg-sys);
+  --color-seg-tools: var(--seg-tools);
+  --color-seg-msg: var(--seg-msg);
+
+  --color-tool-think: var(--tool-think);
+  --color-tool-bash: var(--tool-bash);
+  --color-tool-read: var(--tool-read);
+  --color-tool-edit: var(--tool-edit);
+  --color-tool-err: var(--tool-err);
+
+  --color-code-bg: var(--code-bg);
+  --color-code-banner: var(--code-banner);
+  --color-md-panel: var(--md-panel);
+  --color-md-border: var(--md-border);
+  --color-md-accent: var(--md-accent);
+
+  --shadow-panel: var(--elev-panel);
+  --shadow-soft: var(--elev-soft);
+  --shadow-soft-sm: var(--elev-soft-sm);
+
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-code);
+
+  --radius-squircle: 12px;
+}

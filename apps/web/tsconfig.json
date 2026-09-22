@@ -1,0 +1,9 @@
+{
+  "extends": "@ice-ai/typescript-config/react.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "types": ["vite/client"],
+    "allowImportingTsExtensions": true
+  },
+  "include": ["src", "vite.config.ts"]
+}

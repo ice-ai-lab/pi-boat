@@ -126,6 +126,31 @@ describe('AgentSessionService.create', () => {
     expect(service.runningSessionIds()).toEqual(['sess-1']);
   });
 
+  it('cwd 前置校验：不存在/非目录 → UserInputError，且不调用 SDK 工厂、不入注册表', async () => {
+    const { service } = serviceWith(fakeAgentSession());
+    await expect(
+      service.create({ cwd: '/definitely/not/here/piboat', type: 'ensure_session' }),
+    ).rejects.toThrow(/does not exist/);
+    // 非目录：用文件路径（本文件自己）验证第二分支
+    await expect(
+      service.create({ cwd: new URL(import.meta.url).pathname, type: 'ensure_session' }),
+    ).rejects.toThrow(/is not a directory/);
+    expect(service.runningSessionIds()).toEqual([]);
+  });
+
+  it('cwd 校验在 SDK 工厂之前：不存在的 cwd 不建会话', async () => {
+    let called = 0;
+    const service = new AgentSessionService(async () => {
+      called += 1;
+      throw new Error('SDK factory must not be reached');
+    });
+    await expect(
+      service.create({ cwd: '/definitely/not/here/piboat', type: 'ensure_session' }),
+    ).rejects.toThrow(/does not exist/);
+    expect(called).toBe(0);
+    expect(service.runningSessionIds()).toEqual([]);
+  });
+
   it('显式 provider/modelId：经 modelRuntime 解析后 setModel；找不到则报错不留脏注册', async () => {
     const { service, fake } = serviceWith(fakeAgentSession());
     const ok = await service.create({
@@ -148,6 +173,86 @@ describe('AgentSessionService.create', () => {
     const { service, fake } = serviceWith(fakeAgentSession());
     await service.create({ cwd: '/tmp', message: 'hello' });
     expect(fake.session.prompt).toHaveBeenCalledWith('hello', expect.anything());
+  });
+
+  it('带 message：只等派发不等 run——run 未结束也立即返回 sessionId（2026-09-23 修复）', async () => {
+    let releaseRun: () => void = () => {};
+    const runGate = new Promise<void>((resolve) => {
+      releaseRun = resolve;
+    });
+    const { service } = serviceWith(
+      fakeAgentSession({
+        prompt: vi.fn(
+          async (_text: string, options?: { preflightResult?: (ok: boolean) => void }) => {
+            options?.preflightResult?.(true);
+            await runGate; // 模拟一整轮 run 尚未结束
+          },
+        ),
+      }),
+    );
+    const ok = await service.create({ cwd: '/tmp', message: 'hello' });
+    expect(service.isRunning(ok.sessionId)).toBe(true);
+    releaseRun();
+    await Promise.resolve();
+  });
+
+  it('派发后再发 abort 不需等 run 结束（FIFO 串行的是派发，不是 run）', async () => {
+    let releaseRun: () => void = () => {};
+    const runGate = new Promise<void>((resolve) => {
+      releaseRun = resolve;
+    });
+    const { service, fake } = serviceWith(
+      fakeAgentSession({
+        prompt: vi.fn(
+          async (_text: string, options?: { preflightResult?: (ok: boolean) => void }) => {
+            options?.preflightResult?.(true);
+            await runGate;
+          },
+        ),
+      }),
+    );
+    const ok = await service.create({ cwd: '/tmp', type: 'ensure_session' });
+    await service.send(ok.sessionId, { type: 'prompt', message: 'hello' });
+    await service.send(ok.sessionId, { type: 'abort' });
+    expect(fake.session.abort).toHaveBeenCalledTimes(1);
+    releaseRun();
+    await Promise.resolve();
+  });
+
+  it('派发阶段抛错：报 prompt_rejected 但保留 SDK 原始信息（拒稿 = 用户可修正，400）', async () => {
+    const { service } = serviceWith(
+      fakeAgentSession({
+        prompt: vi.fn(
+          async (_text: string, options?: { preflightResult?: (ok: boolean) => void }) => {
+            options?.preflightResult?.(false);
+            throw new Error('No model selected');
+          },
+        ),
+      }),
+    );
+    const ok = await service.create({ cwd: '/tmp', type: 'ensure_session' });
+    await expect(service.send(ok.sessionId, { type: 'prompt', message: 'hi' })).rejects.toThrow(
+      PromptRejectedError,
+    );
+    await expect(service.send(ok.sessionId, { type: 'prompt', message: 'hi' })).rejects.toThrow(
+      'No model selected',
+    );
+  });
+
+  it('preflight 拒稿：PromptRejectedError（code: prompt_rejected）', async () => {
+    const { service } = serviceWith(
+      fakeAgentSession({
+        prompt: vi.fn(
+          async (_text: string, options?: { preflightResult?: (ok: boolean) => void }) => {
+            options?.preflightResult?.(false);
+          },
+        ),
+      }),
+    );
+    const ok = await service.create({ cwd: '/tmp', type: 'ensure_session' });
+    await expect(service.send(ok.sessionId, { type: 'prompt', message: 'hi' })).rejects.toThrow(
+      PromptRejectedError,
+    );
   });
 
   it('工厂抛错：上抛且不入注册表', async () => {

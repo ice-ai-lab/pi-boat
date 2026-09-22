@@ -1,3 +1,4 @@
+import { stat } from 'node:fs/promises';
 import {
   type CreateAgentSessionOptions,
   type CreateAgentSessionResult,
@@ -82,6 +83,22 @@ export class UserInputError extends Error {
 // 新建会话
 // ---------------------------------------------------------------------------
 
+/**
+ * cwd 必须存在且为目录：否则 UserInputError（server 映射 400，docs/04 §4.1）。
+ * 只 stat 一次，不做 realpath/权限检查——真正的工作目录语义归 SDK。
+ */
+async function assertUsableCwd(cwd: string): Promise<void> {
+  let info: Awaited<ReturnType<typeof stat>>;
+  try {
+    info = await stat(cwd);
+  } catch {
+    throw new UserInputError(`Working directory does not exist: ${cwd}`);
+  }
+  if (!info.isDirectory()) {
+    throw new UserInputError(`Working directory is not a directory: ${cwd}`);
+  }
+}
+
 /** 会话工厂签名（默认真实 SDK；测试注入 fake） */
 export type CreateSessionFn = (
   options: CreateAgentSessionOptions,
@@ -108,6 +125,11 @@ export class AgentSessionService {
   async create(input: NewSessionRequest): Promise<NewSessionOk> {
     const { cwd, message, images, provider, modelId, toolNames, thinkingLevel } = input;
     const ensureOnly = input.type === 'ensure_session';
+
+    // cwd 前置校验（docs/06 §11.3 1b）：SDK 对不存在的 cwd **不报错照样建会话**，
+    // 之后每次 read/bash/edit 都在会话里失败——用户看到的是「agent 莫名一直报错」。
+    // 归 core 而非 server：Electron 进程内直连 core 时同样要拦住。
+    await assertUsableCwd(cwd);
 
     const options: CreateAgentSessionOptions = { cwd };
     if (toolNames !== undefined) options.tools = toolNames;
@@ -188,25 +210,8 @@ export class AgentSessionService {
     const { session } = entry;
     switch (command.type) {
       case 'prompt': {
-        let accepted = true;
-        entry.markPromptDispatched();
-        try {
-          await session.prompt(command.message, {
-            images: command.images,
-            streamingBehavior: command.streamingBehavior,
-            preflightResult: (ok) => {
-              accepted = ok;
-            },
-          });
-          if (!accepted) throw new PromptRejectedError();
-          return null; // 完成信号走事件流：agent_settled；此处只销账 isPromptRunning
-        } finally {
-          // 无条件销账：SDK 的 prompt() 有三条提前 return 路径（扩展命令 / input
-          // handler hit / streaming 入队）不进 _runAgentPrompt，永远不发 agent_settled；
-          // 而正常路径的 prompt() 在 _runAgentPrompt 的 finally 之后才 resolve
-          // （agent-session.js:776/784/949），所以此处只会晚不会早。
-          entry.clearPromptPending();
-        }
+        await this.dispatchPrompt(entry, command);
+        return null; // 完成信号走事件流：agent_settled；此处只销账 isPromptRunning
       }
       case 'steer':
       case 'follow_up': {
@@ -295,6 +300,70 @@ export class AgentSessionService {
         const exhaustive: never = command;
         throw new Error(`Unsupported command: ${JSON.stringify(exhaustive)}`);
       }
+    }
+  }
+
+  /**
+   * prompt 派发：**等“派发成功”，不等“run 结束”**。
+   *
+   * 为什么不能 `await session.prompt()`（M1 端到端验收发现的缺陷，2026-09-23）：
+   * SDK 的 `prompt()` 在 `_runAgentPrompt` 的 finally 之后才 resolve（一轮跑完）。
+   * 而命令通道是同会话 FIFO 串行（§6.1），于是运行中的同会话后续命令——`abort`、
+   * `steer`、`get_state`，以及 `POST /api/agent/new` 的首条消息——会全部排到 run 之后：
+   * 中断/插队失效，建会话的响应也卡到任务跑完（前端拿不到 sessionId 就无法先建 SSE）。
+   *
+   * 正解：SDK 在进 run 之前调 `preflightResult(ok)`（agent-session.js:948），
+   * 那里就是“派发结果”的唯一时点：等它（或同步抛错）后立即返回。
+   * run 期间的失败不再回 HTTP，由事件流下发（error / stopReason 已由投影覆盖）。
+   */
+  private async dispatchPrompt(
+    entry: SessionRegistryEntry,
+    command: Extract<AgentCommand, { type: 'prompt' }>,
+  ): Promise<void> {
+    const { session } = entry;
+    entry.markPromptDispatched();
+
+    let accepted = true;
+    let preflightSeen = false;
+    let notify: () => void = () => {};
+    const preflightDone = new Promise<void>((resolve) => {
+      notify = resolve;
+    });
+    let dispatchFailure: unknown = null;
+
+    // 不 await：run 的生命周期远长于一次命令派发；结束/失败在此收尾（销账 + 记录）
+    const run = session.prompt(command.message, {
+      images: command.images,
+      streamingBehavior: command.streamingBehavior,
+      preflightResult: (ok) => {
+        accepted = ok;
+        preflightSeen = true;
+        notify();
+      },
+    });
+    run.then(
+      () => entry.clearPromptPending(),
+      (error: unknown) => {
+        // 派发阶段抛错（SDK 先 preflightResult(false) 再 rethrow）或运行期失败
+        dispatchFailure = error;
+        entry.clearPromptPending();
+        notify();
+      },
+    );
+
+    await preflightDone;
+    if (!preflightSeen) {
+      // 没有 preflight 就失败 = SDK 没有走到那一步；把原始错误交给调用方（信封 500）
+      throw dispatchFailure ?? new Error('prompt dispatch failed');
+    }
+    if (!accepted) {
+      // SDK 在 preflightResult(false) 之后立刻 rethrow：等它落定以拿原始信息
+      // （这一步不会等 run——拒稿时 run 已经结束）
+      await run.catch(() => undefined);
+      entry.clearPromptPending();
+      throw new PromptRejectedError(
+        dispatchFailure instanceof Error ? dispatchFailure.message : undefined,
+      );
     }
   }
 

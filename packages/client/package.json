@@ -10,6 +10,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "default": "./dist/react/index.js"
     }
   },
   "files": [
@@ -20,14 +24,34 @@
     "dev": "tsc -p tsconfig.build.json --watch",
     "test": "vitest run --passWithNoTests",
     "lint": "biome check .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "acceptance:m1": "tsx scripts/m1-acceptance.ts"
   },
   "dependencies": {
-    "@ice-ai/protocol": "workspace:*"
+    "@ice-ai/protocol": "workspace:*",
+    "axios": "^1.20.0",
+    "zod": "^4.6.5"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "^5.103.2",
+    "react": "^19.3.0"
+  },
+  "peerDependenciesMeta": {
+    "@tanstack/react-query": {
+      "optional": true
+    },
+    "react": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",
     "@ice-ai/typescript-config": "workspace:*",
+    "@tanstack/react-query": "^5.103.2",
+    "@types/node": "^22",
+    "@types/react": "^19.3.0",
+    "react": "^19.3.0",
+    "tsx": "^4.23.13",
     "typescript": "~7.0.2",
     "vitest": "^5.0.1"
   }
