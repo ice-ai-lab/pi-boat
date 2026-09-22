@@ -24,24 +24,23 @@ function fakeSession(id = 's1') {
 }
 
 describe('SessionRegistryEntry', () => {
-  it('SDK 事件投影后分发且 seq 单调递增（turn_* 透传，2026-09-20 定案）', () => {
+  it('SDK 事件投影后分发且 seq 单调递增（turn_* 透传；丢弃不消耗 seq）', () => {
     const { session, emit } = fakeSession();
     const entry = new SessionRegistryEntry(session);
     const seen: WireAgentEvent[] = [];
     entry.subscribe((e) => seen.push(e));
 
     emit({ type: 'turn_start' });
+    emit({ type: 'bash_execution_update', delta: 'x' }); // 丢弃（Shell 直连不实现），不消耗 seq
     emit({ type: 'agent_start' });
     emit({ type: 'agent_settled' });
     emit({ type: 'turn_end', message: {} as never, toolResults: [] });
-    emit({ type: 'bash_execution_update', delta: 'x' });
 
     expect(seen.map((e) => [e.type, e.seq])).toEqual([
       ['turn_start', 1],
       ['agent_start', 2],
       ['agent_settled', 3],
       ['turn_end', 4],
-      ['bash_execution_update', 5],
     ]);
   });
 

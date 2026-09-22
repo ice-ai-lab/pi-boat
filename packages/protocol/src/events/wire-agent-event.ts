@@ -208,12 +208,6 @@ export const WireAgentEventSchema = z.discriminatedUnion('type', [
     seq: z.number(),
     level: ThinkingLevelSchema,
   }),
-  z.object({
-    type: z.literal('bash_execution_update'),
-    seq: z.number(),
-    id: z.string().optional(),
-    delta: z.string(),
-  }),
   // —— 服务层自加（SDK 没有，server 必须自行定义）——
   /**
    * SSE 建流成功；随后立即下发快照 message_start（进行中的半截消息）再续增量。
@@ -259,7 +253,6 @@ export const WIRE_AGENT_EVENT_TYPES = [
   'entry_appended',
   'session_info_changed',
   'thinking_level_changed',
-  'bash_execution_update',
   'connected',
   'session_shutdown',
 ] as const;

@@ -19,11 +19,11 @@
 
 | 类别 | 数量 | 说明 |
 |---|---|---|
-| REST 路由 | 50 个路由文件（53 个端点文件，其中 3 个为 SSE，部分含多方法） | 九大功能域（§6） |
-| SSE 事件流 | 3（agent 事件 + 终端输出 + auth 登录流） | `agent/[id]/events`、`terminal/[id]/events`、`auth/login/[provider]`（GET） |
-| RPC 命令 | 28（命令通道 27 + `agent/new` 专属 `ensure_session`） | `POST /api/agent/:id` 请求体判别联合（§4） |
+| REST 路由 | 49 个路由文件（52 个端点文件，其中 2 个为 SSE，部分含多方法） | 九大功能域（§6） |
+| SSE 事件流 | 2（agent 事件 + auth 登录流） | `agent/[id]/events`、`auth/login/[provider]`（GET） |
+| RPC 命令 | 26（命令通道 25 + `agent/new` 专属 `ensure_session`；2026-09-22：删 Shell 直连组） | `POST /api/agent/:id` 请求体判别联合（§4） |
 | 领域类型 | ~40 个 | domain/ 七文件（§3、§10） |
-| 事件 wire 类型 | 25 种（SDK 透传 23 + 服务层自加 2；2026-09-20：turn_* 改透传 +2、删自加 6） | SDK `JsonAgentSessionEvent` 投影 + 服务层事件（§5.1） |
+| 事件 wire 类型 | 24 种（SDK 透传 22 + 服务层自加 2；2026-09-22：删 bash_execution_update） | SDK `JsonAgentSessionEvent` 投影 + 服务层事件（§5.1） |
 
 ### 1.3 铁律（源自 AGENTS.md / 概要设计，本文档所有条目受其约束）
 
@@ -85,7 +85,7 @@
 
 | 类型 | 要点 |
 |---|---|
-| `AgentState`（`get_state` 返回） | `sessionId/sessionFile/isStreaming/isPromptRunning/isBashRunning/isCompacting/autoCompactionEnabled/autoRetryEnabled/model/messageCount/pendingMessageCount/queuedMessages{steering,followUp}/lastSeq/contextUsage/systemPrompt/thinkingLevel/extensionStatuses/extensionWidgets`（`lastSeq` 为快照水位线，客户端丢弃 SSE 流中 `seq ≤ lastSeq` 的事件，docs/01 §5.4） |
+| `AgentState`（`get_state` 返回） | `sessionId/sessionFile/isStreaming/isPromptRunning/isCompacting/autoCompactionEnabled/autoRetryEnabled/model/messageCount/pendingMessageCount/queuedMessages{steering,followUp}/lastSeq/contextUsage/systemPrompt/thinkingLevel/extensionStatuses/extensionWidgets`（`lastSeq` 为快照水位线，客户端丢弃 SSE 流中 `seq ≤ lastSeq` 的事件，docs/01 §5.4；`isBashRunning` 已随 Shell 直连组删除，2026-09-22） |
 | `isPromptRunning` 语义 | **服务端尚有 prompt/steer/follow_up 调用未销账**（不是「agent run 未结束」）。为什么不能只认 `agent_settled`：SDK `prompt()` 有三条提前 return 路径不进 `_runAgentPrompt`——扩展命令（`/tui` 这类只执行 handler 的）、input handler 返回 `handled` 的、streaming 入队的——它们永**不发** `agent_settled`（`agent-session.js:828/844/864` vs `_emitAgentSettled` 只在 `:784`）。它是事件流盲区（handler 执行期、预检期 `isStreaming=false` 但有事在跑）的唯一判据，客户端用 `isStreaming \|\| isPromptRunning` 判定「还没完」（2026-09-21 修订） |
 | `SessionStatsInfo` | userMessages/assistantMessages/toolCalls/toolResults/tokens/cost/contextUsage/totalActiveMs/**sessionName**（rpc 层附加） |
 | `ToolInfo` | `name/description/parameters/promptGuidelines/sourceInfo` + `active`（get_tools 时叠加） |
@@ -102,7 +102,7 @@
 
 ## 4. ③ Agent 命令通道（commands）
 
-`POST /api/agent/:id` 请求体判别联合（**28 命令** = 命令通道 27 个 + `agent/new` 专属 `ensure_session`。⚠️ `custom_message` 不是命令——它是会话条目类型 `CustomMessageEntry`，见 §3.1）：
+`POST /api/agent/:id` 请求体判别联合（**26 命令** = 命令通道 25 个 + `agent/new` 专属 `ensure_session`。⚠️ `custom_message` 不是命令——它是会话条目类型 `CustomMessageEntry`，见 §3.1）：
 
 | 分组 | 命令（参数 → 返回） |
 |---|---|
@@ -114,8 +114,13 @@
 | 工具 | `get_tools` → ToolInfo[]（含 active）；`set_tools {toolNames}` → **双路径**：运行中会话走 switch 返回 null；冷会话走 route 层 `setRpcSessionTools` 重建 runtime，信封 data 为 `{sessionId, recreated}`（返回形状不同，协议需两态） |
 | 命令面板 | `get_commands` → `{commands: SlashCommandInfo[]}` |
 | 会话管理 | `set_session_name {name}` → null（空白名报错）；`reload` → `{success}`（重绑扩展/同步信任/刷新模型缓存）；`ensure_session`（仅 `agent/new` 的 type 值：只建 runtime 不发首条消息，供客户端预查命令） |
-| Shell | `bash {command, excludeFromContext?}` → `{output, exitCode?, cancelled?, truncated?, fullOutputPath?}`；`abort_bash` |
 | 扩展 UI | `extension_ui_response`；`extension_ui_input {id, data}` |
+
+> ⚠️ 2026-09-22 决策：**Shell 直连组（`bash` / `abort_bash`，即 TUI `!`/`!!` 直接执行）不实现**，
+> 随之删除 `bash_execution_update` 事件（§5.1）、`/bash-output` 端点（§6.3）与
+> `AgentState.isBashRunning`（§3.4）。两个边界：① `BashExecutionMessage` 消息角色**保留**
+> （§3.2）——会话文件与 pi CLI 共用，历史中的 `!` 执行记录仍须可读可渲染；
+> ② LLM 的 bash **工具调用**（tool_use）不受影响——那是 Agent 工具，不是直连命令。
 
 ### 4.1 新建会话
 
@@ -136,13 +141,13 @@
 - `message_update` 附带 `usage`（SDK JSON 协议固定携带累积用量，尺寸恒定不随流增长）
 - `turn_*` 及其余结构一致的事件原样透传（与 SDK 对齐，2026-09-20 定案：删除剔除规则，减少分支与心智负担）
 
-**事件全集**（= SDK `JsonAgentSessionEvent` 透传 ∪ 服务层自加；SDK 0.85.1 `.d.ts` 实测，共 25 种 = 透传 23 + 自加 2）：
+**事件全集**（= SDK `JsonAgentSessionEvent` 透传 ∪ 服务层自加；SDK 0.85.1 `.d.ts` 实测，共 24 种 = 透传 22 + 自加 2；2026-09-22 删 bash_execution_update）：
 
 | 来源 | 事件（载荷） |
 |---|---|
 | SDK：消息流（pi-agent-core `AgentEvent`） | `agent_start`；`message_start {message}`；`message_update {usage, assistantMessageEvent}`；`message_end {message}`；`tool_execution_start / update {toolCallId, toolName, partialResult} / end`；`agent_end {messages: AgentMessage[], willRetry}`（AgentSessionEvent 增强版，非裸 turn 结束）；`turn_start {}`；`turn_end {message, toolResults[]}`（2026-09-20 改透传） |
 | SDK：assistantMessageEvent 子事件（pi-ai，内嵌于 message_update） | `start`、`done`、`error`、`text_start / text_delta / text_end`、`thinking_start / thinking_delta / thinking_end`、`toolcall_start / toolcall_delta / toolcall_end`（start/delta 投影补齐 `id / toolName`）—— 共 12 种，Zod 需全量定义，不可用省略号带过（0.85.1 实测无 `adaptive`，原记 13 种系笔误勘误） |
-| SDK：会话生命周期（agent-session 扩展） | `agent_settled`（agent 完全静止，客户端 UI settle 依据）；`queue_update {steering[], followUp[]}`；`compaction_start {reason: manual\|threshold\|overflow}`；`compaction_end {reason, result?, aborted, willRetry, errorMessage?}`；`auto_retry_start {attempt, maxAttempts, delayMs, errorMessage}`；`auto_retry_end {success, attempt, finalError?}`；`summarization_retry_scheduled / _attempt_start（branchSummary 与 compaction 两种变体）/ _finished`；`entry_appended {entry: SessionEntry}`；`session_info_changed {name}`；`thinking_level_changed {level}`；`bash_execution_update {id?, delta}` |
+| SDK：会话生命周期（agent-session 扩展） | `agent_settled`（agent 完全静止，客户端 UI settle 依据）；`queue_update {steering[], followUp[]}`；`compaction_start {reason: manual\|threshold\|overflow}`；`compaction_end {reason, result?, aborted, willRetry, errorMessage?}`；`auto_retry_start {attempt, maxAttempts, delayMs, errorMessage}`；`auto_retry_end {success, attempt, finalError?}`；`summarization_retry_scheduled / _attempt_start（branchSummary 与 compaction 两种变体）/ _finished`；`entry_appended {entry: SessionEntry}`；`session_info_changed {name}`；`thinking_level_changed {level}` |
 | **服务层自加**（SDK 没有，server 必须自行定义） | `connected {sessionId, isStreaming, lastSeq}`、`session_shutdown {reason?}`。~~`startup_error` / `prompt_done` / `prompt_error` / `extension_ui_request` / `extension_error` / `extension_ui_closed`~~（2026-09-20 删除：死 schema / agent_settled 平替 / REST 信封覆盖 / M2 再定） |
 | PiBoat 新增 | 每事件附 `seq`（会话级单调递增；快照携带 `lastSeq`，客户端丢弃 `seq ≤ lastSeq`） |
 
@@ -195,7 +200,8 @@
 | `GET /api/sessions/:id/context?leafId&before&tail≤1000&deferMedia` | → `SessionContext`；`before` = 客户端已有最老条目（excludeLeaf 向上翻页，不在会话中/即根 → 空页）；`tail` 只计 user/assistant/压缩分隔条；`deferMedia` = 工具结果图片以占位符下发（deferThinking 已删，历史 thinking 全文直发，2026-09-20）。**分页不做压缩过滤**：压缩前条目照常可翻，compaction 投影为 compactionSummary 分隔条而非翻页终点（2026-09-21） |
 | `GET /api/sessions/:id/entries/:entryId/thinking?blockIndex` | → `{thinking}`（全量推理文本） |
 | `GET /api/sessions/:id/entries/:entryId/tool-result-image?blockIndex` | → 二进制图片 |
-| `GET /api/agent/:id/bash-output?path&download=1` | → bash 超长输出临时文件（内联有大小上限；download 流式） |
+
+> bash-output 端点（超长输出临时文件）已随 Shell 直连组移除（2026-09-22，见 §4 决策注）。
 
 ### 6.4 模型
 
@@ -327,7 +333,7 @@ packages/protocol/src/
 │   ├── wire-agent-event.ts  # WireAgentEvent + seq 语义
 │   └── terminal-event.ts      # TerminalEvent
 └── rest/               # ⑤⑥REST 资源（按域一文件：类型 + 路径常量 + Zod）
-    ├── agent.ts           # agent 运行时域：new / 命令通道 / SSE / running / 轻查 / bash-output
+    ├── agent.ts           # agent 运行时域：new / 命令通道 / SSE / running / 轻查
     ├── sessions.ts         # 列表/详情/分页/惰性加载/搜索/导出/auto-name
     ├── models.ts           # models / models-config / discover / test / catalog
     ├── auth.ts             # providers / login(SSE) / api-key / logout / provider-usage
