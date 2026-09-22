@@ -18,9 +18,10 @@ pnpm turbo run test         # Vitest（core/protocol/client/ui）
 pnpm turbo run lint         # Biome 2（lint + format；修复用 pnpm lint:fix）
 ```
 
-server 验收（curl 实测手册：安全层一键块 / 运行时域 / SSE 帧 / SIGTERM）：`packages/server/README.md`
+server 验收：单测 `packages/server/test/server.test.ts`（30 用例：安全层三闸 403 / 信封映射 / 会话浏览 / 项目 / SSE）；
+路由与传输语义见 `docs/04-server-design.md`
 
-- 开发期浏览器页面来自 9528（vite dev，web 待建），API/SSE 直连 9527（CORS 白名单已预留 `http://localhost:9528`）；端口单一来源为 `protocol` 的 `PORTS`，server 可用 `PORT` 环境变量覆盖
+- 开发期浏览器页面与 `/api/*`（含 SSE）都走 `vite dev`（9528），后者把 `/api` **代理**到 agent server（9527）——浏览器视角同源，与生产拓扑一致，`AgentClient` 的 baseURL 用相对路径 `/api`（ADR-0009）；CORS 白名单保留给直连备选（Electron / LAN / PWA）。端口单一来源为 `protocol` 的 `PORTS`，server 可用 `PORT` 环境变量覆盖
 - 提交前 `build + test` 全绿
 
 ## Monorepo 结构与依赖铁律
