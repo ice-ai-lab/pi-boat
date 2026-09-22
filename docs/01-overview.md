@@ -332,13 +332,13 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 
 ## 7. 演进路线
 
-| 里程碑 | 内容 | 验收标准 |
-|---|---|---|
-| **M0 工程骨架**（~0.5 周） | pnpm+turbo、包脚手架、biome/tsconfig/husky、CI（lint+typecheck+test） | turbo build 全绿 |
-| **M1 对话 MVP**（~1.5 周） | core: create/prompt/subscribe/abort；server: REST+SSE+静态托管；web: 单会话聊天（流式+工具调用展示） | 浏览器完成一轮带工具调用的编程任务 |
-| **M2 会话与模型**（~2 周） | 会话列表/恢复/fork/分支导航、模型配置、认证流程、工具预设 | 日常可替代 TUI 完成编码工作 |
-| **M3 完整体验**（~2 周） | 文件浏览/查看、终端、worktree、skills/插件、通知、多 Tab | 功能对齐 §6 一期清单 |
-| **M4 桌面端**（~2 周） | Electron 壳 + 子进程 server + 打包分发 | macOS 安装包可用 |
+| 里程碑 | 内容 | 验收标准 | 状态 |
+|---|---|---|---|
+| **M0 工程骨架**（~0.5 周） | pnpm+turbo、包脚手架、biome/tsconfig/husky、CI（lint+typecheck+test） | turbo build 全绿 | ✅ 完成（2026-09-18） |
+| **M1 对话 MVP**（~1.5 周） | core: create/prompt/subscribe/abort；server: REST+SSE+静态托管；web: 单会话聊天（流式+工具调用展示） | 浏览器完成一轮带工具调用的编程任务 | 进行中：protocol ✅ · core ✅（docs/03）· server 设计定稿待实施（docs/04）· client/web 未开工 |
+| **M2 会话与模型**（~2 周） | 会话列表/恢复/fork/分支导航、模型配置、认证流程、工具预设 | 日常可替代 TUI 完成编码工作 | 未开工 |
+| **M3 完整体验**（~2 周） | 文件浏览/查看、终端、worktree、skills/插件、通知、多 Tab | 功能对齐 §6 一期清单 | 未开工 |
+| **M4 桌面端**（~2 周） | Electron 壳 + 子进程 server + 打包分发 | macOS 安装包可用 | 未开工 |
 
 ---
 
@@ -401,4 +401,4 @@ type WireAgentEvent =
 
 ---
 
-*下一步：评审通过后产出《详细设计》—— 各包模块/接口级设计（core 会话状态机、server 路由清单、ui 组件清单）与 M0 工程骨架实施方案。protocol 完整契约已先行梳理为《协议层清单》（`docs/02-protocol-inventory.md`，覆盖产品全量 API 面），作为 protocol 包实施依据。*
+*详细设计按包推进：《core 详细设计》见 `docs/03-core-design.md`（M1 已落地）、《server 详细设计》见 `docs/04-server-design.md`（M1 开工前评审稿）；client/ui 随开工追加 05/06。协议契约以 `docs/02-protocol-inventory.md` 为准（覆盖产品全量 API 面）。*
