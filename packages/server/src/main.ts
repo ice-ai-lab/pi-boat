@@ -3,7 +3,12 @@ import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { serve } from '@hono/node-server';
-import { AgentSessionService, SessionReadService } from '@ice-ai/core';
+import {
+  AgentSessionService,
+  ProjectReadService,
+  ProjectResolver,
+  SessionReadService,
+} from '@ice-ai/core';
 import { PORTS } from '@ice-ai/protocol';
 import { createAgentServer } from './server';
 import { closeAllAgentEventStreams } from './sse';
@@ -15,7 +20,14 @@ import { closeAllAgentEventStreams } from './sse';
 const port = Number(process.env.PORT ?? PORTS.server);
 
 const agentService = new AgentSessionService();
-const readService = new SessionReadService({ isRunning: (id) => agentService.isRunning(id) });
+// 同一 resolver 实例传给两个只读服务：列表 enrich 与项目清单的 projectKey 按构造一致
+// （ADR-0008：前端分组与 ?projectKey 过滤不错位）
+const resolver = new ProjectResolver();
+const readService = new SessionReadService({
+  isRunning: (id) => agentService.isRunning(id),
+  resolver,
+});
+const projectService = new ProjectReadService({ resolver });
 
 // apps/web/dist：src 与 dist 同深度（packages/server/<dir> → 仓库根的 apps/web/dist）
 const webDist = join(dirname(fileURLToPath(import.meta.url)), '../../..', 'apps/web/dist');
@@ -23,6 +35,7 @@ const webDist = join(dirname(fileURLToPath(import.meta.url)), '../../..', 'apps/
 const app = createAgentServer({
   agentService,
   readService,
+  projectService,
   staticRoot: existsSync(webDist) ? webDist : undefined,
 });
 

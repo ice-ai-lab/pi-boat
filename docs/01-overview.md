@@ -103,6 +103,7 @@ pi-boat/
   - 生命周期操作：`prompt / steer / followUp / abort / compact / navigateTree / fork`
   - 进程内事件总线：多订阅者分发（SSE 连接、将来 Electron IPC、日志记录器共用）
 - `SessionReadService`：基于 `SessionManager` 的只读浏览（列表、`.jsonl` 解析、context 快照、导出 HTML）
+- `ProjectReadService` / `ProjectResolver`：项目分组视图（ADR-0008：git 仓库根归一 `projectKey`，子目录/worktree 合并；与列表共用目录扫描与 resolver 实例）
 - `SystemService`：allowed-roots 安全校验、文件树/文件内容、PTY 终端会话、git worktree 操作
 - `ConfigService`：models.json 读写、provider 发现/测试、API Key 与 OAuth 凭据管理、skills/plugins 安装管理
 - 不依赖任何 HTTP 概念 —— **传输无关**，为 Electron 进程内直连留路（§5.5）

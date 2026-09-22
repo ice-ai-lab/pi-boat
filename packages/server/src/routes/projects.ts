@@ -1,4 +1,4 @@
-import type { SessionReadService } from '@ice-ai/core';
+import type { ProjectReadService } from '@ice-ai/core';
 import {
   type CommandError,
   type ProjectsQuery,
@@ -12,18 +12,18 @@ import { firstIssueMessage } from '../envelope';
  * 项目域路由（docs/04 §3；决策见 ADR-0008）。
  *
  * "项目"是会话目录的**分组视图**而非独立实体：数据源是会话根目录的元数据扫描
- * （`readdir` + `stat` + 每目录一次首行头），与 sessions 域共用同一份扫描与缓存。
- * 单独成文件是因为它服务的前端视图不同（侧栏导航 vs 会话列表），而非资源独立。
+ * （core 的 dir-scan：readdir + stat + 每目录一次首行头）。单独成文件是因为它
+ * 服务的前端视图不同（侧栏导航 vs 会话列表），而非资源独立。
  *
  * 路径字面量与其他路由一致（path 常量留给 client SDK 消费，见 protocol rest/*）。
  */
 
 export interface ProjectRouteDeps {
-  readService: SessionReadService;
+  projectService: ProjectReadService;
 }
 
 export function registerProjectRoutes(app: Hono, deps: ProjectRouteDeps): void {
-  const { readService } = deps;
+  const { projectService } = deps;
 
   // GET /api/projects?force=1 —— 项目清单：O(项目数) 的目录元数据扫描，不解析会话正文，
   // 因此不分页（量级 10¹；需要分页的是会话列表，见 ADR-0008）
@@ -33,7 +33,9 @@ export function registerProjectRoutes(app: Hono, deps: ProjectRouteDeps): void {
       return c.json<CommandError>({ error: firstIssueMessage(parsed.error.issues) }, 400);
     }
     const query: ProjectsQuery = parsed.data;
-    const body: ProjectsResponse = await readService.listProjects({ force: query.force === '1' });
+    const body: ProjectsResponse = await projectService.listProjects({
+      force: query.force === '1',
+    });
     return c.json(body);
   });
 }

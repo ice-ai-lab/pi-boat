@@ -21,8 +21,9 @@
 - 端口单一来源 protocol `PORTS`，`PORT` 环境变量覆盖（main.ts 已落地）
 - **仅绑定 127.0.0.1**（已落地）；stdout 就绪行供 Electron 健康检查（已落地）
 - 启动序列：读配置 → 实例化 core 服务 → 组装路由 → listen
-- 组装方式：`createAgentServer({ agentService, readService })` 依赖注入——core 服务由
-  main 构造传入，路由层不直接 new（测试可注入 fake）
+- 组装方式：`createAgentServer({ agentService, readService, projectService })` 依赖注入——core 服务由
+  main 构造传入（read/project 两服务共享同一 `ProjectResolver` 实例，ADR-0008），路由层不直接
+  new（测试可注入 fake）
 - **优雅退出**：SIGINT/SIGTERM → `disposeAll('server_shutdown')`（core 广播
   `session_shutdown`，尽力冲刷）→ 硬断全部 SSE（§5.4 关停坑）→ 进程退出
 
@@ -36,7 +37,7 @@
 | `GET /api/agent/:id` | `agentService.getRunningState()` | 轻查直读注册表，**不进 FIFO**（docs/03 §6.4） |
 | `GET /api/agent/running` | `registryVersion + runningSessionIds()` | 轮询端点；`completionNotificationSuppressedSessionIds` M1 恒 `[]` |
 | `GET /api/agent/:id/events` | `agentService.subscribe()` | SSE（§5，本文重点）；鉴权靠 Host/Origin/Sec-Fetch-Site 头校验，无 query 凭据 |
-| `GET /api/projects?force` | `readService.listProjects()` | ✅ ADR-0008：项目清单（会话目录派生视图）。`readdir`+`stat`+每目录一次首行头，不解析正文（实测 3–7 ms / 1.8 KB）；按 `projectKey` 合并子目录与 worktree；空目录跳过；**不分页** |
+| `GET /api/projects?force` | `projectService.listProjects()` | ✅ ADR-0008：项目清单（会话目录派生视图）。`readdir`+`stat`+每目录一次首行头，不解析正文（实测 3–7 ms / 1.8 KB）；按 `projectKey` 合并子目录与 worktree；空目录跳过；**不分页** |
 | `GET /api/sessions?force&projectKey` | `readService.list()` + `listFingerprint()` | 磁盘扫描 ∪ 注册表；`force=1` 跳过指纹缓存（缓存键 = 会话目录指纹，磁盘变动自动失效），`projectKey` 只返回一个项目。⚠️ ensure_session 建的未落盘会话（transient）暂不在列表，待 M2 合并 |
 | `GET /api/sessions/search?q` | `readService.search()` | q ≤ 200；q 缺省 → 400 |
 | `GET /api/sessions/:id` | `readService.detail()` | null → 404 |
