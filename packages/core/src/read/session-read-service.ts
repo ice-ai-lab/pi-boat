@@ -1,10 +1,7 @@
-import { createHash } from 'node:crypto';
-import type { Dirent } from 'node:fs';
-import { open, readdir, rm, stat } from 'node:fs/promises';
+import { rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import {
   buildSessionContext,
-  getAgentDir,
   type SessionInfo as SdkSessionInfo,
   type SessionEntry,
   SessionManager,
@@ -12,8 +9,6 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import type {
   AgentMessage,
-  ProjectInfo,
-  ProjectsResponse,
   SessionContext,
   SessionContextQuery,
   SessionDetailResponse,
@@ -24,7 +19,9 @@ import type {
 } from '@ice-ai/protocol';
 import { UserInputError } from '../agent/agent-session-service';
 import { type SdkAgentMessage, toWireAgentMessage } from '../events/wire-message';
-import type { ProjectResolution } from './project-resolver';
+import type { SessionsDirScan } from './dir-scan';
+import { resolveSessionsRoot, scanSessionsDir } from './dir-scan';
+import type { ProjectResolverLike } from './project-resolver';
 import { ProjectResolver } from './project-resolver';
 
 /**
@@ -33,36 +30,32 @@ import { ProjectResolver } from './project-resolver';
  * 为什么需要：SDK 的 SessionManager 只有裸的 .jsonl 读取原语；浏览视图需要的
  * 分页截断、详情装配、统计摘要、运行态合并、改名写入都没有现成入口。
  *
- * 相对 SDK 新增：list / search / listProjects（项目分组）/ detail（tail 分页装配）、
- * context（上下文窗口装配）、rename、computeStats。
- * 数据源是 pi 共享的 .jsonl 会话文件（~/.pi/agent/sessions 及项目目录），
- * 与 pi CLI 天然互见。文件存储的 toolCall 本就是 {id, name, arguments} 形状，
- * 无需归一化；流式路径的双字段补齐在 core 投影层完成（events/wire-event.ts）。
+ * 相对 SDK 新增：list / search / detail（tail 分页装配）、context（上下文窗口装配）、
+ * rename、computeStats、delete（subagent 级联）。数据源是 pi 共享的 .jsonl 会话文件
+ * （~/.pi/agent/sessions 及项目目录），与 pi CLI 天然互见。文件存储的 toolCall 本就是
+ * {id, name, arguments} 形状，无需归一化；流式路径的双字段补齐在 core 投影层完成
+ * （events/wire-event.ts）。
  *
- * 性能分层（ADR-0008）：会话目录指纹（每文件 size+mtime）成本 ~0.1ms，是全量列表
- * 的缓存键；项目清单只读目录元数据 + 每目录一次首行头读取，不解析会话正文。
+ * 同域相邻模块（2026-09-22 按领域拆分）：dir-scan（目录元数据扫描 + 指纹，本服务的
+ * 列表缓存键）、project-read-service（项目清单，ADR-0008 的分组视图）与
+ * project-resolver（cwd 归一，enrich 用；须与 ProjectReadService 共享同一实例）。
+ *
+ * 性能分层（ADR-0008）：列表缓存键 = 会话目录指纹（每文件 size+mtime，成本 ~0.1ms，
+ * dir-scan 计算）；指纹不匹配才跑全量 listAll。
  *
  * M1 不做：导出 HTML / auto-name（需 LLM）/ 搜索索引（M3）、deferMedia 占位符
  * （图片惰性加载的 wire 形状待 protocol 定稿后再接，目前历史图片全文直发）。
  */
 
-/**
- * 项目解析器最小契约：默认实现为 ProjectResolver；测试可注入假实现以避开 git 子进程
- * （第二个真实用例：dev/test 两套环境）
- */
-export interface ProjectResolverLike {
-  resolve(cwd: string): Promise<ProjectResolution>;
-  clear(): void;
-}
-
 export interface SessionReadOptions {
   /** 会话文件目录（缺省 = SDK 默认 ~/.pi/agent/sessions；测试注入临时目录） */
   sessionDir?: string;
-  /** 会话根目录（其下每项目一子目录，用于项目清单扫描）；缺省 = sessionDir ?? SDK 默认 */
+  /** 会话根目录（其下每项目一子目录，列表扫描范围）；缺省 = sessionDir ?? SDK 默认 */
   sessionsRoot?: string;
   /** 运行中会话查询（详情合并运行时状态用），缺省恒 false */
   isRunning?: (sessionId: string) => boolean;
-  /** 项目解析器（缓存 git 归一结果）；测试可注入以避开真实 git 子进程 */
+  /** 项目解析器（缓存 git 归一结果）；测试可注入以避开真实 git 子进程。
+   *  传给 ProjectReadService 的必须是同一实例（projectKey 按构造一致，ADR-0008） */
   resolver?: ProjectResolverLike;
 }
 
@@ -76,8 +69,6 @@ export interface SessionListOptions {
 
 const DEFAULT_TAIL = 50;
 const MAX_TAIL = 1000;
-/** 首行头最大读取字节（SessionHeader 极小，8KB 足够且不会因多字节字符截断出问题） */
-const HEADER_READ_BYTES = 8192;
 
 export class SessionReadService {
   private readonly sessionDir?: string;
@@ -89,8 +80,7 @@ export class SessionReadService {
 
   constructor(options: SessionReadOptions = {}) {
     this.sessionDir = options.sessionDir;
-    this.sessionsRoot =
-      options.sessionsRoot ?? options.sessionDir ?? join(getAgentDir(), 'sessions');
+    this.sessionsRoot = resolveSessionsRoot(options);
     this.isRunning = options.isRunning ?? (() => false);
     this.resolver = options.resolver ?? new ProjectResolver();
   }
@@ -101,7 +91,7 @@ export class SessionReadService {
 
   async list(options: SessionListOptions = {}): Promise<SessionInfo[]> {
     if (options.force === true) this.invalidate();
-    const scan = await this.scan();
+    const scan = await scanSessionsDir(this.sessionsRoot);
     let sessions =
       this.listCache?.fingerprint === scan.fingerprint ? this.listCache.sessions : null;
     if (sessions === null) {
@@ -117,54 +107,7 @@ export class SessionReadService {
 
   /** 会话目录指纹（GET /api/sessions 的 listFingerprint）：回答“磁盘侧列表内容变了吗” */
   async listFingerprint(): Promise<string> {
-    return (await this.scan()).fingerprint;
-  }
-
-  /**
-   * 项目清单（GET /api/projects，ADR-0008）：O(项目数) 的目录元数据扫描 +
-   * 每目录一次首行头读取；不解析会话正文，因此不分页也便宜。
-   *
-   * 按 projectKey **合并**多个会话目录——同一仓库的子目录与 worktree 各占一个
-   * 目录名，但属于同一个项目（这正是本端点相对“前端按 cwd 分组”的价值）。
-   * 空目录与头部读不到 cwd 的目录不出现（见 protocol rest/projects 注释）。
-   */
-  async listProjects(options: { force?: boolean } = {}): Promise<ProjectsResponse> {
-    if (options.force === true) this.resolver.clear();
-    const scan = await this.scan();
-
-    // projectKey → 该项目包含的会话目录（每个目录一个 cwd，按 SDK 布局约定）
-    const grouped = new Map<string, { resolution: ProjectResolution; dirs: ProjectDirSummary[] }>();
-    for (const project of scan.projects) {
-      const newest = project.files[0]; // scan 已按文件名（ISO 时间戳前缀）降序
-      if (newest === undefined) continue;
-      const cwd = await readSessionCwd(newest.path);
-      if (cwd === '') continue;
-      const resolution = await this.resolver.resolve(cwd);
-      const dir: ProjectDirSummary = {
-        cwd,
-        sessionCount: project.files.length,
-        lastModified: new Date(
-          Math.max(...project.files.map((file) => file.mtimeMs)),
-        ).toISOString(),
-      };
-      const entry = grouped.get(resolution.projectKey);
-      if (entry === undefined) grouped.set(resolution.projectKey, { resolution, dirs: [dir] });
-      else entry.dirs.push(dir);
-    }
-
-    const projects: ProjectInfo[] = [...grouped.values()].map(({ resolution, dirs }) => {
-      dirs.sort((a, b) => b.lastModified.localeCompare(a.lastModified));
-      const newestDir = dirs[0] as ProjectDirSummary;
-      return {
-        ...resolution,
-        cwd: newestDir.cwd,
-        cwds: dirs.map((dir) => dir.cwd),
-        sessionCount: dirs.reduce((total, dir) => total + dir.sessionCount, 0),
-        lastModified: newestDir.lastModified,
-      };
-    });
-    projects.sort((a, b) => b.lastModified.localeCompare(a.lastModified));
-    return { projects, listFingerprint: scan.fingerprint };
+    return (await scanSessionsDir(this.sessionsRoot)).fingerprint;
   }
 
   async search(q: string): Promise<SessionInfo[]> {
@@ -244,7 +187,7 @@ export class SessionReadService {
    * 不在级联范围（docs/02 §3.3）。运行中会话的拦截归 server（409）。
    */
   async delete(id: string): Promise<string[] | null> {
-    const infos = await this.listAllSessions(await this.scan());
+    const infos = await this.listAllSessions(await scanSessionsDir(this.sessionsRoot));
     const target = infos.find((info) => info.id === id);
     if (target === undefined) return null;
 
@@ -311,34 +254,6 @@ export class SessionReadService {
   // 内部
   // ------------------------------------------------------------------
 
-  /**
-   * 目录元数据扫描：项目目录 → .jsonl 文件（size/mtime）。不读文件内容，
-   * 本机实测 32 会话 / 7 目录约 0.15ms（对比 listAll 解析正文 57–110ms）。
-   */
-  private async scan(): Promise<SessionsDirScan> {
-    let dirents: Dirent[];
-    try {
-      dirents = await readdir(this.sessionsRoot, { withFileTypes: true });
-    } catch {
-      return { projects: [], fingerprint: fingerprintOf([]) };
-    }
-
-    const projects: ProjectDirScan[] = [];
-    for (const dirent of dirents) {
-      if (!dirent.isDirectory() && !dirent.isSymbolicLink()) continue;
-      const files = await listJsonlFiles(join(this.sessionsRoot, dirent.name));
-      projects.push({ dirName: dirent.name, files });
-    }
-    // 根目录下直接放 .jsonl（注入的单项目目录、历史布局）也算一个项目
-    const rootFiles = await statJsonlFiles(
-      this.sessionsRoot,
-      dirents.filter((d) => d.isFile() && d.name.endsWith('.jsonl')).map((d) => d.name),
-    );
-    if (rootFiles.length > 0) projects.push({ dirName: '.', files: rootFiles });
-
-    return { projects, fingerprint: fingerprintOf(projects) };
-  }
-
   /** 会话投影 + 项目归一（同一 cwd 只解析一次；resolver 内部另有 60s 缓存） */
   private async enrich(infos: SdkSessionInfo[]): Promise<SessionInfo[]> {
     const cwds = [...new Set(infos.map((info) => info.cwd).filter((cwd) => cwd !== ''))];
@@ -372,7 +287,7 @@ export class SessionReadService {
 
   /** 按 id 定位会话文件（复用同一次扫描；M1 无索引，量大后加缓存） */
   private async openById(id: string): Promise<SessionManager | null> {
-    const infos = await this.listAllSessions(await this.scan());
+    const infos = await this.listAllSessions(await scanSessionsDir(this.sessionsRoot));
     const hit = infos.find((info) => info.id === id);
     if (hit === undefined) return null;
     return SessionManager.open(hit.path, this.sessionDir);
@@ -449,100 +364,6 @@ export class SessionReadService {
       oldestEntryId: windowEntries[0]?.id,
       hasMore: windowEntries[0]?.parentId != null,
     };
-  }
-}
-
-// ---------------------------------------------------------------------------
-// 目录扫描（项目清单与列表指纹共用；不解析会话正文）
-// ---------------------------------------------------------------------------
-
-interface SessionFileMeta {
-  path: string;
-  /** 文件名（ISO 时间戳前缀 ⇒ 字典序 = 时间序） */
-  name: string;
-  size: number;
-  mtimeMs: number;
-}
-
-interface ProjectDirScan {
-  /** 项目目录名（encoded-cwd，编码有损，仅作诊断/指纹用） */
-  dirName: string;
-  /** 已按文件名降序（最新在前）；空目录为 [] */
-  files: SessionFileMeta[];
-}
-
-interface SessionsDirScan {
-  projects: ProjectDirScan[];
-  fingerprint: string;
-}
-
-/** 项目内一个会话目录的摘要（listProjects 合并用） */
-interface ProjectDirSummary {
-  cwd: string;
-  sessionCount: number;
-  lastModified: string;
-}
-
-async function listJsonlFiles(dir: string): Promise<SessionFileMeta[]> {
-  let names: string[];
-  try {
-    names = (await readdir(dir)).filter((name) => name.endsWith('.jsonl'));
-  } catch {
-    return [];
-  }
-  return statJsonlFiles(dir, names);
-}
-
-async function statJsonlFiles(dir: string, names: string[]): Promise<SessionFileMeta[]> {
-  const metas = await Promise.all(
-    names.map(async (name): Promise<SessionFileMeta | null> => {
-      const path = join(dir, name);
-      try {
-        const info = await stat(path);
-        return { path, name, size: info.size, mtimeMs: info.mtimeMs };
-      } catch {
-        return null; // 扫描期间被删除
-      }
-    }),
-  );
-  return metas
-    .filter((meta): meta is SessionFileMeta => meta !== null)
-    .sort((a, b) => b.name.localeCompare(a.name));
-}
-
-/**
- * 指纹：所有项目目录名 + 每个 .jsonl 的 (相对路径, size, mtime)。
- * 目录里新增/删除会话、追加写入、改名都会改变它；空目录的增删也在内。
- */
-function fingerprintOf(projects: ProjectDirScan[]): string {
-  const parts: string[] = [];
-  for (const project of projects) {
-    parts.push(`dir:${project.dirName}`);
-    for (const file of project.files) {
-      parts.push(
-        `${project.dirName}/${file.name}\u0000${file.size}\u0000${Math.round(file.mtimeMs)}`,
-      );
-    }
-  }
-  parts.sort();
-  return createHash('sha1').update(parts.join('\n')).digest('hex').slice(0, 16);
-}
-
-/** 只读会话文件首行头取 cwd（首行即 SessionHeader）——比 listAll 读全文便宜两个数量级 */
-async function readSessionCwd(path: string): Promise<string> {
-  let handle: Awaited<ReturnType<typeof open>> | undefined;
-  try {
-    handle = await open(path, 'r');
-    const buffer = Buffer.allocUnsafe(HEADER_READ_BYTES);
-    const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
-    const firstLine = buffer.subarray(0, bytesRead).toString('utf8').split('\n', 1)[0] ?? '';
-    const parsed: unknown = JSON.parse(firstLine);
-    const cwd = (parsed as { cwd?: unknown }).cwd;
-    return typeof cwd === 'string' ? cwd : '';
-  } catch {
-    return ''; // 头部损坏 / 无 cwd（极旧会话）→ 交给上层跳过
-  } finally {
-    await handle?.close();
   }
 }
 

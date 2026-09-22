@@ -1,5 +1,6 @@
 import {
   type AgentSessionService,
+  type ProjectReadService,
   PromptRejectedError,
   type SessionListOptions,
   SessionNotFoundError,
@@ -81,20 +82,6 @@ function fakeReadService() {
   const service = {
     list: vi.fn(async (_options?: SessionListOptions) => [info]),
     listFingerprint: vi.fn(async () => 'fp-test'),
-    listProjects: vi.fn(async (_options?: { force?: boolean }) => ({
-      projects: [
-        {
-          projectKey: '/tmp',
-          projectRoot: '/tmp',
-          cwd: '/tmp',
-          cwds: ['/tmp'],
-          sessionCount: 1,
-          lastModified: '2026-01-01T00:00:00.000Z',
-          isGit: false,
-        },
-      ],
-      listFingerprint: 'fp-test',
-    })),
     search: vi.fn(async () => [info]),
     detail: vi.fn(async (id: string) => (id === 'sess-disk' ? { sessionId: id } : null)),
     context: vi.fn(async (id: string, _q: SessionContextQuery) =>
@@ -123,14 +110,36 @@ function fakeReadService() {
   return service as unknown as SessionReadService;
 }
 
+function fakeProjectService() {
+  const service = {
+    listProjects: vi.fn(async (_options?: { force?: boolean }) => ({
+      projects: [
+        {
+          projectKey: '/tmp',
+          projectRoot: '/tmp',
+          cwd: '/tmp',
+          cwds: ['/tmp'],
+          sessionCount: 1,
+          lastModified: '2026-01-01T00:00:00.000Z',
+          isGit: false,
+        },
+      ],
+      listFingerprint: 'fp-test',
+    })),
+  };
+  return service as unknown as ProjectReadService;
+}
+
 function makeApp() {
   const agentService = fakeAgentService();
   const readService = fakeReadService();
+  const projectService = fakeProjectService();
   const app = createAgentServer({
     agentService,
     readService,
+    projectService,
   });
-  return { app, agentService, readService };
+  return { app, agentService, readService, projectService };
 }
 
 // ---------------------------------------------------------------------------
@@ -346,17 +355,17 @@ describe('轻查与浏览路由', () => {
   });
 
   it('GET /api/projects：项目清单 + listFingerprint；force=1 透传', async () => {
-    const { app, readService } = makeApp();
+    const { app, projectService } = makeApp();
     const res = await request(app, '/api/projects');
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({
       listFingerprint: 'fp-test',
       projects: [{ projectKey: '/tmp', cwd: '/tmp', sessionCount: 1, isGit: false }],
     });
-    expect(readService.listProjects).toHaveBeenCalledWith({ force: false });
+    expect(projectService.listProjects).toHaveBeenCalledWith({ force: false });
 
     await request(app, '/api/projects?force=1');
-    expect(readService.listProjects).toHaveBeenCalledWith({ force: true });
+    expect(projectService.listProjects).toHaveBeenCalledWith({ force: true });
   });
 
   it('GET /api/sessions/search：q 缺省 → 400；超长 → 400；合法 → 200', async () => {

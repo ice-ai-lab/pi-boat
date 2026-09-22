@@ -19,6 +19,16 @@ import type { ProjectInfo } from '@ice-ai/protocol';
  * 会话文件 mtime 上，指纹对它无效。
  */
 
+/**
+ * 项目解析器最小契约：默认实现为 ProjectResolver；测试可注入假实现以避开 git 子进程
+ * （第二个真实用例：dev/test 两套环境）。SessionReadService（列表 enrich）与
+ * ProjectReadService（项目清单）共用同一实例 ⇒ 两处 projectKey 按构造一致（ADR-0008）。
+ */
+export interface ProjectResolverLike {
+  resolve(cwd: string): Promise<ProjectResolution>;
+  clear(): void;
+}
+
 const execFileAsync = promisify(execFile);
 const GIT_TIMEOUT_MS = 5000;
 const DEFAULT_TTL_MS = 60_000;
