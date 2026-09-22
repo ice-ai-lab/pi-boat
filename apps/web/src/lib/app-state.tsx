@@ -9,7 +9,18 @@ import {
   useRef,
   useState,
 } from 'react';
-import { clampSidebarWidth, readStoredSidebar, SIDEBAR_DEFAULT_PX, storeSidebar } from './prefs';
+import {
+  clampRightbarWidth,
+  clampSidebarWidth,
+  readStoredRightbar,
+  readStoredSidebar,
+  readStoredTheme,
+  SIDEBAR_DEFAULT_PX,
+  storeRightbar,
+  storeSidebar,
+  storeTheme,
+  type Theme,
+} from './prefs';
 import {
   findProjectByCwd,
   projectCwd,
@@ -44,6 +55,15 @@ export interface AppStateValue {
   toggleSidebar: () => void;
   sidebarWidth: number;
   setSidebarWidth: (px: number) => void;
+  /** 右侧栏（文件 dock，原型默认收起） */
+  rightbarCollapsed: boolean;
+  toggleRightbar: () => void;
+  setRightbarCollapsed: (collapsed: boolean) => void;
+  rightbarWidth: number;
+  setRightbarWidth: (px: number) => void;
+  /** 主题（原型 #themeBtn；M1 已启用，变量在 theme.css 里完整） */
+  theme: Theme;
+  toggleTheme: () => void;
 }
 
 const AppStateContext = createContext<AppStateValue | null>(null);
@@ -56,6 +76,15 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
   const sidebar = useRef(readStoredSidebar());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(sidebar.current.collapsed);
   const [sidebarWidth, setSidebarWidthState] = useState(sidebar.current.width);
+  const rightbar = useRef(readStoredRightbar());
+  const [rightbarCollapsed, setRightbarCollapsedState] = useState(rightbar.current.collapsed);
+  const [rightbarWidth, setRightbarWidthState] = useState(rightbar.current.width);
+  const [theme, setThemeState] = useState<Theme>(readStoredTheme);
+
+  // 主题写进 <html data-theme>，token 块随之切换（原型 #themeBtn 同款）
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
 
   /**
    * 首次拿到项目清单时确定默认空间：记住的选择还在就用它，否则选最近有活动的项目
@@ -102,6 +131,31 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const setRightbarWidth = useCallback((px: number) => {
+    const width = clampRightbarWidth(px);
+    setRightbarWidthState(width);
+    rightbar.current = { collapsed: rightbar.current.collapsed, width };
+    storeRightbar(rightbar.current);
+  }, []);
+
+  const setRightbarCollapsed = useCallback((collapsed: boolean) => {
+    setRightbarCollapsedState(collapsed);
+    rightbar.current = { collapsed, width: rightbar.current.width };
+    storeRightbar(rightbar.current);
+  }, []);
+
+  const toggleRightbar = useCallback(() => {
+    setRightbarCollapsed(!rightbar.current.collapsed);
+  }, [setRightbarCollapsed]);
+
+  const toggleTheme = useCallback(() => {
+    setThemeState((current) => {
+      const next: Theme = current === 'dark' ? 'light' : 'dark';
+      storeTheme(next);
+      return next;
+    });
+  }, []);
+
   const value: AppStateValue = {
     projects,
     projectsLoading: projectsQuery.isPending,
@@ -115,6 +169,13 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
     toggleSidebar,
     sidebarWidth,
     setSidebarWidth,
+    rightbarCollapsed,
+    toggleRightbar,
+    setRightbarCollapsed,
+    rightbarWidth,
+    setRightbarWidth,
+    theme,
+    toggleTheme,
   };
 
   return <AppStateContext.Provider value={value}>{children}</AppStateContext.Provider>;

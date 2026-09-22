@@ -1,5 +1,5 @@
 import { PROTOCOL_VERSION } from '@ice-ai/protocol';
-import { EmptyState } from '@ice-ai/ui';
+import { EmptyState, IconSprite } from '@ice-ai/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createBrowserRouter, RouterProvider } from 'react-router';
 import { AppShell } from './components/app-shell';
@@ -10,14 +10,10 @@ import { NewSessionRoute } from './routes/new-session';
 import { SessionRoute } from './routes/session';
 
 /**
- * 应用装配（docs/06 §4.5：AppShell / 路由 / QueryClient / 边界留在 apps/web）。
+ * 应用装配（原型：单页三栏 + 路由切换中栏）。
  *
- * 路由用 **React Router v7 library 模式**（`createBrowserRouter` + `RouterProvider`，ADR-0009）：
- * 两条路由共享 `AppShell` 布局路由——左侧栏（含文件夹空间与会话列表）在**两页都常驻**，
- * 与原型一致（原型里 hero 只是中栏的一个状态，侧栏不重建）。SPA fallback 由 server 的
- * 静态托管提供（docs/04 §7）。
- *
- * Provider 顺序：QueryClient（REST 查询）→ AppState（文件夹空间/侧栏）→ Toast → Router。
+ * 路由用 React Router v7 library 模式：两条路由共享 `AppShell` 布局路由——
+ * 左右栏在**两页都常驻**（原型里 hero 只是中栏的一个状态，侧栏不重建）。
  */
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -45,7 +41,8 @@ export function App() {
   // M1 只保大屏（docs/06 §9.1）：窄屏不做 drawer/重排，直接给门禁提示
   if (narrow) {
     return (
-      <div className="flex h-dvh flex-col bg-surface">
+      <div className="relative flex h-dvh flex-col bg-surface">
+        <IconSprite />
         <EmptyState
           title="窗口过窄（< 880px）"
           subtitle="M1 只针对大屏；请加宽窗口（移动端形态随 M3 排期）"
@@ -59,6 +56,7 @@ export function App() {
     <QueryClientProvider client={queryClient}>
       <AppStateProvider>
         <ToastProvider>
+          <IconSprite />
           <RouterProvider router={router} />
         </ToastProvider>
       </AppStateProvider>

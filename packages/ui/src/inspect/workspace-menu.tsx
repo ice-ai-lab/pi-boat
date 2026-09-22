@@ -1,18 +1,13 @@
 import type { ProjectInfo } from '@ice-ai/protocol';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { cn } from '../lib/cn';
 import { Icon } from '../primitives/icon';
-import { Popover } from '../primitives/popover';
 
 /**
- * 文件夹空间切换器（原型 `#wsBtn` + `#wsMenu`，docs/06 §4.3）——左侧栏第一件东西。
+ * 文件夹空间切换器（原型 `#wsBtn` + `#wsMenu`）——左侧栏第一件东西。
  *
- * 「文件夹空间」= protocol 的**项目**（ADR-0008：按 git 仓库根归一的 `projectKey`），
- * 不是独立实体；本组件只做选择，默认值（最近一次对话的空间）由宿主决定。
- *
- * 视觉细节（原型签名）：路径用 `direction: rtl` 让省略号落在**左侧**、保留尾部目录名；
- * 菜单项右侧的 `chk` 只在选中项出现；`live` 圆点表示该项目有运行中的会话
- * （M1 不提供跨项目运行态，`runningKeys` 由宿主可选传入，见 docs/06 §4.3 注）。
+ * 「文件夹空间」= protocol 的**项目**（ADR-0008：按 git 仓库根归一的 `projectKey`）。
+ * 路径用 `direction: rtl` 让省略号落在**左侧**、保留尾部目录名（原型签名细节）。
  */
 export interface WorkspaceMenuProps {
   projects: ProjectInfo[];
@@ -20,7 +15,7 @@ export interface WorkspaceMenuProps {
   activeKey: string | null;
   loading?: boolean;
   onSelect: (projectKey: string) => void;
-  /** 「自定义路径…」——M1 无系统目录选择器，回调由宿主提供（滚回 hero 的 cwd 输入框） */
+  /** 「自定义路径…」——M1 无系统目录选择器，回调由宿主提供 */
   onSelectCustom?: () => void;
   /** 有运行中会话的 projectKey，用于菜单里的 live 圆点 */
   runningKeys?: readonly string[];
@@ -37,9 +32,27 @@ export function WorkspaceMenu({
   className,
 }: WorkspaceMenuProps) {
   const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const active = projects.find((project) => project.projectKey === activeKey) ?? null;
   const running = new Set(runningKeys ?? []);
   const path = active?.cwd ?? (loading ? '正在读取文件夹空间…' : '未选择文件夹空间');
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (rootRef.current?.contains(event.target as Node) === true) return;
+      setOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
 
   const select = (projectKey: string): void => {
     setOpen(false);
@@ -47,91 +60,69 @@ export function WorkspaceMenu({
   };
 
   return (
-    <Popover
-      open={open}
-      onOpenChange={setOpen}
-      width={300}
-      className="max-h-none"
-      bodyClassName="p-1.5"
-      trigger={({ toggle, id }) => (
-        <button
-          type="button"
-          id={id}
-          aria-haspopup="dialog"
-          aria-expanded={open}
-          title="切换文件夹空间"
-          onClick={toggle}
-          className={cn(
-            'hairline flex w-full flex-none items-center gap-2 rounded-xl border-line-2 bg-surface-raised px-2.5 py-[7px] text-left transition-colors hover:bg-hover',
-            className,
-          )}
-        >
-          <Icon name="folder" size={14} className="flex-none text-fg-subtle" />
-          <span
-            className="min-w-0 flex-1 truncate font-mono text-[12px] leading-[17px] text-fg"
-            style={{ direction: 'rtl', textAlign: 'left' }}
-          >
-            {path}
-          </span>
-          <Icon name="chev-d" size={12} className="flex-none text-fg-subtle" />
-        </button>
-      )}
-    >
-      <div className="flex flex-col">
-        {projects.map((project) => {
-          const on = project.projectKey === activeKey;
-          return (
-            <button
-              key={project.projectKey}
-              type="button"
-              title={project.cwd}
-              aria-current={on ? 'true' : undefined}
-              onClick={() => select(project.projectKey)}
-              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-hover"
-            >
-              <Icon name="folder" size={14} className="flex-none text-fg-subtle" />
-              <span
-                className="min-w-0 flex-1 truncate font-mono text-[12px] text-fg"
-                style={{ direction: 'rtl', textAlign: 'left' }}
+    <div ref={rootRef} className={cn('ws-anchor', className)}>
+      <button
+        type="button"
+        className="ws-btn sq"
+        title="切换文件夹空间"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <Icon name="folder" size={14} />
+        <span className="path num">{path}</span>
+        <Icon name="chev-d" size={12} />
+      </button>
+      {open ? (
+        <div className="ws-menu" role="menu" style={{ left: 0 }}>
+          {projects.map((project) => {
+            const on = project.projectKey === activeKey;
+            return (
+              <button
+                key={project.projectKey}
+                type="button"
+                role="menuitemradio"
+                aria-checked={on}
+                title={project.cwd}
+                className={cn('wi', on && 'on')}
+                onClick={() => select(project.projectKey)}
               >
-                {project.cwd}
-              </span>
-              {running.has(project.projectKey) ? (
-                <span
-                  title="有运行中的会话"
-                  className="size-1.5 flex-none rounded-full bg-accent"
-                />
-              ) : null}
-              <Icon
-                name="check"
-                size={14}
-                className={cn('flex-none text-accent', on ? 'opacity-100' : 'opacity-0')}
-              />
-            </button>
-          );
-        })}
-        {projects.length === 0 ? (
-          <p className="px-2.5 py-2 text-[11.5px] text-fg-faint">
-            {loading ? '正在读取…' : '还没有历史会话，先在下方填写工作目录'}
-          </p>
-        ) : null}
-        {onSelectCustom === undefined ? null : (
-          <>
-            <div className="mx-1.5 my-1 h-[0.5px] bg-line-2" />
-            <button
-              type="button"
-              onClick={() => {
-                setOpen(false);
-                onSelectCustom();
-              }}
-              className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-hover"
-            >
-              <Icon name="plus" size={14} className="flex-none text-fg-subtle" />
-              <span className="min-w-0 flex-1 truncate text-[12px] text-fg-muted">自定义路径…</span>
-            </button>
-          </>
-        )}
-      </div>
-    </Popover>
+                <Icon name="folder" size={14} />
+                <span className="p">{project.cwd}</span>
+                {running.has(project.projectKey) ? (
+                  <span className="live" title="有运行中的会话" />
+                ) : null}
+                <span className="chk">
+                  <Icon name="check" size={14} />
+                </span>
+              </button>
+            );
+          })}
+          {projects.length === 0 ? (
+            <p style={{ padding: '8px 10px', fontSize: 11.5, color: 'var(--t4)' }}>
+              {loading ? '正在读取…' : '还没有历史会话，先在中间填写工作目录'}
+            </p>
+          ) : null}
+          {onSelectCustom === undefined ? null : (
+            <>
+              <div className="rule" />
+              <button
+                type="button"
+                className="wi"
+                onClick={() => {
+                  setOpen(false);
+                  onSelectCustom();
+                }}
+              >
+                <Icon name="plus" size={14} className="add-ico" />
+                <span className="p" style={{ fontFamily: 'var(--font)', color: 'var(--t2)' }}>
+                  自定义路径…
+                </span>
+              </button>
+            </>
+          )}
+        </div>
+      ) : null}
+    </div>
   );
 }

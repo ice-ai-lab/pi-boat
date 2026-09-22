@@ -3,7 +3,7 @@ import { formatCost, formatTokens } from '../lib/format';
 
 /**
  * 每轮用量行（原型 `.usage-line`：`755 in · 1,377 out · 20,096 cache R · $0.0123 … 16:33`）。
- * 数据来自 `Turn.usage`（`message.usage`，docs/06 §11.2 已覆盖，无需协议改动）。
+ * 数据来自 `Turn.usage`（`message.usage`）。
  */
 export interface UsageLineProps {
   usage: Usage | null;
@@ -20,16 +20,14 @@ export function UsageLine({ usage, at, className }: UsageLineProps) {
     formatCost(usage.cost.total),
   ].filter((part): part is string => part !== null);
   return (
-    <div
-      className={`flex items-center gap-2 text-[11px] tabular-nums text-fg-faint ${className ?? ''}`}
-    >
+    <div className={`usage-line num ${className ?? ''}`}>
       {parts.map((part, index) => (
         <span key={part} className="flex items-center gap-2">
           {index > 0 ? <span>·</span> : null}
           {part}
         </span>
       ))}
-      <span className="flex-1" />
+      <span className="sp" />
       {at === undefined ? null : <span>{formatClockSafe(at)}</span>}
     </div>
   );

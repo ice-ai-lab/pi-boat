@@ -10,10 +10,17 @@
      写死则切主题失效）
    - 深色主题 **M1 未启用**（docs/06 §11.3 行 4）：变量块照原型保留，切换入口在 M2
    ============================================================================ */
-@import "tailwindcss";
-/* 共享 utility（原型 hairline/sq/elev/shimmer/滚动条/mask）与对话域样式（.md/.diff/.disc/.tag） */
+@import "tailwindcss/theme.css";
+@import "tailwindcss/utilities.css";
+/* 注意：**不引入 tailwindcss/preflight.css**。
+   原型自带 reset（`*{box-sizing;margin;padding}` + button/input 归一），而 preflight 的
+   `button{font:inherit}` 会把 `line-height` 带成继承值（22px），原型里按钮是 UA 的 `normal`——
+   两者会让 .disc-head / .hchip / .vtab 的基线差 1–2px。要逐字对齐原型，就不叠第二套 reset。*/
+/* 共享 utility（原型 hairline/sq/elev/shimmer/mask） */
 @import "./src/styles/utilities.css";
-@import "./src/styles/chat.css";
+/* 原型样式逐字移植（字体 / 布局 / markdown / 组件），是视觉的唯一来源。
+   放在最后：无 layer 的规则天然压过 Tailwind 的 @layer，避免「用工具类重写」的偏差。 */
+@import "./src/styles/prototype.css";
 
 :root {
   /* 表面 */

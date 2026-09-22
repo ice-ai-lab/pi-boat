@@ -64,3 +64,70 @@ export function storeSidebar(pref: SidebarPref): void {
     // best-effort
   }
 }
+
+/* ---- 主题（原型 #themeBtn：切换 [data-theme] 与 moon/sun 图标） ---- */
+
+export type Theme = 'light' | 'dark';
+
+const THEME_STORAGE_KEY = 'piboat.theme';
+
+export function readStoredTheme(): Theme {
+  try {
+    return window.localStorage.getItem(THEME_STORAGE_KEY) === 'dark' ? 'dark' : 'light';
+  } catch {
+    return 'light';
+  }
+}
+
+export function storeTheme(theme: Theme): void {
+  try {
+    window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch {
+    // best-effort
+  }
+}
+
+/* ---- 右侧栏（原型默认 rb-collapsed） ---- */
+
+/** 右栏宽度上下限（原型 `makeDrag("dragR","--rb-w",240,560)`） */
+export const RIGHTBAR_MIN_PX = 240;
+export const RIGHTBAR_MAX_PX = 560;
+export const RIGHTBAR_DEFAULT_PX = 324;
+
+export function clampRightbarWidth(px: number): number {
+  if (!Number.isFinite(px)) return RIGHTBAR_DEFAULT_PX;
+  return Math.max(RIGHTBAR_MIN_PX, Math.min(RIGHTBAR_MAX_PX, Math.round(px)));
+}
+
+export interface RightbarPref {
+  collapsed: boolean;
+  width: number;
+}
+
+export function readStoredRightbar(): RightbarPref {
+  const fallback: RightbarPref = { collapsed: true, width: RIGHTBAR_DEFAULT_PX };
+  try {
+    const raw = window.localStorage.getItem(SIDEBAR_STORAGE_KEY.replace('sidebar', 'rightbar'));
+    if (raw === null) return fallback;
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed === null || typeof parsed !== 'object') return fallback;
+    const value = parsed as Partial<RightbarPref>;
+    return {
+      collapsed: value.collapsed !== false,
+      width: clampRightbarWidth(value.width ?? RIGHTBAR_DEFAULT_PX),
+    };
+  } catch {
+    return fallback;
+  }
+}
+
+export function storeRightbar(pref: RightbarPref): void {
+  try {
+    window.localStorage.setItem(
+      SIDEBAR_STORAGE_KEY.replace('sidebar', 'rightbar'),
+      JSON.stringify(pref),
+    );
+  } catch {
+    // best-effort
+  }
+}

@@ -3,12 +3,14 @@ import { cn } from '../lib/cn';
 import { Icon } from '../primitives/icon';
 
 /**
- * 输入卡「模式」（原型 `.mode-chip` + `.mode-menu`，docs/06 §4.2 警告）。
+ * 输入卡「模式」（原型 `.mode-chip` + `.mode-menu` + `.mi`）。
  *
- * ⚠️ 「模式」与工具预设**已合并为同一概念**（2026-09-22 决策，docs/02 §11.1）：
- * 菜单项就是四项工具预设，原型的「全自动·免确认」已删除（SDK 0.85 无此能力）。
- * 预设判定归 **core**（只有 core 知道 SDK 默认工具集），因此 M1 只展示当前值：
- * 不传 `options` 时渲染为只读胶囊（M2 接 `set_tools` 后由 app 传 options + onChange）。
+ * ⚠️ 「模式」与工具预设**已合并为同一概念**：菜单项就是工具预设，
+ * 原型的「全自动·免确认」已删除（SDK 0.85 无此能力）。预设判定归 **core**，
+ * 因此 M1 只展示当前值：不传 `options` 时渲染为只读胶囊。
+ *
+ * 菜单是 `.input-card` 的绝对定位子元素（原型同款）：这里不套 relative 包裹层，
+ * 让 `position:absolute` 直接对齐到最近的定位祖先 `.input-card`。
  */
 export type ToolPreset = 'chat-only' | 'read-only' | 'default' | 'full';
 
@@ -35,37 +37,28 @@ export function ModeChip({ mode, options, onChange, className }: ModeChipProps) 
     return (
       <span
         title={`工具预设：${current.label}（${current.hint}）· M2 支持切换`}
-        className={cn(
-          'inline-flex h-7 flex-none cursor-default items-center gap-1.5 rounded-lg px-2.5 text-[13px] text-fg-muted',
-          className,
-        )}
+        className={cn('mode-chip', className)}
       >
-        <Icon name="chev-d" size={10} />
+        <Icon name="chev-d" size={12} style={{ width: 10, height: 10 }} />
         {current.label}
       </span>
     );
   }
 
   return (
-    <div className="relative flex-none">
+    <>
       <button
         type="button"
+        className={cn('mode-chip', className)}
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen(!open)}
-        className={cn(
-          'inline-flex h-7 items-center gap-1.5 rounded-lg px-2.5 text-[13px] text-fg-muted hover:bg-hover',
-          className,
-        )}
       >
-        <Icon name="chev-d" size={10} />
+        <Icon name="chev-d" size={12} style={{ width: 10, height: 10 }} />
         {current.label}
       </button>
       {open ? (
-        <div
-          role="menu"
-          className="glass absolute bottom-[calc(100%+6px)] left-3.5 z-[60] w-[180px] rounded-xl p-1.5 shadow-panel"
-        >
+        <div className="mode-menu" role="menu">
           {options.map((option) => {
             const item = PRESET_LABELS[option];
             return (
@@ -74,23 +67,25 @@ export function ModeChip({ mode, options, onChange, className }: ModeChipProps) 
                 type="button"
                 role="menuitemradio"
                 aria-checked={option === mode}
+                className={cn('mi', option === mode && 'on')}
                 onClick={() => {
                   onChange(option);
                   setOpen(false);
                 }}
-                className="flex w-full items-center justify-between rounded-lg px-2.5 py-[7px] text-[13px] text-fg hover:bg-hover"
               >
-                <span>{item.label}</span>
+                {item.label}
                 {option === mode ? (
-                  <Icon name="check" size={14} className="text-accent" />
+                  <span className="chk">
+                    <Icon name="check" size={14} />
+                  </span>
                 ) : (
-                  <small className="text-[11px] text-fg-faint">{item.hint}</small>
+                  <small>{item.hint}</small>
                 )}
               </button>
             );
           })}
         </div>
       ) : null}
-    </div>
+    </>
   );
 }

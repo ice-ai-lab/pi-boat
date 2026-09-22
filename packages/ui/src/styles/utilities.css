@@ -106,18 +106,7 @@
   -webkit-backdrop-filter: blur(40px) saturate(150%);
 }
 
-@layer base {
-  body {
-    font-family: var(--font-ui);
-    font-size: 14px;
-    line-height: 22px;
-    color: var(--fg);
-    background: var(--surface);
-    -webkit-font-smoothing: antialiased;
-  }
-  button {
-    cursor: pointer;
-    font: inherit;
-    color: inherit;
-  }
-}
+/* 注意：**不在这里写 @layer base 的 body/button 重置**——原型已自带
+   （`body{font-family:var(--font);font-size:14px;line-height:22px;…}` 与
+   `button{…;font-size:inherit}`）。旧版的 `button{font:inherit}` 会把 line-height
+   也变成继承值（22px），而原型里按钮是 UA 的 `normal`，会让 .disc-head/.hchip 基线差 1–2px。 */

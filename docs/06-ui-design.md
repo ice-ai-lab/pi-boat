@@ -26,9 +26,12 @@
 
 - **唯一基准**：`docs/design/piboat-web-v3.html`。原型是 v0.1，允许增量演进，但**签名细节必须保留**：
   0.5px hairline、superellipse 圆角、`#4176E6` 业务蓝、毛玻璃浮层、sticky 输入卡 + 渐变淡入、细滚动条
-- **token 单一来源**：`packages/ui/theme.css`（原型 `:root` + `[data-theme="dark"]` 两套）
-  - 形状：`@import 'tailwindcss'` 之前用 `:root` / `[data-theme="dark"]` 定义变量，再用
-    `@theme inline { --color-surface: var(--surface); … }` 暴露给 Tailwind
+- **token 单一来源**：`packages/ui/src/styles/prototype.css` —— 原型 `<style>` 的**逐字移植**（ADR-0010）
+  - 类名与原型一致（`.sidebar`/`.chat-col`/`.md`/`.disc`/…），可逐项对账；`theme.css` 只在其上补
+    `@theme inline { --color-surface: var(--surface); … }` 给少量 Tailwind 工具类用
+  - `@import 'tailwindcss/theme.css'` + `'tailwindcss/utilities.css'`，**不引 `preflight.css`**：
+    原型自带 reset，preflight 的 `button{font:inherit}` 会把按钮 `line-height` 变成继承值（原型是 UA `normal`）
+  - 原型 `--mono` 引用的 `--font-noto-mono` 未定义，已在 `prototype.css` 末尾补上（否则整条 `font-family` 失效）
   - **暗色不能写死在 `@theme` 里**（`@theme` 是编译期常量，写死则切主题失效）
 - **消费方式**：`apps/web/src/index.css` `@import '@ice-ai/ui/theme.css'` +
   `@source '../../../packages/ui/src'`（Tailwind v4 需显式扫包外源码，否则 ui 的类名被摇掉）
@@ -99,7 +102,7 @@
 | `ModelBadge` / `ModeChip` | `model` / `mode` `onChange` | `.model-btn` / `.mode-chip` + `.mode-menu`。⚠️ **「模式」与工具预设已合并为同一概念**（2026-09-22 决策，docs/02 §11.1）：本组件与 `ToolList` 的分段控件读写同一状态 |
 | `StatsPills` | `stats` `onSelect(kind)` | `#statsRow` 7 个 pill（in / out / cache / tps / cost / ctx ring） |
 | `UsageLine` | `usage` `at` | `.usage-line`（每轮：in · out · cache R · cost · 时间） |
-| `SystemPromptPanel` | `prompt: string \| null` `loading` | ✅ **形态已定（2026-09-22）：整宽面板**（不取原型的 560px 锚定浮层）。规格照 pi-web `SystemPromptPanel`：`height: min(600px, 75dvh)` + `overflow:auto` + `pre-wrap` + `overflow-wrap:anywhere` + 等宽 12px；三态文案（空 / 尚未加载 / 加载中）；触发器为顶栏按钮（`aria-pressed`，有内容时图标转 accent）。原型仍提供视觉 token（`#popSys` 内的 `.sysprompt` 排版） |
+| `SystemPromptPanel` | `prompt: string \| null` `loading` | ✅ **形态已定（2026-09-23，ADR-0010）：回到原型的 `.pop` 锚定浮层**（560px，`#popSys` 的 `.sysprompt` 排版）；仍删掉「版本 r42 / 约 700 tokens」（前端无 tokenizer，硬凑会误导），改显示真实字符数；三态文案（空 / 尚未加载 / 加载中） |
 | `MessageMinimap` | `turns` `scrollRef` | `.minimap` + `.mm-bar` + `.mm-tip` 预览，算法见 §8.3 |
 | `ScrollToBottomButton` | `visible` `onClick` | **原型未画，M1 新增件**（照 pi-web `.chat-scroll-to-bottom`）：圆形按钮 + 下箭头，悬于 composer 上方，`visible = 有溢出 && 未贴底`，`smooth` 滚动，带 `aria-label`（§8.2） |
 | `ContentWidthControls` | `width` `onWidthChange` `min` `max` | `.chat-handle` 双侧 + `--mh-y` 指针跟随光条 |
@@ -112,12 +115,15 @@
 | `primitives/` | `icon.tsx`（Icon + BoatMark 品牌 SVG）· `button.tsx`（Button + IconButton，cva 变体）· `textarea.tsx` · `switch.tsx` · `segmented-control.tsx` · `popover.tsx` · `tooltip.tsx` · `chip.tsx` · `progress-ring.tsx` · `scroll-area.tsx` · `toast.tsx` | 全部自绘（shadcn CLI 未引入，见 docs/01 §4 注） |
 | `chat/` | `message-list.tsx` · `user-bubble.tsx` · `assistant-turn.tsx` · `markdown-view.tsx` · `code-block.tsx` · `diff-view.tsx` · `collapse-row.tsx`（CollapseRow + ToolTag + ThinkTag + StoppedTag）· `thinking-row.tsx` · `tool-row.tsx` · `process-group.tsx`（+ SystemRow/TrailRowView）· `composer.tsx` · `model-badge.tsx`（ModelTag + ModelBadge）· `mode-chip.tsx` · `usage-line.tsx` · `stats-pills.tsx` · `system-prompt-panel.tsx` · `scroll-to-bottom-button.tsx` · `empty-state.tsx` | M1 对话域组件全集 |
 | `hooks/` | `use-auto-scroll.ts` | 吸附模型的纯函数 + hook |
-| `styles/` | `utilities.css` · `chat.css` | 共享 utility 与「用工具类写不划算」的对话域样式（`.md`/`.codeblk`/`.diff`/`.disc`/`.tag`） |
-| 根 | `theme.css` | token 单一来源（`@import 'tailwindcss'` + `:root`/`[data-theme="dark"]` + `@theme inline`） |
+| `styles/` | `prototype.css` · `utilities.css` | 原型 `<style>` 逐字移植（唯一视觉来源）与少量共享 utility（`hairline`/`sq`/`elev-*`/`shimmer`/`mask-fade-top`） |
+| 根 | `theme.css` | 引入 Tailwind theme/utilities + `prototype.css`（原型 `<style>` 逐字）+ `@theme inline` 映射 |
 
-**M1 明确未实现**（与 docs/01 §6 里程碑落位一致）：`MessageMinimap`、`ContentWidthControls`、
-`StatsCardGroup`、`ToolList`、`FileTree`、`ChangesList`、`CodeViewer`、`DockTabs`（M2–M3）；
-图表/弹窗类交互（统计弹窗、工具预设切换）也在 M2。
+**M1 已落地的原型件**（ADR-0010 前移）：`MessageMinimap`、`ContentWidthControls`、`StatsCardGroup`、
+`ToolList`、`FileDock`（`.rightbar` 三栏骨架 + dock 结构）、主题切换、左右栏拖拽 handle、
+系统/工具/统计浮层。
+
+**仍未接数据（M3）**：`FileTree`/`ChangesList`/`CodeViewer` 的**真实数据**（`/api/files` 与 git 域）
+——结构已就位，当前显示未接入说明，不放假文件；工具预设切换（core 的 `set_tools`）也在 M2。
 
 **M1 之后补落（2026-09-22，侧栏重构）**：`inspect/` 的 `SessionListItem`、`WorkspaceMenu`
 两个组件，以及 `apps/web` 的两栏 AppShell —— 见 §4.4。
@@ -324,12 +330,12 @@ shadcn 的价值在表单/复杂弹层（M2+），届时按本包 alias 落位 `
 | 「最近提交 29d8be9」 | `SessionInfo` 只有 `branch`/`isWorktree` | M3 git 域返回后拼装，不进 `SessionInfo`（维持原议） |
 | 工具预设分段 `chat-only/read-only/default/full` | protocol 无枚举 | ✅ **已定（2026-09-22）**：预设判定归 **core**——只有 core 知道 SDK 的默认工具集（`default` 无法在客户端静态枚举）；M2 开工时定命令形状（`set_tools` 收 preset 名或新命令），**不养期货** |
 | 输入卡「模式：默认/只读/**全自动·免确认执行命令**」 | 与工具预设语义重叠；「免确认」在 SDK 0.85 无对应能力 | ✅ **已定（2026-09-22）：与工具预设合并**，模式菜单直接展示四项预设（标签用工具集描述），**删掉「全自动·免确认」**——AGENTS.md：命名不得暗示它做不到的事 |
-| 系统提示词「版本 r42」 | `AgentState.systemPrompt` **已在 M1 契约内**（core 在 `getRunningState()` 读 `session.systemPrompt`） | ✅ **已定（2026-09-22）：展示，形态取整宽面板**。参考 pi-web 实现（见下）：**删掉「版本 r42」与「约 700 tokens / 占用上下文 0.07%」**（前端无 tokenizer，硬凑会误导）；「注入于会话创建时」改为「最近一次构建」——上下文文件重载后 prompt 会变 |
+| 系统提示词「版本 r42」 | `AgentState.systemPrompt` **已在 M1 契约内**（core 在 `getRunningState()` 读 `session.systemPrompt`） | ✅ **已定（2026-09-23，ADR-0010）：展示，形态取原型的 `.pop` 锚定浮层**。**删掉「版本 r42」与「约 700 tokens / 占用上下文 0.07%」**（前端无 tokenizer，硬凑会误导）；「注入于会话创建时」改为「最近一次构建」——上下文文件重载后 prompt 会变 |
 | 每轮 `usage-line` | ✅ `message.usage` 已覆盖 | 无需动作 |
 
 **系统提示词面板（参考 pi-web `components/SystemPromptPanel.tsx` + `lib/exact-system-prompt.ts`）**：
 
-- 形态：✅ **已定整宽面板**（不取原型的 560px 锚定浮层——2000+ 字符的长文本点外关闭会丢阅读位置）；
+- 形态：✅ **已定（2026-09-23，ADR-0010）：回到原型的 `.pop` 锚定浮层**（560px；2000+ 字符长文本的阅读位置靠浮层内的独立滚动保持）；
   顶栏「系统」按钮（`aria-pressed`，有内容时图标转 accent）→ 面板 `height: min(600px, 75dvh)`、`pre-wrap`、等宽 12px
 - 三态文案：`""` →「为空（工具已禁用）」/ `null` + loading →「正在加载…」/ `null` →「尚未加载」
 - 数据源：`get_state` 的 `systemPrompt`（pi-boat 已具备）。**pi-boat 应改用轻查端点 `GET /api/agent/:id`**，因为 `get_state` 走命令 FIFO，run 期间会排到 prompt 结束（docs/02 §6.1）
@@ -347,7 +353,7 @@ shadcn 的价值在表单/复杂弹层（M2+），届时按本包 alias 落位 `
 | 1b | （连带）**不存在的 cwd 会静默建会话** | 实证（2026-09-22）：SDK `createAgentSession({ cwd: '/不存在' })` **不报错照样建会话**，之后每次 read/bash/edit 都在会话里失败——用户看到的是“agent 莫名一直报错” | ✅ **已定：core 在 `create()` 前置校验**（存在且为目录 → 否则 `UserInputError` → 400），M1 内完成。**不可拖到 M3** 的 `/api/cwd/validate`；也不可选“什么都不做” | **高** |
 | 2 | 自动滚底 vs “用户上滚后脱离” | 原型只有无条件 `scrollBottom()` | ✅ **已定（2026-09-22）：照 pi-web 的吸附模型**（贴底 8px / 重吸 96px / 上滚即脱离 / 新增 `ScrollToBottomButton`），见 §8.2 | 中 |
 | 3 | <880px 的响应式形态 | 原型只有 1180/880 两条覆盖式断点 | ✅ **已定（2026-09-22）：只保大屏，不做小屏适配**——<880px 显示“窗口过窄”提示，不做 drawer/重排；保留“禁写死桌面假设”，移动端随 M3 排期，见 §9.1 | 低 |
-| 4 | 深色主题是否进 M1 | 原型的 `[data-theme="dark"]` token 已完整 | ✅ **已定（2026-09-22）：M1 不支持深色主题**——不接切换、不做验证。`theme.css` 保留原型已有的 dark 变量块并标注“未启用”（照抄零成本，且 ui 是跨端资产；将来要删也不必回头对照原型），但**不是 M1 交付内容** | 低 |
+| 4 | 深色主题是否进 M1 | 原型的 `[data-theme="dark"]` token 已完整 | ✅ **已定（2026-09-23，ADR-0010）：启用**——左栏底栏给切换入口（原型 `#themeBtn`），主题持久化 `piboat.theme`；按原型交付就不再把 dark 排除在外 | 低 |
 | 5 | **默认打开哪个文件夹空间** | 打开应用时左栏先选中哪个项目（侧栏上线前不存在这个问题，因为根本没有列表面） | ✅ **已定（2026-09-22）：默认打开最近一次对话的文件夹空间**——即 `GET /api/projects` 首项（服务端按 `lastModified` 降序，ADR-0008）。“最近一次对话所在的项目”与其“最近有活动的项目”是同一项，无需额外扫描会话。两个从属规则：① **记住的选择仍存在时优先**（用户显式选过就不该被覆盖）；② 记住的已失效 / 清单为空 → 回落 hero 的路径输入。**不**记忆「空间内最后打开的会话」——那会让 `/` 直接跳进旧会话，与 hero 的“从一次对话开始”语义冲突。落位 `apps/web/src/lib/workspace.ts` + `lib/app-state.tsx`（有单测） | 中 |
 
 ---

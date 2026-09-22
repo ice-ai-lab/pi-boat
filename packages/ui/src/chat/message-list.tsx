@@ -1,19 +1,18 @@
 import type { Turn } from '@ice-ai/client';
-import type { ReactNode } from 'react';
+import { Fragment, type ReactNode, type RefObject } from 'react';
 import { useAutoScroll } from '../hooks/use-auto-scroll';
 import { cn } from '../lib/cn';
-import { ScrollArea } from '../primitives/scroll-area';
 import { AssistantTurn } from './assistant-turn';
 import { ScrollToBottomButton } from './scroll-to-bottom-button';
 import { UserBubble } from './user-bubble';
 
 /**
- * 对话列表（原型 `.scrollbody` + `.chat-col`，docs/06 §4.2/§8.2）。
+ * 对话列表（原型 `.scrollbody` + `.chat-col`）。
  *
  * - 滚动吸附模型在 `useAutoScroll`（贴底 8px / 重吸 96px / 上滚即脱离）
- * - 「回到底部」按钮由本组件渲染（悬于列表底部，视觉上正好在 composer 上方）
- * - 内容宽度走 CSS 变量 `--chat-w`（不把固定宽度当硬前提，docs/06 §9.1）
+ * - 内容宽度走 CSS 变量 `--chat-w`（原型 `publishChatW()` 维护）
  * - 插槽：`header`（顶部 dock）、`footer`（列表末尾的统计/提示）
+ * - `viewportRef` / `contentRef` 可外部传入，供 minimap 与宽度把手共享同一节点
  */
 export interface MessageListProps {
   turns: Turn[];
@@ -27,6 +26,8 @@ export interface MessageListProps {
   footer?: ReactNode;
   empty?: ReactNode;
   className?: string;
+  viewportRef?: RefObject<HTMLDivElement | null>;
+  contentRef?: RefObject<HTMLDivElement | null>;
 }
 
 export function MessageList({
@@ -38,43 +39,53 @@ export function MessageList({
   footer,
   empty,
   className,
+  viewportRef,
+  contentRef,
 }: MessageListProps) {
   const lastTurn = turns[turns.length - 1];
   const revision = `${turns.length}:${lastTurn?.trail.length ?? 0}:${lastTurn?.final?.markdown.length ?? 0}:${liveTail}`;
-  const { viewportRef, showScrollToBottom, onScroll, scrollToBottom } = useAutoScroll({
+  const auto = useAutoScroll({
     revision: `${revision}:${String(forceScrollSignal)}`,
+    ...(viewportRef === undefined ? {} : { viewportRef }),
   });
 
   if (turns.length === 0 && empty !== undefined) {
-    return <div className={cn('relative flex min-h-0 flex-1 flex-col', className)}>{empty}</div>;
+    return (
+      <div
+        className={cn('scrollbody', className)}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      >
+        {empty}
+      </div>
+    );
   }
 
   return (
-    <div className={cn('relative flex min-h-0 flex-1 flex-col', className)}>
-      <ScrollArea
-        mask="top"
-        viewportRef={viewportRef}
+    <>
+      <div
+        ref={auto.viewportRef}
+        className={cn('scrollbody', className)}
         onScroll={() => {
-          onScroll();
-          const el = viewportRef.current;
+          auto.onScroll();
+          const el = auto.viewportRef.current;
           if (el !== null && onReachTop !== undefined && el.scrollTop <= 24) onReachTop();
         }}
       >
-        <div
-          className="mx-auto flex w-full flex-col gap-[18px] px-6 pb-2 pt-5"
-          style={{ maxWidth: 'var(--chat-w, 760px)' }}
-        >
+        <div className="chat-col" ref={contentRef}>
           {header}
           {turns.map((turn, index) => (
-            <div key={turn.id} className="flex flex-col gap-[18px]">
+            <Fragment key={turn.id}>
               <UserBubble turn={turn} />
               <AssistantTurn turn={turn} liveTail={liveTail && index === turns.length - 1} />
-            </div>
+            </Fragment>
           ))}
           {footer}
         </div>
-      </ScrollArea>
-      <ScrollToBottomButton visible={showScrollToBottom} onClick={() => scrollToBottom('smooth')} />
-    </div>
+      </div>
+      <ScrollToBottomButton
+        visible={auto.showScrollToBottom}
+        onClick={() => auto.scrollToBottom('smooth')}
+      />
+    </>
   );
 }

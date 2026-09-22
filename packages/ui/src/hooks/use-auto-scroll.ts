@@ -47,6 +47,8 @@ export function shouldShowScrollToLatest(el: ScrollMetrics, tolerance = TAIL_TOL
 export interface UseAutoScrollOptions {
   /** 内容变化信号：变化时若处于吸附态则自动回底 */
   revision: unknown;
+  /** 外部传入的滚动容器 ref（minimap / 宽度把手要共享同一个节点） */
+  viewportRef?: React.RefObject<HTMLDivElement | null>;
 }
 
 export interface UseAutoScrollResult {
@@ -57,21 +59,28 @@ export interface UseAutoScrollResult {
   scrollToBottom: (behavior?: ScrollBehavior) => void;
 }
 
-export function useAutoScroll({ revision }: UseAutoScrollOptions): UseAutoScrollResult {
-  const viewportRef = useRef<HTMLDivElement | null>(null);
+export function useAutoScroll({
+  revision,
+  viewportRef: external,
+}: UseAutoScrollOptions): UseAutoScrollResult {
+  const internal = useRef<HTMLDivElement | null>(null);
+  const viewportRef = external ?? internal;
   const attachedRef = useRef(true);
   const prevTopRef = useRef(0);
   const [attached, setAttached] = useState(true);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
-  const sync = useCallback((next: boolean) => {
-    if (attachedRef.current !== next) {
-      attachedRef.current = next;
-      setAttached(next);
-    }
-    const el = viewportRef.current;
-    setShowScrollToBottom(el === null ? false : shouldShowScrollToLatest(el));
-  }, []);
+  const sync = useCallback(
+    (next: boolean) => {
+      if (attachedRef.current !== next) {
+        attachedRef.current = next;
+        setAttached(next);
+      }
+      const el = viewportRef.current;
+      setShowScrollToBottom(el === null ? false : shouldShowScrollToLatest(el));
+    },
+    [viewportRef],
+  );
 
   const onScroll = useCallback(() => {
     const el = viewportRef.current;
@@ -79,7 +88,7 @@ export function useAutoScroll({ revision }: UseAutoScrollOptions): UseAutoScroll
     const next = getLiveFollowAttached(attachedRef.current, prevTopRef.current, el.scrollTop, el);
     prevTopRef.current = el.scrollTop;
     sync(next);
-  }, [sync]);
+  }, [sync, viewportRef]);
 
   const scrollToBottom = useCallback(
     (behavior: ScrollBehavior = 'smooth') => {
@@ -89,7 +98,7 @@ export function useAutoScroll({ revision }: UseAutoScrollOptions): UseAutoScroll
       prevTopRef.current = el.scrollTop;
       sync(true);
     },
-    [sync],
+    [sync, viewportRef],
   );
 
   // 内容增长：仅吸附态自动回底（instant，避免流式期间动画堆积）
@@ -100,7 +109,7 @@ export function useAutoScroll({ revision }: UseAutoScrollOptions): UseAutoScroll
     if (attachedRef.current) el.scrollTop = el.scrollHeight;
     prevTopRef.current = el.scrollTop;
     sync(attachedRef.current);
-  }, [revision, sync]);
+  }, [revision, sync, viewportRef]);
 
   return { viewportRef, attached, showScrollToBottom, onScroll, scrollToBottom };
 }

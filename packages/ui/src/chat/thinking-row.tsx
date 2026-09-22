@@ -5,7 +5,7 @@ import { CollapseRow, ThinkTag } from './collapse-row';
 /**
  * 思考行（原型 `.tag.think` + `.disc-title.plain` + `.shimmer` 流式态）。
  *
- * 自动展开/收起（docs/06 §8.1）：流式中默认展开，结束默认收起；
+ * 自动展开/收起：流式中默认展开，结束默认收起；
  * **用户手动展开过的不被自动收起覆盖**（`userOpen !== null` 即锁定）。
  */
 export interface ThinkingRowProps {
@@ -19,6 +19,7 @@ export function ThinkingRow({ row }: ThinkingRowProps) {
   return (
     <CollapseRow
       tag={<ThinkTag />}
+      titleClassName="disc-title plain"
       title={row.streaming ? <span className="shimmer">{title}</span> : title}
       durationMs={row.durationMs}
       open={open}

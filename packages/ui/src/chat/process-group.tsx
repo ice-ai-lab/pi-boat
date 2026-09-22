@@ -5,7 +5,7 @@ import { ThinkingRow } from './thinking-row';
 import { ToolRow } from './tool-row';
 
 /**
- * 过程组（原型 `.group-disc` + `.child-rail` 左导轨 + 汇总标题，docs/06 §4.2/§8.1）。
+ * 过程组（原型 `.group-disc` + `.child-rail` 左导轨 + `.gtitle` 汇总标题）。
  *
  * `defaultExpanded = 本轮没拿到回答`（中断/报错时默认展开，避免点开一片空白）；
  * 用户手动操作过则不再自动切换。系统行不吸入组内（见 client 的 `groupTrail`）。
@@ -27,21 +27,20 @@ export function ProcessGroup({ group, hasFinal }: ProcessGroupProps) {
   return (
     <CollapseRow
       asGroup
-      title={<span className="gtitle text-[12px] text-fg-subtle">{summary}</span>}
+      title={summary}
+      titleClassName="gtitle"
       durationMs={group.durationMs}
       open={open}
       onToggle={setUserOpen}
     >
-      <div className="child-rail">
-        {group.items.map((item) => (
-          <TrailRowView key={item.id} row={item} />
-        ))}
-      </div>
+      {group.items.map((item) => (
+        <TrailRowView key={item.id} row={item} />
+      ))}
     </CollapseRow>
   );
 }
 
-/** 组外的系统行（压缩 / 重试 / 终止）——正文分隔条，始终可见 */
+/** 组外的系统行（压缩 / 重试 / 终止）——正文分隔条，始终可见（原型未画，M1 新增） */
 export function SystemRow({ row }: { row: SystemRowData }) {
   const tone =
     row.tone === 'error' ? 'text-danger' : row.tone === 'warn' ? 'text-warn' : 'text-fg-subtle';

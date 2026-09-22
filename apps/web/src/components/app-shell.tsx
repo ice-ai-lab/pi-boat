@@ -1,67 +1,120 @@
+import { FileDock } from '@ice-ai/ui';
+import type { CSSProperties } from 'react';
+import { useRef } from 'react';
 import { Outlet } from 'react-router';
 import { useAppState } from '../lib/app-state';
-import { SIDEBAR_MAX_PX, SIDEBAR_MIN_PX } from '../lib/prefs';
+import { RIGHTBAR_MAX_PX, RIGHTBAR_MIN_PX, SIDEBAR_MAX_PX, SIDEBAR_MIN_PX } from '../lib/prefs';
 import { Sidebar } from './sidebar';
 
 /**
- * 应用外壳（原型 `.app` 三栏骨架，docs/06 §4.4/§4.5：布局与拖拽留在 apps/web）。
+ * 应用外壳（原型 `.app` 三栏骨架 + `#dragL`/`#dragR` 拖拽 handle）。
  *
- * M1 只有两栏：左侧栏 + 中栏。原型右栏（文件浏览器 dock）依赖 `GET /api/files/*`，
- * 该域在 M3（docs/01 §6）——**不放假面板**，没有的东西不画（AGENTS.md：命名/界面
- * 不得暗示它做不到的事）。
- *
- * 侧栏宽度拖拽照原型 `makeDrag("dragL","--sb-w",200,440)`；这里额外把最小/最大
- * 暴露给键盘操作（左右方向键 ±16px），`role="separator"` 是可聚焦的分隔条语义。
+ * 三栏：`.sidebar` / `.center`（路由出口）/ `.rightbar`（文件 dock，默认收起）。
+ * 折叠态是 `.app` 上的 `sb-collapsed` / `rb-collapsed` 类——与原型一致，
+ * 宽度走 `--sb-w` / `--rb-w` CSS 变量，handle 的定位由 CSS 的 `calc()` 负责。
  */
 export function AppShell() {
-  const { sidebarCollapsed, sidebarWidth, setSidebarWidth } = useAppState();
+  const {
+    sidebarCollapsed,
+    sidebarWidth,
+    setSidebarWidth,
+    rightbarCollapsed,
+    rightbarWidth,
+    setRightbarWidth,
+    setRightbarCollapsed,
+  } = useAppState();
+
+  const style = {
+    '--sb-w': `${sidebarWidth}px`,
+    '--rb-w': `${rightbarWidth}px`,
+  } as CSSProperties;
 
   return (
-    <div className="relative flex h-dvh w-screen overflow-hidden bg-surface">
-      <Sidebar />
-      <div className="flex min-w-0 flex-1 flex-col">
-        <Outlet />
-      </div>
+    <div
+      className={[
+        'app',
+        sidebarCollapsed ? 'sb-collapsed' : '',
+        rightbarCollapsed ? 'rb-collapsed' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      style={style}
+    >
+      <DragHandle
+        id="dragL"
+        side="left"
+        min={SIDEBAR_MIN_PX}
+        max={SIDEBAR_MAX_PX}
+        onResize={setSidebarWidth}
+      />
+      <DragHandle
+        id="dragR"
+        side="right"
+        min={RIGHTBAR_MIN_PX}
+        max={RIGHTBAR_MAX_PX}
+        onResize={setRightbarWidth}
+      />
 
-      {sidebarCollapsed ? null : (
-        <hr
-          aria-label="拖拽调整侧边栏宽度（左右方向键微调）"
-          aria-orientation="vertical"
-          aria-valuenow={sidebarWidth}
-          aria-valuemin={SIDEBAR_MIN_PX}
-          aria-valuemax={SIDEBAR_MAX_PX}
-          tabIndex={0}
-          className="absolute top-0 bottom-0 z-40 m-0 w-2.5 cursor-col-resize border-0 bg-center bg-no-repeat opacity-0 outline-none transition-opacity hover:opacity-85 focus-visible:opacity-85"
-          style={{
-            left: sidebarWidth - 5,
-            backgroundImage:
-              'linear-gradient(to bottom, var(--accent) 0%, var(--accent) 72%, transparent)',
-            backgroundSize: '2px 100%',
-          }}
-          onPointerDown={(event) => {
-            event.preventDefault();
-            event.currentTarget.setPointerCapture(event.pointerId);
-            event.currentTarget.dataset.drag = String(event.clientX);
-            event.currentTarget.dataset.start = String(sidebarWidth);
-          }}
-          onPointerMove={(event) => {
-            const { drag, start } = event.currentTarget.dataset;
-            if (drag === undefined || start === undefined) return;
-            setSidebarWidth(Number(start) + event.clientX - Number(drag));
-          }}
-          onPointerUp={(event) => {
-            delete event.currentTarget.dataset.drag;
-            delete event.currentTarget.dataset.start;
-          }}
-          onKeyDown={(event) => {
-            const step = event.key === 'ArrowLeft' ? -16 : event.key === 'ArrowRight' ? 16 : 0;
-            if (step === 0) return;
-            event.preventDefault();
-            setSidebarWidth(sidebarWidth + step);
-          }}
-        />
-      )}
+      <Sidebar />
+
+      <main className="center">
+        <Outlet />
+      </main>
+
+      <FileDock onClose={() => setRightbarCollapsed(true)} />
     </div>
+  );
+}
+
+/** 原型 `makeDrag()`：左栏跟 clientX、右栏取 `innerWidth - clientX` */
+function DragHandle({
+  id,
+  side,
+  min,
+  max,
+  onResize,
+}: {
+  id: string;
+  side: 'left' | 'right';
+  min: number;
+  max: number;
+  onResize: (px: number) => void;
+}) {
+  const dragging = useRef(false);
+
+  return (
+    <>
+      {/* biome-ignore lint/a11y/useSemanticElements: 原型即用 div 做拖拽 handle（pointer 事件 + 自定义光条） */}
+      <div
+        id={id}
+        className="drag-handle"
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="拖拽调整栏宽"
+        onPointerDown={(event) => {
+          event.preventDefault();
+          event.currentTarget.setPointerCapture(event.pointerId);
+          dragging.current = true;
+          document.body.classList.add('resizing');
+        }}
+        onPointerMove={(event) => {
+          if (!dragging.current) return;
+          const raw = side === 'left' ? event.clientX : window.innerWidth - event.clientX;
+          onResize(Math.max(min, Math.min(max, raw)));
+        }}
+        onPointerUp={(event) => {
+          dragging.current = false;
+          document.body.classList.remove('resizing');
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            event.currentTarget.releasePointerCapture(event.pointerId);
+          }
+        }}
+        onLostPointerCapture={() => {
+          dragging.current = false;
+          document.body.classList.remove('resizing');
+        }}
+      />
+    </>
   );
 }
 

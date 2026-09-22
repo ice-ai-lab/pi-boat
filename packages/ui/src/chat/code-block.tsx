@@ -99,7 +99,7 @@ export function CodeBlock({ code, lang, className, onCopied }: CodeBlockProps) {
 
   return (
     <div className={cn('codeblk', className)}>
-      <div className="codeblk-banner">
+      <div className="banner">
         <span>{language ?? 'text'}</span>
         <button
           type="button"
@@ -118,7 +118,7 @@ export function CodeBlock({ code, lang, className, onCopied }: CodeBlockProps) {
           {copied ? '已复制' : '复制'}
         </button>
       </div>
-      <pre className="scrollbar-thin">
+      <pre>
         {lines === null ? (
           <code>{code}</code>
         ) : (

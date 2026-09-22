@@ -1,8 +1,9 @@
 // biome-ignore-all lint/suspicious/noArrayIndexKey: diff 行由 SDK 生成的展示串按行切出，行序即身份
+import { Fragment } from 'react';
 import { cn } from '../lib/cn';
 
 /**
- * diff 展示（原型 `.diff`，docs/06 §4.2 / docs/05 §8.1 #5）。
+ * diff 展示（原型 `.diff`）。
  *
  * **不在前端算 diff**：SDK 的 edit 工具已生成带行号的展示串
  * （`+<行号> 文本` / `-<行号> 文本` / ` <行号> 文本`，另含 ` <pad> ...` 跳过行），
@@ -42,14 +43,11 @@ export function DiffView({ diff, className }: DiffViewProps) {
   return (
     <div className={cn('diff', className)}>
       {lines.map((line, index) => (
-        <div
-          key={index}
-          className={cn('dline', line.kind === 'add' && 'add', line.kind === 'del' && 'del')}
-        >
-          <span className="ln">{line.lineNumber}</span>
-          <span className="mark">{line.kind === 'add' ? '+' : line.kind === 'del' ? '-' : ''}</span>
-          <span>{line.content}</span>
-        </div>
+        <Fragment key={index}>
+          <span className={cn('ln', line.kind)}>{line.lineNumber}</span>
+          <span className={line.kind === 'ctx' ? 'ctx' : undefined}>{line.content}</span>
+          {'\n'}
+        </Fragment>
       ))}
     </div>
   );

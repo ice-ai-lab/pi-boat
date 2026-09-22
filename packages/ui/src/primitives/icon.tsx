@@ -1,101 +1,88 @@
-import {
-  AlertTriangle,
-  ArrowUp,
-  BookOpen,
-  Check,
-  ChevronDown,
-  ChevronRight,
-  CircleDollarSign,
-  Clock,
-  Copy,
-  Database,
-  File,
-  Folder,
-  Gauge,
-  GitBranch,
-  Image as ImageIcon,
-  Lightbulb,
-  List,
-  Moon,
-  PanelLeft,
-  Pencil,
-  Plus,
-  RefreshCw,
-  Search,
-  Settings,
-  Sparkles,
-  Square,
-  SquareTerminal,
-  Sun,
-  Trash2,
-  Upload,
-  Wrench,
-} from 'lucide-react';
+import type { CSSProperties } from 'react';
+import { cn } from '../lib/cn';
 
 /**
- * 图标（docs/06 §6 对账表）：原型的 SVG sprite（31 个 `#i-*`）逐一对到 lucide。
- * 仅品牌图标 `i-boat` 自留 SVG（lucide 无 Boat）。
+ * 图标（docs/06 §6 对账表）：原型 SVG sprite 的 `#i-*` 原样引用（`IconSprite` 在应用根挂载一次）。
+ * 不用第三方图标库——原型的笔画与轮廓是视觉基准的一部分（docs/06 §2）。
  */
-const ICONS = {
-  panel: PanelLeft,
-  plus: Plus,
-  search: Search,
-  folder: Folder,
-  file: File,
-  'chev-r': ChevronRight,
-  'chev-d': ChevronDown,
-  branch: GitBranch,
-  book: BookOpen,
-  wrench: Wrench,
-  gauge: Gauge,
-  db: Database,
-  coin: CircleDollarSign,
-  send: ArrowUp,
-  stop: Square,
-  img: ImageIcon,
-  gear: Settings,
-  moon: Moon,
-  sun: Sun,
-  refresh: RefreshCw,
-  term: SquareTerminal,
-  pencil: Pencil,
-  trash: Trash2,
-  check: Check,
-  copy: Copy,
-  bulb: Lightbulb,
-  spark: Sparkles,
-  upload: Upload,
-  list: List,
-  clock: Clock,
-  warn: AlertTriangle,
-} as const;
+export const ICON_NAMES = [
+  'boat',
+  'panel',
+  'plus',
+  'search',
+  'folder',
+  'file',
+  'chev-r',
+  'chev-d',
+  'branch',
+  'book',
+  'wrench',
+  'gauge',
+  'db',
+  'coin',
+  'send',
+  'stop',
+  'img',
+  'gear',
+  'moon',
+  'sun',
+  'refresh',
+  'term',
+  'pencil',
+  'trash',
+  'check',
+  'copy',
+  'bulb',
+  'spark',
+  'upload',
+  'list',
+  'clock',
+] as const;
 
-export type IconName = keyof typeof ICONS | 'boat';
+export type IconName = (typeof ICON_NAMES)[number];
 
 export interface IconProps {
   name: IconName;
+  /** 原型 `.ico` 三档：12 / 14 / 16 / 18；其他数值走内联尺寸（品牌标记 20 / 52） */
   size?: number;
+  /** 保留入参以兼容旧调用点；sprite 的 stroke-width 已是原型规格，这里不再覆盖 */
   strokeWidth?: number;
   className?: string;
-  /** 图标按钮自带 title 时可关掉（默认 aria-hidden） */
+  style?: CSSProperties;
+  /** 语义图标：给可读名；缺省 = 装饰图标（对 AT 隐藏） */
   title?: string;
 }
 
-export function Icon({ name, size = 16, strokeWidth = 1.8, className, title }: IconProps) {
-  if (name === 'boat') return <BoatMark size={size} className={className} title={title} />;
-  const Cmp = ICONS[name];
+const SIZE_CLASS: Record<number, string> = {
+  12: 's12',
+  14: 's14',
+  16: '',
+  18: 's18',
+};
+
+export function Icon({ name, size = 16, className, style, title }: IconProps) {
+  const sizeClass = SIZE_CLASS[size];
+  const inline = sizeClass === undefined ? { width: size, height: size } : undefined;
+  const common = {
+    className: cn('ico', sizeClass === '' ? undefined : sizeClass, className),
+    style: { ...inline, ...style },
+  };
+  if (title === undefined) {
+    return (
+      <svg {...common} aria-hidden="true">
+        <use href={`#i-${name}`} />
+      </svg>
+    );
+  }
   return (
-    <Cmp
-      size={size}
-      strokeWidth={strokeWidth}
-      className={className}
-      aria-hidden={title === undefined}
-      {...(title === undefined ? {} : { role: 'img', 'aria-label': title })}
-    />
+    <svg {...common} role="img" aria-label={title}>
+      <title>{title}</title>
+      <use href={`#i-${name}`} />
+    </svg>
   );
 }
 
-/** 品牌帆船标记（原型 `#i-boat`；lucide 无对应图标，自留） */
+/** 品牌帆船标记（原型 `#i-boat`） */
 export function BoatMark({
   size = 20,
   className,
@@ -105,36 +92,12 @@ export function BoatMark({
   className?: string;
   title?: string;
 }) {
-  const paths = (
-    <>
-      <path d="M3 15h18l-2.5 4.2a2 2 0 0 1-1.7 1H7.2a2 2 0 0 1-1.7-1L3 15Z" />
-      <path d="M12 15V4l6 8" />
-      <path d="M12 8 7 13" />
-    </>
-  );
-  const common = {
-    width: size,
-    height: size,
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 1.8,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-    className,
-  };
-  // 有 title = 语义图标（给可读名）；无 title = 装饰图标（对 AT 隐藏）
-  if (title === undefined) {
-    return (
-      <svg {...common} aria-hidden="true">
-        {paths}
-      </svg>
-    );
-  }
   return (
-    <svg {...common} role="img" aria-label={title}>
-      <title>{title}</title>
-      {paths}
-    </svg>
+    <Icon
+      name="boat"
+      size={size}
+      className={className}
+      {...(title === undefined ? {} : { title })}
+    />
   );
 }

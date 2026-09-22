@@ -11,7 +11,7 @@ export interface UserBubbleProps {
 export function UserBubble({ turn, className }: UserBubbleProps) {
   if (turn.user.text === '' && turn.user.images === undefined) return null;
   return (
-    <div className={cn('flex max-w-[72%] flex-col items-end self-end', className)}>
+    <div className={cn('msg-user', className)}>
       <div className="bub sq">
         {turn.user.images === undefined
           ? null
@@ -21,11 +21,7 @@ export function UserBubble({ turn, className }: UserBubbleProps) {
             ))}
         {turn.user.text}
       </div>
-      {turn.user.at === 0 ? null : (
-        <div className="mt-[5px] text-[10px] tabular-nums text-fg-faint">
-          {formatClock(turn.user.at)}
-        </div>
-      )}
+      {turn.user.at === 0 ? null : <div className="tm num">{formatClock(turn.user.at)}</div>}
     </div>
   );
 }

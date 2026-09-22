@@ -1,26 +1,20 @@
 import { newSession } from '@ice-ai/client';
 import { getApiClient } from '@ice-ai/client/react';
 import { PROTOCOL_VERSION } from '@ice-ai/protocol';
-import { Button, EmptyState, Icon } from '@ice-ai/ui';
+import { EmptyState, Icon, Textarea } from '@ice-ai/ui';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
-import { ConvHeader } from '../components/conv-header';
+import { ConvHeader, HeaderTools, type PopName } from '../components/conv-header';
 import { useAppState } from '../lib/app-state';
 import { describeApiError } from '../lib/errors';
 import { isAbsolutePath, readStoredCwd, storeCwd } from '../lib/prefs';
 
 /**
- * 新会话（hero，原型 `#hero`，docs/06 §11.3 行 1）。
+ * 新会话（hero，原型 `.hero` + `#heroSlot`）。
  *
- * **cwd 的来源（2026-09-23 变更）**：左侧栏的「文件夹空间」是主选，hero 的路径输入继承
- * 当前空间的 cwd 并允许手改（M1 无系统目录选择器）。提交后 `adoptCwd` 把能归类到某个
- * 项目的 cwd 反哺回空间选择，列表与建会话的目录因此不会长期劈叉。
- *
- * 首条消息的走法（2026-09-23 端到端验收修正）：这里只建空会话（`ensure_session`，不发消息），
- * 带着首条消息跳转到会话页，由会话页**先建 SSE 再发 prompt**——否则 run 可能跑在订阅之前，
- * 首轮就拿不到流式增量（事件不重放，docs/04 §5.5）。
- * 只有「当前空间 + 首条消息」时连路径输入都不必碰，这与原型的「选择左侧的文件夹空间，
- * 从一次对话开始」是同一条路。
+ * 首条消息的走法：只建空会话（`ensure_session`），带着首条消息跳转到会话页，
+ * 由会话页**先建 SSE 再发 prompt**——否则 run 可能跑在订阅之前（事件不重放）。
+ * `cwd` 继承当前文件夹空间，允许手改（M1 无系统目录选择器）。
  */
 export function NewSessionRoute() {
   const navigate = useNavigate();
@@ -29,6 +23,7 @@ export function NewSessionRoute() {
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [open, setOpen] = useState<PopName | null>(null);
 
   // 文件夹空间变了才同步输入框（手改 cwd 不会被列表刷新冲掉）
   const syncedKey = useRef<string | null | undefined>(undefined);
@@ -67,17 +62,29 @@ export function NewSessionRoute() {
     }
   };
 
+  const canSend = !busy && text.trim() !== '' && cwd.trim() !== '';
+
   return (
     <>
-      <ConvHeader />
-      <EmptyState
-        title="起航，驶向未至之境"
-        subtitle="选择左侧的文件夹空间，从一次对话开始"
-        version={`web v${__APP_VERSION__} · protocol v${PROTOCOL_VERSION}`}
-      >
-        <div className="flex flex-col gap-3">
-          <label className="hairline flex items-center gap-2 rounded-xl border-line-1 bg-surface-raised px-3 py-2 elev-soft-sm">
-            <Icon name="folder" size={14} className="flex-none text-fg-subtle" />
+      <ConvHeader
+        title="新会话"
+        tools={<HeaderTools systemPrompt={null} open={open} onOpenChange={setOpen} />}
+      />
+      <div className="center-body">
+        <EmptyState
+          title="起航，驶向未至之境"
+          subtitle="选择左侧的文件夹空间，从一次对话开始"
+          cwd={workspace?.cwd ?? (cwd === '' ? null : cwd)}
+          version={
+            <>
+              web v{__APP_VERSION__}
+              <br />
+              protocol v{PROTOCOL_VERSION}
+            </>
+          }
+        >
+          <label className="hairline mb-2 flex items-center gap-2 rounded-xl border-line-2 bg-surface-raised px-3 py-2 elev-soft-sm">
+            <Icon name="folder" size={14} className="text-fg-subtle" />
             <input
               value={cwd}
               onChange={(event) => setCwd(event.target.value)}
@@ -87,34 +94,36 @@ export function NewSessionRoute() {
               className="min-w-0 flex-1 bg-transparent font-mono text-[12px] text-fg outline-none placeholder:text-fg-faint"
             />
           </label>
-          <textarea
-            value={text}
-            onChange={(event) => setText(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
-                event.preventDefault();
-                void start();
-              }
-            }}
-            rows={3}
-            aria-label="第一条消息"
-            placeholder="第一条消息…（Enter 发送，Shift+Enter 换行）"
-            className="resize-none rounded-[14px] bg-surface-raised p-3 text-[14px] leading-[22px] text-fg outline-none elev-soft-sm placeholder:text-fg-faint"
-          />
-          <div className="flex items-center gap-3">
-            {error === null ? null : <span className="text-[12px] text-danger">{error}</span>}
-            <span className="flex-1" />
-            <Button variant="primary" className="px-4" disabled={busy} onClick={() => void start()}>
-              {busy ? '正在创建…' : '开始对话'}
-            </Button>
+          <div className="input-card sq">
+            <Textarea
+              value={text}
+              onChange={setText}
+              onSubmit={() => void start()}
+              disabled={busy}
+              placeholder="消息… 输入 / 使用命令"
+            />
+            <div className="composer-actions">
+              <span className="spacer" />
+              <button
+                type="button"
+                className="send-btn sq"
+                title="发送"
+                aria-label="发送"
+                disabled={!canSend}
+                onClick={() => void start()}
+              >
+                <Icon name="send" size={18} />
+              </button>
+            </div>
           </div>
-          <p className="text-[11px] text-fg-faint">
-            {workspace === null
-              ? '还没有历史项目：直接粘贴绝对路径。`~` 不会被展开（shell 语义不属于本输入框）。'
-              : `当前文件夹空间：${workspace.projectRoot} · 切换请点左侧栏顶部的空间按钮`}
+          {error === null ? null : (
+            <p style={{ marginTop: 8, fontSize: 12, color: 'var(--red)' }}>{error}</p>
+          )}
+          <p style={{ marginTop: 10, fontSize: 11, color: 'var(--t4)' }}>
+            当前文件夹空间：{workspace?.projectRoot ?? '（无历史项目，直接粘贴绝对路径）'}
           </p>
-        </div>
-      </EmptyState>
+        </EmptyState>
+      </div>
     </>
   );
 }

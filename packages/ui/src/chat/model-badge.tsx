@@ -6,8 +6,8 @@ import { Icon } from '../primitives/icon';
 export function ModelTag({ model, className }: { model: ModelRef | null; className?: string }) {
   if (model === null) return null;
   return (
-    <div className={cn('flex items-center gap-1.5 text-[11px] text-fg-faint', className)}>
-      <span className="size-[5px] rounded-full bg-fg-faint" />
+    <div className={cn('model-tag', className)}>
+      <span className="dot" />
       {model.modelId}
     </div>
   );
@@ -29,14 +29,10 @@ export function ModelBadge({ model, onClick, className }: ModelBadgeProps) {
       }
       onClick={onClick}
       disabled={onClick === undefined}
-      className={cn(
-        'inline-flex h-7 flex-none items-center gap-1.5 rounded-lg px-2 text-[13px] text-fg-muted',
-        onClick === undefined ? 'cursor-default' : 'hover:bg-hover hover:text-fg',
-        className,
-      )}
+      className={cn('model-btn', className)}
     >
       {model?.modelId ?? '默认模型'}
-      <Icon name="chev-d" size={10} />
+      <Icon name="chev-d" size={12} style={{ width: 10, height: 10 }} />
     </button>
   );
 }

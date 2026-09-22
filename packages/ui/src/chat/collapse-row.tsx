@@ -4,15 +4,20 @@ import { formatDuration } from '../lib/format';
 import { Icon } from '../primitives/icon';
 
 /**
- * 折叠行原子（原型 `.disc` / `.disc-head` / `.disc-body`，docs/06 §8.1）。
+ * 折叠行原子（原型 `.disc` / `.disc-head` / `.disc-body` / `.child-rail`）。
  * 受控：`open` + `onToggle` 由上层（ThinkingRow / ToolRow / ProcessGroup）决定默认态与
  * 「用户手动展开过不被自动收起覆盖」的规则。
+ *
+ * 与原型一致：展开态是根节点上的 `.open` 类（不是条件渲染）——`.disc-body` 的
+ * `display:none` → `.disc.open > .disc-body{display:block}`，`child-rail` 同理。
  */
 export interface CollapseRowProps {
-  /** 左侧标签（ToolTag / 思考标签 / 组标题） */
+  /** 左侧标签（ToolTag / 思考标签） */
   tag?: React.ReactNode;
-  /** 单行摘要（`.disc-title`，默认等宽） */
+  /** 单行摘要（`.disc-title` 默认等宽 / 思考行用 `.plain` / 组头用 `.gtitle`） */
   title: React.ReactNode;
+  /** 摘要的类名，默认 `disc-title`（等宽） */
+  titleClassName?: string;
   durationMs?: number | undefined;
   open: boolean;
   onToggle: (open: boolean) => void;
@@ -20,46 +25,41 @@ export interface CollapseRowProps {
   className?: string;
   /** 折叠体直接给正文（字符串）时省一层结构；需要富内容用 children */
   body?: string;
-  /** 组头形态（`.group-disc > .disc-head`） */
+  /** 组头形态（`.group-disc` + `.child-rail`） */
   asGroup?: boolean;
 }
 
 export function CollapseRow({
   tag,
   title,
+  titleClassName = 'disc-title',
   durationMs,
   open,
   onToggle,
   children,
   className,
   body,
-  asGroup,
+  asGroup = false,
 }: CollapseRowProps) {
   const duration = formatDuration(durationMs);
   const panelId = useId();
   return (
-    <div
-      className={cn(asGroup === true && 'group-disc', 'disc', asGroup === true && 'sq', className)}
-    >
+    <div className={cn('disc', asGroup && 'group-disc sq', open && 'open', className)}>
       <button
         type="button"
-        className="disc-head sq"
+        className="disc-head"
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => onToggle(!open)}
       >
         <Icon name="chev-r" size={12} className="chev" />
         {tag}
-        <span className={cn('disc-title', typeof title === 'string' ? undefined : 'plain')}>
-          {title}
-        </span>
-        {duration === null ? null : <span className="disc-dur">{duration}</span>}
+        <span className={titleClassName}>{title}</span>
+        {duration === null ? null : <span className="disc-dur num">{duration}</span>}
       </button>
-      {open ? (
-        <div id={panelId} className="disc-body scrollbar-thin">
-          {children ?? body}
-        </div>
-      ) : null}
+      <div id={panelId} className={asGroup ? 'child-rail' : 'disc-body'}>
+        {children ?? body}
+      </div>
     </div>
   );
 }
@@ -76,8 +76,6 @@ export function ToolTag({ toolName, status, className }: ToolTagProps) {
   const error = status === 'error';
   return (
     <span className={cn('tag', 'tool', known && toolName, error && 'err', className)}>
-      {/* 颜色不得作为唯一状态载体（docs/06 §9.2）：失败同时给图标 */}
-      {error ? <Icon name="warn" size={10} className="mr-1" /> : null}
       {toolName}
     </span>
   );
@@ -87,13 +85,13 @@ export function ToolTag({ toolName, status, className }: ToolTagProps) {
 export function ThinkTag() {
   return (
     <span className="tag think">
-      <Icon name="bulb" size={12} className="mr-1" />
+      <Icon name="bulb" size={12} style={{ marginRight: 3 }} />
       思考
     </span>
   );
 }
 
-/** `.stopped-tag`（abort 之后） */
+/** `.stopped-tag`（abort 之后 / 本轮出错） */
 export function StoppedTag({ label = '已停止' }: { label?: string }) {
-  return <span className="stopped-tag">{label}</span>;
+  return <span className="stopped-tag sq">{label}</span>;
 }

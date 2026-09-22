@@ -13,4 +13,5 @@
 | [0006](0006-protocol-package.md) | 独立 protocol 契约包——前后端唯一契约层 | 已接受 | 2026-09-20 |
 | [0007](0007-local-auth-without-token.md) | 本机鉴权删除 Bearer token 与 SSE 票据——Host / Origin / Sec-Fetch-Site 三闸常开 | 已接受 | 2026-09-22 |
 | [0008](0008-project-grouping-and-list-cache.md) | 项目分组（projectKey 归一）与会话列表缓存——列表性能分层 | 已接受 | 2026-09-22 |
-| [0009](0009-frontend-stack.md) | 前端技术栈与分层（client / ui / web）——Tailwind v4 / Axios / TanStack Query 边界 / 不引外部 skills | 已接受 | 2026-09-22 |
+| [0009](0009-frontend-stack.md) | 前端技术栈与分层（client / ui / web）——Tailwind v4 / Axios / TanStack Query 边界 / 不引外部 skills | 已接受（样式面被 0010 修订） | 2026-09-22 |
+| [0010](0010-prototype-faithful-styling.md) | 前端视觉按原型逐字落地（修订 0009 样式面）——原型 CSS 单一来源 / 启用深色 / 前移界面骨架 | 已接受 | 2026-09-23 |
