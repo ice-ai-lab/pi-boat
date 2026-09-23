@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes } from 'react';
 import { cn } from '../lib/cn';
 
-/** `.switch[data-tool]`（docs/06 §4.1） */
+/** `.sw` + `.on`（原型开关：29×17 轨道、13px 圆钮 `::after`，开=accent 填充） */
 export interface SwitchProps
   extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'onChange' | 'type' | 'role'> {
   checked: boolean;
@@ -17,19 +17,8 @@ export function Switch({ checked, onCheckedChange, label, className, ...rest }: 
       aria-checked={checked}
       aria-label={label}
       onClick={() => onCheckedChange?.(!checked)}
-      className={cn(
-        'relative h-[17px] w-[30px] flex-none cursor-pointer rounded-full transition-colors',
-        checked ? 'bg-accent' : 'bg-line-3',
-        className,
-      )}
+      className={cn('sw', checked && 'on', className)}
       {...rest}
-    >
-      <span
-        className={cn(
-          'absolute top-[2.5px] size-3 rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,0.2)] transition-[left] duration-150',
-          checked ? 'left-[15.5px]' : 'left-[2.5px]',
-        )}
-      />
-    </button>
+    />
   );
 }

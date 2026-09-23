@@ -37,7 +37,7 @@ export interface ContentWidthControlsProps {
 
 export function ContentWidthControls({ scrollRef, className }: ContentWidthControlsProps) {
   const publish = useCallback(() => {
-    const center = document.querySelector('.center');
+    const center = document.querySelector('.conv-scroll');
     if (center === null) return;
     const width = Math.round(resolveChatW(center.clientWidth, readPref()));
     document.documentElement.style.setProperty('--chat-w', `${width}px`);
@@ -128,7 +128,7 @@ function ChatHandle({
         if (state.frame !== null) cancelAnimationFrame(state.frame);
         state.latest = event.clientX;
         if (state.latest !== state.origin) {
-          const center = document.querySelector('.center');
+          const center = document.querySelector('.conv-scroll');
           if (center !== null) {
             const resolved = Math.round(resolveChatW(center.clientWidth, outward()));
             try {

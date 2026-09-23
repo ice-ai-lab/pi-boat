@@ -33,20 +33,20 @@
   }
 }
 
-/* 三档阴影：直接用 token（避免 @utility 与 theme 命名冲突） */
+/* 三档阴影：直接用 v4 token（--elev-sm/--elev-card/--elev-pop，见 prototype.css） */
 @utility elev-panel {
-  box-shadow: var(--elev-panel);
+  box-shadow: var(--elev-card);
 }
 @utility elev-soft {
-  box-shadow: var(--elev-soft);
+  box-shadow: var(--elev-pop);
 }
 @utility elev-soft-sm {
-  box-shadow: var(--elev-soft-sm);
+  box-shadow: var(--elev-sm);
 }
 
 /* 流式思考行：文字渐变扫光 */
 @utility shimmer {
-  background: linear-gradient(90deg, var(--fg-subtle) 35%, var(--fg) 50%, var(--fg-subtle) 65%);
+  background: linear-gradient(90deg, var(--t3) 35%, var(--t1) 50%, var(--t3) 65%);
   background-size: 300% 100%;
   background-clip: text;
   -webkit-background-clip: text;

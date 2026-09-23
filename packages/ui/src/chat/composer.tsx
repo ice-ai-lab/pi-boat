@@ -7,10 +7,12 @@ import { ModeChip, type ToolPreset } from './mode-chip';
 import { ModelBadge } from './model-badge';
 
 /**
- * 输入卡（原型 `.composer-seat` + `.composer` + `.input-card` + 发送↔停止）。
+ * 输入卡（原型 `.composer-seat` + `.composer-inner` + `.input-card` + `.ctl-row` + `.send-btn`）。
  * - 自动增高 24–200px、Enter 发送 / Shift+Enter 换行（Textarea 内）
  * - `streaming` 时发送按钮变停止（`abort`）；idle 且空文本时禁用
- * - `stats` 插槽渲染 `.stats-row`（原型把它放在输入卡下方、`.composer` 内）
+ * - `.ctl-row`：附件按钮（默认）→ 模式 chip → 模型 chip → spacer → extras → 发送/停止
+ * - `stats` 插槽渲染 `.stats`（原型放在 `.composer-inner` 内、输入卡下方）
+ * - `queue` 插槽渲染 `.queue`（消息队列行，M2；M1 不传）
  */
 export interface ComposerProps {
   value: string;
@@ -25,10 +27,14 @@ export interface ComposerProps {
   disabled?: boolean;
   placeholder?: string;
   className?: string;
-  /** 输入卡下方的统计 pills（原型 `.stats-row`） */
+  /** 输入卡下方的统计（原型 `.stats`） */
   stats?: ReactNode;
-  /** 附加动作插槽（图片按钮等） */
+  /** 附件等前置动作插槽（默认渲染 `.ctl-btn` 附件占位） */
   actions?: ReactNode;
+  /** spacer 与发送钮之间的扩展位（思考/工具等 `.ctl-btn`，M2 接线） */
+  extras?: ReactNode;
+  /** 消息队列行（原型 `.queue`，M2） */
+  queue?: ReactNode;
 }
 
 export function Composer({
@@ -42,27 +48,31 @@ export function Composer({
   modeOptions,
   onModeChange,
   disabled = false,
-  placeholder = '消息… 输入 / 使用命令',
+  placeholder = '回复 Pi，Enter 发送 · Shift+Enter 换行',
   className,
   stats,
   actions,
+  extras,
+  queue,
 }: ComposerProps) {
   const canSend = !disabled && value.trim() !== '';
   return (
     <div className={cn('composer-seat', className)}>
-      <div className="composer">
-        <div className="input-card sq">
+      <div className="composer-inner">
+        {queue}
+        <div className="input-card">
           <Textarea
             value={value}
             onChange={onChange}
             onSubmit={onSubmit}
             placeholder={placeholder}
+            aria-label="消息"
             disabled={disabled}
           />
-          <div className="composer-actions">
+          <div className="ctl-row">
             {actions ?? (
-              <button type="button" className="cbtn sq" title="添加图片（M2）" disabled>
-                <Icon name="img" size={18} />
+              <button type="button" className="ctl-btn" title="附件（M2）" disabled>
+                <Icon name="clip" />
               </button>
             )}
             <ModeChip
@@ -70,17 +80,19 @@ export function Composer({
               {...(modeOptions === undefined ? {} : { options: modeOptions })}
               {...(onModeChange === undefined ? {} : { onChange: onModeChange })}
             />
-            <span className="spacer" />
             <ModelBadge model={model} />
+            {/* 原型此处是行内 style="flex:1"（v4 已从 CSS 里撤掉 .spacer） */}
+            <span style={{ flex: 1 }} />
+            {extras}
             <button
               type="button"
-              className={cn('send-btn sq', streaming && 'stop')}
+              className={cn('send-btn', streaming && 'stop')}
               title={streaming ? '停止' : '发送'}
               aria-label={streaming ? '停止' : '发送'}
               disabled={streaming ? false : !canSend}
               onClick={streaming ? onAbort : onSubmit}
             >
-              <Icon name={streaming ? 'stop' : 'send'} size={18} />
+              <Icon name={streaming ? 'stop' : 'up'} size={15} />
             </button>
           </div>
         </div>

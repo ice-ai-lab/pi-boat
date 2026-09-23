@@ -1,134 +1,85 @@
 /* ============================================================================
    PiBoat ui —— token 单一来源（docs/06-ui-design.md §2/§3）
-   视觉基准：docs/design/piboat-web-v3.html
-   签名细节：0.5px hairline / superellipse 圆角 / #4176E6 业务蓝 / 毛玻璃浮层 /
-             sticky 输入卡 + 渐变淡入 / 细滚动条
+   视觉基准：docs/design/piboat-web-v4.html（设计代号「纸墨 Paper & Ink」）
+   签名细节：暖纸三层表面 / 暖调 hairline / 克制靛蓝 / serif 品牌字 /
+             单一抬升面（输入卡+浮层）/ 毛玻璃浮层 / 细滚动条
 
    规则：
-   - 原始变量定义在 :root（暗色放 [data-theme="dark"]），再用 `@theme inline`
-     映射为 Tailwind 的语义 token → 暗色**不得写死在 @theme 里**（编译期常量，
-     写死则切主题失效）
-   - 深色主题 **M1 未启用**（docs/06 §11.3 行 4）：变量块照原型保留，切换入口在 M2
+   - 原始变量定义在 prototype.css 的 :root（暗色 [data-theme="dark"]）——那是
+     v4 设计稿的逐字移植，是视觉的唯一来源
+   - 本文件的 :root 只做 **旧语义 token → v4 token 的别名映射**（不出现字面颜色），
+     让仍使用 Tailwind 工具类的组件自动获得纸墨配色；暗色切换由 v4 的
+     [data-theme="dark"] 块一次性带动全部别名
+   - `@theme inline` 把语义 token 映射为 Tailwind 工具类（bg-surface 等）
    ============================================================================ */
 @import "tailwindcss/theme.css";
 @import "tailwindcss/utilities.css";
 /* 注意：**不引入 tailwindcss/preflight.css**。
-   原型自带 reset（`*{box-sizing;margin;padding}` + button/input 归一），而 preflight 的
-   `button{font:inherit}` 会把 `line-height` 带成继承值（22px），原型里按钮是 UA 的 `normal`——
-   两者会让 .disc-head / .hchip / .vtab 的基线差 1–2px。要逐字对齐原型，就不叠第二套 reset。*/
-/* 共享 utility（原型 hairline/sq/elev/shimmer/mask） */
+   原型自带 reset（`*{box-sizing;margin;padding}` + button/input 归一），叠第二套 reset
+   会破坏逐字对齐（v3 时期的教训：button{font:inherit} 会改变 .disc-head 基线）。 */
+/* 共享 utility（hairline/sq/elev/shimmer/mask） */
 @import "./src/styles/utilities.css";
-/* 原型样式逐字移植（字体 / 布局 / markdown / 组件），是视觉的唯一来源。
-   放在最后：无 layer 的规则天然压过 Tailwind 的 @layer，避免「用工具类重写」的偏差。 */
+/* 原型样式逐字移植（v4 纸墨）。放在最后：无 layer 的规则天然压过 Tailwind 的 @layer。 */
 @import "./src/styles/prototype.css";
+/* 应用补充（v4 未覆盖的真实应用样式），必须在 prototype.css 之后 */
+@import "./src/styles/additions.css";
 
 :root {
-  /* 表面 */
-  --surface: #ffffff;
-  --surface-side: #f9fafb;
-  --surface-raised: #ffffff;
-  /* 4 档描边（由弱到强，1:1 保留不合并） */
-  --line-1: rgba(0, 0, 0, 0.04);
-  --line-2: rgba(0, 0, 0, 0.1);
-  --line-3: rgba(0, 0, 0, 0.12);
-  --line-4: rgba(0, 0, 0, 0.16);
-  /* 文字四级 */
-  --fg: #16181d;
-  --fg-muted: rgb(97, 102, 107);
-  --fg-subtle: rgb(129, 133, 140);
-  --fg-faint: rgb(173, 178, 184);
-  /* 业务蓝 */
-  --accent: #4176e6;
-  --accent-weak: rgba(65, 118, 230, 0.1);
-  /* 交互底 */
-  --hover: rgba(38, 49, 72, 0.06);
-  --bubble: #edf3fe;
-  --menu: rgba(248, 249, 250, 0.72);
-  /* 语义色 */
-  --success: rgb(34, 197, 94);
-  --success-soft: rgba(34, 197, 94, 0.12);
-  --danger: rgb(239, 68, 68);
-  --danger-soft: rgba(248, 113, 113, 0.13);
-  --warn: rgb(201, 123, 32);
-  --warn-soft: #fef5e7;
-  --teal: rgb(23, 165, 157);
-  --teal-soft: rgba(23, 165, 157, 0.1);
-  --info-soft: rgba(77, 147, 248, 0.1);
-  /* 轨迹分段指示色 */
-  --seg-sys: rgb(173, 178, 184);
-  --seg-tools: rgb(167, 139, 250);
-  --seg-msg: rgb(77, 147, 248);
-  /* 工具名 → 色（docs/06 §7） */
-  --tool-think: rgb(201, 123, 32);
-  --tool-bash: #16a34a;
-  --tool-read: #4176e6;
-  --tool-edit: rgb(23, 165, 157);
-  --tool-err: rgb(239, 68, 68);
-  /* markdown 排版专用（与业务 token 隔离，照搬 pi-web） */
-  --md-panel: #f5f5f5;
-  --md-border: #e0e0e0;
-  --md-subtle: rgba(0, 0, 0, 0.03);
-  --md-accent: #245bce;
-  /* 代码块 */
-  --code-bg: #f9fafb;
-  --code-banner: #f9fafb;
-  /* 三档阴影（均以 0.5px 环起始） */
-  --elev-panel:
-    0 0 0 0.5px var(--line-2), 0 3px 8px 0 rgba(0, 0, 0, 0.03), 0 0 16px 0 rgba(0, 0, 0, 0.02);
-  --elev-soft:
-    0 0 0 0.5px var(--line-2), 0 4px 16px 0 rgba(0, 0, 0, 0.03), 0 0 24px 0 rgba(0, 0, 0, 0.03);
-  --elev-soft-sm: 0 0 0 0.5px var(--line-2), 0 2px 6px 0 rgba(0, 0, 0, 0.025);
-  /* 字体（--font-noto-mono 在原型中未定义，此处按 docs/06 §10-1 删引用） */
-  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-code:
-    "JetBrains Mono", "Fira Code", Consolas, ui-monospace, "PingFang SC", "Microsoft YaHei",
-    monospace;
-  /* 细滚动条（l2 = 毛玻璃浮层内的 thumb） */
-  --sb-thumb: rgb(229, 229, 229);
-  --sb-thumb-hover: rgb(212, 212, 212);
-  --sb-thumb-l2: rgb(229, 229, 229);
-  --sb-thumb-hover-l2: rgb(212, 212, 212);
-  --sb-width: 5px;
-}
+  /* —— 旧语义 token → v4 token 别名（仅 var 引用，无字面色） —— */
 
-/* 深色主题变量（M1 未启用，保留以承接 M2 的切换入口） */
-[data-theme="dark"] {
-  --surface: #151517;
-  --surface-side: #1b1b1c;
-  --surface-raised: #232324;
-  --line-1: rgba(255, 255, 255, 0.06);
-  --line-2: rgba(255, 255, 255, 0.12);
-  --line-3: rgba(255, 255, 255, 0.16);
-  --line-4: rgba(255, 255, 255, 0.2);
-  --fg: #f9fafb;
-  --fg-muted: rgb(207, 211, 214);
-  --fg-subtle: rgb(173, 178, 184);
-  --fg-faint: rgb(129, 133, 140);
-  --accent: #7aaaff;
-  --accent-weak: rgba(122, 170, 255, 0.14);
-  --hover: rgba(255, 255, 255, 0.08);
-  --bubble: #2c2c2e;
-  --menu: rgba(48, 49, 54, 0.6);
-  --warn: rgb(245, 158, 11);
-  --warn-soft: rgba(245, 158, 11, 0.14);
-  --teal: rgb(45, 212, 191);
-  --teal-soft: rgba(45, 212, 191, 0.12);
-  --info-soft: rgba(122, 170, 255, 0.14);
-  --tool-think: rgb(245, 158, 11);
-  --tool-bash: #4ade80;
-  --tool-read: #7aaaff;
-  --tool-edit: rgb(45, 212, 191);
-  --tool-err: rgb(248, 113, 113);
-  --md-panel: #242424;
-  --md-border: #454545;
-  --md-subtle: rgba(255, 255, 255, 0.04);
-  --md-accent: #a4c2f4;
-  --code-bg: #1b1b1c;
-  --code-banner: #2c2c2e;
-  --sb-thumb: rgb(60, 60, 61);
-  --sb-thumb-hover: rgb(84, 85, 87);
-  --sb-thumb-l2: rgb(84, 85, 87);
-  --sb-thumb-hover-l2: rgb(101, 103, 107);
+  /* 表面 */
+  --surface: var(--bg);
+  --surface-side: var(--bg-side);
+  --surface-raised: var(--bg-raised);
+  /* 描边（v4 三档：--l1/--l2/--l3；旧 --line-4 并入 l3） */
+  --line-1: var(--l1);
+  --line-2: var(--l2);
+  --line-3: var(--l2);
+  --line-4: var(--l3);
+  /* 文字四级 */
+  --fg: var(--t1);
+  --fg-muted: var(--t2);
+  --fg-subtle: var(--t3);
+  --fg-faint: var(--t4);
+  /* 点缀（--accent/--accent-hover/--accent-weak/--accent-line 由 v4 原生定义，无需别名） */
+  /* 语义色（v4 全部降饱和：k-think/bash/read/edit/err） */
+  --success: var(--k-bash);
+  --success-soft: var(--k-bash-bg);
+  --danger: var(--k-err);
+  --danger-soft: var(--k-err-bg);
+  --warn: var(--k-think);
+  --warn-soft: var(--k-think-bg);
+  --teal: var(--k-edit);
+  --teal-soft: var(--k-edit-bg);
+  --info-soft: var(--k-read-bg);
+  /* 轨迹分段指示色 */
+  --seg-sys: var(--t4);
+  --seg-tools: var(--k-think);
+  --seg-msg: var(--accent);
+  /* 工具名 → 色 */
+  --tool-think: var(--k-think);
+  --tool-bash: var(--k-bash);
+  --tool-read: var(--k-read);
+  --tool-edit: var(--k-edit);
+  --tool-err: var(--k-err);
+  /* markdown / 代码（v4：代码块落在凹陷面 --bg-inset） */
+  --md-panel: var(--bg-inset);
+  --md-border: var(--l2);
+  --md-subtle: var(--l1);
+  --md-accent: var(--accent);
+  --code-bg: var(--bg-inset);
+  --code-banner: var(--bg-inset);
+  /* 三档阴影 → v4 elev 梯度 */
+  --elev-panel: var(--elev-card);
+  --elev-soft: var(--elev-pop);
+  --elev-soft-sm: var(--elev-sm);
+  /* 字体 */
+  --font-ui: var(--font);
+  --font-code: var(--mono);
+  /* 细滚动条（v4 已定义 --sb-thumb/--sb-thumb-hover；l2 档在浮层内用 l3 深度） */
+  --sb-thumb-l2: var(--sb-thumb-hover);
+  --sb-thumb-hover-l2: var(--l3);
+  --sb-width: 6px;
 }
 
 /* 语义 token → Tailwind 工具类（bg-surface / border-line-2 / text-fg-muted / shadow-panel） */
@@ -149,6 +100,7 @@
 
   --color-accent: var(--accent);
   --color-accent-weak: var(--accent-weak);
+  --color-accent-line: var(--accent-line);
 
   --color-hover: var(--hover);
   --color-bubble: var(--bubble);
@@ -187,5 +139,5 @@
   --font-sans: var(--font-ui);
   --font-mono: var(--font-code);
 
-  --radius-squircle: 12px;
+  --radius-squircle: 9px;
 }

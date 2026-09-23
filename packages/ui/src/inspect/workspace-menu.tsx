@@ -36,6 +36,9 @@ export function WorkspaceMenu({
   const active = projects.find((project) => project.projectKey === activeKey) ?? null;
   const running = new Set(runningKeys ?? []);
   const path = active?.cwd ?? (loading ? '正在读取文件夹空间…' : '未选择文件夹空间');
+  /** 按钮上只显示目录名（原型 `.fname`），全路径进 title 与菜单 */
+  const fname =
+    active === null ? path : (active.cwd.split(/[\\/]/).filter(Boolean).pop() ?? active.cwd);
 
   useEffect(() => {
     if (!open) return;
@@ -63,15 +66,21 @@ export function WorkspaceMenu({
     <div ref={rootRef} className={cn('ws-anchor', className)}>
       <button
         type="button"
-        className="ws-btn sq"
-        title="切换文件夹空间"
+        className="ws"
+        title={active === null ? '切换文件夹空间' : active.cwd}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
       >
         <Icon name="folder" size={14} />
-        <span className="path num">{path}</span>
-        <Icon name="chev-d" size={12} />
+        <span className="fname">{fname}</span>
+        {active?.branch === undefined ? null : (
+          <span className="br">
+            <Icon name="fork" size={12} />
+            {active.branch}
+          </span>
+        )}
+        <Icon name="chev-d" size={12} className="chev8" />
       </button>
       {open ? (
         <div className="ws-menu" role="menu" style={{ left: 0 }}>

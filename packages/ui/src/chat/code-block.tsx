@@ -99,24 +99,27 @@ export function CodeBlock({ code, lang, className, onCopied }: CodeBlockProps) {
 
   return (
     <div className={cn('codeblk', className)}>
-      <div className="banner">
-        <span>{language ?? 'text'}</span>
-        <button
-          type="button"
-          onClick={() => {
-            void navigator.clipboard?.writeText(code).then(
-              () => {
-                setCopied(true);
-                onCopied?.();
-                window.setTimeout(() => setCopied(false), 1500);
-              },
-              () => undefined,
-            );
-          }}
-        >
-          <Icon name={copied ? 'check' : 'copy'} size={11} />
-          {copied ? '已复制' : '复制'}
-        </button>
+      <div className="cb-head">
+        <span className="cb-lang">{language ?? 'text'}</span>
+        <span className="cb-act">
+          <button
+            type="button"
+            className="mini-btn"
+            onClick={() => {
+              void navigator.clipboard?.writeText(code).then(
+                () => {
+                  setCopied(true);
+                  onCopied?.();
+                  window.setTimeout(() => setCopied(false), 1500);
+                },
+                () => undefined,
+              );
+            }}
+          >
+            <Icon name={copied ? 'check' : 'copy'} />
+            {copied ? '已复制' : '复制'}
+          </button>
+        </span>
       </div>
       <pre>
         {lines === null ? (

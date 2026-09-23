@@ -2,18 +2,37 @@ import type { ModelRef } from '@ice-ai/protocol';
 import { cn } from '../lib/cn';
 import { Icon } from '../primitives/icon';
 
-/** `.model-tag`（原型助手消息上方的模型名 + 圆点） */
-export function ModelTag({ model, className }: { model: ModelRef | null; className?: string }) {
+/**
+ * `.mline`（原型助手回答前的模型行：`GLM-5.3 · thinking low`，等宽 11px）。
+ * 流式时由调用方叠加 `.shimmer`。
+ */
+export function ModelTag({
+  model,
+  thinkingLabel,
+  badges,
+  shimmer,
+  className,
+}: {
+  model: ModelRef | null;
+  /** 思考档位展示（如 `thinking low`；缺省只显示模型名） */
+  thinkingLabel?: string;
+  /** 流式徽标插槽（`.badges`：缓存命中 / 速度） */
+  badges?: React.ReactNode;
+  /** 流式态：文字扫光 */
+  shimmer?: boolean;
+  className?: string;
+}) {
   if (model === null) return null;
   return (
-    <div className={cn('model-tag', className)}>
-      <span className="dot" />
+    <div className={cn('mline', shimmer && 'shimmer', className)}>
       {model.modelId}
+      {thinkingLabel === undefined ? null : ` · ${thinkingLabel}`}
+      {badges === undefined ? null : <span className="badges">{badges}</span>}
     </div>
   );
 }
 
-/** `.model-btn`（输入卡右侧的模型切换入口；M1 只展示，切换在 M2） */
+/** `.ctl-chip.model`（输入卡 ctl 行的模型 chip；M1 只展示，切换在 M2） */
 export interface ModelBadgeProps {
   model: ModelRef | null;
   onClick?: () => void;
@@ -29,10 +48,10 @@ export function ModelBadge({ model, onClick, className }: ModelBadgeProps) {
       }
       onClick={onClick}
       disabled={onClick === undefined}
-      className={cn('model-btn', className)}
+      className={cn('ctl-chip model', className)}
     >
       {model?.modelId ?? '默认模型'}
-      <Icon name="chev-d" size={12} style={{ width: 10, height: 10 }} />
+      <Icon name="chev" size={10} style={{ transform: 'rotate(90deg)' }} />
     </button>
   );
 }

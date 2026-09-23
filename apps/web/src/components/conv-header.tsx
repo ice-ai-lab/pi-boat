@@ -1,6 +1,11 @@
 import {
+  DEFAULT_TOOLS,
+  formatCost,
+  formatTokens,
   Icon,
   Popover,
+  ProgressRing,
+  type SessionStatsDisplay,
   StatsCardGroup,
   type StatsCardGroupProps,
   SystemPromptPanel,
@@ -10,58 +15,102 @@ import { type ReactNode, useEffect, useRef } from 'react';
 import { useAppState } from '../lib/app-state';
 
 /**
- * 中栏头部（原型 `.conv-header` + `.tab-row`）。
+ * 中栏头部（原型 `.head` 三段网格：`.head-l` / `.metrics` / `.head-r`）。
  *
- * 结构：`[展开侧边栏（仅折叠时）] [对话 vtab] [系统/工具/统计 chips] [右栏切换]`。
- * 原型的 `#convTitle` 默认 `hide`，这里同样只放在 DOM 里（不占位）。
+ * `metrics` 是中列指标（`HeaderMetrics`），`tools` 是右列 chips + 浮层，均由路由按数据提供。
  */
 export interface ConvHeaderProps {
   title?: string;
-  /** `.tools-bar` 内容（chips + 浮层），由路由按数据提供 */
+  /** 会话是否运行中（`.live` 徽章） */
+  running?: boolean;
+  /** 中列指标（原型 `.metrics`），由路由用 `HeaderMetrics` 组装 */
+  metrics?: ReactNode;
+  /** 右列 chips + 浮层（`HeaderTools`） */
   tools?: ReactNode;
 }
 
-export function ConvHeader({ title, tools }: ConvHeaderProps) {
+export function ConvHeader({ title, running = false, metrics, tools }: ConvHeaderProps) {
   const { sidebarCollapsed, toggleSidebar, toggleRightbar } = useAppState();
 
   return (
-    <header className="conv-header">
-      {title === undefined ? null : (
-        <h1 id="convTitle" className="hide">
-          {title}
-        </h1>
-      )}
-      <div className="tab-row">
+    <header className="head">
+      <div className="head-l">
         {sidebarCollapsed ? (
           <button
             type="button"
-            className="icon-btn"
+            className="ico-btn"
             title="展开侧边栏"
             aria-label="展开侧边栏"
             onClick={toggleSidebar}
           >
-            <Icon name="panel" size={16} />
+            <Icon name="panel" size={15} />
           </button>
         ) : null}
-        <nav className="view-tabs">
-          <button type="button" className="vtab on">
-            对话
-          </button>
-        </nav>
-        {tools === undefined ? null : <div className="tools-bar">{tools}</div>}
-        <div className="tab-right">
-          <button
-            type="button"
-            className="icon-btn"
-            title="切换文件面板"
-            aria-label="切换文件面板"
-            onClick={toggleRightbar}
-          >
-            <Icon name="panel" size={16} style={{ transform: 'scaleX(-1)' }} />
-          </button>
-        </div>
+        <span className="vtab">对话</span>
+        {title === undefined ? null : <span className="head-title">{title}</span>}
+        {running ? (
+          <span className="live">
+            <span className="pdot" />
+            进行中
+          </span>
+        ) : null}
+      </div>
+      {metrics}
+      <div className="head-r">
+        {tools}
+        <span className="vr" />
+        <button
+          type="button"
+          className="ico-btn"
+          title="切换文件面板"
+          aria-label="切换文件面板"
+          onClick={toggleRightbar}
+        >
+          <Icon name="panel" size={15} />
+        </button>
       </div>
     </header>
+  );
+}
+
+/** token 数缩写（原型 `.num` 风格）统一走 ui 的 `formatTokens`：12 / 12.4k / 1.2m */
+
+export interface HeaderMetricsProps {
+  tokens?: SessionStatsDisplay;
+  /** 点击打开统计浮层（pop 状态由路由持有） */
+  onOpenStats: () => void;
+}
+
+/** 中列指标（原型 `.metrics`）：in · out · cache · $ 与上下文占用环，点击开统计浮层。 */
+export function HeaderMetrics({ tokens, onOpenStats }: HeaderMetricsProps) {
+  const pct = tokens === undefined ? 0 : (tokens.contextPercent ?? 0);
+  const num = (value: number | undefined): string => formatTokens(value) ?? '—';
+  return (
+    <button
+      type="button"
+      className="metrics"
+      id="metricsBtn"
+      onClick={onOpenStats}
+      title="会话统计"
+    >
+      <span>
+        <b className="num">{num(tokens?.input)}</b> in
+      </span>
+      <span className="sep">·</span>
+      <span>
+        <b className="num">{num(tokens?.output)}</b> out
+      </span>
+      <span className="sep">·</span>
+      <span>
+        <b className="num">{num(tokens?.cacheRead)}</b> cache
+      </span>
+      <span className="sep">·</span>
+      <span>
+        <b className="num">{formatCost(tokens?.cost) ?? '—'}</b>
+      </span>
+      <ProgressRing value={pct} />
+      <b className="num">{Math.round(pct)}%</b>
+    </button>
   );
 }
 
@@ -77,7 +126,7 @@ export interface HeaderToolsProps {
 
 export type PopName = 'sys' | 'tools' | 'stats';
 
-/** 系统 / 工具 / 统计三个 chips 与浮层（原型 `.tools-bar` + `.pop`） */
+/** 系统 / 工具 / 统计三个 chips 与浮层（原型 `.head-r` 里的 `.chip` + `.pop`） */
 export function HeaderTools({
   systemPrompt,
   systemLoading = false,
@@ -108,10 +157,10 @@ export function HeaderTools({
   }, [open, onOpenChange]);
 
   const toggle = (name: PopName): void => onOpenChange(open === name ? null : name);
-  const chip = (name: PopName, icon: 'book' | 'wrench' | 'gauge', label: string): ReactNode => (
+  const chip = (name: PopName, icon: 'sys' | 'wrench', label: string): ReactNode => (
     <button
       type="button"
-      className={open === name ? 'hchip on' : 'hchip'}
+      className={open === name ? 'chip on' : 'chip'}
       aria-pressed={open === name}
       onClick={() => toggle(name)}
     >
@@ -121,22 +170,15 @@ export function HeaderTools({
   );
 
   return (
-    <div className="tools-bar" ref={barRef}>
-      {chip('sys', 'book', '系统')}
+    <div className="head-tools" ref={barRef}>
+      {chip('sys', 'sys', '系统')}
       {chip('tools', 'wrench', '工具')}
-      {chip('stats', 'gauge', '统计')}
 
       <Popover
+        id="popSys"
         open={open === 'sys'}
         onOpenChange={(value) => onOpenChange(value ? 'sys' : null)}
-        icon="book"
         title="系统提示词"
-        sub={
-          systemPrompt === null || systemPrompt === ''
-            ? undefined
-            : `${systemPrompt.length.toLocaleString()} 字符`
-        }
-        width={560}
       >
         <SystemPromptPanel
           prompt={systemPrompt}
@@ -146,22 +188,20 @@ export function HeaderTools({
       </Popover>
 
       <Popover
+        id="popTools"
         open={open === 'tools'}
         onOpenChange={(value) => onOpenChange(value ? 'tools' : null)}
-        icon="wrench"
-        title="工具定义"
-        sub="M1 只读（预设切换归 core，M2）"
-        width={560}
+        title={`工具 · ${DEFAULT_TOOLS.filter((tool) => tool.enabled).length} 已启用`}
       >
         <ToolList />
       </Popover>
 
       <Popover
+        id="popStats"
         open={open === 'stats'}
         onOpenChange={(value) => onOpenChange(value ? 'stats' : null)}
-        icon="gauge"
         title="会话统计"
-        width={680}
+        bodyClassName={null}
       >
         {stats === undefined ? (
           <p style={{ fontSize: 12, color: 'var(--t3)' }}>还没有会话数据。</p>

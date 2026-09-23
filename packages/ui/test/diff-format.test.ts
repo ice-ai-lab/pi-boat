@@ -38,8 +38,8 @@ describe('格式化', () => {
   it('tokens', () => {
     expect(formatTokens(null)).toBeNull();
     expect(formatTokens(755)).toBe('755');
-    expect(formatTokens(42_300)).toBe('42.3K');
-    expect(formatTokens(1_240_000)).toBe('1.2M');
+    expect(formatTokens(42_300)).toBe('42.3k');
+    expect(formatTokens(1_240_000)).toBe('1.2m');
   });
 
   it('cost', () => {

@@ -1,8 +1,11 @@
 import type { Usage } from '@ice-ai/protocol';
+import { Fragment } from 'react';
+import { cn } from '../lib/cn';
 import { formatCost, formatTokens } from '../lib/format';
 
 /**
- * 每轮用量行（原型 `.usage-line`：`755 in · 1,377 out · 20,096 cache R · $0.0123 … 16:33`）。
+ * 每轮用量行（原型 `.usage`：`8.2k in · 1.6k out · cache 96% · $0.21 … 19:02`）。
+ * 分隔点用 `.sep`（t4 弱化），时间 `margin-left:auto` 落在 `.tm`。
  * 数据来自 `Turn.usage`（`message.usage`）。
  */
 export interface UsageLineProps {
@@ -13,22 +16,22 @@ export interface UsageLineProps {
 
 export function UsageLine({ usage, at, className }: UsageLineProps) {
   if (usage === null) return null;
+  const cachePercent = cacheHitPercent({ input: usage.input, cacheRead: usage.cacheRead });
   const parts = [
-    `${usage.input.toLocaleString()} in`,
-    `${usage.output.toLocaleString()} out`,
-    `${usage.cacheRead.toLocaleString()} cache R`,
+    `${formatTokens(usage.input) ?? '0'} in`,
+    `${formatTokens(usage.output) ?? '0'} out`,
+    cachePercent === null ? null : `cache ${cachePercent}%`,
     formatCost(usage.cost.total),
   ].filter((part): part is string => part !== null);
   return (
-    <div className={`usage-line num ${className ?? ''}`}>
+    <div className={cn('usage', className)}>
       {parts.map((part, index) => (
-        <span key={part} className="flex items-center gap-2">
-          {index > 0 ? <span>·</span> : null}
-          {part}
-        </span>
+        <Fragment key={part}>
+          {index > 0 ? <span className="sep">·</span> : null}
+          <span className="num">{part}</span>
+        </Fragment>
       ))}
-      <span className="sp" />
-      {at === undefined ? null : <span>{formatClockSafe(at)}</span>}
+      {at === undefined ? null : <span className="tm num">{formatClockSafe(at)}</span>}
     </div>
   );
 }
@@ -60,4 +63,4 @@ export function cacheHitPercent(stats: SessionStatsDisplay): number | null {
   return Math.round((read / total) * 100);
 }
 
-export { formatCost, formatTokens };
+export { formatCost };

@@ -1,57 +1,59 @@
 import type { ReactNode } from 'react';
 import { cn } from '../lib/cn';
-import { Icon, type IconName } from './icon';
+import { Icon } from './icon';
 
 /**
- * 头部浮层（原型 `.pop` / `.pop-head` / `.pop-rule` / `.pop-body`）。
+ * 头部浮层（原型 `.pop` / `.pop-head`(.pt/.px) / `.pop-body`）。
  *
- * 四个锚定浮层（系统 / 工具 / 统计）共用同一交互：绝对定位于 `.tools-bar`（position:relative），
- * 点外 / Esc / `.pop-x` 三路关闭。受控组件：开关状态由宿主持有。
+ * 定位与宽度由原型 CSS 的 id 选择器提供：`.main` 为定位祖先（position:relative），
+ * `#popSys` / `#popTools` 走 `position:absolute; top:52px; right:14px`，`#popStats` 左右居中。
+ * 点外 / Esc / `.px`（`[data-x]`）三路关闭由宿主接线；受控组件，开关状态由宿主持有。
  */
 export interface PopoverProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  icon: IconName;
+  /** 原型 id（#popSys / #popTools / #popStats）——宽度与定位靠它命中 CSS */
+  id?: string;
   title: string;
-  /** `.pop-head` 右侧的灰字（如「8 个工具 · 约 8.1K tokens」） */
-  sub?: ReactNode;
-  /** 原型：系统/工具 560px，统计 680px */
-  width?: number;
   children: ReactNode;
   className?: string;
-  bodyClassName?: string;
+  /**
+   * 包围 children 的容器类名。传 `null` 表示不加包裹层：`#popStats` 的
+   * `.stat-grid` 与 `.ctx-row` 是 `.pop` 的平级子元素。
+   */
+  bodyClassName?: string | null;
 }
 
 export function Popover({
   open,
   onOpenChange,
-  icon,
+  id,
   title,
-  sub,
-  width = 560,
   children,
   className,
-  bodyClassName,
+  bodyClassName = 'pop-body',
 }: PopoverProps) {
-  if (!open) return null;
   return (
-    <div role="dialog" aria-label={title} className={cn('pop', className)} style={{ width }}>
+    <div
+      id={id}
+      role="dialog"
+      aria-label={title}
+      aria-hidden={!open}
+      className={cn('pop', open && 'open', className)}
+    >
       <div className="pop-head">
-        <Icon name={icon} size={14} />
-        {title}
-        {sub === undefined ? null : <span className="pop-sub">{sub}</span>}
+        <span className="pt">{title}</span>
         <button
           type="button"
+          className="px"
           data-x
-          className="pop-x"
           aria-label="收起"
           onClick={() => onOpenChange(false)}
         >
-          <Icon name="chev-d" size={14} />
+          <Icon name="x" size={12} />
         </button>
       </div>
-      <div className="pop-rule" />
-      <div className={cn('pop-body', bodyClassName)}>{children}</div>
+      {bodyClassName === null ? children : <div className={bodyClassName}>{children}</div>}
     </div>
   );
 }

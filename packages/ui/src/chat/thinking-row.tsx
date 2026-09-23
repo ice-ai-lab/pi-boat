@@ -24,9 +24,22 @@ export function ThinkingRow({ row }: ThinkingRowProps) {
       durationMs={row.durationMs}
       open={open}
       onToggle={setUserOpen}
-      body={row.text}
-    />
+    >
+      <div className="prose">
+        {paragraphs(row.text).map((paragraph) => (
+          <p key={paragraph}>{paragraph}</p>
+        ))}
+      </div>
+    </CollapseRow>
   );
+}
+
+/** 原型 `.prose` 是段落容器（`.p + p{margin-top:7px}`）：按空行切段，段内换行交给浏览器折叠 */
+function paragraphs(text: string): string[] {
+  return text
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter((paragraph) => paragraph !== '');
 }
 
 function firstLine(text: string): string {

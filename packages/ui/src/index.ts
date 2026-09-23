@@ -31,7 +31,7 @@ export { ModeChip, type ToolPreset } from './chat/mode-chip';
 export { ModelBadge, ModelTag } from './chat/model-badge';
 export { ProcessGroup, SystemRow, TrailRowView } from './chat/process-group';
 export { ScrollToBottomButton } from './chat/scroll-to-bottom-button';
-export { type StatsPillKind, StatsPills } from './chat/stats-pills';
+export { StatsPills } from './chat/stats-pills';
 export { SystemPromptPanel } from './chat/system-prompt-panel';
 export { ThinkingRow } from './chat/thinking-row';
 export { ToolRow } from './chat/tool-row';

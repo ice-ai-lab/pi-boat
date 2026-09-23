@@ -3,7 +3,7 @@ import { cn } from '../lib/cn';
 import { Icon } from '../primitives/icon';
 
 /**
- * 输入卡「模式」（原型 `.mode-chip` + `.mode-menu` + `.mi`）。
+ * 输入卡「模式」（原型 `.ctl-chip` + `.mode-menu` + `.mi`）。
  *
  * ⚠️ 「模式」与工具预设**已合并为同一概念**：菜单项就是工具预设，
  * 原型的「全自动·免确认」已删除（SDK 0.85 无此能力）。预设判定归 **core**，
@@ -37,10 +37,10 @@ export function ModeChip({ mode, options, onChange, className }: ModeChipProps) 
     return (
       <span
         title={`工具预设：${current.label}（${current.hint}）· M2 支持切换`}
-        className={cn('mode-chip', className)}
+        className={cn('ctl-chip', className)}
       >
-        <Icon name="chev-d" size={12} style={{ width: 10, height: 10 }} />
         {current.label}
+        <Icon name="chev" size={10} style={{ transform: 'rotate(90deg)' }} />
       </span>
     );
   }
@@ -49,13 +49,13 @@ export function ModeChip({ mode, options, onChange, className }: ModeChipProps) 
     <>
       <button
         type="button"
-        className={cn('mode-chip', className)}
+        className={cn('ctl-chip', className)}
         aria-expanded={open}
         aria-haspopup="menu"
         onClick={() => setOpen(!open)}
       >
-        <Icon name="chev-d" size={12} style={{ width: 10, height: 10 }} />
         {current.label}
+        <Icon name="chev" size={10} style={{ transform: 'rotate(90deg)' }} />
       </button>
       {open ? (
         <div className="mode-menu" role="menu">

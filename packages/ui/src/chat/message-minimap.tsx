@@ -1,105 +1,112 @@
-import type { RefObject } from 'react';
-import { useCallback, useEffect, useState } from 'react';
+import { type RefObject, useEffect, useState } from 'react';
 import { cn } from '../lib/cn';
+import { formatDuration } from '../lib/format';
 
 /**
- * 右缘消息 minimap（原型 `.minimap` + `.mm-bar` + `.mm-tip`）。
+ * 会话 minimap（原型 `.minimap` + `.mmbar` + `.mmtip`）：右缘一列 3px 竖条，
+ * 每条对应一轮对话，**条高 ≈ 该轮实际高度占比**（`turnHeight / viewportHeight`），
+ * 末轮流式中的条带 `.live` 脉动；悬停浮出 `.mmtip`（标题 + 元信息），点击滚动到该轮。
  *
- * 算法照原型 `buildMinimap()`：把 `.chat-col` 的直接子节点各画一条 3px 横杠，
- * `top = offsetTop / scrollHeight`；hover 出预览气泡，点击滚到该块。
- * `revision` 变化（turns 增长）时重建。
+ * 测量逻辑：监听滚动容器 resize/scroll 与轮数量变化，读 `data-turn-id` 元素的
+ * `offsetHeight`，按可视高度归一到 [10, 72]px 区间。
  */
 export interface MessageMinimapProps {
-  scrollRef: RefObject<HTMLDivElement | null>;
-  contentRef: RefObject<HTMLDivElement | null>;
-  revision?: unknown;
+  /** 滚动容器（`.conv-scroll`）；条目标为其中 `[data-turn-id]` 元素 */
+  viewportRef: RefObject<HTMLElement | null>;
+  /** 轮摘要（用于条高与浮层文案；id 必须与 DOM 的 data-turn-id 一致） */
+  turns: Array<{
+    id: string;
+    title: string;
+    toolCallCount?: number;
+    durationMs?: number;
+  }>;
+  /** 末轮是否流式中（live 条） */
+  liveTail?: boolean;
   className?: string;
 }
 
 interface Bar {
-  top: number;
-  preview: string;
+  id: string;
+  height: number;
+  title: string;
+  meta: string;
 }
 
 export function MessageMinimap({
-  scrollRef,
-  contentRef,
-  revision,
+  viewportRef,
+  turns,
+  liveTail = false,
   className,
 }: MessageMinimapProps) {
   const [bars, setBars] = useState<Bar[]>([]);
-  const [range, setRange] = useState<[number, number]>([0, 0]);
-  const [hover, setHover] = useState<number | null>(null);
+  const [hover, setHover] = useState<{ index: number; top: number } | null>(null);
 
-  const rebuild = useCallback(() => {
-    const content = contentRef.current;
-    const scroll = scrollRef.current;
-    if (content === null || scroll === null) return;
-    const total = Math.max(scroll.scrollHeight, 1);
-    setBars(
-      [...content.children].map((child) => ({
-        top: Math.min(0.98, (child as HTMLElement).offsetTop / total) * 100,
-        preview: (child.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 120),
-      })),
-    );
-  }, [contentRef, scrollRef]);
+  const measure = () => {
+    const vp = viewportRef.current;
+    if (vp === null) return;
+    const vh = vp.clientHeight || 1;
+    const next: Bar[] = [];
+    for (const turn of turns) {
+      const el = vp.querySelector<HTMLElement>(`[data-turn-id="${CSS.escape(turn.id)}"]`);
+      const raw = el === null ? 24 : el.offsetHeight;
+      next.push({
+        id: turn.id,
+        height: Math.max(10, Math.min(72, Math.round((raw / vh) * 100))),
+        title: turn.title,
+        meta: [
+          turn.toolCallCount === undefined ? null : `${turn.toolCallCount} 工具调用`,
+          formatDuration(turn.durationMs),
+        ]
+          .filter((part): part is string => part !== null)
+          .join(' · '),
+      });
+    }
+    setBars(next);
+  };
 
-  // revision 是「内容变化信号」：仅用于触发重建，值本身不参与计算
+  // biome-ignore lint/correctness/useExhaustiveDependencies: turns 变化即重新测量
   useEffect(() => {
-    void revision;
-    const scroll = scrollRef.current;
-    const content = contentRef.current;
-    rebuild();
-    const onScroll = () => {
-      const el = scrollRef.current;
-      if (el === null) return;
-      const total = Math.max(el.scrollHeight, 1);
-      setRange([el.scrollTop / total, (el.scrollTop + el.clientHeight) / total]);
-    };
-    onScroll();
-    scroll?.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', rebuild);
-    // turns 会异步到达：childList 变化时重建（比只靠 revision 更稳）
-    const observer = content === null ? null : new MutationObserver(rebuild);
-    observer?.observe(content as Node, { childList: true, subtree: true, characterData: true });
-    return () => {
-      scroll?.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', rebuild);
-      observer?.disconnect();
-    };
-  }, [scrollRef, contentRef, rebuild, revision]);
+    measure();
+    const vp = viewportRef.current;
+    if (vp === null) return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(vp);
+    return () => observer.disconnect();
+  }, [turns, viewportRef]);
 
   if (bars.length === 0) return null;
 
-  const scrollToBlock = (index: number): void => {
-    setHover(null);
-    const target = contentRef.current?.children[index] as HTMLElement | undefined;
-    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const tip = hover === null ? null : (bars[hover.index] ?? null);
+
+  const scrollTo = (id: string) => {
+    const vp = viewportRef.current;
+    const el = vp?.querySelector<HTMLElement>(`[data-turn-id="${CSS.escape(id)}"]`);
+    if (vp === null || vp === undefined || el === null || el === undefined) return;
+    vp.scrollTo({ top: el.offsetTop - 24, behavior: 'smooth' });
   };
 
   return (
-    <div className={cn('minimap', className)}>
-      {hover === null ? null : (
-        <div className="mm-tip" style={{ top: `${bars[hover]?.top ?? 0}%` }}>
-          {bars[hover]?.preview}
-        </div>
-      )}
-      {bars.map((bar, index) => {
-        const at = bar.top / 100 >= range[0] && bar.top / 100 <= range[1];
-        return (
-          <button
-            type="button"
-            // biome-ignore lint/suspicious/noArrayIndexKey: 块顺序即身份
-            key={index}
-            className={cn('mm-bar', at && 'at')}
-            style={{ top: `${bar.top}%` }}
-            aria-label={bar.preview === '' ? `跳转到第 ${index + 1} 段` : bar.preview}
-            onMouseEnter={() => setHover(index)}
-            onMouseLeave={() => setHover(null)}
-            onClick={() => scrollToBlock(index)}
-          />
-        );
-      })}
-    </div>
+    <nav className={cn('minimap', className)} aria-label="会话导航">
+      {bars.map((bar, index) => (
+        <button
+          key={bar.id}
+          type="button"
+          aria-label={bar.title}
+          className={cn('mmbar', liveTail && index === bars.length - 1 && 'live')}
+          style={{ height: `${bar.height}px` }}
+          onClick={() => scrollTo(bar.id)}
+          onMouseEnter={(event) => setHover({ index, top: event.currentTarget.offsetTop })}
+          onMouseLeave={() => setHover(null)}
+        />
+      ))}
+      <div
+        id="mmtip"
+        className={cn('mmtip', hover !== null && 'show')}
+        style={hover === null ? undefined : { top: `${Math.max(0, hover.top - 8)}px` }}
+      >
+        <div className="t1">{tip?.title ?? ''}</div>
+        <div className="t2">{tip?.meta ?? ''}</div>
+      </div>
+    </nav>
   );
 }

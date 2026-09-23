@@ -1,9 +1,8 @@
 // biome-ignore-all lint/suspicious/noArrayIndexKey: diff 行由 SDK 生成的展示串按行切出，行序即身份
-import { Fragment } from 'react';
 import { cn } from '../lib/cn';
 
 /**
- * diff 展示（原型 `.diff`）。
+ * diff 展示（原型 `.diff`：行 = `.dl.{add,del,ctx}`，行内 `.ln` 行号 / `.sg` 加减号 / `.tx` 内容）。
  *
  * **不在前端算 diff**：SDK 的 edit 工具已生成带行号的展示串
  * （`+<行号> 文本` / `-<行号> 文本` / ` <行号> 文本`，另含 ` <pad> ...` 跳过行），
@@ -32,6 +31,8 @@ export function parseDiff(diff: string): DiffLine[] {
   return lines;
 }
 
+const SIGN: Record<DiffLine['kind'], string> = { add: '+', del: '-', ctx: ' ' };
+
 export interface DiffViewProps {
   diff: string;
   className?: string;
@@ -43,11 +44,11 @@ export function DiffView({ diff, className }: DiffViewProps) {
   return (
     <div className={cn('diff', className)}>
       {lines.map((line, index) => (
-        <Fragment key={index}>
-          <span className={cn('ln', line.kind)}>{line.lineNumber}</span>
-          <span className={line.kind === 'ctx' ? 'ctx' : undefined}>{line.content}</span>
-          {'\n'}
-        </Fragment>
+        <div className={cn('dl', line.kind)} key={index}>
+          <span className="ln num">{line.lineNumber}</span>
+          <span className="sg">{SIGN[line.kind]}</span>
+          <span className="tx">{line.content}</span>
+        </div>
       ))}
     </div>
   );

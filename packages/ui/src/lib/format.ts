@@ -11,12 +11,12 @@ export function formatDuration(ms: number | undefined): string | null {
   return `${minutes}m ${rest}s`;
 }
 
-/** `42.3K` / `1.2M` / `755` */
+/** `42.3k` / `1.2m` / `755`（原型 `.num` 一律小写缩写：`12.4k in` / `48.2k cache` / `of 200k`） */
 export function formatTokens(tokens: number | null | undefined): string | null {
   if (tokens === null || tokens === undefined || !Number.isFinite(tokens)) return null;
   if (tokens < 1000) return String(Math.round(tokens));
-  if (tokens < 1_000_000) return `${(tokens / 1000).toFixed(1)}K`;
-  return `${(tokens / 1_000_000).toFixed(1)}M`;
+  if (tokens < 1_000_000) return `${(tokens / 1000).toFixed(1)}k`;
+  return `${(tokens / 1_000_000).toFixed(1)}m`;
 }
 
 /** `$0.0123`（成本 < 1 分时保留 4 位有效数字） */

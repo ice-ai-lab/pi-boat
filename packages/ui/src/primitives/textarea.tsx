@@ -57,7 +57,7 @@ export function Textarea({
           onSubmit?.();
         }
       }}
-      className={`w-full resize-none border-0 bg-transparent text-[14px] leading-[22px] text-fg outline-none placeholder:text-fg-faint ${className ?? ''}`}
+      className={`w-full resize-none border-0 bg-transparent outline-none ${className ?? ''}`}
       style={{ minHeight: 24, maxHeight: maxHeightPx }}
     />
   );

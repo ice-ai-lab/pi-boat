@@ -1,0 +1,566 @@
+/* ============================================================================
+   应用补充（App Additions）—— 真实应用需要、但 v4 静态稿未覆盖的部分。
+   一律复用 v4 的 token 上色（--bg、--t 系列、--l 系列、--accent、--k 系列，见 prototype.css）；
+   新增结构优先贴原型既有形态。此文件由 theme.css 在 prototype.css 之后引入。
+   ============================================================================ */
+
+/* ---- Icon 尺寸档（v4 基础 .ico=15px；小档供行内/工具行使用） ---- */
+.ico.s12 {
+  width: 12px;
+  height: 12px;
+}
+.ico.s14 {
+  width: 14px;
+  height: 14px;
+}
+.ico.s18 {
+  width: 18px;
+  height: 18px;
+}
+
+/* ---- 文件树附加 ---- */
+.frow .chev8 {
+  width: 9px;
+  height: 9px;
+  transition: transform 0.15s;
+}
+.frow .chev8.open {
+  transform: rotate(90deg);
+}
+.frow .void {
+  width: 9px;
+  height: 9px;
+  opacity: 0;
+}
+
+/* ---- 会话项操作钮（悬停浮现；v4 未画重命名/删除） ---- */
+.sess .ops {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.12s;
+  background: linear-gradient(90deg, transparent, var(--bg-side) 30%);
+  padding-left: 18px;
+}
+.sess:hover .ops,
+.sess:focus-within .ops {
+  opacity: 1;
+}
+
+/* ---- 停止 / 出错 徽标（延续旧版语义，色随 v4） ---- */
+.stopped-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  color: var(--t3);
+  border: 1px solid var(--l2);
+  border-radius: 5px;
+  padding: 1px 6px;
+  margin-bottom: 6px;
+}
+
+/* ---- Toast（浅色卡片，右下角；v4 未画） ---- */
+.toast {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast > div {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-raised);
+  border: 1px solid var(--l2);
+  border-radius: 10px;
+  padding: 9px 13px;
+  font-size: 12.5px;
+  color: var(--t1);
+  box-shadow: var(--elev-pop);
+  animation: toast-in 0.18s ease;
+}
+.toast .ok {
+  color: var(--k-bash);
+}
+.toast .err {
+  color: var(--k-err);
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---- 回到底部（毛玻璃圆钮） ---- */
+.up-fab {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 14px;
+  z-index: 12;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--menu);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--l2);
+  color: var(--t2);
+  box-shadow: var(--elev-sm);
+  transition: 0.15s;
+}
+.up-fab:hover {
+  color: var(--t1);
+  border-color: var(--l3);
+  transform: translateX(-50%) translateY(-1px);
+}
+
+/* ---- 新会话欢迎页（hero：品牌船 + 输入框直落） ---- */
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  max-width: 560px;
+  padding: 0 20px;
+}
+.hero .boat {
+  color: var(--t3);
+  margin-bottom: 2px;
+}
+.hero .sub {
+  font-size: 12.5px;
+  color: var(--t4);
+  margin-bottom: 18px;
+}
+.hero .hero-input {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+  background: var(--bg-raised);
+  border: 1px solid var(--l2);
+  border-radius: 14px;
+  padding: 12px 14px;
+  box-shadow: var(--elev-card);
+  transition: border-color 0.15s;
+}
+.hero .hero-input > .err,
+.hero .hero-input > .cwd-hint {
+  flex-basis: 100%;
+}
+.hero .hero-input:focus-within {
+  border-color: var(--accent-line);
+}
+.hero .hero-input textarea {
+  flex: 1;
+  resize: none;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: 13.5px / 22px var(--font);
+  color: var(--t1);
+  caret-color: var(--accent);
+}
+.hero .hero-input textarea::placeholder {
+  color: var(--t4);
+}
+.hero .hero-input .send-btn {
+  width: 30px;
+  height: 30px;
+  flex: none;
+  align-self: flex-end;
+}
+.hero .ws-line {
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--t4);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.hero .ver {
+  font-size: 10px;
+  color: var(--t4);
+  margin-top: 26px;
+  font-family: var(--mono);
+}
+.hero .cwd-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  background: var(--bg-raised);
+  border: 1px solid var(--l2);
+  border-radius: 10px;
+  padding: 8px 11px;
+  margin-bottom: 8px;
+}
+.hero .cwd-row:focus-within {
+  border-color: var(--accent-line);
+}
+.hero .cwd-row .ico {
+  width: 13px;
+  height: 13px;
+  color: var(--t3);
+  flex: none;
+}
+.hero .cwd-row input {
+  flex: 1;
+  min-width: 0;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--t1);
+}
+.hero .cwd-row input::placeholder {
+  color: var(--t4);
+}
+.hero .hero-input .err {
+  margin: 8px 2px 0;
+  font-size: 12px;
+  color: var(--k-err);
+}
+.hero .hero-input .cwd-hint {
+  margin: 8px 2px 0;
+  font-size: 11px;
+  color: var(--t4);
+}
+
+/* ---- 文件夹空间下拉（`.ws` 的菜单；沿用旧结构，色随 v4） ---- */
+.ws-anchor {
+  position: relative;
+}
+.ws-menu {
+  position: absolute;
+  left: 8px;
+  top: calc(100% + 6px);
+  z-index: 50;
+  width: calc(100% - 16px);
+  background: var(--menu);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--l2);
+  border-radius: 10px;
+  box-shadow: var(--elev-pop);
+  padding: 4px;
+  animation: pop-in 0.16s ease;
+}
+.ws-menu .wi {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  padding: 7px 8px;
+  font-size: 12px;
+  color: var(--t1);
+  cursor: pointer;
+}
+.ws-menu .wi:hover {
+  background: var(--hover);
+}
+.ws-menu .wi.on {
+  background: var(--accent-weak);
+}
+.ws-menu .wi .p {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--t2);
+  white-space: nowrap;
+}
+.ws-menu .wi .live {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--k-bash);
+  flex: none;
+}
+.ws-menu .wi .chk {
+  color: var(--accent);
+}
+.ws-menu .add-ico {
+  width: 13px;
+  height: 13px;
+  color: var(--t3);
+  flex: none;
+}
+.ws > .chev8:last-child {
+  margin-left: auto;
+}
+.ws-menu .rule {
+  height: 1px;
+  background: var(--l1);
+  margin: 4px 6px;
+}
+
+/* ---- 模式下拉（输入卡 `.ctl-chip` 的菜单） ---- */
+.mode-menu {
+  position: absolute;
+  left: 14px;
+  bottom: calc(100% - 4px);
+  z-index: 50;
+  min-width: 200px;
+  background: var(--menu);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--l2);
+  border-radius: 10px;
+  box-shadow: var(--elev-pop);
+  padding: 4px;
+  animation: pop-in 0.16s ease;
+}
+.mode-menu .mi {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 6px;
+  padding: 7px 9px;
+  font-size: 12.5px;
+  color: var(--t1);
+  cursor: pointer;
+}
+.mode-menu .mi:hover {
+  background: var(--hover);
+}
+.mode-menu .mi.on {
+  color: var(--accent);
+}
+.mode-menu .mi small {
+  font-size: 10.5px;
+  color: var(--t4);
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ---- 系统提示词面板（popSys 内容：chips + 说明文本） ---- */
+.sysprompt {
+  padding: 12px 14px;
+  font-size: 12px;
+  color: var(--t2);
+  line-height: 1.6;
+}
+.sysprompt .pop-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+/* ---- 系统行（压缩 / 重试 / 终止；v4 未画，M1 新增的正文分隔条） ---- */
+.sys-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 12px;
+  color: var(--t3);
+}
+.sys-row.err {
+  color: var(--k-err);
+}
+.sys-row.warn {
+  color: var(--accent);
+}
+.sys-row .rule {
+  flex: 1;
+  height: 0.5px;
+  background: var(--l2);
+}
+.sys-row .txt {
+  max-width: 80%;
+  white-space: pre-wrap;
+  text-align: center;
+}
+
+/* ---- 组内助手文本行（v4 未画，M1 新增） ---- */
+.text-row {
+  padding: 6px 11px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--t2);
+}
+
+/* ---- 用户气泡内嵌图片 ---- */
+.u-img {
+  max-width: 180px;
+  max-height: 180px;
+  border-radius: 8px;
+  border: 1px solid var(--l2);
+  display: block;
+  margin-bottom: 4px;
+}
+
+/* ---- 应用骨架（v4 静态稿为固定栏宽；应用保留左栏拖拽与折叠、右栏开关） ---- */
+.drag-handle {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: 9px;
+  z-index: 60;
+  cursor: col-resize;
+}
+#dragL {
+  left: calc(var(--sbw) - 4px);
+}
+.sb-collapsed #dragL {
+  left: 0;
+}
+.drag-handle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 4px;
+  width: 1px;
+  background: transparent;
+  transition: background 0.15s;
+}
+.drag-handle:hover::after {
+  background: var(--accent-line);
+}
+body.resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+body.resizing * {
+  pointer-events: none;
+}
+.sb-collapsed .side {
+  display: none;
+}
+
+/* ---- 品牌行附加（收起钮贴右；v4 原型无侧栏收起钮） ---- */
+.brand > .ico-btn {
+  margin-left: auto;
+}
+
+/* ---- 会话分组行（.day 改两栏以容纳「运行中」提示） ---- */
+.day {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.day .run-hint {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.day .run-hint i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 1.9s ease-out infinite;
+}
+
+/* ---- 侧栏底栏附加（版本号；model-chip 自带 margin-right:auto 的兜底） ---- */
+.side-foot .ver {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--t4);
+  padding: 0 6px;
+  white-space: nowrap;
+}
+
+/* ---- 头部右列工具簇（v4 无独立容器类；chips + 浮层挂点） ---- */
+.head-tools {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  position: relative;
+}
+
+/* ---- 头部中列指标（button 版 .metrics 需要 reset） ---- */
+button.metrics {
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+/* ---- 小地图竖条（.mmbar 原为 div，a11y 语义化后是 button，补原生样式 reset） ---- */
+button.mmbar {
+  display: block;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+}
+
+/* ---- 工具行参数 JSON 弱化 ---- */
+.pre.subtle {
+  color: var(--t3);
+}
+
+/* ---- 内容宽度把手（拖拽调 --chat-w） ---- */
+.chat-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 14px;
+  cursor: col-resize;
+  z-index: 5;
+}
+.chat-handle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 3px;
+  height: 34px;
+  border-radius: 2px;
+  background: var(--l2);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.chat-handle:hover::after,
+.chat-handle.dragging::after {
+  opacity: 1;
+  background: var(--accent-line);
+}

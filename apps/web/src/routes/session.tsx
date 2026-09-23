@@ -16,12 +16,11 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
-import { ConvHeader, HeaderTools, type PopName } from '../components/conv-header';
-import { useAppState } from '../lib/app-state';
+import { ConvHeader, HeaderMetrics, HeaderTools, type PopName } from '../components/conv-header';
 import { useToast } from '../lib/toast';
 
 /**
- * 会话页（中栏，原型 `.conv-header` + `.center-body` + `.composer-seat`）。
+ * 会话页（中栏，原型 `.head` + `.conv-shell` + `.composer`）。
  * 外壳（左右栏）在 `AppShell`，本组件只负责中栏。
  *
  * 数据来源两条腿：事件流（`useAgentSession` 的 SSE + fold）∪ REST 历史（context + rebuild）。
@@ -34,7 +33,6 @@ export function SessionRoute() {
   const location = useLocation();
   const toast = useToast();
   const queryClient = useQueryClient();
-  const { workspace } = useAppState();
   const session = useAgentSession(sessionId);
   const detail = useSessionDetailQuery(sessionId);
   const [input, setInput] = useState('');
@@ -83,22 +81,6 @@ export function SessionRoute() {
     0,
   );
   const headerStats: StatsCardGroupProps = {
-    session: {
-      name: title,
-      id: sessionId,
-      file: focused?.sessionFile ?? detail.data?.filePath,
-      activeMs: detail.data?.totalActiveMs,
-    },
-    project: {
-      cwd: workspace?.cwd ?? detail.data?.info.cwd,
-      branch: workspace?.branch ?? detail.data?.info.branch,
-    },
-    messages: {
-      user: statsInfo?.userMessages,
-      assistant: statsInfo?.assistantMessages,
-      toolCalls: statsInfo?.toolCalls ?? toolCallCount,
-      total: statsInfo?.totalMessages,
-    },
     performance: {
       rounds: session.turns.length === 0 ? undefined : session.turns.length,
       steps: toolCallCount === 0 ? undefined : toolCallCount,
@@ -117,6 +99,8 @@ export function SessionRoute() {
     <>
       <ConvHeader
         title={title}
+        running={session.streaming || runningState.data?.running === true}
+        metrics={<HeaderMetrics tokens={stats} onOpenStats={() => setOpenPop('stats')} />}
         tools={
           <HeaderTools
             systemPrompt={focused?.systemPrompt ?? null}
@@ -140,12 +124,20 @@ export function SessionRoute() {
         />
       ) : null}
 
-      <div className="center-body">
+      <div className="conv-shell">
         <ContentWidthControls scrollRef={scrollRef} />
         <MessageMinimap
-          scrollRef={scrollRef}
-          contentRef={contentRef}
-          revision={`${session.turns.length}:${session.streaming}`}
+          viewportRef={scrollRef}
+          liveTail={session.streaming}
+          turns={session.turns.map((turn, index) => ({
+            id: turn.id,
+            title: turnTitle(turn.user.text, index),
+            toolCallCount: turn.trail.filter((row) => row.kind === 'tool').length,
+            durationMs: turn.trail.reduce(
+              (sum, row) => sum + (row.kind === 'tool' ? (row.durationMs ?? 0) : 0),
+              0,
+            ),
+          }))}
         />
         <MessageList
           turns={session.turns}
@@ -153,6 +145,10 @@ export function SessionRoute() {
           forceScrollSignal={session.turns.length}
           viewportRef={scrollRef}
           contentRef={contentRef}
+          {...(session.view.thinkingLevel === null
+            ? {}
+            : { thinkingLabel: `thinking ${session.view.thinkingLevel}` })}
+          {...(stats === undefined ? {} : { liveStats: stats })}
           empty={
             <div
               style={{
@@ -179,10 +175,16 @@ export function SessionRoute() {
         model={state?.model ?? null}
         disabled={notRunning}
         placeholder={notRunning ? '会话未运行，无法继续（M2 支持恢复）' : '消息… 输入 / 使用命令'}
-        stats={<StatsPills stats={stats} onSelect={() => setOpenPop('stats')} />}
+        stats={<StatsPills stats={stats} />}
       />
     </>
   );
+}
+
+/** minimap 浮层标题（原型「Turn 1 · 分类盘点」）：用户消息首行，空轮只留轮号 */
+function turnTitle(text: string, index: number): string {
+  const line = (text.trim().split('\n')[0] ?? '').slice(0, 28);
+  return line === '' ? `Turn ${index + 1}` : `Turn ${index + 1} · ${line}`;
 }
 
 function Banner({

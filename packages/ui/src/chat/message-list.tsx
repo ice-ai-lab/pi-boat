@@ -1,13 +1,14 @@
 import type { Turn } from '@ice-ai/client';
-import { Fragment, type ReactNode, type RefObject } from 'react';
+import type { ReactNode, RefObject } from 'react';
 import { useAutoScroll } from '../hooks/use-auto-scroll';
 import { cn } from '../lib/cn';
 import { AssistantTurn } from './assistant-turn';
 import { ScrollToBottomButton } from './scroll-to-bottom-button';
+import type { SessionStatsDisplay } from './usage-line';
 import { UserBubble } from './user-bubble';
 
 /**
- * 对话列表（原型 `.scrollbody` + `.chat-col`）。
+ * 对话列表（原型 `.conv-scroll` 滚动容器 + `.conv` 内容列 + `.turn` 轮容器）。
  *
  * - 滚动吸附模型在 `useAutoScroll`（贴底 8px / 重吸 96px / 上滚即脱离）
  * - 内容宽度走 CSS 变量 `--chat-w`（原型 `publishChatW()` 维护）
@@ -18,6 +19,10 @@ export interface MessageListProps {
   turns: Turn[];
   /** 末轮仍在流式（方案 2 的 isLiveTail） */
   liveTail?: boolean;
+  /** 思考档位展示（透传 AssistantTurn → `.mline`） */
+  thinkingLabel?: string;
+  /** 流式徽标数据（缓存 / 速度；透传 AssistantTurn） */
+  liveStats?: SessionStatsDisplay;
   /** 滚到顶部时触发历史加载（M2 分页） */
   onReachTop?: () => void;
   /** 变化即强制回底（instant）——自己发出消息时用 */
@@ -33,6 +38,8 @@ export interface MessageListProps {
 export function MessageList({
   turns,
   liveTail = false,
+  thinkingLabel,
+  liveStats,
   onReachTop,
   forceScrollSignal,
   header,
@@ -52,7 +59,7 @@ export function MessageList({
   if (turns.length === 0 && empty !== undefined) {
     return (
       <div
-        className={cn('scrollbody', className)}
+        className={cn('conv-scroll', className)}
         style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
       >
         {empty}
@@ -64,20 +71,25 @@ export function MessageList({
     <>
       <div
         ref={auto.viewportRef}
-        className={cn('scrollbody', className)}
+        className={cn('conv-scroll', className)}
         onScroll={() => {
           auto.onScroll();
           const el = auto.viewportRef.current;
           if (el !== null && onReachTop !== undefined && el.scrollTop <= 24) onReachTop();
         }}
       >
-        <div className="chat-col" ref={contentRef}>
+        <div className="conv" ref={contentRef}>
           {header}
           {turns.map((turn, index) => (
-            <Fragment key={turn.id}>
+            <section className="turn" key={turn.id} data-turn-id={turn.id}>
               <UserBubble turn={turn} />
-              <AssistantTurn turn={turn} liveTail={liveTail && index === turns.length - 1} />
-            </Fragment>
+              <AssistantTurn
+                turn={turn}
+                liveTail={liveTail && index === turns.length - 1}
+                thinkingLabel={thinkingLabel}
+                liveStats={liveStats}
+              />
+            </section>
           ))}
           {footer}
         </div>

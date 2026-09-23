@@ -70,7 +70,7 @@ export function NewSessionRoute() {
         title="新会话"
         tools={<HeaderTools systemPrompt={null} open={open} onOpenChange={setOpen} />}
       />
-      <div className="center-body">
+      <div className="conv-shell">
         <EmptyState
           title="起航，驶向未至之境"
           subtitle="选择左侧的文件夹空间，从一次对话开始"
@@ -83,43 +83,35 @@ export function NewSessionRoute() {
             </>
           }
         >
-          <label className="hairline mb-2 flex items-center gap-2 rounded-xl border-line-2 bg-surface-raised px-3 py-2 elev-soft-sm">
-            <Icon name="folder" size={14} className="text-fg-subtle" />
+          <label className="cwd-row">
+            <Icon name="folder" size={14} />
             <input
               value={cwd}
               onChange={(event) => setCwd(event.target.value)}
               placeholder="/absolute/path/to/project"
               aria-label="工作目录"
               spellCheck={false}
-              className="min-w-0 flex-1 bg-transparent font-mono text-[12px] text-fg outline-none placeholder:text-fg-faint"
             />
           </label>
-          <div className="input-card sq">
-            <Textarea
-              value={text}
-              onChange={setText}
-              onSubmit={() => void start()}
-              disabled={busy}
-              placeholder="消息… 输入 / 使用命令"
-            />
-            <div className="composer-actions">
-              <span className="spacer" />
-              <button
-                type="button"
-                className="send-btn sq"
-                title="发送"
-                aria-label="发送"
-                disabled={!canSend}
-                onClick={() => void start()}
-              >
-                <Icon name="send" size={18} />
-              </button>
-            </div>
-          </div>
-          {error === null ? null : (
-            <p style={{ marginTop: 8, fontSize: 12, color: 'var(--red)' }}>{error}</p>
-          )}
-          <p style={{ marginTop: 10, fontSize: 11, color: 'var(--t4)' }}>
+          <Textarea
+            value={text}
+            onChange={setText}
+            onSubmit={() => void start()}
+            disabled={busy}
+            placeholder="消息… 输入 / 使用命令"
+          />
+          <button
+            type="button"
+            className="send-btn"
+            title="发送"
+            aria-label="发送"
+            disabled={!canSend}
+            onClick={() => void start()}
+          >
+            <Icon name="send" size={18} />
+          </button>
+          {error === null ? null : <p className="err">{error}</p>}
+          <p className="cwd-hint">
             当前文件夹空间：{workspace?.projectRoot ?? '（无历史项目，直接粘贴绝对路径）'}
           </p>
         </EmptyState>

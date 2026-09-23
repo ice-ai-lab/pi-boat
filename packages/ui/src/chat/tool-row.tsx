@@ -4,7 +4,7 @@ import { CollapseRow, ToolTag } from './collapse-row';
 import { DiffView } from './diff-view';
 
 /**
- * 工具行（原型 `.tag.tool.*` + `.disc`）。
+ * 工具行（原型 `.tag.tool.*` + `.disc`，执行中带 `.run-spin`，失败带 `.exit-chip`）。
  *
  * 生命周期跨两类事件：`toolcall_*` 提供标题/参数、`tool_execution_*` 与 toolResult
  * 提供状态/输出——两者都落在同一个 `row` 上。
@@ -17,8 +17,8 @@ export interface ToolRowProps {
 }
 
 export function ToolRow({ row }: ToolRowProps) {
-  const defaultOpen =
-    row.status === 'running' || row.status === 'preparing' || row.status === 'error';
+  const running = row.status === 'running' || row.status === 'preparing';
+  const defaultOpen = running || row.status === 'error';
   const [userOpen, setUserOpen] = useState<boolean | null>(null);
   const open = userOpen ?? defaultOpen;
 
@@ -29,17 +29,19 @@ export function ToolRow({ row }: ToolRowProps) {
       durationMs={row.durationMs}
       open={open}
       onToggle={setUserOpen}
+      running={running}
+      exitChip={row.status === 'error' ? <span className="exit-chip">出错</span> : undefined}
     >
       {row.diff === undefined ? null : <DiffView diff={row.diff} />}
       {row.output === null || row.output === '' ? (
-        row.status === 'running' ? (
+        running ? (
           <span className="shimmer">执行中…</span>
         ) : null
       ) : (
-        <div className={row.diff === undefined ? undefined : 'mt-2'}>{row.output}</div>
+        <div className="pre">{row.output}</div>
       )}
       {row.args !== undefined && JSON.stringify(row.args) !== '{}' && row.output === null ? (
-        <div className="mt-2 opacity-70">{JSON.stringify(row.args, null, 2)}</div>
+        <div className="pre subtle">{JSON.stringify(row.args, null, 2)}</div>
       ) : null}
     </CollapseRow>
   );

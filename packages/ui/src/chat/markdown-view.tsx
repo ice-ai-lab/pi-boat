@@ -29,11 +29,11 @@ const components: Components = {
   pre({ children }) {
     return <>{children}</>;
   },
-  // 表格：原型要求外层 wrap（横向滚动 + 描边）
+  // 表格：原型要求外层 wrap（横向滚动 + 描边），`.tbl` 落在 table 上
   table({ children }) {
     return (
-      <div className="tbl scrollbar-thin">
-        <table>{children}</table>
+      <div className="tbl-wrap">
+        <table className="tbl">{children}</table>
       </div>
     );
   },
