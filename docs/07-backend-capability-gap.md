@@ -19,7 +19,6 @@
 
 **一期排除 / 延后**（用户 2026-01 定案，详见 §8）：**鉴权（本机访问控制 / LAN）**、**登录（provider OAuth/API Key 入口）**、**终端（PTY，含 Shell 直连与 `bash-output`）**、**内建子代理运行时（延后，可由 pi 扩展提供）**。
 四者均**不在一期实现**，且在 `docs/01` 里的残留描述已同步清除（延后项见 §8-4）。
-三者均**不实现**，且在 `docs/01` 里的残留描述已同步清除。
 
 **五类标记**（全文统一）：
 
@@ -76,7 +75,7 @@
 | `POST /api/agent/:id/lease` | 🟡 | M3 登记，未实现（配合 G2-12） |
 | `GET /api/agent/:id/bash-output` | ⛔ | **不做**（2026-01 定案：所有终端类能力一律不要）。超长 bash 输出临时文件的读取端点与 Shell 直连命令组（`bash` / `abort_bash`）一并不做；`BashExecutionMessage` 的历史渲染不受影响 |
 
-缺失命令（14）：`set_model`、`set_thinking_level`、`compact`、`abort_compaction`、`set_auto_compaction`、`set_auto_retry`、`fork`、`fork_branch`、`clone`、`navigate_tree`、`set_session_name`、`reload`、`extension_ui_response`。
+缺失命令（13，扣除 Shell 直连组 2 与不存在的 `extension_ui_input`）：`set_model`、`set_thinking_level`、`compact`、`abort_compaction`、`set_auto_compaction`、`set_auto_retry`、`fork`、`fork_branch`、`clone`、`navigate_tree`、`set_session_name`、`reload`、`extension_ui_response`。
 （⚠️ 原列的 `extension_ui_input` **不存在**——0.87.1 `RpcCommand` 里没有这个命令，属误记；扩展 UI 只需 `extension_ui_response` 一个回填命令，见 ADR-0012）
 （`bash` / `abort_bash` 属 Shell 直连组，本仓已决策不做 —— 复核即可。）
 
@@ -237,12 +236,12 @@
 |---|---|---|---|
 | **B0 定案** | §5 的 ADR + `docs/02` 路由基线刷新 | — | 定案文档 |
 | **B1 SDK 升级** ✅ 已完成 | 升 `0.87.x`（ADR-0010）、wire 投影对齐（system 消息过滤 / `agent_end` / `turn_*` 取舍）、`computeStats` 口径、事件快照回归全绿 | — | core 地基（遗留 2 项真机验证，见 §2 G1） |
-| **B2 命令通道补全** | 缺的 14 条命令 + fork runtime 替换 + `set_tools` 冷会话重建 + 扩展 UI 通道（G2-4）+ 工具预设（G2-9）+ 性能统计累加 + 精确系统提示词（G2-10） | B1 | agent 域完整 |
-| **B3 模型域** | `models` / `models-config`(+catalog/discover/test) / `models/enabled`(G2-2) / `models/refresh`(G2-3) / 启动偏好（G2-11） | B1 | ConfigService |
-| **B4 会话域增强** | export（含深链补丁）/ auto-name / thinking / `snapshotRevision`(G2-6) / `summary=1`(G2-8) / 正文搜索(G2-7) / 外部写入检测(G2-5) / transient 合并 / `deferMedia`+`deferThinking` 定稿 | B1 | 会话域完整 |
-| **B5 文件 / Git / Worktree** | files 六 type + upload/upload-check（Range / DOCX / 分块 / 引用放行）/ file-index / home / default-cwd / cwd browse+validate / git status+diff / worktrees 全组（含路径归一与 409 dirty） | B0（allowed-roots 检查清单） | SystemService |
-| **B6 资源域** | skills 全组 / plugins 全组 / tools-settings / project-trust | B2（扩展通道） | 资源域完整（子代理延后，见 §8-4） |
-| **B7 生命周期与通知** | liveness lease / idle 回收（G2-12）+ 推送投递侧（G2-13） | B1 | 收口 |
+| **B2 命令通道补全** ✅ 已完成 | 13 条命令 + fork runtime 替换（`AgentSessionRuntime`）+ `set_tools` 双路径 + 扩展 UI 通道（G2-4，ADR-0012）+ 工具预设（G2-9）+ 性能统计累加 + 精确系统提示词（G2-10）+ 冷会话 `resume`（ADR-0013a） | B1 ✅ | agent 域完整 |
+| **B3 模型域** ✅ 已完成 | `models` / `models-config`(+catalog/discover/test) / `models/enabled`(G2-2，ADR-0011) / `models/refresh`(G2-3) | B1 ✅ | ConfigService |
+| **B4 会话域增强** ✅ 已完成 | export（SDK `exportFromFile`）/ auto-name / thinking / `revision`(G2-6) / `summary=1`(G2-8) / 正文搜索(G2-7) / 外部写入探测(G2-5，ADR-0013b) / transient 合并 | B1 ✅ | 会话域完整 |
+| **B5 文件 / Git / Worktree** ✅ 已完成 | files list/read/download/meta/preview + upload/upload-check（引用放行、文件名清洗、冲突策略）/ file-index（git ls-files + 模糊打分）/ home / default-cwd / cwd browse+validate / git status+diff / worktrees 全组（路径归一 + 409 dirty） | B0 ✅ | SystemService + PathGuard |
+| **B6 资源域** ✅ 已完成 | skills（list / PATCH frontmatter / search / install / check / update）/ plugins（list / 五种动作 / check）/ tools-settings / project-trust | B2 ✅ | ResourceService（子代理延后，见 §8-4） |
+| **B7 生命周期与通知** ✅ 已完成 | liveness lease / idle 回收（G2-12）+ 推送订阅与投递侧（G2-13，投递依赖可选 `web-push`） | B1 ✅ | LivenessRegistry + PushService |
 | **B8 可选** | 耗时埋点、gzip、SSE 环形缓冲差量重放 | — | 锦上添花 |
 
 **每批验收线**：
@@ -352,10 +351,20 @@
 
 ## 9. 下一步
 
-1. ✅ **定案已齐**：ADR-0010～0014 全部已接受（§5），B0 完成
-2. ✅ **B1 已完成**（SDK 对齐 `0.87.x`）——遗留 2 项真机验证（§2 G1）
-3. 待办：把本文件登记进 `docs/01 §7` 里程碑表
-4. 开工 **B2 命令通道补全**：缺的 14 条命令 + fork runtime 替换 + `set_tools` 冷会话重建 + **扩展 UI 通道（ADR-0012 的 9 个 method）** + 工具预设（G2-9）+ 精确系统提示词（G2-10）
-5. 然后依次 B3（模型域，ADR-0011）→ B4（会话域，ADR-0013）→ B5（文件/Git/Worktree）→ B6（资源域）→ B7（生命周期与通知）
+1. ✅ **B0～B7 全部完成**（2026-02）：定案 → SDK 对齐 → 命令通道 → 模型域 → 会话域 → 文件/Git/Worktree → 资源域 → 生命周期与通知
+2. 门槛：`pnpm turbo run lint typecheck build test` 全绿（protocol 32 / core 184 / server 66 用例）
+3. 遗留（**已知、非阻塞**，见下「实现期发现的边界」）
+4. 下一步是 `apps/web` + `packages/ui` 前端（一期后半）
+
+### 实现期发现的边界（有意留下的，不是遗漏）
+
+| 项 | 现状 | 理由 |
+|---|---|---|
+| `GET /api/files/*?type=watch` | 返回 400（未实现） | 文件监听要常驻 watcher 与跨平台差异处理；一期用轮询足够 |
+| 上传的 Range / DOCX / 分块 | 未实现（单请求多文件已实现，25MB/文件、100MB/请求） | 分块与 Range 只在超大文件场景需要 |
+| 推送**投递** | 需要可选包 `web-push`（未装则 `GET /api/push/config` 回 `enabled:false` + 原因） | AES128GCM 载荷加密不宜自研；订阅侧已完整落盘 |
+| 子代理运行时 | 延后（见 §8-4） | 可由 pi 扩展提供，后端零改动 |
+| `deferThinking` | 不做（历史 thinking 全文直发，按块惰性取原文另走 `/thinking`） | 2026-09-20 已定案 |
+| 启动偏好（G2-11） | 并入模型域实现（显式选择经 `set_model` / `agent/new` 的 provider+modelId 落 settings） | 无独立端点需求 |
 
 > 本文与代码不一致时以代码为准并当天更新（AGENTS.md）。

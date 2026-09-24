@@ -16,8 +16,8 @@
 | 事实 | 出处 | 含义 |
 |---|---|---|
 | `resolveModelScopeWithDiagnostics(patterns, modelRuntime, opts)` **存在** | `core/model-resolver.d.ts` | 作用域解析（glob / fuzzy / `:thinkingLevel` 后缀 / 诊断）**可直接委托 SDK**，不要自己实现匹配 |
-| `Settings.enabledModels?: string[]` 只是个字段 | `core/settings-manager.d.ts` | 解析用的数据在这里，但**没有** `setEnabledModels()` |
-| `SettingsManager.withLock(scope, fn: (raw) => raw)` | 同上 | 写入的唯一正确入口：**在锁内对原始文本做最小编辑** |
+| `getEnabledModels() / setEnabledModels(patterns)` **都在** | `core/settings-manager.d.ts` | 写入可直接走 setter（不必自己拼 settings.json）；但 **setter 只接受整份数组**，"最小编辑"仍须在本仓算好再交给它 |
+| `withLock(scope, fn)` 在 **`SettingsStorage`** 上，**不在** `SettingsManager` 上 | 同上（`FileSettingsStorage` 实现它） | 没有 setter 的自由字段（如 `defaultTools`）要自己带锁改文件；锁约定是 `<file>.lock` **目录**（与 proper-lockfile 一致） |
 | `getGlobalSettings()` / `getProjectSettings()` / `isProjectTrusted()` | 同上 | 项目级是否 shadow 了全局值可判定 |
 
 ## 决策
@@ -25,7 +25,8 @@
 ### ① 完整引擎（不做「整表重写」的简化版）
 
 - **解析一律委托** `resolveModelScopeWithDiagnostics()`；本仓不写匹配逻辑
-- **写入一律最小编辑**：只动用户真正切换的那一项覆盖到的 pattern，其余原样保留（包括**匹配不到任何模型的 pattern**、handoff 的 `:level` 后缀、用户手写的具名列表）
+- **写入一律最小编辑**：只动用户真正切换的那一项覆盖到的 pattern，其余原样保留（包括**匹配不到任何模型的 pattern**、`:level` 后缀、用户手写的具名列表）；算好的数组经 `setEnabledModels()` + `flush()` 落盘
+- **不得用 `getAvailable()` 枚举 provider 的模型**（不能只算"当前鉴权通过的"）：判断"是否全覆盖该 provider"要用 `getModels()` 的完整目录，否则缺凭据的模型会被误判为"不需要"而静默丢条目
 - 一个 provider 被完全启用且条目 ≥ 2 时**收敛回一个 glob**（枚举列表会随模型改名腐烂，glob 会自愈）
 - 禁用到最后一个模型 → `409 { reason: "last-model" }`（空列表在 pi 里等于「全开」，语义相反）
 - 提供 `op: "prune"`（丢弃匹配不到的条目）与 `op: "resync"`（按新目录修复改名残留）两类**显式**修复操作；普通开关永不隐式重写未触碰的条目
@@ -80,5 +81,12 @@
 
 ## 验证记录
 
-待 B3 落地时补：最小编辑的单测（含 minimatch 嵌套 id、provider 改名、`:level` 后缀、未匹配项保留）、并发刷新合并、
-`last-model` 409、项目 shadow 只读、离线返回 `reason: "offline"`。
+B3 已落地（2026-02），验证记录：
+- 最小编辑单测：嵌套 id（全开收敛 `provider/**`、部分选中逐条写）、provider 改名 resync、`:level` 后缀保留、
+  未匹配项默认保留（`prune` 才丢）、幂等（已在期望状态时原样返回）、新片段插在原 provider 片段处
+- `models.json` 读写：BOM/注释/尾逗号宽容解析、坏文件**拒写**（`ModelsConfigReadError`）、cost 组补零、0600 原子写
+- 路由层：`last-model` → 409 + `reason`、`project-shadow` → 409、离线 `reason:'offline'`、`force` 不覆盖 `PI_OFFLINE`
+- 并发刷新合并（`refreshInFlight`）、变更检测比 id/name 不比存储字节
+
+⚠️ 实现期修正（2026-02）：本文原写"`SettingsManager` 没有 `setEnabledModels()`"——**是错的**，
+该方法存在（见上表）。`withLock` 也确实存在，但在 `SettingsStorage` 上而不是 `SettingsManager` 上。
