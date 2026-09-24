@@ -67,8 +67,8 @@ site（scheme + registrable domain，**端口不参与**），而 ② 闸的白�
 
 **7. 不用 Hono `hc` 生成客户端类型。** 两个理由：① `hc` 只能从路由实现推导 REST 形状，而 client 的
 代码主体是 SSE 消费与视图模型推导（`docs/05` §6），它一点都不覆盖；② 它会与 protocol 形成**第二套类型来源**，
-与 ADR-0006（protocol 是前后端唯一契约）直接冲突。端点封装只把 protocol 的路径常量与 schema 拼起来，
-新增路由时两侧改同一份常量即天然同步。
+与 ADR-0006（protocol 是前后端唯一契约）直接冲突。端点封装只把 protocol 的 schema 拼起来（路由路径用字面量，常量待 client 真正消费时再加），
+新增路由时两侧改同一份形状即天然同步。
 
 ## 被否决的方案
 

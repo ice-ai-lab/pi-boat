@@ -1,15 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import * as protocol from '../src/index';
 import {
-  agentStatePath,
-  entryThinkingPath,
   ProjectsQuerySchema,
   ProjectsResponseSchema,
-  SESSIONS_PATH,
   SessionDetailResponseSchema,
   SessionListQuerySchema,
   SessionListResponseSchema,
-  sessionContextPath,
-  sessionPath,
 } from '../src/index';
 
 const sessionInfo = {
@@ -67,14 +63,6 @@ describe('rest/sessions', () => {
     };
     expect(SessionDetailResponseSchema.parse(body)).toEqual(body);
   });
-
-  it('builds route paths from constants', () => {
-    expect(SESSIONS_PATH).toBe('/api/sessions');
-    expect(sessionPath('abc/def')).toBe('/api/sessions/abc/def');
-    expect(agentStatePath('s1')).toBe('/api/agent/s1');
-    expect(sessionContextPath('s1')).toBe('/api/sessions/s1/context');
-    expect(entryThinkingPath('s1', 'e9')).toBe('/api/sessions/s1/entries/e9/thinking');
-  });
 });
 
 describe('rest/projects（ADR-0008）', () => {
@@ -113,5 +101,25 @@ describe('rest/projects（ADR-0008）', () => {
     });
     expect(SessionListQuerySchema.safeParse({ force: 'true' }).success).toBe(false);
     expect(ProjectsQuerySchema.safeParse({ force: '0' }).success).toBe(false);
+  });
+});
+
+describe('协议包不导出路由路径常量（docs/02 §3「不养期货」）', () => {
+  it('没有任何 *_PATH / *Path 形式的导出', () => {
+    // 常量的唯一价值是"两端共用一份"。在 client SDK 真正消费它之前，
+    // 那些 export 只是无消费方的期货——本仓的规矩是出现消费方时再加。
+    // 这条断言就是防它悄悄长回来的闸门：真要用时会有意改这里，并同时接上调用方。
+    const offenders = Object.keys(protocol).filter(
+      (name) => name.endsWith('_PATH') || (name.endsWith('Path') && name !== 'sessionPath'),
+    );
+    expect(offenders).toEqual([]);
+  });
+
+  it('域文件只导出 schema / 类型 / 枚举之类的契约，不导出地址', () => {
+    // 抽查几个历史上有过路径常量的域：现在应当一个都找不到
+    expect('SESSIONS_PATH' in protocol).toBe(false);
+    expect('AGENT_NEW_PATH' in protocol).toBe(false);
+    expect('MODELS_CONFIG_PATH' in protocol).toBe(false);
+    expect('WORKTREES_PATH' in protocol).toBe(false);
   });
 });

@@ -119,7 +119,7 @@ pi-boat/
 
 #### `packages/client`
 
-- **框架无关核心**（主入口不得 import React）：typed fetch 封装（端点 = protocol 路径常量 + Zod 解析）、
+- **框架无关核心**（主入口不得 import React）：typed fetch 封装（端点 = protocol 的请求/响应 schema + Zod 解析；路径常量待有消费方时再加，docs/02 §3）、
   SSE 订阅与 seq 对账（`AgentStream`）、事件 → **视图模型**的折叠（`fold.ts` 实时 / `rebuild.ts` 历史）
 - `@ice-ai/client/react` 子导出：`useAgentSession` 等 hooks；TanStack Query 只在这一层（事件流不走 Query）
 - 详细设计见 `docs/05-client-design.md`——其中的**视图模型契约**是 ui 组件的消费依据

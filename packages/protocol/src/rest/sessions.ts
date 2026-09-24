@@ -10,24 +10,9 @@ import { type AgentRunningState, AgentRunningStateSchema } from './agent';
 /**
  * ⑤ REST 资源——会话域（docs/02 §6.1 列表/搜索 / §6.2 详情与生命周期 / §6.3 分页与惰性加载）。
  * agent 运行时域（/api/agent/*）拆至 ./agent——按 core 双服务边界分域（2026-09-22）。
- * 路径常量 + 请求/响应类型 + Zod schema 三件套（docs/02 §10）。
+ * 只定义请求/响应契约，**不导出路径常量**——路由字面量归 server／client 各自持有，
+ * 无消费方的常量视同期货（docs/02 §3「不养期货」）。
  */
-
-// ---------------------------------------------------------------------------
-// 路径常量（server 路由与 client SDK 共用的单一来源）
-// ---------------------------------------------------------------------------
-
-export const SESSIONS_PATH = '/api/sessions' as const;
-export const SESSION_SEARCH_PATH = '/api/sessions/search' as const;
-export const sessionPath = (id: string) => `/api/sessions/${id}` as const;
-export const sessionStatePath = (id: string) => `/api/sessions/${id}/state` as const;
-export const sessionExportPath = (id: string) => `/api/sessions/${id}/export` as const;
-export const sessionAutoNamePath = (id: string) => `/api/sessions/${id}/auto-name` as const;
-export const sessionContextPath = (id: string) => `/api/sessions/${id}/context` as const;
-export const entryThinkingPath = (id: string, entryId: string) =>
-  `/api/sessions/${id}/entries/${entryId}/thinking` as const;
-export const entryToolResultImagePath = (id: string, entryId: string) =>
-  `/api/sessions/${id}/entries/${entryId}/tool-result-image` as const;
 
 // ---------------------------------------------------------------------------
 // §6.1 会话列表
@@ -52,6 +37,12 @@ export const entryToolResultImagePath = (id: string, entryId: string) =>
 export const SessionListQuerySchema = z.object({
   force: z.literal('1').optional(),
   projectKey: z.string().min(1).optional(),
+  /**
+   * 快路径：跳过**项目解析**（每 cwd 一次 git 子进程）只回会话本身。
+   * 结果里 `projectRoot`/`projectKey`/`branch` 缺省——侧栏首次挂载用它先把列表显示出来，
+   * 之后再拉全量补上分组（ADR-0008 性能分层的第二级）。
+   */
+  summary: z.literal('1').optional(),
 });
 export type SessionListQuery = z.infer<typeof SessionListQuerySchema>;
 
@@ -82,6 +73,12 @@ export type SessionSearchResponse = z.infer<typeof SessionSearchResponseSchema>;
 // §6.2 会话详情与生命周期
 // ---------------------------------------------------------------------------
 
+/** GET /api/sessions/:id?force=1 —— 强制全量重读（并做外部写入探测，ADR-0013b） */
+export const SessionDetailQuerySchema = z.object({
+  force: z.literal('1').optional(),
+});
+export type SessionDetailQuery = z.infer<typeof SessionDetailQuerySchema>;
+
 /** GET /api/sessions/:id（tail 默认 50，上限 1000） */
 export const SessionDetailResponseSchema = z.object({
   sessionId: z.string(),
@@ -93,6 +90,12 @@ export const SessionDetailResponseSchema = z.object({
   stats: SessionStatsInfoSchema,
   totalActiveMs: z.number(),
   toolNames: z.array(z.string()).optional(),
+  /**
+   * 外部写入探测结果（ADR-0013b，仅 `force=1` 时做）：为 true 时本进程的 runtime
+   * 是用磁盘最新内容重建过的，客户端应重新拉历史（内存态已丢：半截消息、队列）。
+   * 非强制读一律缺省（**不在 run 期间换 runtime**，否则会丢流）。
+   */
+  wrapperRebuilt: z.boolean().optional(),
 });
 export type SessionDetailResponse = z.infer<typeof SessionDetailResponseSchema>;
 
@@ -116,6 +119,14 @@ export type SessionStateResponse = AgentRunningState;
 export const SessionStateResponseSchema = AgentRunningStateSchema;
 
 /** POST /api/sessions/:id/auto-name —— LLM 生成会话名 */
+export const SessionAutoNameRequestSchema = z.object({
+  /** 生成用的 cwd（决定用哪份项目设置与默认模型）；缺省 = 会话自己的 cwd */
+  cwd: z.string().optional(),
+  /** 只回名字，不落盘（前端先预览） */
+  dryRun: z.boolean().optional(),
+});
+export type SessionAutoNameRequest = z.infer<typeof SessionAutoNameRequestSchema>;
+
 export const SessionAutoNameResponseSchema = z.object({
   title: z.string(),
   usage: z.unknown().optional(),
@@ -144,6 +155,23 @@ export const SessionContextQuerySchema = z.object({
   deferMedia: z.boolean().optional(),
 });
 export type SessionContextQuery = z.infer<typeof SessionContextQuerySchema>;
+
+/** GET /api/sessions/:id/export?inline=1 —— HTML 导出（attachment / inline） */
+export const SessionExportQuerySchema = z.object({
+  /** inline=1：浏览器内联渲染（预览）；缺省 = 附件下载 */
+  inline: z.literal('1').optional(),
+});
+export type SessionExportQuery = z.infer<typeof SessionExportQuerySchema>;
+
+/**
+ * GET /api/sessions/:id/revision —— 会话文件指纹（G2-6）。
+ * 与 `listFingerprint` 同构但**针对单个会话**：客户端拿它决定详情视图缓存能不能复用。
+ * 不透明、无单调性（**只比较相等**），文件被回退时也会变回旧值。
+ */
+export const SessionRevisionResponseSchema = z.object({
+  revision: z.string(),
+});
+export type SessionRevisionResponse = z.infer<typeof SessionRevisionResponseSchema>;
 
 /** GET /api/sessions/:id/entries/:entryId/thinking?blockIndex —— 全量推理文本 */
 export const EntryThinkingQuerySchema = z.object({
