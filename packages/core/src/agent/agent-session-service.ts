@@ -33,7 +33,6 @@ import type {
 } from '@ice-ai/protocol';
 import { toolNamesForPreset } from '@ice-ai/protocol';
 import { toWireAgentMessage } from '../events/wire-message';
-import { createExactSystemPromptExtension } from './exact-system-prompt';
 import { SessionRegistryEntry, type WireAgentEventListener } from './session-entry';
 import {
   clearedToolSelection,
@@ -115,7 +114,8 @@ export interface CreateRuntimeInput {
   /** 工具名 allowlist（显式名单或预设展开结果） */
   tools?: string[];
   /**
-   * 纯聊天（G2-9 边界）：只保留上下文文件作为系统提示词，并关掉扩展/技能/模板/主题。
+   * 纯聊天（G2-9 边界）：关掉扩展/技能/模板/主题（没有工具可执行，加载了也用不上）。
+   * 系统提示词不特殊处理，交给 pi 按默认结构化段落组装（ADR-0015）。
    * 由 `set_tools {preset:'none'}` 或 `agent/new {toolNames:[]}` 触发。
    */
   chatOnly?: boolean;
@@ -983,8 +983,8 @@ export function defaultCreateRuntime(agentDir: string | undefined): CreateRuntim
       const services = await createAgentSessionServices({
         cwd,
         agentDir: runtimeAgentDir,
-        // 纯聊天：只保留上下文文件作为系统提示词（G2-9/G2-10）。
-        // 关掉扩展/技能/模板/主题——纯聊天没有工具可执行，挂着它们只会污染提示词
+        // 纯聊天（G2-9 边界）：扩展工具跑不了、技能要靠 read/bash 才读得到，
+        // 都没必要加载。系统提示词不覆写——交给 pi 按默认段落组装（ADR-0015）
         ...(input.chatOnly
           ? {
               resourceLoaderOptions: {
@@ -992,17 +992,6 @@ export function defaultCreateRuntime(agentDir: string | undefined): CreateRuntim
                 noSkills: true,
                 noPromptTemplates: true,
                 noThemes: true,
-                // 占位非空值阻止 loader 去发现配置里的提示词文件（与 pi 的
-                // `--system-prompt " "` 同一手法）；真正的提示词由下面的
-                // before_agent_start 扩展整份替换
-                systemPrompt: ' ',
-                appendSystemPrompt: [' '],
-                // 每轮重读：重载了上下文文件的会话下一轮就带上新内容
-                extensionFactories: [
-                  createExactSystemPromptExtension(() =>
-                    contextFilesSystemPrompt(services.resourceLoader.getAgentsFiles().agentsFiles),
-                  ),
-                ],
               },
             }
           : {}),
@@ -1024,13 +1013,6 @@ export function defaultCreateRuntime(agentDir: string | undefined): CreateRuntim
       sessionManager,
     });
   };
-}
-
-/** 纯聊天的系统提示词 = 上下文文件内容拼接（不含 pi 的结构化段落） */
-function contextFilesSystemPrompt(
-  agentsFiles: ReadonlyArray<{ path: string; content: string }>,
-): string {
-  return agentsFiles.map((file) => file.content).join('\n\n');
 }
 
 /** protocol 的三态应答 → 桥的判别联合 */

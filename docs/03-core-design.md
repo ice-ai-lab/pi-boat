@@ -34,7 +34,6 @@ core 是 pi SDK 之上的**传输无关**业务层，补齐 SDK 没有的三件�
 | `agent/extension-ui-bridge.ts` | 扩展 UI 宿主：阻塞型请求的兜底超时、未决请求结清、widgets/status 代际管理（ADR-0012） | `extension-ui-bridge.test.ts` |
 | `agent/liveness.ts` | `LivenessRegistry`（lease + idle 回收）+ `PushService`（VAPID、订阅落盘、完成通知投递） | `liveness.test.ts` |
 | `agent/session-tool-selection.ts` | 工具预设的会话内持久化（custom 条目读写，`TOOL_SELECTION_CUSTOM_TYPE`） | —（随 service 测） |
-| `agent/exact-system-prompt.ts` | 精确系统提示词覆写（内联 extension 的 `before_agent_start`） | —（真机验证项） |
 | `agent/sdk-types.ts` | SDK 类型的最小再导出（隔离 SDK 依赖面） | — |
 
 ### 2.2 read（`.jsonl` 只读与项目视图）
@@ -250,10 +249,13 @@ agent-session.js:776/784/949）②`agent_settled` 事件幂等兜底（steer/fol
 
 ### 10.2 遗留（有意保留 / 待真机验证）
 
-- **`systemPrompt` 的语义（ADR-0010 已升到 0.87.x）**：`agent.state.systemPrompt` 是**转录回放**
-  （从落盘的 system 消息重建），不是某次请求实际下发的 prompt；精确下发靠 `before_agent_start`
-  扩展覆写（`agent/exact-system-prompt.ts`，docs/06 §11.2）。⚠️ 面板显示值须在真机跑一轮会话时重验，
-  单测覆盖不到（B1 遗留的实测项）
+- **`systemPrompt` 的语义（ADR-0010 已升到 0.87.x；ADR-0015 定案处置）**：`session.systemPrompt` 是
+  **转录回放**（从落盘的 system 消息重建），不代表某次请求实际下发的 prompt。**本仓接受这个语义**：
+  纯聊天不再做 `before_agent_start` 精确覆写（原 `agent/exact-system-prompt.ts` 已删除），面板显示的就是
+  pi 的结构化渲染结果，不得标成「实际下发」。另注：该 getter 内部是
+  `buildSystemPrompt(_runSystemPromptOptions ?? _baseSystemPromptOptions)`，而 `_runSystemPromptOptions`
+  只在 run 期间存在——注册了强制 prompt 的 handler 时会**随时机变**（run 中显示强制值、空闲显示结构化值），
+  这正是删除它的直接原因之一（ADR-0015）
 - **`deferMedia` 占位符形状**待后续定（历史图片目前全文直发；`toolResultImage` 惰性读取已就位）
 - **SSE 重放缓冲**（Last-Event-ID 差量重放）：core 仍只发不存，重连降级为整体重建（docs/04 §5.5，
   `docs/07` B8 可选）

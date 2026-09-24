@@ -19,7 +19,6 @@
  *   - agent/ExtensionUiBridge            扩展 UI 双向通道（ADR-0012）
  *   - agent/LivenessRegistry + PushService  lease + idle 回收 + 完成通知投递
  *   - agent/session-tool-selection       工具预设持久化（custom 条目）
- *   - agent/exact-system-prompt          精确系统提示词覆写
  *   - read/SessionReadService            .jsonl 只读浏览：列表/搜索/详情/分页/导出/改名/删除/指纹
  *   - read/ProjectResolver + ProjectReadService  项目归一与清单（ADR-0008）
  *   - config/ConfigService + model-scope + models-config-store  模型域（ADR-0011）
@@ -40,7 +39,6 @@ export {
   SessionNotFoundError,
   UserInputError,
 } from './agent/agent-session-service';
-export { createExactSystemPromptExtension } from './agent/exact-system-prompt';
 export {
   DEFAULT_UI_TIMEOUT_MS,
   ExtensionUiBridge,

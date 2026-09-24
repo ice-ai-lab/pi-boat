@@ -19,3 +19,4 @@
 | [0012](0012-extension-ui-channel.md) | 扩展 UI 双向通道——采用 SDK RPC 面的 9 个 method，不引入 TUI 渲染 | 已接受 | 2026-01 |
 | [0013](0013-session-resume-and-external-write-detection.md) | 冷会话恢复走显式 `POST /resume`；外部写入检测只在全量读路径做 | 已接受 | 2026-01 |
 | [0014](0014-phase-one-scope-exclusions.md) | 一期范围排除与延后（鉴权 / 登录 / 终端 / 内建子代理运行时）；部分取代 0007 | 已接受 | 2026-01 |
+| [0015](0015-drop-exact-system-prompt.md) | 纯聊天不做精确系统提示词覆写——systemPrompt 一律按 pi 默认组装（撤销 G2-10） | 已接受 | 2026-09-24 |
