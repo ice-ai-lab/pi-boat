@@ -10,9 +10,11 @@ export * from './domain/index';
 export * from './envelope';
 export * from './events/wire-agent-event';
 export * from './rest/agent';
+export * from './rest/files';
+export * from './rest/git';
 export * from './rest/misc';
+export * from './rest/models';
 export * from './rest/projects';
+export * from './rest/resources';
 export * from './rest/sessions';
-// M2 追加：commands 分支/压缩/模型组 + rest/models + rest/auth
-// M3 追加：rest/files + rest/git + rest/resources + lease/push
 // 注：终端（PTY/TerminalEvent，docs/02 §5.3/§6.8）暂不支持，已从协议移除（2026-01 决策）

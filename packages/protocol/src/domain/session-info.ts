@@ -63,8 +63,10 @@ export const SessionInfoSchema = z.object({
   /** git worktree 检出信息 */
   branch: z.string().optional(),
   isWorktree: z.boolean().optional(),
-  /** 内存会话尚未落盘 */
+  /** 内存会话尚未落盘（本进程新建、还没有任何条目写进 .jsonl） */
   transient: z.boolean().optional(),
+  /** 会话文件指纹（G2-6 详情视图缓存键）；仅详情/单会话读下发，列表不带 */
+  revision: z.string().optional(),
 });
 export type SessionInfo = z.infer<typeof SessionInfoSchema>;
 

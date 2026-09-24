@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ThinkingLevelSchema } from '../constants';
 import { ImageContentSchema } from '../domain/message';
+import { type ModelRef, ModelRefSchema } from '../domain/session-info';
 import {
   type AgentState,
   AgentStateSchema,
@@ -12,14 +13,15 @@ import {
   SlashCommandInfoSchema,
   type ToolInfo,
   ToolInfoSchema,
+  ToolPresetSchema,
 } from '../domain/tool';
 import { CommandErrorSchema } from '../envelope';
+import { CompactionResultSchema } from '../events/wire-agent-event';
 
 /**
  * ③ Agent 命令通道（docs/02 §4）：`POST /api/agent/:id` 请求体判别联合。
- * 本文件先落地 M1 子集（对话 + 状态 + 工具 + 命令面板）；
- * M2 补分支/压缩/模型组，M3 随资源域扩展（docs/02 §11）。
- * 字段对齐 SDK 0.85.1 `modes/rpc/rpc-types.ts` 的 RpcCommand。
+ * 字段对齐 SDK 0.87.1 的 `modes/rpc/rpc-types.ts` `RpcCommand`（命名与返回形状按本仓
+ * 契约收敛，差异逐条注释）。
  */
 
 export const STREAMING_BEHAVIORS = ['steer', 'followUp'] as const;
@@ -50,9 +52,62 @@ export const AgentCommandSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('get_last_assistant_text') }),
   z.object({ type: z.literal('get_commands') }),
   z.object({ type: z.literal('get_tools') }),
+  /**
+   * set_tools 双形态（`toolNames` 与 `preset` 恰好给一个，由 core 校验后报 400）：
+   * - `toolNames`：显式名单（前端高级模式）
+   * - `preset`：预设（G2-9）；`configured` = 撤销钉住，回到 settings.json 的 defaultTools
+   * 两个字段都可选、由 core 做互斥校验：判别联合的成员必须是普通 ZodObject，
+   * 挂 ZodUnion/ZodEffects 会让 outside-in 的判别提取失败。
+   */
   z.object({
     type: z.literal('set_tools'),
-    toolNames: z.array(z.string()),
+    toolNames: z.array(z.string()).optional(),
+    preset: ToolPresetSchema.optional(),
+  }),
+  // —— 模型 / 思考 ——
+  z.object({
+    type: z.literal('set_model'),
+    provider: z.string().min(1),
+    modelId: z.string().min(1),
+  }),
+  z.object({
+    type: z.literal('set_thinking_level'),
+    level: ThinkingLevelSchema,
+  }),
+  // —— 压缩 / 重试 ——
+  z.object({
+    type: z.literal('compact'),
+    customInstructions: z.string().optional(),
+  }),
+  z.object({ type: z.literal('abort_compaction') }),
+  z.object({ type: z.literal('set_auto_compaction'), enabled: z.boolean() }),
+  z.object({ type: z.literal('set_auto_retry'), enabled: z.boolean() }),
+  // —— 分支（fork/clone 为**破坏性原地替换**，docs/01 §8-1）——
+  z.object({ type: z.literal('fork'), entryId: z.string().min(1) }),
+  z.object({ type: z.literal('fork_branch'), entryId: z.string().min(1) }),
+  z.object({ type: z.literal('clone'), leafId: z.string().optional() }),
+  z.object({
+    type: z.literal('navigate_tree'),
+    targetId: z.string().min(1),
+    summarize: z.boolean().optional(),
+    customInstructions: z.string().optional(),
+    replaceInstructions: z.boolean().optional(),
+    label: z.string().optional(),
+  }),
+  // —— 会话管理 ——
+  z.object({ type: z.literal('set_session_name'), name: z.string() }),
+  z.object({ type: z.literal('reload') }),
+  // —— 扩展 UI（ADR-0012）——
+  /**
+   * 扩展 UI 应答。三种形状互斥（`value` / `confirmed` / `cancelled` 恰给一个），
+   * 由 core 校验并在都不满足时报 400。
+   */
+  z.object({
+    type: z.literal('extension_ui_response'),
+    id: z.string().min(1),
+    value: z.string().optional(),
+    confirmed: z.boolean().optional(),
+    cancelled: z.literal(true).optional(),
   }),
 ]);
 export type AgentCommand = z.infer<typeof AgentCommandSchema>;
@@ -92,6 +147,29 @@ export const SetToolsRecreatedSchema = z.object({
   recreated: z.boolean(),
 });
 
+/**
+ * 分支命令返回：`cancelled` 为 true 时 `newSessionId` 缺省
+ * （SDK 的 fork/switch 可被 `session_before_fork` 之类的扩展钩子取消）。
+ */
+export interface BranchResult {
+  cancelled: boolean;
+  newSessionId?: string;
+}
+export const BranchResultSchema = z.object({
+  cancelled: z.boolean(),
+  newSessionId: z.string().optional(),
+});
+
+/** navigate_tree 返回：切到 user 消息时回填该消息文本供编辑器续写 */
+export interface NavigateTreeResult {
+  cancelled: boolean;
+  editorText?: string;
+}
+export const NavigateTreeResultSchema = z.object({
+  cancelled: z.boolean(),
+  editorText: z.string().optional(),
+});
+
 /** 命令 → 返回值映射（信封 CommandOk<T> 的 T 取此处） */
 export interface AgentCommandResults {
   prompt: null;
@@ -105,6 +183,19 @@ export interface AgentCommandResults {
   get_commands: CommandListResult;
   get_tools: ToolInfo[];
   set_tools: SetToolsResult;
+  set_model: ModelRef;
+  set_thinking_level: null;
+  compact: z.infer<typeof CompactionResultSchema>;
+  abort_compaction: null;
+  set_auto_compaction: null;
+  set_auto_retry: null;
+  fork: BranchResult;
+  fork_branch: BranchResult;
+  clone: BranchResult;
+  navigate_tree: NavigateTreeResult;
+  set_session_name: null;
+  reload: null;
+  extension_ui_response: null;
 }
 
 /** 按命令字面量取返回值类型：`CommandData<'get_state'>` → AgentState */
@@ -123,6 +214,19 @@ export const CommandResultSchemas = {
   get_commands: CommandListResultSchema,
   get_tools: z.array(ToolInfoSchema),
   set_tools: z.union([z.null(), SetToolsRecreatedSchema]),
+  set_model: ModelRefSchema,
+  set_thinking_level: z.null(),
+  compact: CompactionResultSchema,
+  abort_compaction: z.null(),
+  set_auto_compaction: z.null(),
+  set_auto_retry: z.null(),
+  fork: BranchResultSchema,
+  fork_branch: BranchResultSchema,
+  clone: BranchResultSchema,
+  navigate_tree: NavigateTreeResultSchema,
+  set_session_name: z.null(),
+  reload: z.null(),
+  extension_ui_response: z.null(),
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -156,15 +260,23 @@ export const NewSessionOkSchema = z.object({
   /** 首条 prompt 即时结果（prompt 返回 null），ensure_session 亦为 null */
   data: z.null(),
   sessionId: z.string(),
-  model: z
-    .object({
-      provider: z.string(),
-      modelId: z.string(),
-    })
-    .nullable(),
+  model: ModelRefSchema.nullable(),
   thinkingLevel: ThinkingLevelSchema,
 });
 export type NewSessionOk = z.infer<typeof NewSessionOkSchema>;
 
 export const NewSessionEnvelopeSchema = z.union([NewSessionOkSchema, CommandErrorSchema]);
 export type NewSessionEnvelope = NewSessionOk | z.infer<typeof CommandErrorSchema>;
+
+// ---------------------------------------------------------------------------
+// 恢复冷会话（POST /api/agent/:id/resume，ADR-0013）
+// ---------------------------------------------------------------------------
+
+export const ResumeSessionOkSchema = z.object({
+  success: z.literal(true),
+  data: z.null(),
+  sessionId: z.string(),
+  model: ModelRefSchema.nullable(),
+  thinkingLevel: ThinkingLevelSchema,
+});
+export type ResumeSessionOk = z.infer<typeof ResumeSessionOkSchema>;

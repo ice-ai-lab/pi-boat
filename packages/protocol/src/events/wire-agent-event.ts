@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { ThinkingLevelSchema } from '../constants';
+import { ExtensionUiRequestSchema } from '../domain/extension-ui';
 import {
   AgentMessageSchema,
   ToolCallContentSchema,
@@ -92,6 +93,25 @@ export type CompactionReason = z.infer<typeof CompactionReasonSchema>;
 export const SESSION_SHUTDOWN_REASONS = ['idle', 'server_shutdown', 'error'] as const;
 export const SessionShutdownReasonSchema = z.enum(SESSION_SHUTDOWN_REASONS);
 export type SessionShutdownReason = z.infer<typeof SessionShutdownReasonSchema>;
+
+/**
+ * 会话运行时被替换的原因（`session_replaced` 事件）。
+ * 这四种都会让**会话 id 改变**，因此必须在下发 `session_shutdown` 之前告知客户端新 id，
+ * 否则观看中的标签页只能重连到一个已不存在的旧 id（fork 的原地替换语义，docs/01 §8-1）。
+ *
+ * ⚠️ `navigate_tree` **不在**此列：它只是在同一文件里换叶节点，会话 id 不变。
+ */
+export const SESSION_REPLACED_REASONS = ['new', 'fork', 'clone', 'resume'] as const;
+export const SessionReplacedReasonSchema = z.enum(SESSION_REPLACED_REASONS);
+export type SessionReplacedReason = z.infer<typeof SessionReplacedReasonSchema>;
+
+/**
+ * 宿主主动关闭扩展对话框的原因（`extension_ui_closed` 事件）。
+ * 客户端据此撑下留在屏幕上的对话框；服务端不会再处理该 id 的应答。
+ */
+export const EXTENSION_UI_CLOSE_REASONS = ['timeout', 'shutdown'] as const;
+export const ExtensionUiCloseReasonSchema = z.enum(EXTENSION_UI_CLOSE_REASONS);
+export type ExtensionUiCloseReason = z.infer<typeof ExtensionUiCloseReasonSchema>;
 
 // ---------------------------------------------------------------------------
 // WireAgentEvent 全集
@@ -231,6 +251,33 @@ export const WireAgentEventSchema = z.discriminatedUnion('type', [
     seq: z.number(),
     reason: SessionShutdownReasonSchema.optional(),
   }),
+  /**
+   * 会话运行时被替换：会话 id 已改变，本流随即 shutdown。收到本事件应改用
+   * `newSessionId` 重新建流（而非重连旧 id）。发起方也可直接从命令信封的
+   * `newSessionId` 得知，本事件面向**其他观看者**（多标签页）。
+   */
+  z.object({
+    type: z.literal('session_replaced'),
+    seq: z.number(),
+    newSessionId: z.string(),
+    reason: SessionReplacedReasonSchema,
+  }),
+  /**
+   * 扩展 UI 请求（ADR-0012）：客户端须以 `extension_ui_response` 命令应答
+   * 阻塞型 method，否则请求会一直挂到宿主默认超时（`{cancelled:true}`）。
+   */
+  z.object({
+    type: z.literal('extension_ui_request'),
+    seq: z.number(),
+    request: ExtensionUiRequestSchema,
+  }),
+  /** 宿主主动关闭该对话框（默认超时 / 会话终止）；客户端应撑下它 */
+  z.object({
+    type: z.literal('extension_ui_closed'),
+    seq: z.number(),
+    id: z.string(),
+    reason: ExtensionUiCloseReasonSchema,
+  }),
 ]);
 export type WireAgentEvent = z.infer<typeof WireAgentEventSchema>;
 
@@ -260,6 +307,9 @@ export const WIRE_AGENT_EVENT_TYPES = [
   'thinking_level_changed',
   'connected',
   'session_shutdown',
+  'session_replaced',
+  'extension_ui_request',
+  'extension_ui_closed',
 ] as const;
 export type WireAgentEventType = (typeof WIRE_AGENT_EVENT_TYPES)[number];
 
