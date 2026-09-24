@@ -13,20 +13,20 @@
  * - 统一命令通道（AgentCommand 判别联合分发 + 同会话 FIFO 串行 + 类型化错误）
  * - .jsonl 只读浏览（列表/详情/分页/搜索/改名，与 pi CLI 天然互见）
  *
- * M1 已落地模块（docs/01-overview.md §3.1 / docs/02 §11）：
- *   - events/wire-event  SDK 事件 → wire 事件投影（防腐层）
- *   - events/wire-message           SDK 消息 → wire 消息投影（readonly 剥离）
- *   - agent/SessionRegistryEntry    会话注册表单元：委托订阅 / seq / 快照跟踪
- *   - agent/AgentSessionService     命令分发 + 新建会话 + late-join 事件总线
- *   - read/dir-scan                会话目录元数据扫描 + 指纹（列表缓存键；不解析正文）
- *   - read/SessionReadService       .jsonl 只读浏览：列表/详情/分页/改名/删除
- *   - read/ProjectResolver          cwd → 项目归一（git 仓库根/worktree/分组键 + 60s 缓存）
- *   - read/ProjectReadService       项目清单（ADR-0008 分组视图；与列表共用扫描与 resolver）
+ * 一期已落地模块（docs/03 §2 模块地图 / docs/07 §6 B1–B7）：
+ *   - events/wire-event + wire-message   SDK 事件/消息 → wire 投影（防腐层）
+ *   - agent/AgentSessionService + SessionRegistryEntry  注册表 / 命令分发 / runtime 替换
+ *   - agent/ExtensionUiBridge            扩展 UI 双向通道（ADR-0012）
+ *   - agent/LivenessRegistry + PushService  lease + idle 回收 + 完成通知投递
+ *   - agent/session-tool-selection       工具预设持久化（custom 条目）
+ *   - agent/exact-system-prompt          精确系统提示词覆写
+ *   - read/SessionReadService            .jsonl 只读浏览：列表/搜索/详情/分页/导出/改名/删除/指纹
+ *   - read/ProjectResolver + ProjectReadService  项目归一与清单（ADR-0008）
+ *   - config/ConfigService + model-scope + models-config-store  模型域（ADR-0011）
+ *   - resources/ResourceService          skills / plugins / 工具设置 / 项目信任
+ *   - system/SystemService + PathGuard   文件系统 / git / worktree（allowed-roots 唯一实现）
  *
- * 待落地（按里程碑）：
- *   - M2：分支/压缩/模型组命令（fork 原地替换语义，§8-1）、扩展 UI 通道、
- *     set_tools 冷会话重建路径、ConfigService
- *   - M3：SystemService（文件树/git worktree）、idle 回收与 lease
+ * 下一步不在本包：前端（client / ui / web）尚未开工（docs/01 §7.1）。
  */
 
 export {
