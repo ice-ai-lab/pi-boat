@@ -14,13 +14,14 @@ pnpm turbo run test
 pnpm turbo run lint
 ```
 
-- 生产模式：agent server 静态托管 web 构建产物（`dist/`），单进程即完整产品（M1 接入）
-- Web 前端选型已定案：Vite + React 19 SPA，不引入 Next.js（`docs/adr/0002`），随 M1 末段落地
+- 生产模式：agent server 静态托管 web 构建产物（`apps/web/dist`），单进程即完整产品（**前端未开工，目录尚未创建**）
+- 一期后端已全部落地：57 端点 / 24 命令 / 27 类 wire 事件（进度看板见 `docs/01` §7.1）
+- Web 前端选型已定案：Vite + React 19 SPA，不引入 Next.js（`docs/adr/0002`），是当前唯一待办阶段
 
 ## 结构
 
 ```
-apps/web            前端 SPA（Vite + React 19，待建）
+apps/web            前端 SPA（Vite + React 19，未建：目录尚未创建）
 packages/protocol   API 契约 & 事件 wire 格式（纯类型 + Zod，零业务逻辑）
 packages/core       Agent 业务核心（全仓唯一允许依赖 pi SDK 的包）
 packages/server     Hono HTTP/SSE 服务，组装 core（bin: piboat-server）

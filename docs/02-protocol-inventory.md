@@ -1,6 +1,6 @@
 # PiBoat —— 协议层清单（protocol 包实施依据）
 
-> 版本：v0.2 · 状态：待评审 · 依据：概要设计 `docs/01-overview.md` §3.1/§5.4/§10，对照本仓 SDK 0.87.1 `.d.ts` 类型面全量核验；v0.2 修订：修正事件清单（§5.1）、命令计数与误列条目（§4）、补 4 条遗漏路由（§6）及若干字段
+> 版本：v0.3 · 状态：一期已全部落地（2026-02）· 依据：概要设计 `docs/01-overview.md` §3.1/§5.4/§10，对照本仓 SDK 0.87.1 `.d.ts` 类型面全量核验；v0.2 修订：修正事件清单（§5.1）、命令计数与误列条目（§4）、补 4 条遗漏路由（§6）及若干字段；v0.3 修订：补齐 `POST /api/agent/:id/resume`（ADR-0013）与 `GET /api/sessions/:id/revision`（G2-6）两条漏登记端点，事件计数统一为 27，`models/enabled` 与 perf 字段去「待定稿」（均已定并入 protocol）
 > 用途：`packages/protocol` 的实施清单。形状以 SDK 0.87.1 实际类型面为准，命名与结构按 PiBoat 规范收敛
 
 ---
@@ -19,11 +19,11 @@
 
 | 类别 | 数量 | 说明 |
 |---|---|---|
-| REST 路由 | 49 个路由文件（52 个端点文件，其中 2 个为 SSE，部分含多方法） | 九大功能域（§6）。⚠️ **计数已过期且不完整**（2026-01 复核：能力面基线实测 55 个路由文件 / 78 个 handler；本表未收录 `/api/models/enabled`、`/api/models/refresh`、`DELETE /api/auth/api-key/:provider`、`/api/web-auth` 等条目）——差异与补齐依据见 `docs/07-backend-capability-gap.md` |
+| REST 路由 | **一期范围内全部落地**（57 个端点：`packages/server/src/routes/` 56 + `server.ts` 的 `/api/health`） | 九大功能域（§6）；§6.5 认证与用量、§6.8 终端按 ADR-0014 排除 |
 | SSE 事件流 | 1（agent 事件流；auth 登录流一期排除） | `agent/[id]/events`；~~`auth/login/[provider]`~~（2026-01 排除，见 §6.5） |
 | RPC 命令 | **24 已全部实现**（命令通道 24 个；2026-09-22 删 Shell 直连组，2026-01 删不存在的 `extension_ui_input`） | `POST /api/agent/:id` 请求体判别联合（§4） |
 | 领域类型 | ~40 个 | domain/ 七文件（§3、§10） |
-| 事件 wire 类型 | 24 种（SDK 透传 22 + 服务层自加 2；2026-09-22：删 bash_execution_update） | SDK `JsonAgentSessionEvent` 投影 + 服务层事件（§5.1） |
+| 事件 wire 类型 | **27 种**顶层类型（SDK 透传 22 + 服务层自加 5；2026-09-22 删 `bash_execution_update`，随 ADR-0012 加回 `extension_ui_request` / `extension_ui_closed`） | SDK `JsonAgentSessionEvent` 投影 + 服务层事件（§5.1） |
 
 ### 1.3 铁律（源自 AGENTS.md / 概要设计，本文档所有条目受其约束）
 
@@ -136,7 +136,7 @@
 > ⚠️ **`cwd` 必须存在且为目录——由 core 前置校验（`UserInputError` → 400）**。
 > 实证（2026-09-22）：SDK 的 `createAgentSession({ cwd: '/不存在的路径' })` **不报错、照样建会话**，
 > 后果是之后每一次 read/bash/edit 工具调用都在会话里失败，用户看到的是“agent 莫名其妙一直报错”
-> 而不是“路径错了”。因此该校验不是可选项（core 待补，M1 内完成）
+> 而不是“路径错了”。因此该校验不是可选项（core 已落地：`agent-session-service.ts` 的 `create()` 前置校验）
 
 ---
 
@@ -159,7 +159,7 @@
 | SDK：消息流（pi-agent-core `AgentEvent`） | `agent_start`；`message_start {message}`；`message_update {usage, assistantMessageEvent}`；`message_end {message}`；`tool_execution_start / update {toolCallId, toolName, partialResult} / end`；`agent_end {messages: AgentMessage[], willRetry}`（AgentSessionEvent 增强版，非裸 turn 结束）；`turn_start {}`；`turn_end {message, toolResults[]}`（2026-09-20 改透传） |
 | SDK：assistantMessageEvent 子事件（pi-ai，内嵌于 message_update） | `start`、`done`、`error`、`text_start / text_delta / text_end`、`thinking_start / thinking_delta / thinking_end`、`toolcall_start / toolcall_delta / toolcall_end`（start/delta 投影补齐 `id / toolName`）—— 共 12 种，Zod 需全量定义，不可用省略号带过（0.87.1 实测无 `adaptive`，原记 13 种系笔误勘误） |
 | SDK：会话生命周期（agent-session 扩展） | `agent_settled`（agent 完全静止，客户端 UI settle 依据）；`queue_update {steering[], followUp[]}`；`compaction_start {reason: manual\|threshold\|overflow}`；`compaction_end {reason, result?, aborted, willRetry, errorMessage?}`；`auto_retry_start {attempt, maxAttempts, delayMs, errorMessage}`；`auto_retry_end {success, attempt, finalError?}`；`summarization_retry_scheduled / _attempt_start（branchSummary 与 compaction 两种变体）/ _finished`；`entry_appended {entry: SessionEntry}`；`session_info_changed {name}`；`thinking_level_changed {level}` |
-| **服务层自加**（SDK 没有，server 必须自行定义） | `connected {sessionId, isStreaming, lastSeq}`、`session_shutdown {reason?}`。~~`startup_error` / `prompt_done` / `prompt_error` / `extension_ui_request` / `extension_error` / `extension_ui_closed`~~（2026-09-20 删除：死 schema / agent_settled 平替 / REST 信封覆盖 / M2 再定） |
+| **服务层自加**（SDK 没有，server 必须自行定义） | `connected {sessionId, isStreaming, lastSeq}`、`session_shutdown {reason?}`、`session_replaced {newSessionId, reason}`、`extension_ui_request {request}`、`extension_ui_closed {id, reason}`（后三个随 runtime 替换与 ADR-0012 扩展 UI 通道落地）。~~`startup_error` / `prompt_done` / `prompt_error` / `extension_error`~~（2026-09-20 删除：死 schema / `agent_settled` 平替 / REST 信封覆盖） |
 | PiBoat 新增 | 每事件附 `seq`（会话级单调递增；快照携带 `lastSeq`，客户端丢弃 `seq ≤ lastSeq`） |
 
 > ⚠️ 两点边界（v0.2 勘误）：① wire 上**不定义** `notice` 与顶层 `error` 事件——通知条属前端 UI 概念，错误一律走 REST 信封 `CommandError`（及 assistantMessageEvent.error；prompt_error/startup_error/extension_error 事件已删，2026-09-20）；② 不定义 `auto_compaction_start/end`——SDK 0.87 只发 `compaction_start/end`（reason 字段区分 auto/manual），不留旧别名。
@@ -192,7 +192,8 @@
 | `GET /api/projects?force=1` | → `{ projects: ProjectInfo[], listFingerprint }`（ADR-0008）。项目是**会话目录的派生视图**：`readdir` + `stat` + 每目录一次首行头读取，不解析会话正文（实测 3–7 ms / 1.8 KB）。同一仓库的子目录与 worktree 按 `projectKey` 合并为一项，`cwds` 列出全部目录；空会话目录不出现在结果里。**不分页**（量级 10¹） |
 | `GET /api/agent/running` | 轻量轮询（可见 Tab 池）：`{ registryVersion, runningSessionIds, 通知抑制ids }` |
 | `GET /api/agent/:id` | **单会话状态轻查**：`{running: false}` 或 `{running: true, state: AgentState}`（未运行不报错；客户端在 `agent_end` 后靠它同步模型/上下文/队列状态）。⚠️ 走 `getRunningState()` 直读注册表、**不进命令 FIFO**；`get_state` **命令**则与运行中的 prompt 串行，run 期间发它会排队到 run 结束——轮询实时状态必须走这个路由 |
-| `GET /api/sessions/search?q` | → 搜索结果（q ≤ 200 字符） |
+| `GET /api/sessions/search?q` | → 搜索结果（q ≤ 200 字符）。先按轻量字段（名字 / 首条消息）筛，剩余候选再有界扫正文（G2-7，候选数与单文件字节数均有上限） |
+| `POST /api/agent/:id/resume` | → `{ok, sessionId}`：从 `.jsonl` 重建 runtime 并登记进注册表（ADR-0013a）。**必须是 POST**：建流时隐式创建 runtime 会让 GET 产生副作用（ADR-0007） |
 
 `SessionInfo` 的 `projectRoot` / `projectKey` / `branch` / `isWorktree` 由 core 的 `ProjectResolver` 归一（git 仓库根收敛，worktree 归主仓库；非 git 回落 cwd；60s 缓存，ADR-0008）。前端分组键为 `projectKey`。
 
@@ -213,6 +214,7 @@
 | `DELETE /api/sessions/:id` | 删除（**级联删除全部 subagent 子会话**，返回受影响 id） |
 | `GET /api/sessions/:id/state` | 同 `/api/agent/:id` 形状，但会话文件不存在时 **404**（而非 `{running:false}`；语义差异需保留） |
 | `GET /api/sessions/:id/export` | → HTML 导出（attachment/inline） |
+| `GET /api/sessions/:id/revision` | → `{revision}`：会话文件指纹（G2-6，size+mtime，与 `listFingerprint` 同构但针对单文件）。不透明、**无单调性**（只比较相等），客户端拿它决定详情视图缓存能否复用 |
 | `POST /api/sessions/:id/auto-name` | → `{title, usage}`（LLM 生成会话名） |
 
 ### 6.3 历史分页与惰性加载
@@ -234,8 +236,8 @@
 | `POST /api/models-config/discover` | `{providerName, provider:{baseUrl, api, apiKey?}}` → 按 /models 端点发现模型列表（20s 超时） |
 | `POST /api/models-config/test` | `{providerName, provider, model:{id}}` → `{ok, error?, …}` 真实补全请求测连通（临时 models.json，20s 超时） |
 | `GET /api/models-config/catalog?q` | → models.dev 目录（1h 缓存，服务端代理） |
-| `GET/PUT /api/models/enabled` | 模型可见范围（`enabledModels`）开关，**形状待定稿**（一期必做；最小编辑语义、项目 shadow 只读、最后一个模型 409——见 `docs/07` §3.4 / G2-2） |
-| `POST /api/models/refresh` | 按需拉取远端 provider 目录（不联网是常态，只有用户显式请求才联网——`docs/07` G2-3） |
+| `GET/PUT /api/models/enabled` | 模型可见范围（`enabledModels`，ADR-0011）。GET → `{patterns, models, scope:'global'\|'project', settingsPath, canWrite, warnings[]}`（`scope:'project'` = 项目 `.pi/settings.json` shadow，面板只读）；PUT 最小编辑 `{op:'toggle'\|'prune'\|'resync', providerId?, modelId?, enabled?, cwd?}`；禁用最后一个模型/项目 shadow/已无可见模型 → **409 + `reason`**（`last-model` / `project-shadow` / `no-enabled-models`） |
+| `POST /api/models/refresh` | 按需拉取远端 provider 目录 → `{ok, changed, reason?, errors?}`（不联网是常态，只有用户显式请求才联网——ADR-0011③；`reason: offline\|no-refreshable-provider\|error`） |
 
 ### 6.5 认证与用量（一期排除）
 
@@ -354,7 +356,8 @@ packages/protocol/src/
 │   ├── session-info.ts     # SessionInfo / SessionContext / SessionTreeNode / SubagentSessionStatus
 │   ├── state.ts            # AgentState / SessionStatsInfo / ContextUsage
 │   ├── tool.ts             # ToolInfo / SlashCommandInfo
-│   ├── extension-ui.ts     # Status/Widget 快照（AgentState 用；Request/Response 交互通道随 M2 再定）
+│   ├── extension-ui.ts     # Status/Widget 快照 + Request/Response 双向交互（ADR-0012，9 个 method）
+│   └── index.ts            # domain 汇总导出
 ├── commands/           # ③命令通道
 │   └── agent-command.ts    # AgentCommand 联合 + NewSessionRequest/Response + 各命令返回类型
 ├── events/             # ④事件通道
@@ -362,8 +365,8 @@ packages/protocol/src/
 │                           #   （终端 TerminalEvent 与 rest/terminal.ts 已按
 │                           #    2026-01 决策移除，不再预留文件）
 └── rest/               # ⑤⑥REST 资源（按域一文件：类型 + Zod；不导出路径常量，§3）
-    ├── agent.ts           # agent 运行时域：new / 命令通道 / SSE / running / 轻查
-    ├── sessions.ts         # 列表（projectKey/force）+ 详情/分页/惰性加载/搜索/导出/auto-name
+    ├── agent.ts           # agent 运行时域：new / 命令通道 / SSE / running / 轻查 / resume
+    ├── sessions.ts         # 列表（projectKey/force）+ 详情/分页/惰性加载/搜索/导出/auto-name/revision
     ├── projects.ts         # 项目清单契约（projectKey 分组视图 + listFingerprint，ADR-0008）
     ├── models.ts           # models / models-config / discover / test / catalog / enabled / refresh
     ├── files.ts            # home / default-cwd / cwd browse+validate / files / file-index
@@ -382,14 +385,18 @@ packages/protocol/src/
 > 常量的唯一价值是"两端共用一份"，而在 client SDK 尚未消费它之前，那些 export 只是
 > **无消费方的期货**（§3「不养期货」）。出现真实消费方时再加，并在同一提交里让调用方改用它。
 
-## 11. 里程碑切片（从本清单取子集）
+## 11. 里程碑切片（历史记录：各里程碑从本清单取了哪些子集）
 
-| 里程碑 | 取自本清单 | 验收对应 |
+> ⚠️ 本节是**切片记录**而非待办：一期范围内所有切片均已在 protocol 落地（见 §10 落地状态）。
+> 实际执行按「先把后端全部补齐」进行（`docs/07` §6 B0–B7），里程碑切分仅作能力归属参考。
+
+| 里程碑 | 取自本清单 | 状态 |
 |---|---|---|
-| **M1 对话 MVP** | §2 全部 + §3 领域类型全量 + §4 命令子集（prompt/steer/followUp/abort/get_state/get_session_stats/get_commands/get_tools/set_tools/get_last_assistant_text）+ 新建会话 + §5 事件全量 + §6.1/6.2/6.3（列表/详情/分页）+ health —— protocol 侧已定稿，待 server/client 实现 | 浏览器完成一轮带工具调用的编程任务 |
-| **M2 会话与模型** | §4 剩余命令（分支组/压缩组/set_model/set_thinking_level/set_session_name/reload）+ §6.4 模型 | 日常可替代 TUI |
-| **M3 完整体验** | §6.6 文件 + §6.7 git + ~~§6.8 终端~~（已移除） + §6.9 资源 + §7 辅助（lease/push） | 端到端功能完整 |
-| **M4 桌面端** | 无新增（Electron 复用同一协议） | — |
+| **M1 对话 MVP** | §2 全部 + §3 领域类型全量 + §4 命令子集（prompt/steer/followUp/abort/get_state/get_session_stats/get_commands/get_tools/set_tools/get_last_assistant_text）+ 新建会话 + §5 事件全量 + §6.1/6.2/6.3（列表/详情/分页）+ health | ✅ 已落地 |
+| **M2 会话与模型** | §4 剩余命令（分支组/压缩组/set_model/set_thinking_level/set_session_name/reload）+ §6.4 模型 | ✅ 已落地 |
+| **M3 完整体验** | §6.6 文件 + §6.7 git + ~~§6.8 终端~~（已移除） + §6.9 资源 + §7 辅助（lease/push） | ✅ 已落地 |
+| **M4 桌面端** | 无新增（Electron 复用同一协议） | 二期 |
+| 前端（client / ui / web） | 消费上述全部切片 | ⬜ 未开工（设计稿见 `docs/05` / `docs/06`） |
 
 ### 11.1 原型 v3 暴露的缺口
 
@@ -398,9 +405,9 @@ packages/protocol/src/
 
 | # | 缺口 | 现状 | 取向 |
 |---|---|---|---|
-| 1 | **性能统计**：对话轮数/步数、LLM 耗时、工具耗时、生成速度 t/s | `SessionStatsInfo` 与 `AgentState` 均无；**SDK `SessionStats` 也没有**（0.87.1 `.d.ts` 已核对） | ✅ **已定（2026-09-22）：core 累加**。`rounds` ← `agent_start` 计数；`steps` ← `turn_start` 计数；`llmMs` ← 每 turn 起止差；`toolMs` ← `tool_execution_start/end` 累加；`tps` ← output tokens / `llmMs`。字段形状（建议 `SessionStatsInfo.perf?`）随 M2 开工定。⚠️ **冷会话**（本进程未运行过）无耗时数据 → 字段必须可选，`undefined` 时前端不展示 |
-| 2 | **最近提交**（short hash） | `SessionInfo` 只有 `branch`/`isWorktree` | 维持原议：归 M3 git 域（`/api/git/status`）返回后拼装，不进 `SessionInfo` |
-| 3 | **工具预设**（`chat-only` / `read-only` / `default` / `full`） | protocol 无枚举，只有 `get_tools`/`set_tools` 的具名列表 | ✅ **已定（2026-09-22）：归 core 解析**——只有 core 知道 SDK 的默认工具集（`default` 无法在客户端静态枚举）。M2 开工时定命令形状（`set_tools` 收 preset 名或新命令 `set_tool_preset`），**不养期货** |
+| 1 | **性能统计**：对话轮数/步数、LLM 耗时、工具耗时、生成速度 t/s | （原）`SessionStatsInfo` 与 `AgentState` 均无；**SDK `SessionStats` 也没有**（0.87.1 `.d.ts` 已核对） | ✅ **已定并落地（2026-09-22，2026-02 实现）**：core 累加。`rounds` ← `agent_start`；`steps` ← `turn_start`；`llmMs` ← 每 turn 起止差；`toolMs` ← `tool_execution_start/end`；`tps` ← output tokens / `llmMs`。字段形状已入 protocol：`SessionStatsInfo.perf?`。⚠️ **冷会话**（本进程未运行过）为 `undefined`（不是 0）→ 前端不展示 |
+| 2 | **最近提交**（short hash） | `SessionInfo` 只有 `branch`/`isWorktree` | ✅ 已落地：归 git 域（`/api/git/status` 已在），由前端拼装，不进 `SessionInfo` |
+| 3 | **工具预设**（`chat-only` / `read-only` / `default` / `full`） | （原）protocol 无枚举，只有 `get_tools`/`set_tools` 的具名列表 | ✅ **已定并落地**：预设判定归 **core**——只有 core 知道 SDK 的默认工具集（`default` 无法在客户端静态枚举）。命令形状已入 protocol：`set_tools {preset}` 与 `{toolNames}` 二选一，冷会话返回 `{sessionId, recreated:true}` |
 | 4 | **输入卡「模式」**（默认/只读/**全自动·免确认执行命令**） | 与 #3 语义重叠；「免确认」在 SDK 0.87 无对应能力 | ✅ **已定（2026-09-22）：与工具预设合并**——模式菜单直接展示四项预设（标签用工具集描述），**删掉「全自动·免确认」**（AGENTS.md：命名不得暗示它做不到的事） |
 | 5 | 系统提示词「版本 r42」 | `AgentState.systemPrompt` 已在 M1 契约内（**无需协议改动**）；但无版本号字段 | ✅ **已定（2026-09-22）：展示，删掉「版本 r42」**（无数据来源）。面板规格已定：只渲染原始文本 + 三态（空 / 尚未加载 / 加载中），**不显示版本号也不做 token 估算**。详见 `docs/06` §11.2 行 5 |
 

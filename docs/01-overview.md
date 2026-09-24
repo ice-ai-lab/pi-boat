@@ -1,7 +1,9 @@
 # PiBoat —— 项目概要设计
 
 > 项目代号 `pi-boat`，包作用域 `@ice-ai/*`（命名决策见 `docs/adr/0001`，scope 修订见 `docs/adr/0004`），bin 命令 `piboat`
-> 版本：v0.3（概要设计阶段） · 状态：待评审 · v0.3 变更：Web 前端定为 Vite + React 19 SPA，删除 Next.js（ADR-0002）；v0.2 变更：定名 pi-boat（ADR-0001），替换全部占位名
+> 版本：v0.4（一期后端已落地） · 状态：一期后端（protocol + core + server）实现完成，前端（client / ui / web）未开工
+> v0.4 变更：阶段状态层刷新——M2/M3 的后端部分随 B0–B7 已交付（`docs/07` §6），里程碑按「后端 / 前端」两段重述；
+> v0.3 变更：Web 前端定为 Vite + React 19 SPA，删 Next.js（ADR-0002）；v0.2 变更：定名 pi-boat（ADR-0001），替换全部占位名
 
 ---
 
@@ -66,7 +68,7 @@ packages/ui            ──▶ protocol（仅类型）+ client（仅 hooks 层
 ```
 pi-boat/
 ├── apps/
-│   ├── web/                      # 前端 SPA：Vite + React 19（待建，见 ADR-0002）
+│   ├── web/                      # 前端 SPA：Vite + React 19（未建，目录尚未创建，见 ADR-0002）
 │   └── desktop/                  # Electron 桌面端（二期）
 ├── packages/
 │   ├── protocol/                 # @ice-ai/protocol  API 契约 & 事件 wire 格式
@@ -104,13 +106,16 @@ pi-boat/
   - 进程内事件总线：多订阅者分发（SSE 连接、将来 Electron IPC、日志记录器共用）
 - `SessionReadService`：基于 `SessionManager` 的只读浏览（列表、`.jsonl` 解析、context 快照、导出 HTML）
 - `ProjectReadService` / `ProjectResolver`：项目分组视图（ADR-0008：git 仓库根归一 `projectKey`，子目录/worktree 合并；与列表共用目录扫描与 resolver 实例）
-- `SystemService`：allowed-roots 安全校验、文件树/文件内容、git worktree 操作
-- `ConfigService`：models.json 读写、provider 发现/测试、skills/plugins 安装管理（身份认证入口一期不做，见 §9-4a）
+- `SystemService`：allowed-roots 安全校验（`PathGuard`）、文件树/文件内容/上传、git status/diff、worktree 增删查
+- `ConfigService` / `ModelsConfigStore` / `model-scope`：models.json 原文读写、provider 发现/测试、模型可见范围编辑引擎（ADR-0011）
+- `ResourceService`：skills / plugins / 工具设置 / 项目信任（`~/.pi/agent` 与项目 `.pi/` 两类资源源；身份认证入口一期不做，见 §9-4a）
+- `LivenessRegistry` / `PushService`：lease + idle 回收、VAPID 订阅与完成通知投递（投递依赖可选包 `web-push`）
+- `ExtensionUiBridge`：扩展 UI 双向通道（ADR-0012，9 个 method）
 - 不依赖任何 HTTP 概念 —— **传输无关**，为 Electron 进程内直连留路（§5.5）
 
 #### `packages/server`
 
-- Hono（Node 适配器）实现的 HTTP 服务，路由即 protocol 的实现层
+- Hono（Node 适配器）实现的 HTTP 服务，路由即 protocol 的实现层（七个域文件：agent / sessions / projects / models / files+git（system）/ resources / push）
 - SSE 事件流：30s 心跳、快照先行（先建流再回放快照）、断线重连 `Last-Event-ID` 支持
 - 本机访问防护：仅绑定 127.0.0.1 + Host / Origin / Sec-Fetch-Site 三道闸（常开、无凭据；防恶意网页对本机发起 CSRF / DNS 重绑定，详见 §5.6 与 ADR-0007）
 - 会话列表与项目分组（ADR-0008）：`GET /api/projects` 按 git 仓库根归一 `projectKey`（子目录/worktree 合并为一项，不分页）；`GET /api/sessions?projectKey&force` 支持按项目拉取；列表缓存以**会话目录指纹**为键（磁盘变动自动失效），响应带 `listFingerprint`
@@ -286,7 +291,10 @@ interface SessionEntry {
 | server 重启过、任务已成历史 | `.jsonl` 文件 | 惰性重建，浏览/续聊 |
 | 跑到一半 server 被杀 | `.jsonl` 最后落盘点 | 该轮中断、不自动续跑；历史保留，可手动接续 |
 
-注意：pi CLI 与 server 可能同时读写同一 `.jsonl`（终端 pi 在跑 + web 打开同一会话），需文件锁（proper-lockfile）协调。
+注意：pi CLI 与 server 可能同时读写同一 `.jsonl`（终端 pi 在跑 + web 打开同一会话）。
+本仓的处置**不是文件锁**（锁只解决并发写的互斥，解决不了「内存索引 vs 磁盘内容」的一致性），
+而是 ADR-0013b 的**外部写入检测**：只在全量读（挂载 / `force=1` 刷新）时比磁盘与内存索引，落后就
+丢弃并重建 runtime（响应带 `wrapperRebuilt`），run 期间不检测；“两个进程同时写同一 JSONL”本身不受支持。
 
 ### 5.4 事件流协议（protocol 的核心）
 
@@ -356,8 +364,8 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 - **新增项**：会话列表重命名/删除的 hover 操作 · 消息 minimap 快速导航 · 内容区宽度把手（可持久化） ·
   footer 统计 pills（in / out / cache / tps / cost / 上下文环） · 会话统计与工具定义弹窗 · toast ·
   输入卡模式菜单（默认/只读/全自动）
-- 里程碑落位：M1 只取对话域组件（docs/06 §4.1/§4.2）；统计弹窗、工具预设、会话列表操作属 M2；
-  minimap、内容宽度把手属 M2–M3（不影响 M1 验收）
+- 里程碑落位：后端能力均已就位（§7.1）——对话域组件（docs/06 §4.1/§4.2）是前端第一刀；
+  统计弹窗、工具预设、会话列表操作、minimap、内容宽度把手随后续前端批次推进（不再受后端里程碑约束）
 - ⚠️ 原型暴露五处**协议缺口**（性能统计字段缺失、“最近提交”字段、“工具预设”与“模式”语义重复、系统提示词版本号），
   需先定取向再排期：`docs/02-protocol-inventory.md` §11.1
 
@@ -367,13 +375,36 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 
 ## 7. 演进路线
 
-| 里程碑 | 内容 | 验收标准 | 状态 |
+### 7.1 进度看板（2026-02）
+
+| 层 | 状态 | 说明 |
+|---|---|---|
+| `packages/protocol` | ✅ 一期全量落地 | 24 命令 / 27 类 wire 事件 / rest 七域；见 `docs/02` |
+| `packages/core` | ✅ 一期全量落地 | 9 个服务，21 源文件 / 13 测试文件（184 用例）；见 `docs/03` |
+| `packages/server` | ✅ 一期全量落地 | 57 端点（含 health），7 路由文件 / 66 用例；见 `docs/04` |
+| `packages/client` | ⬜ 未开工 | 仅占位导出；设计稿已就位（`docs/05`） |
+| `packages/ui` | ⬜ 未开工 | 仅占位组件；设计稿已就位（`docs/06`） |
+| `apps/web` | ⬜ 未开工 | 目录尚未创建（Vite + React 19 SPA，ADR-0002） |
+| `apps/desktop` | ⬜ 二期 | Electron（M4） |
+
+**下一步**：前端（client → ui → web），验收线仍为 M1 的「浏览器完成一轮带工具调用的编程任务」——
+后端能力已是完成态，前端不需要等任何 M2/M3 后端项。
+
+### 7.2 里程碑
+
+> 里程碑原设计把「后端补齐」与「前端做出界面」缝在同一条线上（M1 单会话、M2 会话与模型、M3 完整体验）。
+> 实际执行改为「先把一期后端全部补齐，再做前端」（`docs/07` §6 B0–B7），因此下表按**后端 / 前端**两段重述。
+
+| 里程碑 | 后端部分 | 前端部分 | 验收标准 |
 |---|---|---|---|
-| **M0 工程骨架**（~0.5 周） | pnpm+turbo、包脚手架、biome/tsconfig/husky、CI（lint+typecheck+test） | turbo build 全绿 | ✅ 完成（2026-09-18） |
-| **M1 对话 MVP**（~1.5 周） | core: create/prompt/subscribe/abort；server: REST+SSE+静态托管；web: 单会话聊天（流式+工具调用展示） | 浏览器完成一轮带工具调用的编程任务 | 进行中：protocol ✅ · core ✅（docs/03）· server ✅（docs/04，2026-09-22）· web 原型 v3 定稿（docs/06，2026-09-22）· client/web 代码未开工 |
-| **M2 会话与模型**（~2 周） | 会话列表/恢复/fork/分支导航、模型配置、工具预设 | 日常可替代 TUI 完成编码工作 | 未开工 |
-| **M3 完整体验**（~2 周） | 文件浏览/查看、worktree、skills/插件、通知、多 Tab、minimap 与内容宽度把手 | 功能对齐 §6 一期清单 | 未开工 |
-| **M4 桌面端**（~2 周） | Electron 壳 + 子进程 server + 打包分发 | macOS 安装包可用 | 未开工 |
+| **M0 工程骨架**（~0.5 周） | ✅ 完成（2026-09-18）：pnpm+turbo、包脚手架、biome/tsconfig | — | turbo build 全绿 |
+| **M1 对话 MVP**（~1.5 周） | ✅ 完成（protocol/core/server，2026-09-22） | ⬜ 未开工（client / ui / web） | 浏览器完成一轮带工具调用的编程任务 |
+| **M2 会话与模型**（~2 周） | ✅ 完成（B2/B3/B4，含命令通道 24 条、fork/branch、模型域） | ⬜ 未开工 | 日常可替代 TUI 完成编码工作 |
+| **M3 完整体验**（~2 周） | ✅ 完成（B5/B6/B7，文件 / git / worktree / 资源 / 通知 lease+push） | ⬜ 未开工 | 功能对齐 §6 一期清单 |
+| **M4 桌面端**（~2 周） | 复用（无新增端点），打包问题遗留（docs/04 §8-7） | ⬜ 未开工 | macOS 安装包可用 |
+
+后端侧唯一有意不做/未做项见 `docs/07` §9「实现期发现的边界」（`type=watch`、上传 Range/分块/DOCX、
+Last-Event-ID 环形缓冲与 gzip/埋点等 B8 可选项）。
 
 ---
 
@@ -389,7 +420,7 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 | 6 | **SSE 连接稳定性**：系统休眠/唤醒、后台标签页节流、HTTP/1.1 同域 6 连接上限（多会话多 Tab 并发） | 心跳 + `Last-Event-ID` 重连 + 快照先行；连接数吃紧时评估 HTTP/2 或 WebSocket 多路复用 |
 | 7 | **pi-coding-agent 0.x 快速演进**（API 可能破坏性变更） | 版本锁 minor；升级单独 PR + 变更清单 + e2e 全量回归 |
 | 8 | 会话注册表生命周期（内嵌式实现需用 `globalThis` 抗 HMR） | 独立 server 进程无 HMR 问题；但保留"启动去重锁"与 idle 回收 |
-| 9 | pi CLI 与 server 并发读写同一 `.jsonl` | proper-lockfile 文件锁（§5.3）；跨进程互斥 |
+| 9 | pi CLI 与 server 并发读写同一 `.jsonl` | ✅ 已定案（ADR-0013b）：全量读时检测外部写入并重建 runtime，run 期间不检测（不用文件锁，锁解决不了内存索引与磁盘内容的一致性）；「两进程同时写同一文件」不受支持 |
 | 10 | **会话目录名编码有损**：`/Users/x/pi-boat/packages` 与 `/Users/x/pi-boat-packages` 编码后同码 | 项目 cwd **只能从会话文件首行头读**（不猜目录名）；目录名仅用于诊断与指纹（ADR-0008） |
 
 ---
@@ -453,4 +484,6 @@ type WireAgentEvent =
 
 ---
 
-*详细设计按包推进：《core 详细设计》见 `docs/03-core-design.md`（M1 已落地）、《server 详细设计》见 `docs/04-server-design.md`（M1 已落地）、《client 详细设计》见 `docs/05-client-design.md`、《ui 详细设计》见 `docs/06-ui-design.md`（后两篇为开工前设计稿，随 Web 原型 v3 定稿）；视觉/交互基准为 `docs/design/piboat-web-v3.html`。协议契约以 `docs/02-protocol-inventory.md` 为准（覆盖产品全量 API 面）。**一期后端能力全集与缺口清单、补齐批次见 `docs/07-backend-capability-gap.md`**（2026-01 审查：SDK 升级与 5 项未登记能力待定案；鉴权 / 登录 / 终端已排除）。*
+*详细设计按包推进：《core 详细设计》见 `docs/03-core-design.md`（✅ 一期已落地）、《server 详细设计》见 `docs/04-server-design.md`（✅ 一期已落地）、《client 详细设计》见 `docs/05-client-design.md`、《ui 详细设计》见 `docs/06-ui-design.md`（后两篇为开工前设计稿，随 Web 原型 v3 定稿，代码未开工）；视觉/交互基准为 `docs/design/piboat-web-v3.html`。协议契约以 `docs/02-protocol-inventory.md` 为准（覆盖产品全量 API 面）。**一期后端能力全集的审查与补齐批次见 `docs/07-backend-capability-gap.md`**（它包含已完成的 B0–B7 记录、仍存边界与排除项；排除项见 ADR-0014）。*
+
+**当前唯一待办：前端三包（client / ui / web）。** 后端不需要任何等项：57 个端点 / 24 条命令 / 27 类 wire 事件均已实现并有测试。

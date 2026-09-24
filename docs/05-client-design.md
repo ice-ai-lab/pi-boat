@@ -83,11 +83,11 @@ packages/client/src/
 1. `connected.lastSeq` 与每次 REST 快照（`AgentState.lastSeq`）都是水位线：**丢弃 `seq ≤ lastSeq` 的事件**
 2. 未取到水位线前收到的事件按到达顺序折叠，取到后按 §1 规则重扫一遍（幂等）
 
-### 5.3 M1 降级：重连是"整体重建"而非差量
+### 5.3 重连是"整体重建"而非差量（服务端仍降级，客户端接口不变）
 
-按 docs/04 §5.5 的 M1 决定，`Last-Event-ID` 差量重放推迟：重连 = 重新 `connected` + 快照 + 此后增量。
+按 docs/04 §5.5 的决定，`Last-Event-ID` 差量重放未实现（属 B8 可选）：重连 = 重新 `connected` + 快照 + 此后增量。
 因此 `fold` 必须支持"从快照半截消息重建轨迹尾部"，且 `AgentStream` 在重连时**清空事件派生态但不清空 REST 派生态**。
-（缓冲与差量是 core 的 M1 内增强/M2 项，client 侧接口不变。）
+（环形缓冲与差量是 core 的待补项，client 侧接口不变。）
 
 ### 5.4 必须处理的 SSE 边界
 

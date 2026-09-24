@@ -267,9 +267,9 @@ Lucide、`cva` + `clsx` + `tailwind-merge`（`cn()`）、markdown 走 `react-mar
 
 | 原型展示 | 现状 | 取向 |
 |---|---|---|
-| 性能统计：轮数/步数、LLM 耗时、工具耗时、生成速度 t/s（`StatCardGroup` 4 卡 + 2 pill） | `SessionStatsInfo`/`AgentState` **均无这些字段**；SDK `SessionStats` 也没有（已核对 0.87.1 `.d.ts`） | ✅ **已定：core 累加**（2026-09-22）——`rounds` ← `agent_start` 数、`steps` ← `turn_start` 数、`llmMs` ← 每 turn 起止、`toolMs` ← `tool_execution_start/end`、`tps` ← output tokens / `llmMs`。⚠️ **冷会话**（本进程未运行过）无耗时数据，字段必须可选，`undefined` 时 UI 不展示该卡 |
-| 「最近提交 29d8be9」 | `SessionInfo` 只有 `branch`/`isWorktree` | M3 git 域返回后拼装，不进 `SessionInfo`（维持原议） |
-| 工具预设分段 `chat-only/read-only/default/full` | protocol 无枚举 | ✅ **已定（2026-09-22）**：预设判定归 **core**——只有 core 知道 SDK 的默认工具集（`default` 无法在客户端静态枚举）；M2 开工时定命令形状（`set_tools` 收 preset 名或新命令），**不养期货** |
+| 性能统计：轮数/步数、LLM 耗时、工具耗时、生成速度 t/s（`StatCardGroup` 4 卡 + 2 pill） | `SessionStatsInfo`/`AgentState` **均无这些字段**；SDK `SessionStats` 也没有（已核对 0.87.1 `.d.ts`） | ✅ **已定且已落地：core 累加**（2026-09-22 定，2026-02 实现）——`rounds` ← `agent_start` 数、`steps` ← `turn_start` 数、`llmMs` ← 每 turn 起止、`toolMs` ← `tool_execution_start/end`、`tps` ← output tokens / `llmMs`；字段为 `SessionStatsInfo.perf?`。⚠️ **冷会话**（本进程未运行过）为 `undefined`（不是 0），UI 不展示该卡 |
+| 「最近提交 29d8be9」 | `SessionInfo` 只有 `branch`/`isWorktree` | ✅ 已就绪：git 域（`/api/git/status`）已落地，前端拿 `GitFileStatus` 后自行拼装，不进 `SessionInfo`（维持原议） |
+| 工具预设分段 `chat-only/read-only/default/full` | protocol 无枚举 | ✅ **已定且已落地**：预设判定归 **core**——只有 core 知道 SDK 的默认工具集（`default` 无法在客户端静态枚举）；命令形状已入 protocol：`set_tools {preset}` / `{toolNames}` 二选一 |
 | 输入卡「模式：默认/只读/**全自动·免确认执行命令**」 | 与工具预设语义重叠；「免确认」在 SDK 0.87 无对应能力 | ✅ **已定（2026-09-22）：与工具预设合并**，模式菜单直接展示四项预设（标签用工具集描述），**删掉「全自动·免确认」**——AGENTS.md：命名不得暗示它做不到的事 |
 | 系统提示词「版本 r42」 | `AgentState.systemPrompt` **已在 M1 契约内**（core 在 `getRunningState()` 读 `session.systemPrompt`） | ✅ **已定（2026-09-22）：展示，形态取整宽面板**。实现取舍（见下）：**删掉「版本 r42」与「约 700 tokens / 占用上下文 0.07%」**（前端无 tokenizer，硬凑会误导）；「注入于会话创建时」改为「最近一次构建」——上下文文件重载后 prompt 会变 |
 | 每轮 `usage-line` | ✅ `message.usage` 已覆盖 | 无需动作 |
@@ -281,7 +281,8 @@ Lucide、`cva` + `clsx` + `tailwind-merge`（`cn()`）、markdown 走 `react-mar
 - 三态文案：`""` →「为空（工具已禁用）」/ `null` + loading →「正在加载…」/ `null` →「尚未加载」
 - 数据源：`get_state` 的 `systemPrompt`（pi-boat 已具备）。**pi-boat 应改用轻查端点 `GET /api/agent/:id`**，因为 `get_state` 走命令 FIFO，run 期间会排到 prompt 结束（docs/02 §6.1）
 - **面板打开时才懒加载**（不占用 prompt 前的初始化）：打开时拉一次即可
-- 刷新后的限制：M1 未做会话恢复，刷新后会话不在注册表 → 轻查返回 `{running:false}`，面板只能显示「尚未加载」（M2 恢复能力到位后消失）
+- 刷新后的限制：前端尚未接**会话恢复**。服务端已就位（`POST /api/agent/:id/resume`，ADR-0013）——
+  前端只需在挂载冷会话时先 resume 再连 SSE，该限制即消失（不再依赖任何后端待办）
 - ⚠️ `agent.state.systemPrompt` 是**转录回放**（ADR-0010 已升级到 0.87.x），不是实际下发的 prompt；精确 prompt 需 `before_agent_start` 扩展覆写。**面板显示值属 B1 遗留实测项**：必须真机跑一轮会话核对，单测覆盖不到
 
 ### 11.3 已收口的 M1 流程/规格细节（2026-09-22）
@@ -291,7 +292,7 @@ Lucide、`cva` + `clsx` + `tailwind-merge`（`cn()`）、markdown 走 `react-mar
 | # | 议题 | 现状 | 选项 | 阻塞性 |
 |---|---|---|---|---|
 | 1 | **新建会话的 `cwd` 来源** | `POST /api/agent/new` 的 `cwd` 是**必填**（`z.string().min(1)`），而 M1 不做工作区 UX | ✅ **已定（2026-09-22）：前端路径输入框 + `localStorage` 记住上次**。落位：`EmptyState`（hero）的插槽（原型已预留 `#heroSlot`）；提交前只做字符串级校验（非空、绝对路径），**存在性由 core 校验**（见下行） | **高**（无 cwd 无法建会话） |
-| 1b | （连带）**不存在的 cwd 会静默建会话** | 实证（2026-09-22）：SDK `createAgentSession({ cwd: '/不存在' })` **不报错照样建会话**，之后每次 read/bash/edit 都在会话里失败——用户看到的是“agent 莫名一直报错” | ✅ **已定：core 在 `create()` 前置校验**（存在且为目录 → 否则 `UserInputError` → 400），M1 内完成。**不可拖到 M3** 的 `/api/cwd/validate`；也不可选“什么都不做” | **高** |
+| 1b | （连带）**不存在的 cwd 会静默建会话** | 实证（2026-09-22）：SDK `createAgentSession({ cwd: '/不存在' })` **不报错照样建会话**，之后每次 read/bash/edit 都在会话里失败——用户看到的是“agent 莫名一直报错” | ✅ **已定且已落地：core 在 `create()` 前置校验**（存在且为目录 → 否则 `UserInputError` → 400）。**不拖到** `/api/cwd/validate`；也不可选“什么都不做” | **高** |
 | 2 | 自动滚底 vs “用户上滚后脱离” | 原型只有无条件 `scrollBottom()` | ✅ **已定（2026-09-22）：吸附模型**（贴底 8px / 重吸 96px / 上滚即脱离 / 新增 `ScrollToBottomButton`），见 §8.2 | 中 |
 | 3 | <880px 的响应式形态 | 原型只有 1180/880 两条覆盖式断点 | ✅ **已定（2026-09-22）：只保大屏，不做小屏适配**——<880px 显示“窗口过窄”提示，不做 drawer/重排；保留“禁写死桌面假设”，移动端随 M3 排期，见 §9.1 | 低 |
 | 4 | 深色主题是否进 M1 | 原型的 `[data-theme="dark"]` token 已完整 | ✅ **已定（2026-09-22）：M1 不支持深色主题**——不接切换、不做验证。`theme.css` 保留原型已有的 dark 变量块并标注“未启用”（照抄零成本，且 ui 是跨端资产；将来要删也不必回头对照原型），但**不是 M1 交付内容** | 低 |
