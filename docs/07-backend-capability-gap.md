@@ -2,7 +2,7 @@
 
 > **本文档的三重身份**（读前先分清，否则会把历史记录当成待办）：
 > 1. **能力面基线**（§3）：一期要对齐的端点/命令/事件全集，仍是新工作时的对照表
-> 2. **历史审查记录**（§1/§2/§6）：2026-01 的审查结论与 2026-02 的分批补齐过程（G2 表 13 项中 12 项已落地，余 G2-11 启动偏好落盘）
+> 2. **历史审查记录**（§1/§2/§6）：2026-01 的审查结论与 2026-02 的分批补齐过程（G2 表 13 项中 11 项已落地、1 项已撤销〔G2-10，ADR-0015〕，余 G2-11 启动偏好落盘）
 > 3. **现役边界清单**（§7/§8/§9）：已知坑、**有意不做/延后**的项、实现期有意留下的边界
 >
 > 状态：**一期后端已全部交付**（B0–B7，2026-02）· 审查日期：2026-01
@@ -43,7 +43,7 @@
 ### G1. SDK 版本对齐 `0.87.x` ✅ 已完成（ADR-0010）
 
 **已完成（2026-01，ADR-0010）**。落地的三处语义缺口：wire 投影丢弃转录 system 消息（含 `agent_end.messages`）；历史 `context.messages` 同口径跳过（`entryIds` 同步）；`computeStats` 计入 `usage` 条目。protocol 补 `SystemMessage` + `UsageEntry` + `ContextEditEntry`（tree 会下发原始条目，schema 不认识就会整响应校验失败）。
-**遗留真机验证项**（单测覆盖不到，见 ADR-0010「后果」）：系统提示词面板显示的仍是实际下发的 prompt 吗；真实会话流里 system 过滤与历史/实时形状一致。
+**遗留真机验证项**（单测覆盖不到，见 ADR-0010「后果」）：真实会话流里 system 过滤与历史/实时形状一致。（原「系统提示词面板显示的仍是实际下发的 prompt 吗」**已作废**——本仓不做精确覆写，ADR-0015）
 
 ### G2. 审查时“文档未登记”的核心运行时能力 ✅ 除 G2-11 外全部落地
 
@@ -59,7 +59,7 @@
 | G2-7 | **会话内容搜索** | 先轻量字段（名字/首条消息）筛，再对**有界候选**扫正文（候选数与单文件字节数均封顶），否则几万会话全读 | `SessionReadService.search()` + `fileContains()` |
 | G2-8 | **列表 `summary=1` 快路径** | 侧栏先画壳不等全量解析 | `SessionListQuerySchema.summary` + `list({summary:true})` |
 | G2-9 | **工具预设持久化 + 纯聊天边界** | 预设归 core 解析（`default` 集只有 core 知道）；选择**持久化到会话内 custom 条目**；纯聊天（chat-only）不加载扩展/技能/prompt，跨越该边界**重建 runtime** | `core/src/agent/session-tool-selection.ts` + `set_tools {preset}` |
-| G2-10 | **精确系统提示词覆写** | 内联 extension 的 `before_agent_start` 返回 `{systemPrompt}` | `core/src/agent/exact-system-prompt.ts` |
+| G2-10 | **精确系统提示词覆写**（已撤销） | 原为内联 extension 的 `before_agent_start` 返回 `{systemPrompt}`。**2026-09-24 撤销：删除该扩展**——pi 默认就会把上下文文件放进 `<project_context>`（与工具集无关），扩展只买到「剥掉包装」；且上游方案的另两个部件（占位符 override、状态读取优先 exact）未移植，留着只会造成面板内容随时机变化（ADR-0015） | 已删除（原 `core/src/agent/exact-system-prompt.ts`） |
 | G2-11 | **启动偏好持久化** | ⚠️ **仍缺口（与 §9 旧结论相反，本轮审查发现）**：新建会话/`set_model` 的显式选择只作用于会话（链内 `model_change` 条目），**不落 settings.json 的 `defaultModel`**（SDK 的 `setModel` 只在 `persist:true` 时写，本仓未传）。要落盘需 core 显式调 `settingsManager.setDefaultModelAndProvider()` 或在命令里加 `persist` 选项 | 待做 |
 | G2-12 | **liveness lease + idle 回收** | 形状已落地：lease TTL **180s**（审查时猜的 90s 作废）、扫描周期 60s、判据 =「无观看者（lease 过期且无 SSE 订阅）且不在跑」；不需要 provider 注册表/`globalThis` 键（单进程 + server 侧 SSE 注册表就够） | `core/src/agent/liveness.ts` + `server/src/main.ts` |
 | G2-13 | **推送投递侧** | VAPID 密钥生成/持久化、订阅存储、完成时投递（只在**无观看者**时发）；投递依赖可选包 `web-push`，未装则 `{enabled:false, reason:'web-push-not-installed'}` | `PushService`（`core/src/agent/liveness.ts`）+ `server/src/routes/push.ts` |
@@ -250,7 +250,7 @@
 |---|---|---|---|
 | **B0 定案** | §5 的 ADR + `docs/02` 路由基线刷新 | — | 定案文档 |
 | **B1 SDK 升级** ✅ 已完成 | 升 `0.87.x`（ADR-0010）、wire 投影对齐（system 消息过滤 / `agent_end` / `turn_*` 取舍）、`computeStats` 口径、事件快照回归全绿 | — | core 地基（遗留 2 项真机验证，见 §2 G1） |
-| **B2 命令通道补全** ✅ 已完成 | 13 条命令 + fork runtime 替换（`AgentSessionRuntime`）+ `set_tools` 双路径 + 扩展 UI 通道（G2-4，ADR-0012）+ 工具预设（G2-9）+ 性能统计累加 + 精确系统提示词（G2-10）+ 冷会话 `resume`（ADR-0013a） | B1 ✅ | agent 域完整 |
+| **B2 命令通道补全** ✅ 已完成 | 13 条命令 + fork runtime 替换（`AgentSessionRuntime`）+ `set_tools` 双路径 + 扩展 UI 通道（G2-4，ADR-0012）+ 工具预设（G2-9）+ 性能统计累加 + 冷会话 `resume`（ADR-0013a）；~~精确系统提示词（G2-10）~~ **已于 2026-09-24 撤销**（ADR-0015） | B1 ✅ | agent 域完整 |
 | **B3 模型域** ✅ 已完成 | `models` / `models-config`(+catalog/discover/test) / `models/enabled`(G2-2，ADR-0011) / `models/refresh`(G2-3) | B1 ✅ | ConfigService |
 | **B4 会话域增强** ✅ 已完成 | export（SDK `exportFromFile`）/ auto-name / thinking / `revision`(G2-6) / `summary=1`(G2-8) / 正文搜索(G2-7) / 外部写入探测(G2-5，ADR-0013b) / transient 合并 | B1 ✅ | 会话域完整 |
 | **B5 文件 / Git / Worktree** ✅ 已完成 | files list/read/download/meta/preview + upload/upload-check（引用放行、文件名清洗、冲突策略）/ file-index（git ls-files + 模糊打分）/ home / default-cwd / cwd browse+validate / git status+diff / worktrees 全组（路径归一 + 409 dirty） | B0 ✅ | SystemService + PathGuard |
@@ -376,6 +376,7 @@
 
 | 项 | 现状 | 理由 |
 |---|---|---|
+| **纯聊天的系统提示词精确覆写** | **已撤销**（ADR-0015，2026-09-24）：删除 `agent/exact-system-prompt.ts` 与 `systemPrompt: ' '` / `appendSystemPrompt: [' ']` 占位符，纯聊天按 pi 默认组装 | pi 默认即把上下文文件放进 `<project_context>`，扩展只买到「剥掉包装」；且它会靠 `_runSystemPromptOptions` 制造面板时序差异。需要「逐字」的真实用例（子代理 profile）见 §8-4，届时重新引入 |
 | `GET /api/files/*?type=watch` | 返回 400（未实现） | 文件监听要常驻 watcher 与跨平台差异处理；一期用轮询足够 |
 | 上传的 Range / DOCX / 分块 | 未实现（单请求多文件已实现，25MB/文件、100MB/请求）；`read` / `preview` 也是整文件字节 | 分块与 Range 只在超大文件场景需要 |
 | 推送**投递** | 需要可选包 `web-push`（未装则 `GET /api/push/config` 回 `enabled:false` + 原因） | AES128GCM 载荷加密不宜自研；订阅侧已完整落盘 |

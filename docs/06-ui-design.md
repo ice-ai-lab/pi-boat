@@ -98,7 +98,7 @@
 | `ModelBadge` / `ModeChip` | `model` / `mode` `onChange` | `.model-btn` / `.mode-chip` + `.mode-menu`。⚠️ **「模式」与工具预设已合并为同一概念**（2026-09-22 决策，docs/02 §11.1）：本组件与 `ToolList` 的分段控件读写同一状态 |
 | `StatsPills` | `stats` `onSelect(kind)` | `#statsRow` 7 个 pill（in / out / cache / tps / cost / ctx ring） |
 | `UsageLine` | `usage` `at` | `.usage-line`（每轮：in · out · cache R · cost · 时间） |
-| `SystemPromptPanel` | `prompt: string \| null` `loading` | ✅ **形态已定（2026-09-22）：整宽面板**（不取原型的 560px 锚定浮层）。规格：`height: min(600px, 75dvh)` + `overflow:auto` + `pre-wrap` + `overflow-wrap:anywhere` + 等宽 12px；三态文案（空 / 尚未加载 / 加载中）；触发器为顶栏按钮（`aria-pressed`，有内容时图标转 accent）。原型仍提供视觉 token（`#popSys` 内的 `.sysprompt` 排版） |
+| `SystemPromptPanel` | `prompt: string \| null` `loading` | ✅ **形态已定（2026-09-22）：整宽面板**（不取原型的 560px 锚定浮层）。规格：`height: min(600px, 75dvh)` + `overflow:auto` + `pre-wrap` + `overflow-wrap:anywhere` + 等宽 12px；两态文案（尚未加载 / 加载中；原「空」态已删——不可达，ADR-0015）；触发器为顶栏按钮（`aria-pressed`，有内容时图标转 accent）。原型仍提供视觉 token（`#popSys` 内的 `.sysprompt` 排版） |
 | `MessageMinimap` | `turns` `scrollRef` | `.minimap` + `.mm-bar` + `.mm-tip` 预览，算法见 §8.3 |
 | `ScrollToBottomButton` | `visible` `onClick` | **原型未画，M1 新增件**：圆形按钮 + 下箭头，悬于 composer 上方，`visible = 有溢出 && 未贴底`，`smooth` 滚动，带 `aria-label`（§8.2） |
 | `ContentWidthControls` | `width` `onWidthChange` `min` `max` | `.chat-handle` 双侧 + `--mh-y` 指针跟随光条 |
@@ -271,19 +271,23 @@ Lucide、`cva` + `clsx` + `tailwind-merge`（`cn()`）、markdown 走 `react-mar
 | 「最近提交 29d8be9」 | `SessionInfo` 只有 `branch`/`isWorktree` | ✅ 已就绪：git 域（`/api/git/status`）已落地，前端拿 `GitFileStatus` 后自行拼装，不进 `SessionInfo`（维持原议） |
 | 工具预设分段 `chat-only/read-only/default/full` | protocol 无枚举 | ✅ **已定且已落地**：预设判定归 **core**——只有 core 知道 SDK 的默认工具集（`default` 无法在客户端静态枚举）；命令形状已入 protocol：`set_tools {preset}` / `{toolNames}` 二选一 |
 | 输入卡「模式：默认/只读/**全自动·免确认执行命令**」 | 与工具预设语义重叠；「免确认」在 SDK 0.87 无对应能力 | ✅ **已定（2026-09-22）：与工具预设合并**，模式菜单直接展示四项预设（标签用工具集描述），**删掉「全自动·免确认」**——AGENTS.md：命名不得暗示它做不到的事 |
-| 系统提示词「版本 r42」 | `AgentState.systemPrompt` **已在 M1 契约内**（core 在 `getRunningState()` 读 `session.systemPrompt`） | ✅ **已定（2026-09-22）：展示，形态取整宽面板**。实现取舍（见下）：**删掉「版本 r42」与「约 700 tokens / 占用上下文 0.07%」**（前端无 tokenizer，硬凑会误导）；「注入于会话创建时」改为「最近一次构建」——上下文文件重载后 prompt 会变 |
+| 系统提示词「版本 r42」 | `AgentState.systemPrompt` **已在 M1 契约内**（core 在 `getRunningState()` 读 `session.systemPrompt`） | ✅ **已定（2026-09-22）：展示，形态取整宽面板**。实现取舍（见下）：**删掉「版本 r42」与「约 700 tokens / 占用上下文 0.07%」**（前端无 tokenizer，硬凑会误导）；「注入于会话创建时」改为「最近一次构建」——上下文文件重载后 prompt 会变。**展示的即 pi 的结构化 prompt，不声称「实际下发」（ADR-0015）** |
 | 每轮 `usage-line` | ✅ `message.usage` 已覆盖 | 无需动作 |
 
 **系统提示词面板**：
 
 - 形态：✅ **已定整宽面板**（不取原型的 560px 锚定浮层——2000+ 字符的长文本点外关闭会丢阅读位置）；
   顶栏「系统」按钮（`aria-pressed`，有内容时图标转 accent）→ 面板 `height: min(600px, 75dvh)`、`pre-wrap`、等宽 12px
-- 三态文案：`""` →「为空（工具已禁用）」/ `null` + loading →「正在加载…」/ `null` →「尚未加载」
+- 两态文案：`null` + loading →「正在加载…」/ `null` →「尚未加载」
+  （原「`""` → 为空（工具已禁用）」已删：`<cwd>` 段无条件写入，该字符串永不为空，这一态不可达；ADR-0015）
 - 数据源：`get_state` 的 `systemPrompt`（pi-boat 已具备）。**pi-boat 应改用轻查端点 `GET /api/agent/:id`**，因为 `get_state` 走命令 FIFO，run 期间会排到 prompt 结束（docs/02 §6.1）
 - **面板打开时才懒加载**（不占用 prompt 前的初始化）：打开时拉一次即可
 - 刷新后的限制：前端尚未接**会话恢复**。服务端已就位（`POST /api/agent/:id/resume`，ADR-0013）——
   前端只需在挂载冷会话时先 resume 再连 SSE，该限制即消失（不再依赖任何后端待办）
-- ⚠️ `agent.state.systemPrompt` 是**转录回放**（ADR-0010 已升级到 0.87.x），不是实际下发的 prompt；精确 prompt 需 `before_agent_start` 扩展覆写。**面板显示值属 B1 遗留实测项**：必须真机跑一轮会话核对，单测覆盖不到
+- ⚠️ 显示的是 **pi 的结构化 prompt**（`session.systemPrompt`，ADR-0010：0.87 起为转录回放），**不是某次请求实际下发的 prompt**。
+  本仓**已决定不做**精确覆写（删除了 `agent/exact-system-prompt.ts`，ADR-0015）——因此：不得标注「实际下发」，
+  不得加版本号 / token 估算，也不依赖「上下文文件重载后 prompt 会变」以外的任何实时性。
+  纯聊天会话会带上 pi 的身份/`<tools>(none)</tools>`/`<docs>`/`<cwd>` 与 `<project_context>` 包装，属**有意**结果
 
 ### 11.3 已收口的 M1 流程/规格细节（2026-09-22）
 

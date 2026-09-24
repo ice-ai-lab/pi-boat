@@ -20,7 +20,7 @@
 | 会话条目 | 新增 `UsageEntry`（`type: "usage"`，如 `kind: "cache_warm"`） | 不进模型上下文但计费；统计漏计会让 token / cost 与 SDK `/session` 不一致 |
 | 会话条目 | 新增 `ContextEditEntry`（`type: "context_edit"`） | 省略/替换某条目的模型上下文，不改原始历史 |
 | 会话条目 | `CompactionEntry.systemMessage?` | 压缩边界处附完整 prompt/工具状态 |
-| 状态读取 | `agent.state.systemPrompt` 改为**转录回放**（从落盘 system 消息重建），且不可赋值 | 面板若需展示「实际下发的 prompt」，只能走 `before_agent_start` 覆写 |
+| 状态读取 | `agent.state.systemPrompt` 改为**转录回放**（从落盘 system 消息重建），且不可赋值 | 面板若需展示「实际下发的 prompt」，只能走 `before_agent_start` 覆写。**本仓已决定不做**（ADR-0015，2026-09-24 删除该覆写）：面板展示的就是 pi 的结构化渲染结果 |
 | 新增 API | `buildSessionProjection()` / `ProjectedSessionEntry` / `SessionProjection`；cache warmer；boundary hooks | 可选能力，本 ADR 不采用（见「备选方案」） |
 
 **不变的部分**（已核对，降低了升级风险）：
@@ -72,11 +72,12 @@
 
 - **`systemPrompt` 语义变了**：`agent.state.systemPrompt` 现在是转录回放，不等于
   某次请求实际下发的 prompt。系统提示词面板要显示「实际下发的」，需走
-  `before_agent_start` 覆写（`docs/06` §11.2）
+  `before_agent_start` 覆写（`docs/06` §11.2）——**本仓已决定不做，该覆写已于 2026-09-24 删除（ADR-0015）**
 - `messageCount` 口径变化：转录 system 消息计入 `messageCount`（与 SDK 一致），
   但它是消息条目而非可见消息——前端不得用 `messageCount` 当「对话轮数」
 - **两处只靠真机验证的遗留项**（单测覆盖不到，列入 B1 验收尾巴）：
-  1. 系统提示词面板显示的仍是实际下发的 prompt 吗（需跑一轮会话比对）
+  1. ~~系统提示词面板显示的仍是实际下发的 prompt 吗（需跑一轮会话比对）~~ —— **已作废**：
+     本仓不做精确覆写，面板展示的就是 pi 的结构化渲染结果，不再存在「两者是否一致」的问题（ADR-0015，2026-09-24）
   2. 真实会话流里 system 消息确实被丢弃且历史/实时形状一致（需开一次带扩展的会话观感核对）
 - 0.87 的 `agent-session` 引入了一批新扩展事件（`AgentBeforeSettleEvent`、
   `CacheWarmingDecisionEvent`、`MessageEndEventResult` 等）。本仓不订阅这些扩展面，
