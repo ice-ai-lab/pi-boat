@@ -1,8 +1,8 @@
 import type { AgentSessionService } from '@ice-ai/core';
 
 /**
- * Agent 事件流的 SSE 传输层（docs/04 §5）。参照 pi-web lib/agent-event-stream.ts，
- * 差异：pi-boat 事件自带会话级 seq（id: 帧即 seq），无缓冲窗口重放。
+ * Agent 事件流的 SSE 传输层（docs/04 §5）。事件自带会话级 seq（id: 帧即 seq），
+ * M1 不做缓冲窗口重放（§5.5 分阶段兑现）。
  *
  * 建立时序（§5.1）：①Response 头 + 注释帧立即下发（强制冲刷，不等 core）
  * → ②agentService.subscribe（core 同步完成：注册 listener → connected{lastSeq}
@@ -19,7 +19,7 @@ type StreamCloser = (closeController: boolean | 'error') => void;
 
 /**
  * 进程内活跃 SSE 流注册表（模块级，单进程）。
- * 关停时统一硬断（§5.4 关停坑，pi-web 教训）：graceful close 可能被 Node
+ * 关停时统一硬断（§5.4 关停坑）：graceful close 可能被 Node
  * 响应管道吞掉——socket 保持 ESTABLISHED、server.close() 永不完成、进程变僵尸。
  */
 const activeClosers = new Set<StreamCloser>();

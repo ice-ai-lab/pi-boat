@@ -18,7 +18,8 @@ import { toWireAgentMessage } from './wire-message';
  * 1. toolcall_start / toolcall_delta 从 partial.content[contentIndex] 补齐 id / toolName
  * 2. 剥离 partial（完整消息只经快照/历史下发，流上只有增量）
  * 3. message_update 整条丢弃累积 message（尺寸随流增长），仅提取 usage（尺寸恒定）
- * 4. 携带 AgentMessage 的事件（turn_end / agent_end / message_start / message_end）
+ * 4. 转录 system 消息（role === "system"，SDK ≥ 0.86）整条丢弃（含 agent_end.messages 里的）
+ * 5. 携带 AgentMessage 的事件（turn_end / agent_end / message_start / message_end）
  *    不丢字段，但消息逐条过 toWireAgentMessage（SDK→protocol 契约边界）
  * turn_* 及其余结构一致的事件原样透传（与 SDK 对齐，2026-09-20 定案）
  *
@@ -102,6 +103,11 @@ export function toWireAgentEventPayload(event: AgentSessionEvent): WireAgentEven
     }
     case 'message_start':
     case 'message_end':
+      // 转录 system 消息（SDK ≥ 0.86）不入 wire：它携带完整 prompt 与全部工具
+      // schema，尺寸随扩展/技能数量增长，而它不是对话内容。历史路径同口径
+      // （session-read 的聊天投影跳过它），两侧一致才不会实时/刷新形状漂移。
+      // 防御性丢弃，不消耗 seq（同其他 null 分支）。
+      if (event.message.role === 'system') return null;
       // 无字段丢弃；单条 message 过投影（剥 readonly + SDK→protocol 类型边界）
       return { type: event.type, message: toWireAgentMessage(event.message) };
     case 'agent_end':
@@ -112,9 +118,12 @@ export function toWireAgentEventPayload(event: AgentSessionEvent): WireAgentEven
       // willRetry 补充：底层 AgentEvent（pi-agent-core）的 agent_end 没有此字段，
       // 由 AgentSession 发射时按 auto-retry 状态补上；wire 保留它供客户端
       // 提示「即将自动重试」而非渲染成对话终止。
+      // system 消息同样过滤——它是这份批量数组里唯一会随工具数量膨胀的项。
       return {
         type: 'agent_end',
-        messages: event.messages.map(toWireAgentMessage),
+        messages: event.messages
+          .filter((message) => message.role !== 'system')
+          .map(toWireAgentMessage),
         willRetry: event.willRetry,
       };
     case 'queue_update':

@@ -36,7 +36,7 @@ export const entryToolResultImagePath = (id: string, entryId: string) =>
 /**
  * GET /api/sessions?force=1&projectKey=…（磁盘扫描与运行时注册表合并）
  *
- * - `force=1`：跳过服务端列表缓存（并清空项目解析缓存）——pi-web 同语义。
+ * - `force=1`：跳过服务端列表缓存（并清空项目解析缓存）。
  *   缓存按**会话目录指纹**（每个 .jsonl 的 size+mtime）失效，因此磁盘侧变动
  *   （其他进程写入、首条消息落盘、改名）会自动命中失效；不需要只靠 force。
  * - `projectKey`：只返回该项目的会话（分组键见 rest/projects）

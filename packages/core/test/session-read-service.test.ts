@@ -131,6 +131,43 @@ function compactedFixtureLines(sessionId: string): string[] {
   return entries.map((entry) => JSON.stringify(entry));
 }
 
+/** 转录 system 消息 + 用量条目：验证历史投影与实时路径同口径（system 不进 UI，usage 计入统计） */
+function systemUsageFixtureLines(sessionId: string): string[] {
+  const entries: Array<Record<string, unknown>> = [
+    { type: 'session', version: 3, id: sessionId, timestamp: now, cwd: '/proj' },
+    {
+      type: 'message',
+      id: 's0',
+      parentId: null,
+      timestamp: ts(0),
+      message: {
+        role: 'system',
+        content: '完整 prompt 与工具声明',
+        sections: { tools: '工具声明段' },
+        timestamp: Date.parse(ts(0)),
+      },
+    },
+    {
+      type: 'message',
+      id: 'p1',
+      parentId: 's0',
+      timestamp: ts(1),
+      message: { role: 'user', content: '你好', timestamp: Date.parse(ts(1)) },
+    },
+    {
+      type: 'usage',
+      id: 'w1',
+      parentId: 'p1',
+      timestamp: ts(2),
+      kind: 'cache_warm',
+      provider: 'anthropic',
+      model: 'claude-test',
+      usage,
+    },
+  ];
+  return entries.map((entry) => JSON.stringify(entry));
+}
+
 /** 长工具流量段：r0(user) → tr1..tr250(toolResult)，验证 raw cap 截断 */
 function toolSpamFixtureLines(sessionId: string): string[] {
   const entries: Array<Record<string, unknown>> = [
@@ -349,6 +386,62 @@ describe('computeStats（纯函数）', () => {
   it('空条目返回全零', () => {
     const stats = computeStats([], 's');
     expect(stats).toMatchObject({ userMessages: 0, toolCalls: 0, cost: 0, tokens: { total: 0 } });
+  });
+
+  // SDK ≥ 0.86：用量条目（如 prompt 缓存预热）不进模型上下文但计费，
+  // 漏掉它会与 SDK `/session` 的口径不一致。
+  it('usage 条目计入 token / cost，但不计消息数', () => {
+    const entries = [
+      {
+        type: 'usage',
+        id: 'u1',
+        parentId: null,
+        timestamp: ts(0),
+        kind: 'cache_warm',
+        provider: 'anthropic',
+        model: 'claude-test',
+        usage,
+      },
+    ] as unknown as Parameters<typeof computeStats>[0];
+    const stats = computeStats(entries, 's');
+    expect(stats.tokens).toEqual({ input: 10, output: 20, cacheRead: 0, cacheWrite: 0, total: 30 });
+    expect(stats.cost).toBeCloseTo(0.3);
+    expect(stats.totalMessages).toBe(0);
+  });
+});
+
+describe('SessionReadService（SDK ≥ 0.86 新条目）', () => {
+  let dir: string;
+  const sessionId = 'aaaabbbb-1111-2222-3333-444455556666';
+
+  beforeAll(() => {
+    dir = mkdtempSync(join(tmpdir(), 'piboat-test-sysusage-'));
+    writeFileSync(
+      join(dir, `${sessionId}.jsonl`),
+      `${systemUsageFixtureLines(sessionId).join('\n')}\n`,
+    );
+  });
+  afterAll(() => rmSync(dir, { recursive: true, force: true }));
+
+  it('context：转录 system 消息不进聊天投影（与 wire 实时路径同口径）', async () => {
+    const context = await new SessionReadService({ sessionDir: dir }).context(sessionId, {});
+    if (!context) throw new Error('missing context');
+    expect(context.messages.map((m) => m.role)).toEqual(['user']);
+    // 平行数组不得因过滤而错位
+    expect(context.entryIds).toHaveLength(context.messages.length);
+  });
+
+  it('stats：usage 条目计入 token / cost；system 消息不计消息数', async () => {
+    const detail = await new SessionReadService({ sessionDir: dir }).detail(sessionId);
+    if (!detail) throw new Error('missing detail');
+    expect(detail.stats.tokens).toEqual({
+      input: 10,
+      output: 20,
+      cacheRead: 0,
+      cacheWrite: 0,
+      total: 30,
+    });
+    expect(detail.stats.totalMessages).toBe(1);
   });
 });
 

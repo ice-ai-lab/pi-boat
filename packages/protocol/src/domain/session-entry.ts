@@ -1,10 +1,18 @@
 import { z } from 'zod';
 import { ThinkingLevelSchema } from '../constants';
-import { AgentMessageSchema, ImageContentSchema, TextContentSchema, UsageSchema } from './message';
+import {
+  AgentMessageSchema,
+  ImageContentSchema,
+  SystemMessageSchema,
+  TextContentSchema,
+  ThinkingContentSchema,
+  ToolCallContentSchema,
+  UsageSchema,
+} from './message';
 
 /**
  * 会话文件条目（`.jsonl` 每行，docs/02 §3.1）。
- * 形状对齐 SDK 0.85.1 `core/session-manager.ts` 的 SessionHeader/SessionEntry，
+ * 形状对齐 SDK 0.87.x `core/session-manager.ts` 的 SessionHeader/SessionEntry，
  * 时间戳为 ISO 字符串（JSON 行格式，区别于消息内的 epoch 毫秒）。
  */
 
@@ -54,8 +62,52 @@ export const CompactionEntrySchema = SessionEntryBaseSchema.extend({
   usage: UsageSchema.optional(),
   /** true = 扩展生成；缺省/false = pi 自身生成 */
   fromHook: z.boolean().optional(),
+  /** 该压缩边界处的完整 prompt 与工具状态（SDK ≥ 0.86）；UI 不渲染 */
+  systemMessage: SystemMessageSchema.optional(),
 });
 export type CompactionEntry = z.infer<typeof CompactionEntrySchema>;
+
+/**
+ * 用量条目（SDK ≥ 0.86）：记录不进模型上下文但计费的用量（如 `kind: "cache_warm"`
+ * 的 prompt 缓存预热）。**统计必须计入**，否则 token / cost 与 SDK `/session` 不一致。
+ */
+export const UsageEntrySchema = SessionEntryBaseSchema.extend({
+  type: z.literal('usage'),
+  /** 用量类别，如 `cache_warm` */
+  kind: z.string(),
+  provider: z.string(),
+  model: z.string(),
+  usage: UsageSchema,
+  /** 给人看的用量说明（可选） */
+  note: z.string().optional(),
+});
+export type UsageEntry = z.infer<typeof UsageEntrySchema>;
+
+/**
+ * 上下文编辑条目（SDK ≥ 0.86）：省略或替换某个既有条目的模型上下文，不改原始历史。
+ * UI 忽略它（历史浏览要「发生过什么」而非「模型看到什么」）；`replacement: null`
+ * = 该条目不再进上下文。
+ */
+export const ContextEditEntrySchema = SessionEntryBaseSchema.extend({
+  type: z.literal('context_edit'),
+  targetId: z.string(),
+  replacement: z
+    .object({
+      content: z.union([
+        z.string(),
+        z.array(
+          z.union([
+            TextContentSchema,
+            ThinkingContentSchema,
+            ImageContentSchema,
+            ToolCallContentSchema,
+          ]),
+        ),
+      ]),
+    })
+    .nullable(),
+});
+export type ContextEditEntry = z.infer<typeof ContextEditEntrySchema>;
 
 export const BranchSummaryEntrySchema = SessionEntryBaseSchema.extend({
   type: z.literal('branch_summary'),
@@ -104,10 +156,12 @@ export const SessionEntrySchema = z.discriminatedUnion('type', [
   SessionMessageEntrySchema,
   ThinkingLevelChangeEntrySchema,
   ModelChangeEntrySchema,
+  UsageEntrySchema,
   CompactionEntrySchema,
   BranchSummaryEntrySchema,
   CustomEntrySchema,
   CustomMessageEntrySchema,
+  ContextEditEntrySchema,
   LabelEntrySchema,
   SessionInfoEntrySchema,
 ]);

@@ -11,8 +11,8 @@ import type { ProjectInfo } from '@ice-ai/protocol';
  * 同一仓库的子目录（`repo/packages/core`）与 worktree（`../repo-worktrees/feat-x`）
  * 会各占一个目录，前端按 cwd 分组就会把同一个项目拆成多个。
  *
- * 做法（对齐 pi-web）：用 git 把 cwd 归一到仓库根，worktree 归到主仓库根；
- * 非 git 目录回落 cwd。结果按 cwd 缓存 60s——每个 distinct cwd 一次 git 子进程。
+ * 做法：用 git 把 cwd 归一到仓库根，worktree 归到主仓库根；非 git 目录回落 cwd。
+ * 结果按 cwd 缓存 60s——每个 distinct cwd 一次 git 子进程。
  *
  * 缓存与失效：TTL 60s（分支切换后最多滞后一分钟）；`force=1` 由上层调 clear()。
  * 缓存粒度是 cwd 而非目录指纹——git 元数据变化（checkout/新 worktree）不体现在

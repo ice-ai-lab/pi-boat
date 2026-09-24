@@ -70,6 +70,15 @@ export interface SessionListOptions {
 const DEFAULT_TAIL = 50;
 const MAX_TAIL = 1000;
 
+/**
+ * 子代理标记的 `customType`。
+ *
+ * 这是 `.jsonl` 里的实际磁盘值，不是命名偏好：会话文件与其他读同一目录的运行时
+ * 共享，改字面量会让既有子代理会话不再被识别（级联删除、家族归组失效）。
+ * 因此只在文档/注释里按常量名引用，字面量只在本行出现一次。
+ */
+const SUBAGENT_CUSTOM_TYPE = 'pi-web:subagent';
+
 export class SessionReadService {
   private readonly sessionDir?: string;
   private readonly sessionsRoot: string;
@@ -120,7 +129,7 @@ export class SessionReadService {
     );
   }
 
-  /** 清空缓存（force 路径；项目解析缓存也一并清，对齐 pi-web 的 force 语义） */
+  /** 清空缓存（force 路径；项目解析缓存也一并清） */
   invalidate(): void {
     this.listCache = null;
     this.resolver.clear();
@@ -182,9 +191,9 @@ export class SessionReadService {
   /**
    * 级联删除会话及其全部 subagent 子会话，返回受影响 id（含目标自身，目标在前）。
    * 不存在返回 null。子会话判定：header.parentSession 指向父会话文件路径
-   * （agent-session-runtime 以 previousSessionFile 写入），且条目携带 subagent
-   * 标记（custom 条目 pi-web:subagent，生态约定）——fork 子会话仍是顶层列表项，
-   * 不在级联范围（docs/02 §3.3）。运行中会话的拦截归 server（409）。
+   * （agent-session-runtime 以 previousSessionFile 写入），且条目携带子代理
+   * 标记（custom 条目的 `customType` 命中 `SUBAGENT_CUSTOM_TYPE`）——fork 子会话
+   * 仍是顶层列表项，不在级联范围（docs/02 §3.3）。运行中会话的拦截归 server（409）。
    */
   async delete(id: string): Promise<string[] | null> {
     const infos = await this.listAllSessions(await scanSessionsDir(this.sessionsRoot));
@@ -218,7 +227,7 @@ export class SessionReadService {
     return deletedIds;
   }
 
-  /** subagent 标记检测（pi-web 生态约定：custom 条目 pi-web:subagent） */
+  /** 子代理标记检测（custom 条目的 `customType` 命中 `SUBAGENT_CUSTOM_TYPE`） */
   private async isSubagent(info: SdkSessionInfo): Promise<boolean> {
     const manager = SessionManager.open(info.path, this.sessionDir);
     return manager
@@ -226,7 +235,7 @@ export class SessionReadService {
       .some(
         (entry) =>
           entry.type === 'custom' &&
-          (entry as { customType?: string }).customType === 'pi-web:subagent',
+          (entry as { customType?: string }).customType === SUBAGENT_CUSTOM_TYPE,
       );
   }
 
@@ -342,15 +351,18 @@ export class SessionReadService {
     // 分页走原始 parentId 父链（sliceBranchWindow）：历史浏览要「发生过什么」，
     // 不是「模型看到什么」。SDK buildContextEntries 是 LLM 上下文投影，压缩点
     // 之前会被整体折叠成摘要——before 游标落在压缩前条目时失配，向上翻页死路
-    // （对齐 pi-web sliceActiveBranch 的教训，2026-09-21）
+    // （08ee0ba 修复）
     const tail = Math.min(query.tail ?? DEFAULT_TAIL, MAX_TAIL);
     const windowEntries = sliceBranchWindow(entries, leafId, query.before, tail);
 
     // 平行数组：每个条目经 SDK 逐条投影展开为 0..1 条消息（compaction→分隔条等）
+    // 转录 system 消息跳过：它与实时路径同口径（wire 事件层也丢弃），且它不是
+    // 对话内容。原始条目仍在 tree 里（树要的是「发生过什么」）。
     const messages: AgentMessage[] = [];
     const entryIds: string[] = [];
     for (const entry of windowEntries) {
       for (const raw of sessionEntryToContextMessages(entry)) {
+        if (raw.role === 'system') continue;
         messages.push(toWireAgentMessage(raw));
         entryIds.push(entry.id);
       }
@@ -447,6 +459,16 @@ export function computeStats(
   let cost = 0;
 
   for (const entry of entries) {
+    // 用量条目（SDK ≥ 0.86）：不进上下文但计费，必须计入 token / cost，
+    // 否则与 SDK `/session` 的口径不一致（prompt 缓存预热是典型例子）
+    if (entry.type === 'usage') {
+      tokens.input += entry.usage.input;
+      tokens.output += entry.usage.output;
+      tokens.cacheRead += entry.usage.cacheRead;
+      tokens.cacheWrite += entry.usage.cacheWrite;
+      cost += entry.usage.cost.total;
+      continue;
+    }
     if (entry.type !== 'message') continue;
     const message = entry.message;
     if (message.role === 'user') userMessages += 1;

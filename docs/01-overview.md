@@ -146,7 +146,7 @@ pi-boat/
 |---|---|---|
 | 包管理 / 任务 | **pnpm workspace + Turborepo** | 任务编排与缓存成熟，monorepo 事实标准 |
 | Node 版本 | ≥ 22.19（engines 强制） | pi-coding-agent 要求；原生 fetch/SSE |
-| Agent 底层 | `@earendil-works/pi-coding-agent` 锁 `0.85.x` | SDK 主入口 + `./client`；升级走专门 ADR |
+| Agent 底层 | `@earendil-works/pi-coding-agent` 锁 `0.87.x`（ADR-0010） | SDK 主入口 + `./client`；升级走专门 ADR |
 | 服务框架 | **Hono**（Express/Fastify 同类的轻量 TS HTTP 框架，仅是工具选型，可替换） | TS-first、轻量、路由即类型（配合 `hc` 可自动生成 client 类型）、Node 适配好 |
 | 前端框架 | **Vite + React 19 SPA**（定案见 ADR-0002） | 纯本地 SPA：无 SSR/SEO/RSC 需求；静态产物由 server 托管，避免为弃用的框架能力付费 |
 | 样式 | Tailwind 4（token 单一来源 `ui/theme.css`，docs/06 §3） | 原子化 CSS，组件库跨端复用友好；CSS-first `@theme` 正好承接原型的双主题变量 |

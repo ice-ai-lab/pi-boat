@@ -43,6 +43,14 @@ const userMessage: SdkMessage = {
   timestamp: 1_700_000_000_000,
 };
 
+/** 转录 system 消息（SDK ≥ 0.86）：携带完整 prompt + 工具 schema，不入 wire */
+const systemMessage: SdkMessage = {
+  role: 'system',
+  content: 'base prompt',
+  sections: { tools: 'tool declarations' },
+  timestamp: 1_700_000_000_000,
+};
+
 /** 累积 partial（toolCall 块在 content[1]，toolcall 流事件的提取源） */
 const partialMessage: SdkMessage = {
   ...assistantMessage,
@@ -299,6 +307,29 @@ describe('toWireAgentEvent：透传与 seq', () => {
 // -----------------------------------------------------------------------
 // wire 契约校验：全部投影结果可被 protocol schema 解析（防字段漂移）
 // ---------------------------------------------------------------------------
+
+describe('toWireAgentEvent：转录 system 消息过滤（SDK ≥ 0.86）', () => {
+  it('message_start / message_end 里的 system 消息丢弃（不消耗 seq）', () => {
+    expect(toWireAgentEvent(e({ type: 'message_start', message: systemMessage }), 5)).toBeNull();
+    expect(toWireAgentEvent(e({ type: 'message_end', message: systemMessage }), 6)).toBeNull();
+  });
+
+  it('agent_end：messages 里过滤 system，其余保留', () => {
+    const wire = toWireAgentEvent(
+      e({
+        type: 'agent_end',
+        messages: [userMessage, systemMessage, assistantMessage],
+        willRetry: false,
+      }),
+      7,
+    );
+    expect(wire).toMatchObject({ type: 'agent_end', seq: 7, willRetry: false });
+    expect((wire as { messages: Array<{ role: string }> }).messages.map((m) => m.role)).toEqual([
+      'user',
+      'assistant',
+    ]);
+  });
+});
 
 describe('toWireAgentEvent：wire schema 兼容性', () => {
   const samples: Array<AgentSessionEvent> = [

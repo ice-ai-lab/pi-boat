@@ -89,7 +89,7 @@ export function registerAgentRoutes(app: Hono, deps: AgentRouteDeps): void {
   // GET /api/agent/:id/events —— SSE 事件流（sse.ts 六关流路径）
   app.get('/api/agent/:id/events', (c) => {
     const id = c.req.param('id');
-    // 关闭条件 3：冷会话不自动拉起（恢复语义归 M2，不照抄 pi-web startRpcSession）
+    // 关闭条件 3：冷会话不自动拉起（恢复语义归 M2 的显式端点，不在建流时隐式创建 runtime）
     if (!agentService.isRunning(id)) {
       return c.json<CommandError>({ error: `Session not found: ${id}` }, 404);
     }

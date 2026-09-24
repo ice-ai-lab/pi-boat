@@ -1,7 +1,7 @@
 # PiBoat —— 协议层清单（protocol 包实施依据）
 
-> 版本：v0.2 · 状态：待评审 · 依据：概要设计 `docs/01-overview.md` §3.1/§5.4/§10，对照本仓 SDK 0.85.1 `.d.ts` 类型面全量核验；v0.2 修订：修正事件清单（§5.1）、命令计数与误列条目（§4）、补 4 条遗漏路由（§6）及若干字段
-> 用途：`packages/protocol` 的实施清单。形状以 SDK 0.85.1 实际类型面为准，命名与结构按 PiBoat 规范收敛
+> 版本：v0.2 · 状态：待评审 · 依据：概要设计 `docs/01-overview.md` §3.1/§5.4/§10，对照本仓 SDK 0.87.1 `.d.ts` 类型面全量核验；v0.2 修订：修正事件清单（§5.1）、命令计数与误列条目（§4）、补 4 条遗漏路由（§6）及若干字段
+> 用途：`packages/protocol` 的实施清单。形状以 SDK 0.87.1 实际类型面为准，命名与结构按 PiBoat 规范收敛
 
 ---
 
@@ -48,7 +48,7 @@
 
 ## 3. ② 领域类型（domain）—— protocol 最大的一块资产
 
-**按需定义，不养期货**：schema 随所属里程碑开工再定（§1.1 切片原则）；已定义而无人消费的类型视同期货，删除待消费方出现再加回（加字段是非破坏性的；2026-09-20 定案，取代此前"M1 一次定完惰性资产"）。基础形状须与 SDK 0.85.1 对应类型保持同步，升级时核对。
+**按需定义，不养期货**：schema 随所属里程碑开工再定（§1.1 切片原则）；已定义而无人消费的类型视同期货，删除待消费方出现再加回（加字段是非破坏性的；2026-09-20 定案，取代此前"M1 一次定完惰性资产"）。基础形状须与 SDK 0.87.1 对应类型保持同步，升级时核对。
 
 ### 3.1 会话文件条目（对应 `.jsonl` 每行，`SessionEntry` 判别联合）
 
@@ -58,7 +58,9 @@
 | `SessionMessageEntry` | `message: AgentMessage` |
 | `ThinkingLevelChangeEntry` | `thinkingLevel` |
 | `ModelChangeEntry` | `provider`, `modelId` |
-| `CompactionEntry` | `summary`, `firstKeptEntryId`, `tokensBefore`, `usage?`, `fromHook?` |
+| `CompactionEntry` | `summary`, `firstKeptEntryId`, `tokensBefore`, `usage?`, `fromHook?`, `systemMessage?`（该压缩边界的完整 prompt/工具状态，SDK ≥ 0.86；UI 不渲染） |
+| `UsageEntry` | `kind`（如 `cache_warm`）, `provider`, `model`, `usage`, `note?`——**不进模型上下文但计费**，统计必须计入（SDK ≥ 0.86） |
+| `ContextEditEntry` | `targetId`, `replacement: {content} \| null`——省略/替换某条目的模型上下文，不改原始历史；UI 忽略（SDK ≥ 0.86） |
 | `BranchSummaryEntry` | `fromId`, `summary` |
 | `CustomEntry` / `CustomMessageEntry` | 扩展自定义数据 |
 | `LabelEntry` | `targetId`, `label`（分支命名） |
@@ -66,7 +68,8 @@
 
 ### 3.2 消息与内容块
 
-- `AgentMessage = UserMessage | AssistantMessage | ToolResultMessage | CustomMessage | BashExecutionMessage | BranchSummaryMessage | CompactionSummaryMessage`（与 SDK AgentMessage 完全一致；bashExecution 含 `command/output/exitCode/cancelled/truncated/fullOutputPath`；branch/compactionSummary 为注入 LLM 上下文的合成消息，无 display 字段）
+- `AgentMessage = UserMessage | AssistantMessage | ToolResultMessage | CustomMessage | BashExecutionMessage | BranchSummaryMessage | CompactionSummaryMessage | SystemMessage`（与 SDK AgentMessage 完全一致；bashExecution 含 `command/output/exitCode/cancelled/truncated/fullOutputPath`；branch/compactionSummary 为注入 LLM 上下文的合成消息，无 display 字段）
+  - ⚠️ `SystemMessage`（`role:"system"`，SDK ≥ 0.86）**载体可达但不进 UI**：携带完整 prompt 与全部工具 schema。两条路径同口径丢弃——实时由 `toWireAgentEvent()` 整条丢（含 `agent_end.messages` 里的），历史由 `context.messages` 投影跳过；原始条目仍留在 `tree` 里（树要的是「发生过什么」）
 - 内容块：`TextContent | ImageContent | ThinkingContent | ToolCallContent`
 - `AgentUsage`：input/output/cacheRead/cacheWrite token 数 + cost 四项分解 + total
 - `ContextUsage`：`percent | null`、`contextWindow`、`tokens | null`
@@ -75,7 +78,7 @@
 
 | 类型 | 要点 |
 |---|---|
-| `SessionInfo` | `path/id/cwd/name/created/modified/messageCount/firstMessage`；`relation: {kind:"fork", originSessionId?} \| {kind:"subagent", parentSessionId, profile, description, status}`（fork 仍为顶层，仅 subagent 形成父子树；原列出的独立 `parentSessionId` 字段已并入 relation，0.85.1 实现勘误）；`projectRoot/projectKey`（项目分组键，Windows 大小写/分隔符不敏感）；`branch/isWorktree`；`transient`（内存会话未落盘） |
+| `SessionInfo` | `path/id/cwd/name/created/modified/messageCount/firstMessage`；`relation: {kind:"fork", originSessionId?} \| {kind:"subagent", parentSessionId, profile, description, status}`（fork 仍为顶层，仅 subagent 形成父子树；原列出的独立 `parentSessionId` 字段已并入 relation，0.87.1 实现勘误）；`projectRoot/projectKey`（项目分组键，Windows 大小写/分隔符不敏感）；`branch/isWorktree`；`transient`（内存会话未落盘） |
 | `SubagentSessionStatus` | `starting/queued/running/completed/failed/aborted/interrupted` |
 | `SessionTreeNode` | `entry/children/label?/labelTimestamp?` |
 | `SessionContext` | `messages[] + entryIds[]`（平行数组）、`oldestEntryId/hasMore`（向上分页）、`thinkingLevel`、`model` |
@@ -143,19 +146,20 @@
 - `toolcall_start / toolcall_delta` 补齐 `id / toolName`（从 `partial.content[contentIndex]` 提取，双字段容错）
 - 剥离 `partial`（完整消息只经快照/历史下发）
 - `message_update` 附带 `usage`（SDK JSON 协议固定携带累积用量，尺寸恒定不随流增长）
+- **转录 system 消息整条丢弃**（`role === "system"`，SDK ≥ 0.86）：`message_start` / `message_end` 里的整条丢，`agent_end.messages` 里过滤。它携带完整 prompt 与全部工具 schema，尺寸随扩展/技能数量增长，且不是对话内容。**历史路径同口径**（`context.messages` 跳过它）——两侧一致才不会出现「实时看不到、刷新后冒出来」
 - `turn_*` 及其余结构一致的事件原样透传（与 SDK 对齐，2026-09-20 定案：删除剔除规则，减少分支与心智负担）
 
-**事件全集**（= SDK `JsonAgentSessionEvent` 透传 ∪ 服务层自加；SDK 0.85.1 `.d.ts` 实测，共 24 种 = 透传 22 + 自加 2；2026-09-22 删 bash_execution_update）：
+**事件全集**（= SDK `JsonAgentSessionEvent` 透传 ∪ 服务层自加；SDK 0.87.1 `.d.ts` 实测，共 24 种 = 透传 22 + 自加 2；2026-09-22 删 bash_execution_update）：
 
 | 来源 | 事件（载荷） |
 |---|---|
 | SDK：消息流（pi-agent-core `AgentEvent`） | `agent_start`；`message_start {message}`；`message_update {usage, assistantMessageEvent}`；`message_end {message}`；`tool_execution_start / update {toolCallId, toolName, partialResult} / end`；`agent_end {messages: AgentMessage[], willRetry}`（AgentSessionEvent 增强版，非裸 turn 结束）；`turn_start {}`；`turn_end {message, toolResults[]}`（2026-09-20 改透传） |
-| SDK：assistantMessageEvent 子事件（pi-ai，内嵌于 message_update） | `start`、`done`、`error`、`text_start / text_delta / text_end`、`thinking_start / thinking_delta / thinking_end`、`toolcall_start / toolcall_delta / toolcall_end`（start/delta 投影补齐 `id / toolName`）—— 共 12 种，Zod 需全量定义，不可用省略号带过（0.85.1 实测无 `adaptive`，原记 13 种系笔误勘误） |
+| SDK：assistantMessageEvent 子事件（pi-ai，内嵌于 message_update） | `start`、`done`、`error`、`text_start / text_delta / text_end`、`thinking_start / thinking_delta / thinking_end`、`toolcall_start / toolcall_delta / toolcall_end`（start/delta 投影补齐 `id / toolName`）—— 共 12 种，Zod 需全量定义，不可用省略号带过（0.87.1 实测无 `adaptive`，原记 13 种系笔误勘误） |
 | SDK：会话生命周期（agent-session 扩展） | `agent_settled`（agent 完全静止，客户端 UI settle 依据）；`queue_update {steering[], followUp[]}`；`compaction_start {reason: manual\|threshold\|overflow}`；`compaction_end {reason, result?, aborted, willRetry, errorMessage?}`；`auto_retry_start {attempt, maxAttempts, delayMs, errorMessage}`；`auto_retry_end {success, attempt, finalError?}`；`summarization_retry_scheduled / _attempt_start（branchSummary 与 compaction 两种变体）/ _finished`；`entry_appended {entry: SessionEntry}`；`session_info_changed {name}`；`thinking_level_changed {level}` |
 | **服务层自加**（SDK 没有，server 必须自行定义） | `connected {sessionId, isStreaming, lastSeq}`、`session_shutdown {reason?}`。~~`startup_error` / `prompt_done` / `prompt_error` / `extension_ui_request` / `extension_error` / `extension_ui_closed`~~（2026-09-20 删除：死 schema / agent_settled 平替 / REST 信封覆盖 / M2 再定） |
 | PiBoat 新增 | 每事件附 `seq`（会话级单调递增；快照携带 `lastSeq`，客户端丢弃 `seq ≤ lastSeq`） |
 
-> ⚠️ 两点边界（v0.2 勘误）：① wire 上**不定义** `notice` 与顶层 `error` 事件——通知条属前端 UI 概念，错误一律走 REST 信封 `CommandError`（及 assistantMessageEvent.error；prompt_error/startup_error/extension_error 事件已删，2026-09-20）；② 不定义 `auto_compaction_start/end`——SDK 0.85 只发 `compaction_start/end`（reason 字段区分 auto/manual），不留旧别名。
+> ⚠️ 两点边界（v0.2 勘误）：① wire 上**不定义** `notice` 与顶层 `error` 事件——通知条属前端 UI 概念，错误一律走 REST 信封 `CommandError`（及 assistantMessageEvent.error；prompt_error/startup_error/extension_error 事件已删，2026-09-20）；② 不定义 `auto_compaction_start/end`——SDK 0.87 只发 `compaction_start/end`（reason 字段区分 auto/manual），不留旧别名。
 
 ### 5.2 接入时序（late join）
 
@@ -384,10 +388,10 @@ packages/protocol/src/
 
 | # | 缺口 | 现状 | 取向 |
 |---|---|---|---|
-| 1 | **性能统计**：对话轮数/步数、LLM 耗时、工具耗时、生成速度 t/s | `SessionStatsInfo` 与 `AgentState` 均无；**SDK `SessionStats` 也没有**（0.85.1 `.d.ts` 已核对） | ✅ **已定（2026-09-22）：core 累加**。`rounds` ← `agent_start` 计数；`steps` ← `turn_start` 计数；`llmMs` ← 每 turn 起止差；`toolMs` ← `tool_execution_start/end` 累加；`tps` ← output tokens / `llmMs`。字段形状（建议 `SessionStatsInfo.perf?`）随 M2 开工定。⚠️ **冷会话**（本进程未运行过）无耗时数据 → 字段必须可选，`undefined` 时前端不展示 |
+| 1 | **性能统计**：对话轮数/步数、LLM 耗时、工具耗时、生成速度 t/s | `SessionStatsInfo` 与 `AgentState` 均无；**SDK `SessionStats` 也没有**（0.87.1 `.d.ts` 已核对） | ✅ **已定（2026-09-22）：core 累加**。`rounds` ← `agent_start` 计数；`steps` ← `turn_start` 计数；`llmMs` ← 每 turn 起止差；`toolMs` ← `tool_execution_start/end` 累加；`tps` ← output tokens / `llmMs`。字段形状（建议 `SessionStatsInfo.perf?`）随 M2 开工定。⚠️ **冷会话**（本进程未运行过）无耗时数据 → 字段必须可选，`undefined` 时前端不展示 |
 | 2 | **最近提交**（short hash） | `SessionInfo` 只有 `branch`/`isWorktree` | 维持原议：归 M3 git 域（`/api/git/status`）返回后拼装，不进 `SessionInfo` |
 | 3 | **工具预设**（`chat-only` / `read-only` / `default` / `full`） | protocol 无枚举，只有 `get_tools`/`set_tools` 的具名列表 | ✅ **已定（2026-09-22）：归 core 解析**——只有 core 知道 SDK 的默认工具集（`default` 无法在客户端静态枚举）。M2 开工时定命令形状（`set_tools` 收 preset 名或新命令 `set_tool_preset`），**不养期货** |
-| 4 | **输入卡「模式」**（默认/只读/**全自动·免确认执行命令**） | 与 #3 语义重叠；「免确认」在 SDK 0.85 无对应能力 | ✅ **已定（2026-09-22）：与工具预设合并**——模式菜单直接展示四项预设（标签用工具集描述），**删掉「全自动·免确认」**（AGENTS.md：命名不得暗示它做不到的事） |
+| 4 | **输入卡「模式」**（默认/只读/**全自动·免确认执行命令**） | 与 #3 语义重叠；「免确认」在 SDK 0.87 无对应能力 | ✅ **已定（2026-09-22）：与工具预设合并**——模式菜单直接展示四项预设（标签用工具集描述），**删掉「全自动·免确认」**（AGENTS.md：命名不得暗示它做不到的事） |
 | 5 | 系统提示词「版本 r42」 | `AgentState.systemPrompt` 已在 M1 契约内（**无需协议改动**）；但无版本号字段 | ✅ **已定（2026-09-22）：展示，删掉「版本 r42」**（无数据来源）。面板规格已定：只渲染原始文本 + 三态（空 / 尚未加载 / 加载中），**不显示版本号也不做 token 估算**。详见 `docs/06` §11.2 行 5 |
 
 ---
