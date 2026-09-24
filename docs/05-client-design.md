@@ -206,7 +206,7 @@ interface SystemRow { kind: 'system'; text: string; tone: 'info' | 'warn' | 'err
 
 ### 6.5 封口时机：候选方案与硬约束
 
-先看参照实现——**pi-web 的分组规则**（`lib/message-display.ts` + `components/ChatWindow.tsx`）：
+分组规则（**已定**）如下：
 
 1. **轮的锚点**：`isMessageGroupAnchor(msg)` = `role === 'user'`，或 custom 消息且 `customType` 为 compaction /
    子代理通知 → **一轮 = 从一个锚点到下一个锚点**（不是 SDK 的 `turn_start`）
@@ -216,12 +216,12 @@ interface SystemRow { kind: 'system'; text: string; tone: 'info' | 'warn' | 'err
 4. **归组**：最终回答之前的消息 + 最终消息的 `processBlocks` 进组，答案区在组外
 5. **⭐ 流式期间不分组**（`ChatWindow.tsx:1104`）：`isLiveTail = (sessionBusy \|\| isStreaming) && 这是最后一轮`
    → 该轮所有消息**平铺渲染，根本不生成组**；轮结束（不再 busy/streaming）后才一次性成组。
-   也就是说——**pi-web 实现的是本节方案 2（静止后收拢），而且是它的彻底版**
+   也就是说——**这条规则就是本节方案 2（静止后收拢），而且是它的彻底版**
 6. **组的默认展开策略**：`defaultExpanded={!finalAnswerMessage}`——有最终回答则收起；**没拿到回答**
    （中断 / 报错 / 输出长度截断）则默认**展开**，避免点开一片空白
 7. `reveal` prop **与流式无关**，它只服务**搜索结果跳转**（`pendingSearchScroll`）自动展开命中行
 
-> ⚠️ **硬约束（决定选项取舍）**：pi-web 这套规则**只依赖消息序列（role + content blocks）**，
+> ⚠️ **硬约束（决定选项取舍）**：这套规则**只依赖消息序列（role + content blocks）**，
 > 不依赖 `turn_start` / `agent_end` 事件。因为 `.jsonl` 的 `SessionEntry` 只有
 > `session / message / thinking_level_change / model_change / compaction / branch_summary / custom / label /
 > session_info / custom_message`——**没有 turn 或 agent 边界条目**。任何基于 turn/agent 事件的封口规则，
@@ -232,11 +232,11 @@ interface SystemRow { kind: 'system'; text: string; tone: 'info' | 'warn' | 'err
 | # | 方案 | 视觉 | 可复现 | 成本 |
 |---|---|---|---|---|
 | 1 | **即时收拢**：末尾一出现非空文本就把之前的 thinking/toolCall 收进组；若之后又出现 `toolCall`，那段文本降级回组内（组自动重新展开）。**原型演示脚本就是这个行为** | “说一句 → 塌陷 → 又展开 → 再说一句”，与真实推理节奏一致，但流式中有跳动 | ✅ 完全由块序列决定 | 低（规则本身就是折叠逻辑） |
-| 2 | **静止后收拢（⭐ 已采用 = pi-web 的实现）**：边界规则同 1，但**流式期间该轮平铺、根本不生成组**，只在轮结束时（不再 busy/streaming）才一次性成组并收起 | 平稳：过程实时长出，结束时塌陷一次 | ✅ 重连/刷新时已静止 → 直接是成组态；流式中刷新 → `isStreaming` 仍为真 → 仍是平铺 | 中（多一个 `isLiveTail` 判定，分组规则不变） |
+| 2 | **静止后收拢（⭐ 已采用）**：边界规则同 1，但**流式期间该轮平铺、根本不生成组**，只在轮结束时（不再 busy/streaming）才一次性成组并收起 | 平稳：过程实时长出，结束时塌陷一次 | ✅ 重连/刷新时已静止 → 直接是成组态；流式中刷新 → `isStreaming` 仍为真 → 仍是平铺 | 中（多一个 `isLiveTail` 判定，分组规则不变） |
 | 3 | 事件驱动（`turn_end` / `agent_end` 封口） | 表面简单 | ❌ **历史无此边界 → 刷新后形状漂移** | 低但错 |
 | 4 | 不封口（只折叠单行，不分组） | 丢掉“处理详情 · N 条消息 · M 次工具调用”这一层信息 | ✅ | 最低 |
 
-**已定：方案 2（= pi-web 的实现）**（2026-09-22 决策）：① 它是经过日常使用验证的形状；② run 期间用户最想看的是**过程**
+**已定：方案 2（静止后收拢）**（2026-09-22 决策）：① 它在实际使用中被验证为最平稳的形状；② run 期间用户最想看的是**过程**
 （思考/工具/输出都在实时长），结束时才需要把过程收起来——方案 1 的“塌陷→又展开”反而是噪声；
 ③ 两种终态（实时结束 / 刷新后）完全一致，不会出现“刷新一下布局变了”。
 
@@ -283,7 +283,7 @@ queryKeys                    // 工厂：失效粒度与 domain 一一对应
 | 3 | 外部前端规范是否以 skills 引入 | **不引入**；规范沉淀在 ADR-0009 + 本文 + `docs/06` |
 | 4 | dev 接入方式 | **Vite proxy** `/api`（含 SSE）→ `127.0.0.1:9527`（ADR-0009）；浏览器视角同源，`http.ts` 的 `baseURL` 用相对路径 `/api` |
 | 5 | `ToolRow.diff` | **用 SDK 现成的串**：取 `toolResult.details.diff`（edit 工具已生成带行号的展示 diff），前端不做 diff 运算、不加依赖（§6.1 注解）→ ui 的 `DiffView` **在 M1 有真实消费方** |
-| 6 | 分组与自动展开时机 | ✅ **已定（2026-09-22）：方案 2（静止后收拢）**——组边界由消息序列决定（照 pi-web），流式期间末轮平铺不分组，轮结束才成组；`defaultExpanded = 本轮无最终回答`。规格见 §6.5，消费侧见 `docs/06` §8.1 |
+| 6 | 分组与自动展开时机 | ✅ **已定（2026-09-22）：方案 2（静止后收拢）**——组边界由消息序列决定，流式期间末轮平铺不分组，轮结束才成组；`defaultExpanded = 本轮无最终回答`。规格见 §6.5，消费侧见 `docs/06` §8.1 |
 
 ### 8.2 未决项
 

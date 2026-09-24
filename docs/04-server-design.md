@@ -94,7 +94,7 @@ data: <wire JSON>\n\n
 |---|---|---|
 | 1 | 客户端断开（`req.signal` abort / 流 cancel） | 退订 + 清理 |
 | 2 | `session_shutdown` 事件（core dispose 广播） | 先送达该帧（客户端据此区分「关停」与「断线」，决定是否重连）→ graceful close |
-| 3 | 连接时会话不在注册表 | 404（**冷会话不自动拉起**——恢复语义归 M2，不照抄 pi-web 的 startRpcSession） |
+| 3 | 连接时会话不在注册表 | 404（**冷会话不自动拉起**——恢复语义归 M2 的显式端点，不在建流时隐式创建 runtime） |
 | 4 | 进程关停（SIGINT/SIGTERM） | 先 `disposeAll` 广播，再**硬断** `controller.error()`（§5.4） |
 | 5 | 写失败（broken pipe） | 退订 + 清理 |
 | 6 | 订阅竞态（subscribe 抛 SessionNotFoundError） | 404 |
@@ -102,7 +102,7 @@ data: <wire JSON>\n\n
 连接跟随「客户端与会话存活」，不跟随「任务是否跑完」：`agent_end` 后流不断，
 等下一个 turn。多端观看：每连接独立 `subscribe()`，各自拿快照 + 增量。
 
-### 5.4 进程关停坑（pi-web 教训，`lib/agent-event-stream.ts`）
+### 5.4 进程关停坑
 
 graceful close 可能被 Node 响应管道吞掉——socket 保持 ESTABLISHED、`server.close()`
 永不完成、进程变僵尸。**关停时必须硬断**（error 让客户端立即感知并重连），
@@ -122,14 +122,14 @@ graceful close 可能被 Node 响应管道吞掉——socket 保持 ESTABLISHED�
 ### 5.6 liveness lease
 
 M3 实现：每个 SSE 连接持有会话 lease，观看中的空闲会话不被 idle 回收
-（pi-web `session-liveness.ts` 为参照）。M1 无 idle 回收，不需要。
+（形状见 `docs/07` G2-12）。M1 无 idle 回收，不需要。
 
 ## 6. 安全（docs/01 §5.6 落地，鉴权模型见 ADR-0007）
 
 - **绑定 127.0.0.1**（已落地）——纯本地定位的物理边界；不提供非回环绑定开关
 - **三道闸全部常开、不可关**（`src/security.ts`）：
   - ① **Host 校验**：只认回环主机名（`localhost` / `127.0.0.1` / `[::1]`，可带端口）——防 DNS 重绑定。
-    比 pi-web 的"任意 IP"更严（我们不提供非回环绑定）
+    比"任意 IP 字面量"更严（我们不提供非回环绑定）
   - ② **Origin 校验**：带 Origin 才校验（curl / 同源 GET 导航无 Origin）；白名单 = 同源 ∪
     dev web 白名单 `http://localhost:9528` / `http://127.0.0.1:9528`
   - ③ **Sec-Fetch-Site**：值为 `cross-site` 一律 403——覆盖 `<img>`/`<script>`/表单导航等**无 Origin**

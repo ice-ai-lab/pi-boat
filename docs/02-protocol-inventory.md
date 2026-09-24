@@ -19,8 +19,8 @@
 
 | 类别 | 数量 | 说明 |
 |---|---|---|
-| REST 路由 | 49 个路由文件（52 个端点文件，其中 2 个为 SSE，部分含多方法） | 九大功能域（§6） |
-| SSE 事件流 | 2（agent 事件 + auth 登录流） | `agent/[id]/events`、`auth/login/[provider]`（GET） |
+| REST 路由 | 49 个路由文件（52 个端点文件，其中 2 个为 SSE，部分含多方法） | 九大功能域（§6）。⚠️ **计数已过期且不完整**（2026-01 复核：能力面基线实测 55 个路由文件 / 78 个 handler；本表未收录 `/api/models/enabled`、`/api/models/refresh`、`DELETE /api/auth/api-key/:provider`、`/api/web-auth` 等条目）——差异与补齐依据见 `docs/07-backend-capability-gap.md` |
+| SSE 事件流 | 1（agent 事件流；auth 登录流一期排除） | `agent/[id]/events`；~~`auth/login/[provider]`~~（2026-01 排除，见 §6.5） |
 | RPC 命令 | 26（命令通道 25 + `agent/new` 专属 `ensure_session`；2026-09-22：删 Shell 直连组） | `POST /api/agent/:id` 请求体判别联合（§4） |
 | 领域类型 | ~40 个 | domain/ 七文件（§3、§10） |
 | 事件 wire 类型 | 24 种（SDK 透传 22 + 服务层自加 2；2026-09-22：删 bash_execution_update） | SDK `JsonAgentSessionEvent` 投影 + 服务层事件（§5.1） |
@@ -223,8 +223,13 @@
 | `POST /api/models-config/discover` | `{providerName, provider:{baseUrl, api, apiKey?}}` → 按 /models 端点发现模型列表（20s 超时） |
 | `POST /api/models-config/test` | `{providerName, provider, model:{id}}` → `{ok, error?, …}` 真实补全请求测连通（临时 models.json，20s 超时） |
 | `GET /api/models-config/catalog?q` | → models.dev 目录（1h 缓存，服务端代理） |
+| `GET/PUT /api/models/enabled` | 模型可见范围（`enabledModels`）开关，**形状待定稿**（一期必做；最小编辑语义、项目 shadow 只读、最后一个模型 409——见 `docs/07` §3.4 / G2-2） |
+| `POST /api/models/refresh` | 按需拉取远端 provider 目录（不联网是常态，只有用户显式请求才联网——`docs/07` G2-3） |
 
-### 6.5 认证与用量
+### 6.5 认证与用量（一期排除）
+
+> ⚠️ **2026-01 定案：本期不实现**（不引入访问凭据与服务端身份认证入口）。下表**不是待办**，保留仅作能力面记录；若将来要做，需先写 ADR 推翻，形状以本文为准。
+> 连带结果：模型凭据一期只经 `GET/PUT /api/models-config`（models.json 原文）配置，或由本机 `pi` CLI/TUI 配置后读取。详见 `docs/07-backend-capability-gap.md` §8-2。
 
 | 端点 | 形状 |
 |---|---|
@@ -342,24 +347,25 @@ packages/protocol/src/
 ├── commands/           # ③命令通道
 │   └── agent-command.ts    # AgentCommand 联合 + NewSessionRequest/Response + 各命令返回类型
 ├── events/             # ④事件通道
-│   ├── wire-agent-event.ts  # WireAgentEvent + seq 语义
-│   └── terminal-event.ts      # TerminalEvent
+│   └── wire-agent-event.ts  # WireAgentEvent + seq 语义
+│                           #   （终端 TerminalEvent 与 rest/terminal.ts 已按
+│                           #    2026-01 决策移除，不再预留文件）
 └── rest/               # ⑤⑥REST 资源（按域一文件：类型 + 路径常量 + Zod）
     ├── agent.ts           # agent 运行时域：new / 命令通道 / SSE / running / 轻查
     ├── sessions.ts         # 列表（projectKey/force）+ 详情/分页/惰性加载/搜索/导出/auto-name
     ├── projects.ts         # 项目清单契约（projectKey 分组视图 + listFingerprint，ADR-0008；无路径常量）
-    ├── models.ts           # models / models-config / discover / test / catalog
-    ├── auth.ts             # providers / login(SSE) / api-key / logout / provider-usage
+    ├── models.ts           # models / models-config / discover / test / catalog / enabled / refresh
     ├── files.ts            # home / default-cwd / cwd browse+validate / files / file-index
     ├── git.ts              # status / diff / worktrees
-    ├── terminal.ts         # PTY CRUD
     ├── resources.ts        # skills / plugins / subagents / tools-settings / project-trust
     └── misc.ts             # health / lease / push
 ```
 
+> 已排除、不再开文件：`auth.ts`（providers / login / api-key / logout / provider-usage，§6.5）与 `terminal.ts`（PTY，§6.8）——2026-01 定案，明细见 `docs/07-backend-capability-gap.md` §8。
+
 > 落地状态：M1 的 protocol 侧已定稿（2026-01）——domain/ 七文件全量、commands M1 子集、
-> events/wire-agent-event（终端 TerminalEvent 已按 2026-01 决策移除）、rest/agent + rest/misc +
-> rest/sessions（agent 域自 sessions 拆出，按 core 双服务边界分域，2026-09-22）；
+> events/wire-agent-event、rest/agent + rest/misc + rest/sessions（agent 域自 sessions 拆出，
+> 按 core 双服务边界分域，2026-09-22）；
 > M2/M3 条目按里程碑追加。
 
 ## 11. 里程碑切片（从本清单取子集）
@@ -367,7 +373,7 @@ packages/protocol/src/
 | 里程碑 | 取自本清单 | 验收对应 |
 |---|---|---|
 | **M1 对话 MVP** | §2 全部 + §3 领域类型全量 + §4 命令子集（prompt/steer/followUp/abort/get_state/get_session_stats/get_commands/get_tools/set_tools/get_last_assistant_text）+ 新建会话 + §5 事件全量 + §6.1/6.2/6.3（列表/详情/分页）+ health —— protocol 侧已定稿，待 server/client 实现 | 浏览器完成一轮带工具调用的编程任务 |
-| **M2 会话与模型** | §4 剩余命令（分支组/压缩组/set_model/set_thinking_level/set_session_name/reload/custom_message）+ §6.4 模型 + §6.5 认证 | 日常可替代 TUI |
+| **M2 会话与模型** | §4 剩余命令（分支组/压缩组/set_model/set_thinking_level/set_session_name/reload）+ §6.4 模型 | 日常可替代 TUI |
 | **M3 完整体验** | §6.6 文件 + §6.7 git + ~~§6.8 终端~~（已移除） + §6.9 资源 + §7 辅助（lease/push） | 端到端功能完整 |
 | **M4 桌面端** | 无新增（Electron 复用同一协议） | — |
 
@@ -382,7 +388,7 @@ packages/protocol/src/
 | 2 | **最近提交**（short hash） | `SessionInfo` 只有 `branch`/`isWorktree` | 维持原议：归 M3 git 域（`/api/git/status`）返回后拼装，不进 `SessionInfo` |
 | 3 | **工具预设**（`chat-only` / `read-only` / `default` / `full`） | protocol 无枚举，只有 `get_tools`/`set_tools` 的具名列表 | ✅ **已定（2026-09-22）：归 core 解析**——只有 core 知道 SDK 的默认工具集（`default` 无法在客户端静态枚举）。M2 开工时定命令形状（`set_tools` 收 preset 名或新命令 `set_tool_preset`），**不养期货** |
 | 4 | **输入卡「模式」**（默认/只读/**全自动·免确认执行命令**） | 与 #3 语义重叠；「免确认」在 SDK 0.85 无对应能力 | ✅ **已定（2026-09-22）：与工具预设合并**——模式菜单直接展示四项预设（标签用工具集描述），**删掉「全自动·免确认」**（AGENTS.md：命名不得暗示它做不到的事） |
-| 5 | 系统提示词「版本 r42」 | `AgentState.systemPrompt` 已在 M1 契约内（**无需协议改动**）；但无版本号字段 | ✅ **已定（2026-09-22）：展示，删掉「版本 r42」**（无数据来源）。参考 pi-web（`components/SystemPromptPanel.tsx`）：面板只渲染原始文本 + 三态（空 / 尚未加载 / 加载中），**不显示版本号也不做 token 估算**。详见 `docs/06` §11.2 行 5 |
+| 5 | 系统提示词「版本 r42」 | `AgentState.systemPrompt` 已在 M1 契约内（**无需协议改动**）；但无版本号字段 | ✅ **已定（2026-09-22）：展示，删掉「版本 r42」**（无数据来源）。面板规格已定：只渲染原始文本 + 三态（空 / 尚未加载 / 加载中），**不显示版本号也不做 token 估算**。详见 `docs/06` §11.2 行 5 |
 
 ---
 

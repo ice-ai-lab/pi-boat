@@ -41,7 +41,7 @@
 ├─────────────────────────────────────────────────────────────────────┤
 │                       核心层 packages/core                           │
 │   AgentSessionService：会话注册表 / 生命周期 / 事件总线 / fork·branch  │
-│   SystemService：文件树/文件读取 / PTY 终端 / git worktree            │
+│   SystemService：文件树/文件读取 / git worktree                       │
 │   ConfigService：models.json / providers / skills / plugins / 设置    │
 ├─────────────────────────────────────────────────────────────────────┤
 │                    底层 @earendil-works/pi-coding-agent SDK          │
@@ -104,8 +104,8 @@ pi-boat/
   - 进程内事件总线：多订阅者分发（SSE 连接、将来 Electron IPC、日志记录器共用）
 - `SessionReadService`：基于 `SessionManager` 的只读浏览（列表、`.jsonl` 解析、context 快照、导出 HTML）
 - `ProjectReadService` / `ProjectResolver`：项目分组视图（ADR-0008：git 仓库根归一 `projectKey`，子目录/worktree 合并；与列表共用目录扫描与 resolver 实例）
-- `SystemService`：allowed-roots 安全校验、文件树/文件内容、PTY 终端会话、git worktree 操作
-- `ConfigService`：models.json 读写、provider 发现/测试、API Key 与 OAuth 凭据管理、skills/plugins 安装管理
+- `SystemService`：allowed-roots 安全校验、文件树/文件内容、git worktree 操作
+- `ConfigService`：models.json 读写、provider 发现/测试、skills/plugins 安装管理（身份认证入口一期不做，见 §9-4a）
 - 不依赖任何 HTTP 概念 —— **传输无关**，为 Electron 进程内直连留路（§5.5）
 
 #### `packages/server`
@@ -115,7 +115,7 @@ pi-boat/
 - 本机访问防护：仅绑定 127.0.0.1 + Host / Origin / Sec-Fetch-Site 三道闸（常开、无凭据；防恶意网页对本机发起 CSRF / DNS 重绑定，详见 §5.6 与 ADR-0007）
 - 会话列表与项目分组（ADR-0008）：`GET /api/projects` 按 git 仓库根归一 `projectKey`（子目录/worktree 合并为一项，不分页）；`GET /api/sessions?projectKey&force` 支持按项目拉取；列表缓存以**会话目录指纹**为键（磁盘变动自动失效），响应带 `listFingerprint`
 - 静态托管：生产模式直接托管 `apps/web` 构建产物 → **单进程即完整产品**（本地一键启动，Electron 同样受益）
-- PTY (node-pty)、原生模块全部收敛在此包与 core
+- 原生模块（若引入）全部收敛在此包与 core
 
 #### `packages/client`
 
@@ -136,7 +136,7 @@ pi-boat/
 
 ### 3.2 拆包策略：先粗后细
 
-初期 6 个包足够。terminal/git/auth 等先作为 core 内的模块（目录分好），膨胀后再拆独立包 —— 避免早期过度拆分带来的构建/联调成本。`packages/shared` 不单独建：通用工具就近放入 `protocol`（类型相关）或 `client`（运行时相关）。
+初期 6 个包足够。git 等先作为 core 内的模块（目录分好），膨胀后再拆独立包 —— 避免早期过度拆分带来的构建/联调成本。`packages/shared` 不单独建：通用工具就近放入 `protocol`（类型相关）或 `client`（运行时相关）。
 
 ---
 
@@ -157,7 +157,6 @@ pi-boat/
 | 前端 HTTP | **Axios 统一实例**；响应经 protocol 的 Zod 解析（ADR-0009） | 拦截器只管 baseURL + 错误信封归一（ADR-0007 删 token 后无凭据注入需求） |
 | 前端栈基准 | **ADR-0009 已收口（2026-09-22）** | 含 React Compiler、markdown（react-markdown + shiki）、**不引外部 skills**；唯一遗留：dev 接入方式（ADR-0009 文末） |
 | 实时通道 | **HTTP + SSE**（首期），WebSocket 预留 | 单向事件流足够；浏览器原生 EventSource、断线重连简单；protocol 不绑定传输 |
-| 终端 | node-pty（server 侧）+ xterm.js（ui 侧） | 事实标准组合 |
 | 代码质量 | **Biome 2**（lint + format 一体，ADR-0003）+ husky + lint-staged（待接入） | Rust 单工具替代 ESLint+Prettier；当前仅用非类型感知规则 |
 | TypeScript | **7.x 原生版**（Go 实现，ADR-0003） | tsc 亚秒级；lint 与 TS 版本解耦（Biome 自研解析器） |
 | 测试 | Vitest（core/protocol/client/ui）+ Playwright（web E2E） | |
@@ -189,9 +188,9 @@ pi-boat/
 | 开发 | 1 进程：`next dev` 兼任前后端 | 2 进程：`vite dev`（UI 热更新）+ agent server（会话常驻）；`turbo dev` 一条命令同时拉起 |
 | Electron | — | 主进程 + server 子进程（Electron 标准多进程形态） |
 
-开发模式下浏览器页面来自 `vite dev`（9528），`/api/*`（含 SSE）由 Vite dev server **代理**到 agent server（9527）——浏览器视角同源，与生产拓扑一致（ADR-0009，2026-09-22 定案）。CORS 白名单保留给直连场景（Electron / LAN / PWA）。
+开发模式下浏览器页面来自 `vite dev`（9528），`/api/*`（含 SSE）由 Vite dev server **代理**到 agent server（9527）——浏览器视角同源，与生产拓扑一致（ADR-0009，2026-09-22 定案）。CORS 白名单保留给直连场景（Electron）。局域网直连一期排除（见 §9-4）。
 
-**为何不采用内嵌式（即使它单进程）**：① Agent 会话生命周期与 `next dev` 绑死 —— Next 的模块图失效/热重载链路会波及承载 Agent 的路由模块，需要 `globalThis` hack 保活注册表，dev server 排障成本高；拆开后改 UI 代码不影响正在运行的 Agent 任务。② Electron 端将被迫内嵌整个 Next standalone 服务作为子进程（重、启动慢）；拉起精简 Hono server 子进程则很轻。③ node-pty 等原生模块在纯 Node 进程零特殊配置。
+**为何不采用内嵌式（即使它单进程）**：① Agent 会话生命周期与 `next dev` 绑死 —— Next 的模块图失效/热重载链路会波及承载 Agent 的路由模块，需要 `globalThis` hack 保活注册表，dev server 排障成本高；拆开后改 UI 代码不影响正在运行的 Agent 任务。② Electron 端将被迫内嵌整个 Next standalone 服务作为子进程（重、启动慢）；拉起精简 Hono server 子进程则很轻。③ 原生模块（若引入）在纯 Node 进程零特殊配置。
 
 **备选方案 B**（已列入 §9 待定决策）：内嵌式 —— web 的 Next API routes 直接 import core，开发/生产均单进程，Electron 拉起 Next standalone。可行、少一个包，代价即上述三条；且若选 B，Web 端就锁定 Next，若选 A，web 可退化为 Vite SPA。两案中 packages/core/ui/protocol/client 结构不变。**已定案（ADR-0002）：选 A，且 Web 前端直接采用 Vite + React 19 SPA，不引入 Next.js。**
 
@@ -234,7 +233,7 @@ Electron：         renderer(=web UI) ──API/SSE──▶ agent server（子�
 - 开发期**走 Vite proxy**（ADR-0009）：浏览器只与 9528 同源通信，`AgentClient` 的 baseURL 是相对路径
   `/api`，**前后端代码不因环境切换**，dev 与 prod 拓扑一致
 - 代理转发的请求**不带 Origin / Sec-Fetch-\***（由 Vite 的 Node 进程发出），因此 **②③ 闸在 dev 期不经浏览器路径**
-  ——它们防护的是直接打 9527 的来源（用户浏览器里的恶意网页、Electron / LAN / PWA 直连），
+  ——它们防护的是直接打 9527 的来源（用户浏览器里的恶意网页、Electron 直连），
   行为由 `packages/server/test/server.test.ts` 断言覆盖，不靠 dev 期人工触碰
 - **CORS 白名单保留**（`http://localhost:9528` / `http://127.0.0.1:9528`）供直连备选：该模式下
   页面与 API **必须同一主机名**（`localhost` 与 `127.0.0.1` 混用属 cross-site，会被 ③ 拒）
@@ -332,24 +331,24 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 
 | 移动端形态 | 复用 | 重写 | 复用度 |
 |---|---|---|---|
-| 手机浏览器 / PWA（同局域网） | 全部：server/core/protocol/client/ui（即同一个 web 应用） | 响应式布局 + LAN 开关（§9-4） | ~95% |
+| 手机浏览器 / PWA（同局域网） | 全部：server/core/protocol/client/ui（即同一个 web 应用） | 响应式布局 + 局域网访问凭据（**一期已排除**，见 §9-4） | ~95% |
 | React Native 壳 | protocol + client；server 零改动 | ui 层（React DOM ≠ RN 组件） | ~40% |
 | 原生 App（Swift/Kotlin） | server + protocol 生成的 API 客户端 | 全部前端 | ~20%，但后端零改动 |
 
-为保持此路径畅通，现在只需三件低成本约定：① `packages/ui` 遵守「禁写死桌面假设」（不把三栏/固定宽度当硬前提）——但**响应式实现与移动端适配位在 M1 冻结**（2026-09-22 决策：M1 只保大屏、<880px 显示过窄提示，`useIsMobile`/drawer 随移动端路径一并排期；见 `docs/06` §9.1）；② protocol 保持 Zod schema → 将来用 zod-openapi 导出 OpenAPI 规范供原生客户端代码生成；③ LAN 开关 + 扫码配对在协议层预留。弱网断线重连（Last-Event-ID）已内建，web-push 完成通知已在 §6 范围内。
+为保持此路径畅通，现在只需三件低成本约定：① `packages/ui` 遵守「禁写死桌面假设」（不把三栏/固定宽度当硬前提）——但**响应式实现与移动端适配位在 M1 冻结**（2026-09-22 决策：M1 只保大屏、<880px 显示过窄提示，`useIsMobile`/drawer 随移动端路径一并排期；见 `docs/06` §9.1）；② protocol 保持 Zod schema → 将来用 zod-openapi 导出 OpenAPI 规范供原生客户端代码生成；③ ~~LAN 开关 + 扫码配对在协议层预留~~——**一期排除**（§9-4：不引入访问凭据 ⇒ 无 LAN 暴露方案）。弱网断线重连（Last-Event-ID）已内建，web-push 完成通知已在 §6 范围内。
 
 ### 5.6 安全设计
 
 - **allowed roots**：文件读写/浏览全部收敛到 server 侧白名单校验（白名单 + worktree 机制）
 - **项目信任**：进入 cwd 前的项目信任确认（`.pi` 项目级扩展/设置在信任前不加载）
-- **本机访问防护**：仅绑定 127.0.0.1；三道闸常开——① `Host` 只认回环主机名（防 DNS 重绑定）② `Origin` 白名单 = 同源 ∪ dev web（防 CSRF）③ `Sec-Fetch-Site: cross-site` 一律拒（覆盖 `<img>`/`<script>`/表单导航等**无 Origin** 的跨站请求；`Sec-` 前缀是 forbidden header name，页面 JS 无法伪造）。纯本地≠无需防护 —— 用户浏览器里的**恶意网页**可以直接向 `http://127.0.0.1:<port>/api/agent` 发请求，让 Agent 在用户机器上执行任意命令。**无 token、无 SSE 票据、无鉴权 bootstrap**（ADR-0007：token 相对 ①② 只多挡一格，而票据层只为 EventSource 无法带 header 而存在，且 dev 期跨源页面无从取得随机 token）；代价是一条硬约束——**GET 不得有副作用**。非回环绑定（LAN）另议，届时用用户可输入的口令而非随机 token
+- **本机访问防护**：仅绑定 127.0.0.1；三道闸常开——① `Host` 只认回环主机名（防 DNS 重绑定）② `Origin` 白名单 = 同源 ∪ dev web（防 CSRF）③ `Sec-Fetch-Site: cross-site` 一律拒（覆盖 `<img>`/`<script>`/表单导航等**无 Origin** 的跨站请求；`Sec-` 前缀是 forbidden header name，页面 JS 无法伪造）。纯本地≠无需防护 —— 用户浏览器里的**恶意网页**可以直接向 `http://127.0.0.1:<port>/api/agent` 发请求，让 Agent 在用户机器上执行任意命令。**无 token、无 SSE 票据、无鉴权 bootstrap**（ADR-0007：token 相对 ①② 只多挡一格，而票据层只为 EventSource 无法带 header 而存在，且 dev 期跨源页面无从取得随机 token）；代价是一条硬约束——**GET 不得有副作用**。**非回环绑定（LAN）一期不做**（2026-01 定案：不引入任何访问凭据——无 token / 无口令 / 无 cookie，LAN 暴露无以为护；见 `docs/07-backend-capability-gap.md` §8-1）
 - **服务拥有宿主机文件系统全部权限** —— 这是产品能力也是最大攻击面，任何路由新增必须过 allowed-roots/鉴权检查清单
 
 ---
 
 ## 6. 功能范围（一期）
 
-会话：列表/恢复/fork/树内分支/导出 HTML · 对话：流式输出、思考、工具调用展示、中断、steer/queue、压缩 · 输入：图片附件、prompt 模板、工具预设(只读/默认/全部/纯聊天) · 模型：models.json 可视化配置、provider 连通测试、OAuth/API Key 管理 · 上下文：文件浏览器、文件查看器(Tab)、git worktree、内置终端(xterm) · 资源：Skills 搜索/安装/开关、插件管理、子代理配置 · 体验：多 Tab、主题、快捷键、完成提示音、浏览器通知/web-push、i18n、PWA。
+会话：列表/恢复/fork/树内分支/导出 HTML · 对话：流式输出、思考、工具调用展示、中断、steer/queue、压缩 · 输入：图片附件、prompt 模板、工具预设(只读/默认/全部/纯聊天) · 模型：models.json 可视化配置、provider 连通测试 · 上下文：文件浏览器、文件查看器(Tab)、git worktree · 资源：Skills 搜索/安装/开关、插件管理（子代理配置延后，见 §9-4a） · 体验：多 Tab、主题、快捷键、完成提示音、浏览器通知/web-push、i18n、PWA。
 
 **原型（v3）补充登记**（2026-09-22，交互形态已给出，组件已收录 docs/06 §4）：
 
@@ -372,8 +371,8 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 |---|---|---|---|
 | **M0 工程骨架**（~0.5 周） | pnpm+turbo、包脚手架、biome/tsconfig/husky、CI（lint+typecheck+test） | turbo build 全绿 | ✅ 完成（2026-09-18） |
 | **M1 对话 MVP**（~1.5 周） | core: create/prompt/subscribe/abort；server: REST+SSE+静态托管；web: 单会话聊天（流式+工具调用展示） | 浏览器完成一轮带工具调用的编程任务 | 进行中：protocol ✅ · core ✅（docs/03）· server ✅（docs/04，2026-09-22）· web 原型 v3 定稿（docs/06，2026-09-22）· client/web 代码未开工 |
-| **M2 会话与模型**（~2 周） | 会话列表/恢复/fork/分支导航、模型配置、认证流程、工具预设 | 日常可替代 TUI 完成编码工作 | 未开工 |
-| **M3 完整体验**（~2 周） | 文件浏览/查看、终端、worktree、skills/插件、通知、多 Tab、minimap 与内容宽度把手 | 功能对齐 §6 一期清单 | 未开工 |
+| **M2 会话与模型**（~2 周） | 会话列表/恢复/fork/分支导航、模型配置、工具预设 | 日常可替代 TUI 完成编码工作 | 未开工 |
+| **M3 完整体验**（~2 周） | 文件浏览/查看、worktree、skills/插件、通知、多 Tab、minimap 与内容宽度把手 | 功能对齐 §6 一期清单 | 未开工 |
 | **M4 桌面端**（~2 周） | Electron 壳 + 子进程 server + 打包分发 | macOS 安装包可用 | 未开工 |
 
 ---
@@ -387,12 +386,11 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 | 3 | **toolCall 双字段体系**：文件存储 `{id,name,arguments}` vs SDK 类型 `{toolCallId,toolName,input}` | 文件存储本就是前者无需归一化；流式增量的双字段在 core 投影层补齐（`toWireAgentEvent`；normalizeToolCalls 已删——零调用点，2026-09-21） |
 | 4 | **parentSession 只是展示元数据**，pi 自身迁移会整文件重写 | sidebar 树构建只把它当元数据；级联改父时允许整文件重写 |
 | 5 | **SDK 事件格式随版本漂移**（0.84 曾改 message_update 投影） | wire 投影层（§5.4）+ protocol schema 版本号；SDK 升级跑事件快照回归测试 |
-| 6 | **node-pty 等原生模块**跨平台安装/打包（Electron 需重编） | 原生模块只进 server/core；Electron 打包用 utilityProcess 跑独立 server 进程，避免在渲染进程 ABI 重编 |
-| 7 | **SSE 连接稳定性**：系统休眠/唤醒、后台标签页节流、HTTP/1.1 同域 6 连接上限（多会话多 Tab 并发） | 心跳 + `Last-Event-ID` 重连 + 快照先行；连接数吃紧时评估 HTTP/2 或 WebSocket 多路复用 |
-| 8 | **pi-coding-agent 0.x 快速演进**（API 可能破坏性变更） | 版本锁 minor；升级单独 PR + 变更清单 + e2e 全量回归 |
-| 9 | 会话注册表生命周期（内嵌式实现需用 `globalThis` 抗 HMR） | 独立 server 进程无 HMR 问题；但保留"启动去重锁"与 idle 回收 |
-| 10 | pi CLI 与 server 并发读写同一 `.jsonl` | proper-lockfile 文件锁（§5.3）；跨进程互斥 |
-| 11 | **会话目录名编码有损**：`/Users/x/pi-boat/packages` 与 `/Users/x/pi-boat-packages` 编码后同码 | 项目 cwd **只能从会话文件首行头读**（不猜目录名）；目录名仅用于诊断与指纹（ADR-0008） |
+| 6 | **SSE 连接稳定性**：系统休眠/唤醒、后台标签页节流、HTTP/1.1 同域 6 连接上限（多会话多 Tab 并发） | 心跳 + `Last-Event-ID` 重连 + 快照先行；连接数吃紧时评估 HTTP/2 或 WebSocket 多路复用 |
+| 7 | **pi-coding-agent 0.x 快速演进**（API 可能破坏性变更） | 版本锁 minor；升级单独 PR + 变更清单 + e2e 全量回归 |
+| 8 | 会话注册表生命周期（内嵌式实现需用 `globalThis` 抗 HMR） | 独立 server 进程无 HMR 问题；但保留"启动去重锁"与 idle 回收 |
+| 9 | pi CLI 与 server 并发读写同一 `.jsonl` | proper-lockfile 文件锁（§5.3）；跨进程互斥 |
+| 10 | **会话目录名编码有损**：`/Users/x/pi-boat/packages` 与 `/Users/x/pi-boat-packages` 编码后同码 | 项目 cwd **只能从会话文件首行头读**（不猜目录名）；目录名仅用于诊断与指纹（ADR-0008） |
 
 ---
 
@@ -401,7 +399,7 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 1. ~~项目命名与 npm scope~~ **✅ 已决策（ADR-0001）**：定名 `pi-boat` / `@ice-ai/*`，bin `piboat` / `piboat-server`，代号 PiBoat（原占位 pi-studio 因 npm 被同生态同类工具占用而出局）
 2. ~~Web 端实现与进程模型联动选择~~ **✅ 已决策（ADR-0002）**：选 A（独立 server + 纯前端，开发期 2 进程），且 Web 前端采用 Vite + React 19 SPA，不引入 Next.js（理由：纯本地 SPA 无 SSR/RSC 需求，静态产物由 server 托管）。详见 §5.1 与 `docs/adr/0002`
 3. 事件通道是否二期引入 WebSocket（多向交互如扩展 UI 面板实时渲染时再决策）
-4. 是否提供局域网访问开关（手机/平板临时连本机 Agent；默认关闭，仅在用户显式开启时绑定 0.0.0.0 并强制**用户可输入的口令**——随机 token 不适合手动输入，形态见 ADR-0007 备选方案；含 TLS/扫码配对评估）
+4. ~~是否提供局域网访问开关~~ **✅ 已决策（2026-01）：不做**——一期不引入任何访问凭据（无 token / 无口令 / 无 cookie），而 LAN 暴露必须凭据，故绑定仍限 127.0.0.1、不提供 0.0.0.0 开关；手机/平板经局域网连本机 Agent 的路径一并排除（见 `docs/07` §8-1）
 5. ~~`packages/client` 是否用 Hono `hc` 自动生成 vs 手写类型~~ **✅ 已决策（ADR-0009）**：**手写端点封装**——`hc` 只覆盖 REST 路由形状，而 client 主体是 SSE 消费与视图模型推导；且它会与 protocol（ADR-0006 的唯一契约）形成第二套类型来源
 6. 数据层是否引入 SQLite（当前全部复用 pi 的 `.jsonl` + `~/.pi/agent/` 体系，不引入新存储）
 7. **前端技术栈** ✅ **已决策（ADR-0009，2026-09-22）**：Tailwind v4、shadcn 落位 `packages/ui`、React Compiler、
@@ -409,8 +407,19 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
    React Router v7 库模式；**外部前端规范不以 skills 引入**；**dev 接入走 Vite proxy**（§5.2.2）。
 8. **原型暴露的协议缺口**（已全部收口）：① 性能统计 ✅ **core 累加**（含“冷会话为 undefined”约束）；
    ② 输入卡“模式”与“工具预设” ✅ **合并**（预设解析归 core，删掉 SDK 做不到的“全自动·免确认”）；
-   ③ 系统提示词 ✅ **展示**（无需协议改动，删掉无来源的“版本 r42”与 token 估算；参考 pi-web `SystemPromptPanel`）；
+   ③ 系统提示词 ✅ **展示**（无需协议改动，删掉无来源的“版本 r42”与 token 估算；面板形态见 `docs/06` §11.2）；
    ④ “最近提交”已排入 M3 git 域。存量细节见 `docs/02-protocol-inventory.md` §11.1
+
+### 9-4a 一期排除 / 延后：鉴权、登录、终端、内建子代理运行时（2026-01 定案）
+
+前三项**不实现**，第四项**延后**；且已同步清除本文件与 `docs/02` 中的残留描述（细则与理由见 `docs/07-backend-capability-gap.md` §8）：
+
+| 项 | 内容 | 连带结果 |
+|---|---|---|
+| **鉴权**（本机访问凭据 / LAN） | 口令登录、session cookie、Basic、失败节流、`/api/web-auth`、非回环绑定 | §9-4 的 LAN 开关一并排除；ADR-0007 的三闸与「GET 不得有副作用」**不变** |
+| **登录**（provider 身份认证入口） | `/api/auth/providers`、`/api/auth/login/:provider`、`/api/auth/logout/:provider`、`/api/auth/api-key/:provider` | 模型凭据一期只经 `GET/PUT /api/models-config`（models.json 原文），或由本机 `pi` CLI/TUI 配置后读取 |
+| **终端**（PTY） | `/api/terminal` 全组、`TerminalEvent`、`node-pty`、xterm，以及 Shell 直连命令组（`bash` / `abort_bash`）与 `bash-output` 端点 | 维持 `docs/02` §5.3/§6.8 的移除决策；`BashExecutionMessage` 的历史渲染与 worktree 能力不受影响 |
+| **内建子代理运行时**（延后，非排除） | 内联 extension 与保留工具、profiles / settings / `:id` 端点、家族聚簇 | 子代理不是 SDK 内建能力，将来可以 pi 扩展形式引入（协议侧只加不改）；阶段代价见 `docs/07` §8-4 |
 
 ---
 
@@ -425,9 +434,8 @@ POST /api/agent/:id                     AgentCommand → void        // 命令�
 GET  /api/agent/:id/events              SSE: WireAgentEvent      // 事件通道
 GET  /api/sessions/:id/context?leafId=  → 指定叶子上下文（树内分支）
 GET  /api/sessions/:id/export           → HTML 导出
-POST /api/auth/api-key/:provider | /api/auth/login/:provider | GET /api/auth/providers
-GET/PUT /api/models-config · GET /api/models · GET /api/files/* · POST /api/cwd/validate
-GET  /api/skills · /api/plugins · /api/worktrees · POST /api/terminal（PTY WS/SSE）
+POST /api/models/enabled · GET /api/models-config · GET /api/models · GET /api/files/* · POST /api/cwd/validate
+GET  /api/skills · /api/plugins · /api/worktrees
 
 type AgentCommand =
   | { type: "prompt"; text: string; images?; streamingBehavior? }
@@ -445,4 +453,4 @@ type WireAgentEvent =
 
 ---
 
-*详细设计按包推进：《core 详细设计》见 `docs/03-core-design.md`（M1 已落地）、《server 详细设计》见 `docs/04-server-design.md`（M1 已落地）、《client 详细设计》见 `docs/05-client-design.md`、《ui 详细设计》见 `docs/06-ui-design.md`（后两篇为开工前设计稿，随 Web 原型 v3 定稿）；视觉/交互基准为 `docs/design/piboat-web-v3.html`。协议契约以 `docs/02-protocol-inventory.md` 为准（覆盖产品全量 API 面）。*
+*详细设计按包推进：《core 详细设计》见 `docs/03-core-design.md`（M1 已落地）、《server 详细设计》见 `docs/04-server-design.md`（M1 已落地）、《client 详细设计》见 `docs/05-client-design.md`、《ui 详细设计》见 `docs/06-ui-design.md`（后两篇为开工前设计稿，随 Web 原型 v3 定稿）；视觉/交互基准为 `docs/design/piboat-web-v3.html`。协议契约以 `docs/02-protocol-inventory.md` 为准（覆盖产品全量 API 面）。**一期后端能力全集与缺口清单、补齐批次见 `docs/07-backend-capability-gap.md`**（2026-01 审查：SDK 升级与 5 项未登记能力待定案；鉴权 / 登录 / 终端已排除）。*

@@ -7,7 +7,7 @@
 <style>
 /* ============================================================
    PiBoat Web 原型 v0.1
-   功能参照 pi-web · 视觉参照 deepseek-harness (dsh)
+   功能范围见 docs/01 §6 · 视觉参照 deepseek-harness (dsh)
    dsh 签名细节：0.5px hairline / superellipse 圆角 / #4176E6 业务蓝
                 毛玻璃浮层 / sticky 输入卡 + 渐变淡入 / 细滚动条
    ============================================================ */
@@ -359,7 +359,7 @@ body.resizing iframe,body.resizing textarea{pointer-events:none}
 .msg-asst{display:flex;flex-direction:column;gap:8px}
 .model-tag{font-size:11px;color:var(--t4);display:flex;align-items:center;gap:6px}
 .model-tag .dot{width:5px;height:5px;border-radius:999px;background:var(--t4)}
-/* Markdown 排版：照搬 pi-web（app/globals.css .markdown-body） */
+/* Markdown 排版 token（--pw-* → --md-*） */
 .md{
   min-width:0;max-width:100%;overflow-x:hidden;
   font-size:14px;line-height:1.7;color:var(--t1);word-break:break-word;
@@ -1107,7 +1107,7 @@ client  config  core  protocol  server  ui</div>
                     </button>
                     <div class="disc-body"><div class="diff">
 <span class="ctx ln">1</span><span class="ctx">export function PiBoatShell() {</span>
-<span class="del ln">2</span>  return &lt;span className="piweb-title"&gt;Pi Web&lt;/span&gt;
+<span class="del ln">2</span>  return &lt;span className="legacy-title"&gt;Legacy UI&lt;/span&gt;
 <span class="add ln">2</span>  return &lt;span className="piboat-shell"&gt;⛵ PiBoat&lt;/span&gt;
 <span class="ctx ln">3</span><span class="ctx">}</span></div></div>
                   </div>
@@ -1162,7 +1162,7 @@ web:dev: ➜  Local:   http://localhost:5173/
           </div>
         </div>
 
-        <!-- 会话指标（点击任一指标打开统计弹窗）：pi-web 顶栏统计迁至 dsh StatsPills 位 -->
+        <!-- 会话指标（点击任一指标打开统计弹窗）：顶栏统计迁至 dsh StatsPills 位 -->
         <div class="stats-row" id="statsRow">
           <div class="stats-group">
           <button class="spill sq" id="pillIn" title="输入 token">
@@ -1287,7 +1287,7 @@ web:dev: ➜  Local:   http://localhost:5173/
 <div class="ws-menu hide" id="wsMenu">
   <button class="wi on" data-ws="~/project/WebstormProjects/pi-boat"><svg class="ico s14"><use href="#i-folder"/></svg><span class="p">~/project/WebstormProjects/pi-boat</span><span class="live" title="有运行中的会话"></span><span class="chk"><svg class="ico s14"><use href="#i-check"/></svg></span></button>
   <button class="wi" data-ws="~/project/WebstormProjects/pi"><svg class="ico s14"><use href="#i-folder"/></svg><span class="p">~/project/WebstormProjects/pi</span><span class="chk"><svg class="ico s14"><use href="#i-check"/></svg></span></button>
-  <button class="wi" data-ws="~/project/WebstormProjects/pi-web"><svg class="ico s14"><use href="#i-folder"/></svg><span class="p">~/project/WebstormProjects/pi-web</span><span class="chk"><svg class="ico s14"><use href="#i-check"/></svg></span></button>
+  <button class="wi" data-ws="~/project/WebstormProjects/demo-app"><svg class="ico s14"><use href="#i-folder"/></svg><span class="p">~/project/WebstormProjects/demo-app</span><span class="chk"><svg class="ico s14"><use href="#i-check"/></svg></span></button>
   <button class="wi" data-ws="~/project/WebstormProjects/deepseek-harness"><svg class="ico s14"><use href="#i-folder"/></svg><span class="p">~/project/WebstormProjects/deepseek-harness</span><span class="chk"><svg class="ico s14"><use href="#i-check"/></svg></span></button>
   <div class="rule"></div>
   <button class="wi" id="wsCustom"><svg class="ico s14 add-ico"><use href="#i-plus"/></svg><span class="p" style="font-family:var(--font);color:var(--t2)">自定义路径…</span></button>
@@ -1519,8 +1519,8 @@ const DIFF = { path:"packages/client/src/index.tsx", ext:"diff", code:
 `--- a/packages/client/src/index.tsx
 +++ b/packages/client/src/index.tsx
 @@ -1,6 +1,6 @@
--export function PiWebTitle() {
--  return <span className="piweb-title">Pi Web</span>
+-export function LegacyTitle() {
+-  return <span className="legacy-title">Legacy UI</span>
 +export function PiBoatShell() {
 +  return <span className="piboat-shell">⛵ PiBoat</span>
  }` };

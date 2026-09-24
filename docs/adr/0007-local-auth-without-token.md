@@ -11,7 +11,7 @@ M1 按 `docs/01-overview.md` §5.6 落地了三道防护闸：① Host 校验（
 
 复核时两个事实推翻了 ③ 的必要性：
 
-**事实 1：参考实现 pi-web（0.9.1）的默认形态没有 token。** 其 `middleware.js` 只做 Host 校验（`localhost` / `*.localhost` / 任意 IP / `PI_WEB_HOSTNAME` + `PI_WEB_ALLOWED_HOSTS`）与 `/api/*` 的 Origin + `Sec-Fetch-Site` 校验；密钥是**可选**的 `PI_WEB_PASSWORD`（未设置则完全跳过凭据校验），`bin/pi-web.js` 也仅在绑定非回环地址时警告"建议启用密码或走可信 VPN"。即：**回环地址 + 浏览器头校验 = 默认足够；离开回环才引入凭据**，而那时引入的是用户可输入的口令（cookie/Basic），不是随机 token。
+**事实 1：回环 + 浏览器头校验已足够，凭据只在离开回环时才有价值。** 服务只绑定 `127.0.0.1`、单用户，Host / Origin / Sec-Fetch-Site 三道校验已覆盖浏览器侧可发起的全部跨源路径；**回环地址 + 浏览器头校验 = 默认足够；离开回环才引入凭据**，而那时需要的是用户可输入的口令（cookie / Basic），不是启动时随机、只在终端出现过一次的 token。
 
 **事实 2：token 是票据层存在的唯一理由，而它给 SPA 带来的成本落在还没写的代码上。** `EventSource` 无法携带 header，所以有了票据仓 + 换票端点 + 二次握手（`docs/02` §2 自陈"与 token 鉴权配套"）。更麻烦的是取 token：生产同源可以注入 `index.html`，但**开发期页面在 9528、API 在 9527，跨源页面读不到注入值**，`docs/01` §5.2.2 的"token 经同源 bootstrap 下发"在 dev 形态下不成立，只能手工粘贴或另开 dev 旁路。
 
@@ -29,7 +29,7 @@ M1 按 `docs/01-overview.md` §5.6 落地了三道防护闸：① Host 校验（
 
 **删除 ③：Bearer token 与 SSE 一次性票据一并移除**；常开两道闸，并新增一道覆盖 token 差集的校验：
 
-1. **Host 校验（不可关）**：只认回环主机名 `localhost` / `127.0.0.1` / `[::1]`（含端口），比 pi-web 的"任意 IP"更严——我们不提供非回环绑定
+1. **Host 校验（不可关）**：只认回环主机名 `localhost` / `127.0.0.1` / `[::1]`（含端口），比"任意 IP 字面量"更严——我们不提供非回环绑定
 2. **Origin 校验（不可关）**：带 Origin 才校验；白名单 = 同源 ∪ dev web（9528）
 3. **Sec-Fetch-Site 校验（新增，不可关）**：值为 `cross-site` 一律 403。它精确覆盖上表最后一行（跨站子资源请求），且 `Sec-` 前缀是 forbidden header name，页面 JS 无法伪造；`same-site` 必须放行——dev 期 `localhost:9528 → localhost:9527` 正是 same-site cross-origin
 
@@ -45,7 +45,7 @@ M1 按 `docs/01-overview.md` §5.6 落地了三道防护闸：① Host 校验（
 | `packages/server/src/main.ts` | `PI_BOAT_TOKEN` / `PI_BOAT_NO_TOKEN` / stdout token 打印 |
 | `packages/server/src/server.ts` | `AgentServerDeps.token` 与票据仓装配 |
 
-LAN 场景（`docs/01` §9-4 待定项）**另议**：届时应引入的是用户可输入的口令（pi-web 的 `PI_WEB_PASSWORD` ⊕ cookie 会话 / Basic 形态），而不是随机 token——手机用户没法输入一个启动时随机、只在终端里出现过一次的字符串。
+LAN 场景（`docs/01` §9-4）**已排除**（2026-01 定案，见 `docs/07` §8-1）：一期不引入任何访问凭据，故不提供非回环绑定。若将来重启该方向，届时应引入的是用户可输入的口令（cookie 会话 / Basic），而不是随机 token——手机用户没法输入一个启动时随机、只在终端里出现过一次的字符串。
 
 ## 备选方案
 
@@ -53,8 +53,8 @@ LAN 场景（`docs/01` §9-4 待定项）**另议**：届时应引入的是用�
 |---|---|---|
 | 维持现状（随机 token + 票据） | ❌ 放弃 | 边际价值仅一格（无 Origin 的跨站子资源请求），该格由三行 Sec-Fetch-Site 校验即可覆盖；成本却是票据仓 + 换票端点 + 二次握手 + 3 个协议导出 + dev 期无法自洽的 bootstrap |
 | token 换 SameSite=Strict cookie（同源自动携带，顺带干掉票据层） | ⏸ 延后 | 形态上确实优于现状（cookie 同源自动携带，`EventSource` 也自动带，票据层消失；且 `localhost:9528 → 9527` 属 same-site，Strict 在 dev 也成立，见 RFC6265bis §4.1.2.7 / §5.2）。但引入 cookie + 跨源凭证（`credentials: 'include'` + ACAO/ACAC）调试面，且"持有凭据"的增益已被 Sec-Fetch-Site 覆盖；LAN 场景真正需要的可输入口令届时一并设计 |
-| 只留 Host + Origin（完全对齐 pi-web，不加 Sec-Fetch-Site） | ❌ 放弃 | 无 Origin 的跨站 GET 那一格裸露；补上它只需三行，没有理由不补 |
-| 口令 + cookie + 限流（pi-web `PI_WEB_PASSWORD` 形态） | ❌ M1 不采用 | 纯本地回环、单用户，登录页是纯摩擦；仅在开 LAN（多设备接入、可能非可信网络）时才有价值 |
+| 只留 Host + Origin（不加 Sec-Fetch-Site） | ❌ 放弃 | 无 Origin 的跨站 GET 那一格裸露；补上它只需三行，没有理由不补 |
+| 口令 + cookie + 限流 | ❌ M1 不采用 | 纯本地回环、单用户，登录页是纯摩擦；仅在开 LAN（多设备接入、可能非可信网络）时才有价值 |
 | 引入 CSRF token（double-submit cookie） | ❌ 不采用 | 与随机 token 同类问题（跨源页面拿不到），且需要写路径才生效，SSE 与只读 API 无收益 |
 
 ## 后果
@@ -63,7 +63,6 @@ LAN 场景（`docs/01` §9-4 待定项）**另议**：届时应引入的是用�
 
 - 净减代码：server 去掉票据仓、换票路由、token 装配与环境变量；protocol 去掉 3 个导出；单测去掉票据用例，其余用例不再需要注入 Bearer 头
 - **SPA 侧零配置**：鉴权 bootstrap 需求消失（`docs/01` §5.2.2 / `docs/04` §7 的"token 经 bootstrap 下发"作废），dev 跨源直连不再需要任何取 token 的旁路——这削掉了尚未开写的 `packages/client` 上一块最别扭的接口
-- 与 pi-web 默认形态对齐，后续对照/移植成本降低
 - `docs/04` §8-6 记录的"票据端点"缺口随之关闭
 
 **负面 / 已知风险**

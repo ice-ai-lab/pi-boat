@@ -46,7 +46,7 @@
 | `--green/red/amber/teal` + `-bg` | `--color-success/danger/warn/teal` + `-soft` | 语义名取代色名；`teal` 暂留（仅工具色用） |
 | `--seg-sys/-tools/-msg` | `--color-seg-sys/-tools/-msg` | 轨迹分段的指示色 |
 | `--k-think/-bash/-read/-edit/-err` | `--color-tool-*` | 工具名→色，见 §7 |
-| `--pw-panel/-border/-subtle/-accent` | `--md-panel` `--md-border` `--md-subtle` `--md-accent` | **markdown 排版专用**，与业务 token 隔离（照搬 pi-web） |
+| `--pw-panel/-border/-subtle/-accent` | `--md-panel` `--md-border` `--md-subtle` `--md-accent` | **markdown 排版专用**，与业务 token 隔离 |
 | `--code-bg` `--code-banner` | `--color-code-bg` `--color-code-banner` | 代码块/折叠体底 |
 | `--elev-panel/-soft/-soft-sm` | `--shadow-panel/-soft/-soft-sm` | 三档阴影（均以 0.5px 环起始） |
 | `--font` `--mono` | `--font-sans` `--font-mono` | ⚠️ 原型 `--font-noto-mono` **未定义**，移植时补或删 |
@@ -98,9 +98,9 @@
 | `ModelBadge` / `ModeChip` | `model` / `mode` `onChange` | `.model-btn` / `.mode-chip` + `.mode-menu`。⚠️ **「模式」与工具预设已合并为同一概念**（2026-09-22 决策，docs/02 §11.1）：本组件与 `ToolList` 的分段控件读写同一状态 |
 | `StatsPills` | `stats` `onSelect(kind)` | `#statsRow` 7 个 pill（in / out / cache / tps / cost / ctx ring） |
 | `UsageLine` | `usage` `at` | `.usage-line`（每轮：in · out · cache R · cost · 时间） |
-| `SystemPromptPanel` | `prompt: string \| null` `loading` | ✅ **形态已定（2026-09-22）：整宽面板**（不取原型的 560px 锚定浮层）。规格照 pi-web `SystemPromptPanel`：`height: min(600px, 75dvh)` + `overflow:auto` + `pre-wrap` + `overflow-wrap:anywhere` + 等宽 12px；三态文案（空 / 尚未加载 / 加载中）；触发器为顶栏按钮（`aria-pressed`，有内容时图标转 accent）。原型仍提供视觉 token（`#popSys` 内的 `.sysprompt` 排版） |
+| `SystemPromptPanel` | `prompt: string \| null` `loading` | ✅ **形态已定（2026-09-22）：整宽面板**（不取原型的 560px 锚定浮层）。规格：`height: min(600px, 75dvh)` + `overflow:auto` + `pre-wrap` + `overflow-wrap:anywhere` + 等宽 12px；三态文案（空 / 尚未加载 / 加载中）；触发器为顶栏按钮（`aria-pressed`，有内容时图标转 accent）。原型仍提供视觉 token（`#popSys` 内的 `.sysprompt` 排版） |
 | `MessageMinimap` | `turns` `scrollRef` | `.minimap` + `.mm-bar` + `.mm-tip` 预览，算法见 §8.3 |
-| `ScrollToBottomButton` | `visible` `onClick` | **原型未画，M1 新增件**（照 pi-web `.chat-scroll-to-bottom`）：圆形按钮 + 下箭头，悬于 composer 上方，`visible = 有溢出 && 未贴底`，`smooth` 滚动，带 `aria-label`（§8.2） |
+| `ScrollToBottomButton` | `visible` `onClick` | **原型未画，M1 新增件**：圆形按钮 + 下箭头，悬于 composer 上方，`visible = 有溢出 && 未贴底`，`smooth` 滚动，带 `aria-label`（§8.2） |
 | `ContentWidthControls` | `width` `onWidthChange` `min` `max` | `.chat-handle` 双侧 + `--mh-y` 指针跟随光条 |
 | `EmptyState` | `title` `subtitle` `children` | `.hero`（boat 浮动 + 插槽 + 版本脚注）。**M1 用它承载 cwd 输入**（原型预留的 `#heroSlot`）：路径输入 → `POST /api/agent/new` → 成功后 cwd 转只读展示（`.ws-line`），见 §11.3 行 1 |
 
@@ -164,10 +164,10 @@ AppShell 三栏布局 + 拖拽/折叠（`makeDrag`）、主题切换、路由、
 
 ### 8.1 折叠行（`.disc` / `.group-disc`）
 
-- **组边界规则**（**已定**，照 pi-web）：轮的锚点 = user 消息（或 compaction / 子代理通知）；轮内以“最后一段
+- **组边界规则**（**已定**）：轮的锚点 = user 消息（或 compaction / 子代理通知）；轮内以“最后一段
   非空文本块”为分界，其前的 thinking / toolCall 归组、之后的文本为回答区。**不得改用 turn/agent 事件**
   （历史无此边界，会让刷新前后形状漂移）——完整规则与候选方案见 `docs/05` §6.5
-- **流式期间的形态**（**已定：方案 2**，照 pi-web）：末轮在 `isStreaming` 期间**平铺不分组**，轮结束后才成组并收起；
+- **流式期间的形态**（**已定：方案 2**）：末轮在 `isStreaming` 期间**平铺不分组**，轮结束后才成组并收起；
   `defaultExpanded = 本轮没拿到回答`（中断/报错时默认展开，避免空白）
 - 静态默认：**收起**（原型 HTML 中除 hero 外均为收起态）
 - 流式行为：新出现的思考/工具行**自动展开**（`.shimmer` 态），其内容结束后**自动收起**
@@ -175,9 +175,9 @@ AppShell 三栏布局 + 拖拽/折叠（`makeDrag`）、主题切换、路由、
 - 过程组收起时不渲染 `.child-rail`（`group-disc:not(.open) > .child-rail{display:none}`）
 - 折叠体限高 240px 内滚动，`white-space: pre-wrap` + `word-break: break-all`
 
-### 8.2 滚动与自动滚底（**已定**：照 pi-web 的吸附模型）
+### 8.2 滚动与自动滚底（**已定**：吸附模型）
 
-原型只有无条件 `scrollBottom(el)`。**采用 pi-web 已实测的纯函数模型**（`lib/chat-lazy-load.ts`）
+原型只有无条件 `scrollBottom(el)`。**采用纯函数吸附模型**
 ——它比“上滚超过一屏才脱离”更灵敏，且带滞回避免抖动：
 
 - **贴底容差** `TAIL_TOLERANCE = 8px`：`top + clientHeight >= scrollHeight - 8` 即视为贴底
@@ -185,11 +185,11 @@ AppShell 三栏布局 + 拖拽/折叠（`makeDrag`）、主题切换、路由、
   ① 贴底 → 吸附；② **向上滚（`top < prevTop`）→ 立即脱离**；③ 未吸附但向下滚进入
   `REATTACH_TOLERANCE = 96px` → 重新吸附；④ 其余情况保持原状态（**内容增长不会误吸附**）
 - **「回到底部」按钮**（原型未画 → **M1 新增件** `ScrollToBottomButton`）：`scrollHeight > clientHeight && 未贴底`
-  时显示（pi-web 的 `shouldShowScrollToLatest`），点击 `smooth` 滚动，带 `aria-label`
+  时显示（判定函数 `shouldShowScrollToLatest`），点击 `smooth` 滚动，带 `aria-label`
 - **自己发出消息时强制回底**（`instant`）
-- `MessageList` 顶部需要历史加载触发点（配合 `GET /api/sessions/:id/context` 分页；pi-web 用“保持滚动距离”
-  的 capture/restore，M2 分页时再照搬）
-- 判定函数与两个容差常量均为纯函数 → 放 `ui/hooks` 或 `client`，**必须有单测**（pi-web 就是这么组织的）
+- `MessageList` 顶部需要历史加载触发点（配合 `GET /api/sessions/:id/context` 分页；用“保持滚动距离”
+  的 capture/restore，M2 分页时再实现）
+- 判定函数与两个容差常量均为纯函数 → 放 `ui/hooks` 或 `client`，**必须有单测**
 
 ### 8.3 Message minimap
 
@@ -271,18 +271,18 @@ Lucide、`cva` + `clsx` + `tailwind-merge`（`cn()`）、markdown 走 `react-mar
 | 「最近提交 29d8be9」 | `SessionInfo` 只有 `branch`/`isWorktree` | M3 git 域返回后拼装，不进 `SessionInfo`（维持原议） |
 | 工具预设分段 `chat-only/read-only/default/full` | protocol 无枚举 | ✅ **已定（2026-09-22）**：预设判定归 **core**——只有 core 知道 SDK 的默认工具集（`default` 无法在客户端静态枚举）；M2 开工时定命令形状（`set_tools` 收 preset 名或新命令），**不养期货** |
 | 输入卡「模式：默认/只读/**全自动·免确认执行命令**」 | 与工具预设语义重叠；「免确认」在 SDK 0.85 无对应能力 | ✅ **已定（2026-09-22）：与工具预设合并**，模式菜单直接展示四项预设（标签用工具集描述），**删掉「全自动·免确认」**——AGENTS.md：命名不得暗示它做不到的事 |
-| 系统提示词「版本 r42」 | `AgentState.systemPrompt` **已在 M1 契约内**（core 在 `getRunningState()` 读 `session.systemPrompt`） | ✅ **已定（2026-09-22）：展示，形态取整宽面板**。参考 pi-web 实现（见下）：**删掉「版本 r42」与「约 700 tokens / 占用上下文 0.07%」**（前端无 tokenizer，硬凑会误导）；「注入于会话创建时」改为「最近一次构建」——上下文文件重载后 prompt 会变 |
+| 系统提示词「版本 r42」 | `AgentState.systemPrompt` **已在 M1 契约内**（core 在 `getRunningState()` 读 `session.systemPrompt`） | ✅ **已定（2026-09-22）：展示，形态取整宽面板**。实现取舍（见下）：**删掉「版本 r42」与「约 700 tokens / 占用上下文 0.07%」**（前端无 tokenizer，硬凑会误导）；「注入于会话创建时」改为「最近一次构建」——上下文文件重载后 prompt 会变 |
 | 每轮 `usage-line` | ✅ `message.usage` 已覆盖 | 无需动作 |
 
-**系统提示词面板（参考 pi-web `components/SystemPromptPanel.tsx` + `lib/exact-system-prompt.ts`）**：
+**系统提示词面板**：
 
 - 形态：✅ **已定整宽面板**（不取原型的 560px 锚定浮层——2000+ 字符的长文本点外关闭会丢阅读位置）；
   顶栏「系统」按钮（`aria-pressed`，有内容时图标转 accent）→ 面板 `height: min(600px, 75dvh)`、`pre-wrap`、等宽 12px
 - 三态文案：`""` →「为空（工具已禁用）」/ `null` + loading →「正在加载…」/ `null` →「尚未加载」
 - 数据源：`get_state` 的 `systemPrompt`（pi-boat 已具备）。**pi-boat 应改用轻查端点 `GET /api/agent/:id`**，因为 `get_state` 走命令 FIFO，run 期间会排到 prompt 结束（docs/02 §6.1）
-- pi-web 在**面板打开时才懒加载**（不占用 prompt 前的初始化），ph-boat 同理：打开时拉一次即可
+- **面板打开时才懒加载**（不占用 prompt 前的初始化）：打开时拉一次即可
 - 刷新后的限制：M1 未做会话恢复，刷新后会话不在注册表 → 轻查返回 `{running:false}`，面板只能显示「尚未加载」（M2 恢复能力到位后消失）
-- ⚠️ SDK 升级注意：pi-web 记录 **Pi 0.86 起 `agent.state.systemPrompt` 改为转录回放且不可赋值**（精确 prompt 需 `before_agent_start` 扩展覆写）；pi-boat 锁 0.85.x 时是直通，升级时必须重验「面板显示的是否仍是实际发送的 prompt」
+- ⚠️ SDK 升级注意：**Pi 0.86 起 `agent.state.systemPrompt` 改为转录回放且不可赋值**（精确 prompt 需 `before_agent_start` 扩展覆写）；pi-boat 锁 0.85.x 时是直通，升级时必须重验「面板显示的是否仍是实际发送的 prompt」
 
 ### 11.3 已收口的 M1 流程/规格细节（2026-09-22）
 
@@ -292,7 +292,7 @@ Lucide、`cva` + `clsx` + `tailwind-merge`（`cn()`）、markdown 走 `react-mar
 |---|---|---|---|---|
 | 1 | **新建会话的 `cwd` 来源** | `POST /api/agent/new` 的 `cwd` 是**必填**（`z.string().min(1)`），而 M1 不做工作区 UX | ✅ **已定（2026-09-22）：前端路径输入框 + `localStorage` 记住上次**。落位：`EmptyState`（hero）的插槽（原型已预留 `#heroSlot`）；提交前只做字符串级校验（非空、绝对路径），**存在性由 core 校验**（见下行） | **高**（无 cwd 无法建会话） |
 | 1b | （连带）**不存在的 cwd 会静默建会话** | 实证（2026-09-22）：SDK `createAgentSession({ cwd: '/不存在' })` **不报错照样建会话**，之后每次 read/bash/edit 都在会话里失败——用户看到的是“agent 莫名一直报错” | ✅ **已定：core 在 `create()` 前置校验**（存在且为目录 → 否则 `UserInputError` → 400），M1 内完成。**不可拖到 M3** 的 `/api/cwd/validate`；也不可选“什么都不做” | **高** |
-| 2 | 自动滚底 vs “用户上滚后脱离” | 原型只有无条件 `scrollBottom()` | ✅ **已定（2026-09-22）：照 pi-web 的吸附模型**（贴底 8px / 重吸 96px / 上滚即脱离 / 新增 `ScrollToBottomButton`），见 §8.2 | 中 |
+| 2 | 自动滚底 vs “用户上滚后脱离” | 原型只有无条件 `scrollBottom()` | ✅ **已定（2026-09-22）：吸附模型**（贴底 8px / 重吸 96px / 上滚即脱离 / 新增 `ScrollToBottomButton`），见 §8.2 | 中 |
 | 3 | <880px 的响应式形态 | 原型只有 1180/880 两条覆盖式断点 | ✅ **已定（2026-09-22）：只保大屏，不做小屏适配**——<880px 显示“窗口过窄”提示，不做 drawer/重排；保留“禁写死桌面假设”，移动端随 M3 排期，见 §9.1 | 低 |
 | 4 | 深色主题是否进 M1 | 原型的 `[data-theme="dark"]` token 已完整 | ✅ **已定（2026-09-22）：M1 不支持深色主题**——不接切换、不做验证。`theme.css` 保留原型已有的 dark 变量块并标注“未启用”（照抄零成本，且 ui 是跨端资产；将来要删也不必回头对照原型），但**不是 M1 交付内容** | 低 |
 

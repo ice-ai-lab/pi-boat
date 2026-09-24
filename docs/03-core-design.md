@@ -152,7 +152,7 @@ agent-session.js:776/784/949）②`agent_settled` 事件幂等兜底（steer/fol
 - **沿原始 parentId 父链**迭代（非递归，防爆栈）回溯，**不做压缩过滤**：历史浏览要
   「发生过什么」而不是「模型看到什么」——SDK `buildContextEntries` 是 LLM 上下文投影，
   压缩点之前整体折叠成摘要，`before` 游标落在压缩前条目时失配 → 向上翻页死路
-  （08ee0ba 修复，对齐 pi-web sliceActiveBranch 教训）
+  （08ee0ba 修复）
 - **tail 预算只计可见消息**（user/assistant + compaction 分隔条）；toolResult 以附件渲染
   不吃预算，防工具密集会话一页只剩 1 条用户消息
 - **raw 条目上限** `max(200, tail*6)`：可见锚点稀疏的长工具流量段兜底
@@ -167,8 +167,8 @@ agent-session.js:776/784/949）②`agent_settled` 事件幂等兜底（steer/fol
 - `rename`：`appendSessionInfo` 追加行（空白名抛 UserInputError）；运行中会话改走命令通道（M2）
 - `computeStats`：对齐 SDK `getSessionStats` 聚合口径（导出的纯函数）
 - `delete`（docs/04 §8-2）：按 header.parentSession（父会话文件路径）建子链，BFS 收集
-  传递闭包，**只级联带 subagent 标记的子会话**（custom 条目 `pi-web:subagent`，生态约定；
-  fork 子会话仍是顶层列表项，不级联）；运行中拦截归 server（409）
+  传递闭包，**只级联带子代理标记的子会话**（判定用 custom 条目的 `customType`，字面量
+  见 `SessionReadService.delete()`；fork 子会话仍是顶层列表项，不级联）；运行中拦截归 server（409）
 - `toolResultImage`（docs/04 §8-3）：按 entryId + blockIndex 读 toolResult 消息的图片块，
   base64 解码为二进制；deferMedia 占位符形状待 protocol 定稿（M1 历史图片全文直发）
 
@@ -203,7 +203,7 @@ agent-session.js:776/784/949）②`agent_settled` 事件幂等兜底（steer/fol
   **不报错照样建会话**，之后每次 read/bash/edit 工具调用都在会话里失败，用户看到的是“agent 莫名一直报错”
   而不是“路径错了”（docs/02 §4.1、docs/06 §11.3 行 1b）
 - **SDK 升级注意**：`systemPrompt` 的来源是 `session.systemPrompt`（0.85.x 即 `agent.state.systemPrompt` 直通）。
-  ⚠️ pi-web 记录 **Pi 0.86 起该字段改为“转录回放”且不可赋值**，宿主若要下发精确 prompt 只能靠
+  ⚠️ **Pi 0.86 起该字段改为“转录回放”且不可赋值**（升级时必须实测确认），宿主若要下发精确 prompt 只能靠
   `before_agent_start` 扩展覆写——升级 SDK 时必须重验「系统提示词面板显示的仍是否实际发送的 prompt」
   （docs/06 §11.2 附注）
 - **server 前置**：SSE 重放缓冲（M1 已降级为忽略 Last-Event-ID，docs/04 §5.5）、
