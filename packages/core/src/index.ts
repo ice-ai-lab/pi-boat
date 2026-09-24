@@ -31,15 +31,62 @@
 
 export {
   AgentSessionService,
-  type CreateSessionFn,
+  type AgentSessionServiceOptions,
+  type CreateRuntimeFn,
+  type CreateRuntimeInput,
+  defaultCreateRuntime,
   PromptRejectedError,
+  SessionBusyError,
   SessionNotFoundError,
   UserInputError,
 } from './agent/agent-session-service';
+export { createExactSystemPromptExtension } from './agent/exact-system-prompt';
+export {
+  DEFAULT_UI_TIMEOUT_MS,
+  ExtensionUiBridge,
+} from './agent/extension-ui-bridge';
+export {
+  buildCompletionNotification,
+  DEFAULT_LEASE_TTL_MS,
+  DEFAULT_REAP_INTERVAL_MS,
+  type LivenessOptions,
+  LivenessRegistry,
+  PushService,
+  type PushServiceOptions,
+} from './agent/liveness';
 export {
   SessionRegistryEntry,
   type WireAgentEventListener,
 } from './agent/session-entry';
+export {
+  clearedToolSelection,
+  readSessionToolSelection,
+  TOOL_SELECTION_CUSTOM_TYPE,
+  writeToolSelection,
+} from './agent/session-tool-selection';
+export {
+  ConfigService,
+  type ConfigServiceOptions,
+  InvalidScopeEditError,
+  ProjectShadowedError,
+} from './config/config-service';
+export {
+  LastModelRejectionError,
+  modelKey,
+  parsePattern,
+  prunePatterns,
+  resolveVisibleModels,
+  resyncPatterns,
+  toggleModelInPatterns,
+  type VisibleScope,
+} from './config/model-scope';
+export {
+  ModelsConfigReadError,
+  modelsConfigPath,
+  normalizeModelsConfigCosts,
+  readModelsConfig,
+  writeModelsConfig,
+} from './config/models-config-store';
 export {
   toWireAgentEvent,
   toWireAgentEventPayload,
@@ -61,3 +108,35 @@ export {
   type SessionReadOptions,
   SessionReadService,
 } from './read/session-read-service';
+export {
+  isPowerShellEnabled,
+  ResourceService,
+  type ResourceServiceOptions,
+  replaceShellTool,
+  SkillInstallError,
+  setDisableModelInvocation,
+  sourceType,
+} from './resources/resource-service';
+export {
+  globalSettingsPath,
+  projectSettingsPath,
+  readSettingsObject,
+  SettingsWriteError,
+  updateSettingsObject,
+} from './resources/settings-file';
+export {
+  displayPath,
+  expandTilde,
+  IGNORED_DIRECTORY_NAMES,
+  isInsideRoot,
+  isSensitivePath,
+  type PathDecision,
+  PathGuard,
+  samePath,
+} from './system/path-guard';
+export {
+  SystemAccessError,
+  SystemService,
+  type SystemServiceOptions,
+  UserInputErrorLite,
+} from './system/system-service';

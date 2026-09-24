@@ -1,51 +1,66 @@
+import { stat } from 'node:fs/promises';
 import {
-  type CreateAgentSessionOptions,
-  type CreateAgentSessionResult,
-  createAgentSession,
+  type AgentSession,
+  type AgentSessionRuntime,
+  type CreateAgentSessionRuntimeFactory,
+  createAgentSessionFromServices,
+  createAgentSessionRuntime,
+  createAgentSessionServices,
+  type ExtensionCommandContextActions,
+  getAgentDir,
+  type SessionManager,
+  SessionManager as SessionManagerClass,
 } from '@earendil-works/pi-coding-agent';
 import type {
   AgentCommand,
   AgentRunningState,
   AgentState,
+  BranchResult,
   ClearQueueResult,
   CommandData,
+  ExtensionUiResponse,
   LastAssistantTextResult,
+  NavigateTreeResult,
   NewSessionOk,
   NewSessionRequest,
-  SessionStatsInfo,
+  SessionInfo,
+  SessionReplacedReason,
   SetToolsResult,
   SlashCommandInfo,
   ThinkingLevel,
   ToolInfo,
+  ToolPreset,
 } from '@ice-ai/protocol';
+import { toolNamesForPreset } from '@ice-ai/protocol';
 import { toWireAgentMessage } from '../events/wire-message';
+import { createExactSystemPromptExtension } from './exact-system-prompt';
 import { SessionRegistryEntry, type WireAgentEventListener } from './session-entry';
+import {
+  clearedToolSelection,
+  readSessionToolSelection,
+  TOOL_SELECTION_CUSTOM_TYPE,
+  writeToolSelection,
+} from './session-tool-selection';
 
 /**
  * Agent 命令通道 + 事件总线的核心服务（docs/01 §3.1、§5.5 transport-agnostic 接口）。
  *
- * 为什么需要：pi SDK 只提供单个 AgentSession 对象（方法调用 + 原生事件回调），
+ * 为什么需要：pi SDK 只提供单会话的 runtime（方法调用 + 原生事件回调），
  * 没有多会话管理与统一命令分发——直接暴露给 server 会让传输层耦合 SDK 内部结构。
  *
  * 相对 SDK 新增：
- * - 多会话注册表：按 sessionId 寻址、创建/销毁、registryVersion 供列表轻量轮询
- *   （只含注册表变动；磁盘侧变更不在内，见 protocol rest/sessions.ts 注释）
+ * - 多会话注册表：按 sessionId 寻址、创建/销毁/re-key、registryVersion 供列表轻量轮询
  * - 统一命令通道：AgentCommand 判别联合分发（protocol 契约即方法面）；
  *   同会话命令 FIFO 串行、跨会话并行，错误不传染队列链；
- *   失败走类型化异常（SessionNotFoundError / PromptRejectedError）
+ *   失败走类型化异常（SessionNotFoundError / PromptRejectedError / UserInputError）
  * - get_commands / get_tools：SDK 分散的能力（扩展命令/模板/技能/工具）聚合成面板数据
+ * - fork/clone 的**破坏性原地替换**收口：runtime 换完会话后重新登记注册表键，
+ *   并在旧流上下发 `session_replaced`（docs/01 §8-1：旧键必须立即销毁）
+ * - 冷会话恢复（ADR-0013）：`resume()` 从 .jsonl 重建 runtime 并登记
+ * - 工具预设持久化 + 纯聊天边界（G2-9/G2-10）：预设写进会话自定义条目，
+ *   `none` 触发 chat-only（精简系统提示词 + 关扩展/技能），故需要整 runtime 重建
+ * - 扩展 UI 桥接线（ADR-0012）：`bindExtensions({uiContext, mode:'rpc'})`
  * - late join 时序保证：①订阅 → ②connected → ③快照 → ④增量（docs/01 §5.4）
- *
- * 提供：
- * - create：createAgentSession() 包装（与 pi 共用 ~/.pi 凭据/模型/会话文件），
- *   可选首条消息与显式模型切换（ensure_session 预建不发消息）
- * - send：M1 命令子集分发（prompt/steer/follow_up/abort/clear_queue/
- *   get_state/get_session_stats/get_last_assistant_text/get_commands/get_tools/set_tools）
- * - subscribe：late join 事件订阅（时序同上）
- * - 轻查与生命周期：getRunningState / isRunning / runningSessionIds /
- *   disposeSession / disposeAll
- *
- * M1 不做：idle 回收与 lease（M3）、fork/压缩/模型组命令（M2）、扩展 UI 通道（M2）。
  */
 
 // ---------------------------------------------------------------------------
@@ -78,66 +93,131 @@ export class UserInputError extends Error {
   }
 }
 
+/** 会话本轮正在跑，无法做需要重建 runtime 的操作——server 映射 409 */
+export class SessionBusyError extends Error {
+  constructor(message = 'Session is busy') {
+    super(message);
+    this.name = 'SessionBusyError';
+  }
+}
+
 // ---------------------------------------------------------------------------
-// 新建会话
+// runtime 工厂（默认真实 SDK；测试注入 fake）
 // ---------------------------------------------------------------------------
 
-/** 会话工厂签名（默认真实 SDK；测试注入 fake） */
-export type CreateSessionFn = (
-  options: CreateAgentSessionOptions,
-) => Promise<CreateAgentSessionResult>;
+export interface CreateRuntimeInput {
+  cwd: string;
+  /** 既有会话文件（恢复/重建路径）；缺省 = 新建 */
+  sessionFile?: string;
+  /** 显式模型（已解析好的 SDK Model） */
+  model?: AgentSession['model'];
+  thinkingLevel?: ThinkingLevel;
+  /** 工具名 allowlist（显式名单或预设展开结果） */
+  tools?: string[];
+  /**
+   * 纯聊天（G2-9 边界）：只保留上下文文件作为系统提示词，并关掉扩展/技能/模板/主题。
+   * 由 `set_tools {preset:'none'}` 或 `agent/new {toolNames:[]}` 触发。
+   */
+  chatOnly?: boolean;
+}
+
+export type CreateRuntimeFn = (input: CreateRuntimeInput) => Promise<AgentSessionRuntime>;
+
+export interface AgentSessionServiceOptions {
+  /** runtime 工厂（缺省走真实 SDK；测试注入 fake runtime） */
+  createRuntime?: CreateRuntimeFn;
+  /** `` ~/.pi/agent `` 覆盖（测试用） */
+  agentDir?: string;
+  /** 扩展 UI 宿主兜底超时（毫秒） */
+  uiTimeoutMs?: number;
+  /**
+   * 按 id 定位会话文件（恢复冷会话用）。缺省实现遍历 `SessionManager.listAll()`；
+   * server 可注入 `SessionReadService` 的索引以避免重复扫描。
+   */
+  findSessionFile?: (sessionId: string) => Promise<{ path: string; cwd: string } | null>;
+  /**
+   * 打开既有会话文件（恢复时读工具选择 / fork_branch 复制分支）。
+   * 缺省 = SDK 的 `SessionManager.open`；测试注入 fake 以避开真实文件系统。
+   */
+  openSessionManager?: (path: string, sessionDir?: string) => SessionManager;
+}
 
 export class AgentSessionService {
   private entries = new Map<string, SessionRegistryEntry>();
   /** 每会话命令串行队列尾（FIFO 链） */
   private commandTails = new Map<string, Promise<unknown>>();
+  private readonly createRuntime: CreateRuntimeFn;
+  private readonly findSessionFile: (
+    sessionId: string,
+  ) => Promise<{ path: string; cwd: string } | null>;
+  private readonly uiTimeoutMs: number | undefined;
+  private readonly openSessionManager: (path: string, sessionDir?: string) => SessionManager;
   /**
-   * 运行时注册表版本号：每次结构性变动（create/disposeSession）+1。
+   * 会话文件在**上次确认时**的 `size:mtime`（外部写入探测基线，ADR-0013b）。
+   * 只在登记时与每次探测后更新——我们自己写盘也会改变它，所以基线是
+   * "上次我们看过的样子"而不是"我们最后写的样子"。
+   */
+  private readonly fileBaselines = new Map<string, string>();
+  /** 每轮结束的监听器（推送投递侧挂这里，G2-13） */
+  private readonly settledListeners = new Set<(sessionId: string) => void>();
+  /**
+   * 运行时注册表版本号：每次结构性变动（create/disposeSession/re-key）+1。
    * ⚠️ 只含注册表变动；磁盘扫描侧的变化（其他进程写入会话、会话首条 assistant 消息
    * 落盘、改名/fork）不在此列，客户端不能只靠它决定要不要全量刷新列表
    * （详见 protocol rest/sessions.ts 的 SessionListResponseSchema 注释）。
    */
   #registryVersion = 0;
 
-  constructor(private readonly createSession: CreateSessionFn = createAgentSession) {}
+  constructor(options: AgentSessionServiceOptions = {}) {
+    this.createRuntime = options.createRuntime ?? defaultCreateRuntime(options.agentDir);
+    this.findSessionFile =
+      options.findSessionFile ?? ((id) => findSessionFileViaSessionManager(id, options.agentDir));
+    this.uiTimeoutMs = options.uiTimeoutMs;
+    this.openSessionManager =
+      options.openSessionManager ?? ((path, dir) => SessionManagerClass.open(path, dir));
+  }
 
   // ------------------------------------------------------------------
-  // 新建会话（POST /api/agent/new，docs/02 §4.1）
+  // 新建 / 恢复会话（POST /api/agent/new、POST /api/agent/:id/resume）
   // ------------------------------------------------------------------
 
   async create(input: NewSessionRequest): Promise<NewSessionOk> {
     const { cwd, message, images, provider, modelId, toolNames, thinkingLevel } = input;
     const ensureOnly = input.type === 'ensure_session';
 
-    const options: CreateAgentSessionOptions = { cwd };
-    if (toolNames !== undefined) options.tools = toolNames;
-    if (thinkingLevel !== undefined) options.thinkingLevel = thinkingLevel;
-    // 显式模型：不在此解析（需要 ModelRuntime），先按默认建会话再 setModel 校验
-
-    let result: CreateAgentSessionResult;
-    try {
-      result = await this.createSession(options);
-    } catch (error) {
-      console.error('[core] createAgentSession failed:', error);
-      throw error;
+    // cwd 前置校验：SDK 的 createAgentSession 对不存在的 cwd 不报错、照样建会话，
+    // 后果是之后每次 read/bash/edit 都在会话里失败——用户看到「agent 莫名其妙报错」
+    // 而不是「路径错了」（docs/02 §4.1 实证，2026-09-22）
+    if (!(await isDirectory(cwd))) {
+      throw new UserInputError(`Working directory does not exist: ${cwd}`);
     }
-    const { session } = result;
 
-    // 显式指定 provider/modelId：解析并切换（成对约束已由 protocol schema 校验）
+    // 显式模型：在 runtime 建好之后按 provider/modelId 解析（需要 ModelRuntime）
+    const runtime = await this.createRuntime({
+      cwd,
+      thinkingLevel,
+      tools: toolNames,
+      chatOnly: toolNames !== undefined && toolNames.length === 0,
+    });
+
+    const entry = await this.register(makeEntry(runtime, this.uiTimeoutMs, this.settledCallback()));
+    const { session } = entry;
+
     if (provider !== undefined && modelId !== undefined) {
       const model = session.modelRuntime
         .getAvailableSnapshot()
         .find((m) => m.provider === provider && m.id === modelId);
-      if (!model) {
-        session.dispose();
+      if (model === undefined) {
+        this.disposeSession(entry.sessionId, 'error');
         throw new UserInputError(`Model not available: ${provider}/${modelId}`);
       }
       await session.setModel(model);
     }
 
-    const entry = new SessionRegistryEntry(session);
-    this.entries.set(entry.sessionId, entry);
-    this.#registryVersion += 1;
+    // 显式工具名单/预设：钉住并持久化（否则下次恢复又回到 settings.json 默认）
+    if (toolNames !== undefined) {
+      this.persistToolSelection(entry, toolNames);
+    }
 
     // ensure_session：只建 runtime 不发首条消息（供客户端预查命令/工具）
     if (!ensureOnly && message !== undefined) {
@@ -149,13 +229,177 @@ export class AgentSessionService {
       }
     }
 
-    const model = session.model;
+    return this.okEnvelope(entry);
+  }
+
+  /**
+   * 恢复冷会话（ADR-0013）：从 `.jsonl` 重建 runtime 并登记进注册表。
+   * 已在注册表内直接返回现有会话（幂等，避免两个标签页同时点开时重复建 runtime）。
+   */
+  async resume(sessionId: string): Promise<NewSessionOk> {
+    const existing = this.entries.get(sessionId);
+    if (existing !== undefined && !existing.isDisposed) {
+      return this.okEnvelope(existing);
+    }
+    const hit = await this.findSessionFile(sessionId);
+    if (hit === null) throw new SessionNotFoundError(sessionId);
+
+    // 该会话自己钉过的工具选择要一并恢复（G2-9 持久化）
+    const manager = this.openSessionManager(hit.path);
+    const pinned = readSessionToolSelection(manager.getEntries());
+    const tools = pinned === undefined ? undefined : pinned;
+
+    const runtime = await this.createRuntime({
+      cwd: hit.cwd,
+      sessionFile: hit.path,
+      tools,
+      chatOnly: pinned !== undefined && pinned.length === 0,
+    });
+    const entry = await this.register(makeEntry(runtime, this.uiTimeoutMs, this.settledCallback()));
+    return this.okEnvelope(entry);
+  }
+
+  private okEnvelope(entry: SessionRegistryEntry): NewSessionOk {
+    const model = entry.session.model;
     return {
       success: true,
       data: null,
       sessionId: entry.sessionId,
       model: model ? { provider: model.provider, modelId: model.id } : null,
-      thinkingLevel: session.thinkingLevel as ThinkingLevel,
+      thinkingLevel: entry.session.thinkingLevel as ThinkingLevel,
+    };
+  }
+
+  /** 登记 Entry 并首次绑定扩展；返回已登记的 Entry */
+  private async register(entry: SessionRegistryEntry): Promise<SessionRegistryEntry> {
+    this.entries.set(entry.sessionId, entry);
+    this.#registryVersion += 1;
+    await this.rememberFileBaseline(entry);
+    await this.bindExtensions(entry);
+    return entry;
+  }
+
+  private async rememberFileBaseline(entry: SessionRegistryEntry): Promise<void> {
+    const file = entry.session.sessionFile;
+    if (file === undefined) {
+      this.fileBaselines.delete(entry.sessionId);
+      return;
+    }
+    const fingerprint = await statFingerprint(file);
+    if (fingerprint !== null) this.fileBaselines.set(entry.sessionId, fingerprint);
+  }
+
+  // ------------------------------------------------------------------
+  // 外部写入探测（G2-5 / ADR-0013b）
+  // ------------------------------------------------------------------
+
+  /**
+   * 探测会话文件是否被**别的进程**改过（终端 pi、第二个 server 实例），
+   * 落后就丢掉内存 runtime、从磁盘重建。
+   *
+   * 只在**全量读**（详情 / `?force=1`）时调用，且 run 期间一律跳过——
+   * 换掉正在跑的 runtime 会丢流（事件订阅指向死对象、半截消息消失），
+   * 那比读到一点陈旧内容严重得多（ADR-0013b 的取舍）。
+   *
+   * @returns 是否重建了 runtime（true 时调用方应让客户端重拉历史）
+   */
+  async probeExternalWrite(sessionId: string): Promise<boolean> {
+    const entry = this.entries.get(sessionId);
+    if (entry === undefined || entry.isDisposed) return false;
+    if (entry.isStreaming || entry.isPromptRunning) return false;
+
+    const file = entry.session.sessionFile;
+    if (file === undefined) return false;
+    const current = await statFingerprint(file);
+    if (current === null) return false;
+    const baseline = this.fileBaselines.get(sessionId);
+    if (baseline === undefined || baseline === current) {
+      this.fileBaselines.set(sessionId, current);
+      return false;
+    }
+
+    // 落后：从磁盘重建（同一会话文件、同一会话 id），订阅者不断线
+    const runtime = await this.createRuntime({
+      cwd: entry.session.sessionManager.getCwd(),
+      sessionFile: file,
+      tools: readSessionToolSelection(entry.session.sessionManager.getEntries()),
+    });
+    await entry.replaceRuntime(runtime);
+    await this.bindExtensions(entry);
+    this.fileBaselines.set(sessionId, current);
+    console.error(`[core] external write detected for ${sessionId}; runtime rebuilt from disk`);
+    return true;
+  }
+
+  /**
+   * 内存会话（尚未落盘）的列表项：`ensure_session` 建的会话在首条条目落盘前
+   * 不会出现在目录扫描里，客户端却必须看得见（否则刚建的标签页立刻消失）。
+   */
+  transientInfos(): SessionInfo[] {
+    const now = new Date().toISOString();
+    return [...this.entries.values()]
+      .filter((entry) => !entry.isDisposed && entry.session.sessionFile === undefined)
+      .map((entry) => {
+        const model = entry.session.model;
+        void model;
+        return {
+          path: '',
+          id: entry.sessionId,
+          cwd: entry.session.sessionManager.getCwd(),
+          created: now,
+          modified: now,
+          messageCount: entry.session.messages.length,
+          firstMessage: '',
+          transient: true,
+        } satisfies SessionInfo;
+      });
+  }
+
+  /** 绑定扩展（含扩展 UI 上下文与命令上下文动作） */
+  private async bindExtensions(entry: SessionRegistryEntry): Promise<void> {
+    await entry.session.bindExtensions({
+      uiContext: entry.uiContext,
+      mode: 'rpc',
+      commandContextActions: this.commandContextActions(entry),
+      shutdownHandler: () => {
+        // 扩展请求关停：只关这一个会话（server 关停走 disposeAll）
+        this.disposeSession(entry.sessionId, 'server_shutdown');
+      },
+      onError: (error) => {
+        console.error('[core] extension error:', error.event, error.error);
+      },
+    });
+  }
+
+  /**
+   * 扩展可调用的会话操作（bindExtensions 的 commandContextActions）。
+   * 全部走本服务自己的替换收口，这样注册表键与 session_replaced 事件一致。
+   */
+  private commandContextActions(entry: SessionRegistryEntry): ExtensionCommandContextActions {
+    return {
+      waitForIdle: () => entry.session.waitForIdle(),
+      newSession: async (options) => {
+        await entry.runtime.newSession(options);
+        await this.afterReplacement(entry, 'new');
+        return { cancelled: false };
+      },
+      fork: async (entryId, options) => {
+        await entry.runtime.fork(entryId, options);
+        await this.afterReplacement(entry, 'fork');
+        return { cancelled: false };
+      },
+      navigateTree: async (targetId, options) => {
+        const result = await entry.session.navigateTree(targetId, options);
+        return { cancelled: result.cancelled };
+      },
+      switchSession: async (sessionPath, options) => {
+        const result = await entry.runtime.switchSession(sessionPath, options);
+        if (!result.cancelled) await this.afterReplacement(entry, 'resume');
+        return result;
+      },
+      reload: async () => {
+        await this.reloadSession(entry);
+      },
     };
   }
 
@@ -232,12 +476,12 @@ export class AgentSessionService {
         return this.getState(entry);
       case 'get_session_stats': {
         const stats = session.getSessionStats();
-        const info: SessionStatsInfo = {
+        return {
           ...stats,
-          contextUsage: stats.contextUsage,
           sessionName: session.sessionName ?? undefined,
+          // 冷会话（本进程没跑过）不带 perf：0 与「未测量」不是一回事
+          perf: entry.hasPerf ? entry.perf : undefined,
         };
-        return info;
       }
       case 'get_last_assistant_text': {
         const result: LastAssistantTextResult = { text: session.getLastAssistantText() ?? null };
@@ -283,18 +527,240 @@ export class AgentSessionService {
         }));
         return tools;
       }
-      case 'set_tools': {
-        // M1：注册表内会话一律走 switch 路径（下一轮生效），返回 null。
-        // 冷会话重建 runtime 的 {sessionId, recreated} 路径由 server 层实现（M2）。
-        session.setActiveToolsByName(command.toolNames);
-        const result: SetToolsResult = null;
+      case 'set_tools':
+        return this.setTools(entry, command);
+      case 'set_model': {
+        const model = session.modelRuntime
+          .getAvailableSnapshot()
+          .find((m) => m.provider === command.provider && m.id === command.modelId);
+        if (model === undefined) {
+          throw new UserInputError(`Model not available: ${command.provider}/${command.modelId}`);
+        }
+        await session.setModel(model);
+        return { provider: model.provider, modelId: model.id };
+      }
+      case 'set_thinking_level':
+        session.setThinkingLevel(command.level);
+        return null;
+      case 'compact': {
+        const result = await session.compact(command.customInstructions);
         return result;
+      }
+      case 'abort_compaction':
+        session.abortCompaction();
+        return null;
+      case 'set_auto_compaction':
+        session.setAutoCompactionEnabled(command.enabled);
+        return null;
+      case 'set_auto_retry':
+        session.setAutoRetryEnabled(command.enabled);
+        return null;
+      case 'fork': {
+        this.assertNotBusy(entry, 'fork');
+        await entry.runtime.fork(command.entryId, { position: 'before' });
+        return await this.afterReplacement(entry, 'fork');
+      }
+      case 'fork_branch': {
+        this.assertNotBusy(entry, 'fork_branch');
+        return await this.forkBranch(entry, command.entryId);
+      }
+      case 'clone': {
+        this.assertNotBusy(entry, 'clone');
+        const leafId = command.leafId ?? session.sessionManager.getLeafId();
+        if (leafId === null || leafId === undefined) {
+          throw new UserInputError('Cannot clone session: no current entry selected');
+        }
+        await entry.runtime.fork(leafId, { position: 'at' });
+        return await this.afterReplacement(entry, 'clone');
+      }
+      case 'navigate_tree': {
+        const result = await session.navigateTree(command.targetId, {
+          summarize: command.summarize,
+          customInstructions: command.customInstructions,
+          replaceInstructions: command.replaceInstructions,
+          label: command.label,
+        });
+        const out: NavigateTreeResult = { cancelled: result.cancelled };
+        if (result.editorText !== undefined) out.editorText = result.editorText;
+        return out;
+      }
+      case 'set_session_name': {
+        const name = command.name.trim();
+        if (name === '') throw new UserInputError('Session name cannot be empty');
+        session.setSessionName(name);
+        return null;
+      }
+      case 'reload': {
+        await this.reloadSession(entry);
+        return null;
+      }
+      case 'extension_ui_response': {
+        entry.respondToExtensionUi(toUiResponse(command));
+        return null;
       }
       default: {
         // 穷尽保护：protocol 新增命令而 core 未实现时编译期即可发现
         const exhaustive: never = command;
         throw new Error(`Unsupported command: ${JSON.stringify(exhaustive)}`);
       }
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // set_tools / 工具预设（G2-9）
+  // ------------------------------------------------------------------
+
+  /**
+   * 两形态 + 两路径：
+   * - `toolNames`（含空数组 = 纯聊天）/ `preset` 展开后的名单
+   * - **纯聊天边界需要整 runtime 重建**（resource loader 要换：关扩展/技能、换系统提示词），
+   *   其余预设只需 `setActiveToolsByName` 即时生效
+   * - `configured` 是「撤销钉住」：追加一条 cleared 条目并重建 runtime 回到默认
+   */
+  private async setTools(
+    entry: SessionRegistryEntry,
+    command: Extract<AgentCommand, { type: 'set_tools' }>,
+  ): Promise<SetToolsResult> {
+    const hasNames = command.toolNames !== undefined;
+    const hasPreset = command.preset !== undefined;
+    if (hasNames === hasPreset) {
+      throw new UserInputError('set_tools requires exactly one of toolNames or preset');
+    }
+
+    const requestedNames = hasNames
+      ? command.toolNames
+      : toolNamesForPreset(command.preset as ToolPreset);
+    // `configured` = 不下发覆盖：撤销钉住并回到 settings.json 的 defaultTools
+    const chatOnly = requestedNames !== undefined && requestedNames.length === 0;
+
+    if (requestedNames === undefined) {
+      // 撤销钉住：只在会话确实钉过时才需要重建
+      const pinned = readSessionToolSelection(entry.session.sessionManager.getEntries());
+      if (pinned === undefined) return null;
+      this.assertNotBusy(entry, 'set_tools');
+      clearedToolSelection(entry.session.sessionManager);
+      await this.rebuildRuntime(entry, { preset: 'configured' });
+      return { sessionId: entry.sessionId, recreated: true };
+    }
+
+    if (chatOnly) {
+      // 纯聊天边界：runtime 重建（resource loader 级别变化）
+      this.assertNotBusy(entry, 'set_tools');
+      this.persistToolSelection(entry, requestedNames);
+      await this.rebuildRuntime(entry, { preset: 'none' });
+      return { sessionId: entry.sessionId, recreated: true };
+    }
+
+    entry.session.setActiveToolsByName(requestedNames);
+    this.persistToolSelection(entry, requestedNames);
+    return null; // 运行中会话即时生效，无需重建
+  }
+
+  /** 把当前工具选择写进会话自定义条目（恢复时读回，G2-9） */
+  private persistToolSelection(entry: SessionRegistryEntry, toolNames: readonly string[]): void {
+    writeToolSelection(entry.session.sessionManager, toolNames);
+  }
+
+  /** 用当前会话文件重建 runtime（同一会话 id），并可选换预设/纯聊天 */
+  private async rebuildRuntime(
+    entry: SessionRegistryEntry,
+    options: { preset: ToolPreset },
+  ): Promise<void> {
+    const sessionFile = entry.session.sessionFile;
+    if (sessionFile === undefined) {
+      throw new UserInputError('Session is not persisted yet; cannot rebuild its runtime');
+    }
+    const toolNames = toolNamesForPreset(options.preset);
+    const runtime = await this.createRuntime({
+      cwd: entry.session.sessionManager.getCwd(),
+      sessionFile,
+      tools: toolNames,
+      chatOnly: toolNames !== undefined && toolNames.length === 0,
+    });
+    await entry.replaceRuntime(runtime);
+    await this.bindExtensions(entry);
+  }
+
+  private async reloadSession(entry: SessionRegistryEntry): Promise<void> {
+    await entry.session.reload();
+    await this.bindExtensions(entry);
+  }
+
+  // ------------------------------------------------------------------
+  // runtime 替换收口（fork / clone / newSession / switchSession）
+  // ------------------------------------------------------------------
+
+  /**
+   * runtime 已经换完会话之后的收口：重新登记注册表键 + 通知订阅者。
+   *
+   * 为什么必须立即改键（docs/01 §8-1）：fork 是**原地替换**，旧 id 在新 runtime 里
+   * 已不存在——留着旧键会让 `GET /api/agent/:oldId` 返回一个死会话。
+   */
+  private async afterReplacement(
+    entry: SessionRegistryEntry,
+    reason: SessionReplacedReason,
+  ): Promise<BranchResult> {
+    const previousId = [...this.entries.entries()].find(([, e]) => e === entry)?.[0];
+    const newSessionId = entry.sessionId;
+    entry.emitSessionReplaced(newSessionId, reason);
+    if (previousId !== undefined && previousId !== newSessionId) {
+      // 队列尾跟着搬（同一会话的后续命令不能落到旧键上）
+      const tail = this.commandTails.get(previousId);
+      const baseline = this.fileBaselines.get(previousId);
+      this.entries.delete(previousId);
+      this.commandTails.delete(previousId);
+      this.fileBaselines.delete(previousId);
+      this.entries.set(newSessionId, entry);
+      if (tail !== undefined) this.commandTails.set(newSessionId, tail);
+      if (baseline !== undefined) this.fileBaselines.set(newSessionId, baseline);
+      this.#registryVersion += 1;
+    }
+    // 换会话后扩展上下文指向新会话（bindExtensions 会重建 uiContext 与动作）
+    await this.bindExtensions(entry);
+    return { cancelled: false, newSessionId };
+  }
+
+  /**
+   * `fork_branch`：在指定条目上分叉出一个**新会话文件**，当前会话**不变**
+   * （与 `fork` 的原地替换相对；docs/02 §4 分支组）。SDK 的 runtime 只有原地
+   * `fork`，所以这里走 `SessionManager.createBranchedSession` + 独立 runtime。
+   */
+  private async forkBranch(entry: SessionRegistryEntry, entryId: string): Promise<BranchResult> {
+    const manager = entry.session.sessionManager;
+    if (!manager.isPersisted()) {
+      throw new UserInputError('Cannot fork an unpersisted session');
+    }
+    if (manager.getEntry(entryId) === undefined) {
+      throw new UserInputError(`Invalid entry ID for forking: ${entryId}`);
+    }
+    const source = entry.session.sessionFile;
+    if (source === undefined) throw new UserInputError('Session is missing a session file');
+
+    const sourceManager = this.openSessionManager(source, manager.getSessionDir());
+    const forkedPath = sourceManager.createBranchedSession(entryId);
+    if (forkedPath === undefined) throw new UserInputError('Failed to create forked session');
+
+    const forkedManager = this.openSessionManager(forkedPath, manager.getSessionDir());
+    const forkedId = forkedManager.getSessionId();
+    // 独立 runtime，登记进注册表但**不**动当前 Entry
+    const runtime = await this.createRuntime({
+      cwd: forkedManager.getCwd(),
+      sessionFile: forkedPath,
+    });
+    const forkedEntry = await this.register(
+      makeEntry(runtime, this.uiTimeoutMs, this.settledCallback()),
+    );
+    if (forkedEntry.sessionId !== forkedId) {
+      // 理论不可达（同一文件里读出的 id 必须一致）；真出现说明 SDK 语义变了
+      this.disposeSession(forkedEntry.sessionId, 'error');
+      throw new UserInputError('Forked session id mismatch');
+    }
+    return { cancelled: false, newSessionId: forkedId };
+  }
+
+  private assertNotBusy(entry: SessionRegistryEntry, action: string): void {
+    if (entry.isStreaming || entry.isPromptRunning) {
+      throw new SessionBusyError(`Cannot ${action} while the session is running`);
     }
   }
 
@@ -327,9 +793,13 @@ export class AgentSessionService {
         : null,
       systemPrompt: session.systemPrompt,
       thinkingLevel: session.thinkingLevel as ThinkingLevel,
-      extensionStatuses: [], // M2 扩展 UI 通道接入后填充
-      extensionWidgets: [], // 同上
+      extensionStatuses: entry.ui.statusItems,
+      extensionWidgets: entry.ui.widgetItems,
     };
+  }
+
+  private settledCallback(): (sessionId: string) => void {
+    return (sessionId) => this.emitSettled(sessionId);
   }
 
   // ------------------------------------------------------------------
@@ -375,12 +845,13 @@ export class AgentSessionService {
   /** GET /api/agent/:id —— 未运行不报错（docs/02 §6.1） */
   getRunningState(sessionId: string): AgentRunningState {
     const entry = this.entries.get(sessionId);
-    if (entry === undefined) return { running: false };
+    if (entry === undefined || entry.isDisposed) return { running: false };
     return { running: true, state: this.getState(entry) };
   }
 
   isRunning(sessionId: string): boolean {
-    return this.entries.has(sessionId);
+    const entry = this.entries.get(sessionId);
+    return entry !== undefined && !entry.isDisposed;
   }
 
   runningSessionIds(): string[] {
@@ -391,7 +862,28 @@ export class AgentSessionService {
     return this.#registryVersion;
   }
 
-  /** 关闭单个会话（idle 回收 / server 关停时调用；M1 仅显式调用） */
+  /**
+   * 注册"某会话跑完一轮"的监听（B7 推送投递侧）。
+   * 返回退订函数；监听器异常不影响事件流与 SDK 会话。
+   */
+  onSettled(listener: (sessionId: string) => void): () => void {
+    this.settledListeners.add(listener);
+    return () => {
+      this.settledListeners.delete(listener);
+    };
+  }
+
+  private emitSettled(sessionId: string): void {
+    for (const listener of this.settledListeners) {
+      try {
+        listener(sessionId);
+      } catch (error) {
+        console.error('[core] settled listener failed:', error);
+      }
+    }
+  }
+
+  /** 关闭单个会话（idle 回收 / server 关停时调用） */
   disposeSession(
     sessionId: string,
     reason: 'idle' | 'server_shutdown' | 'error' = 'server_shutdown',
@@ -400,6 +892,7 @@ export class AgentSessionService {
     if (entry === undefined) return;
     this.entries.delete(sessionId);
     this.commandTails.delete(sessionId);
+    this.fileBaselines.delete(sessionId);
     this.#registryVersion += 1;
     entry.dispose(reason);
   }
@@ -419,3 +912,135 @@ export class AgentSessionService {
     return entry;
   }
 }
+
+// ---------------------------------------------------------------------------
+// 默认 runtime 工厂（真实 SDK）
+// ---------------------------------------------------------------------------
+
+/** 文件指纹（size:mtime）；文件不在/读不到返回 null */
+async function statFingerprint(path: string): Promise<string | null> {
+  try {
+    const info = await stat(path);
+    return `${info.size}:${Math.floor(info.mtimeMs)}`;
+  } catch {
+    return null;
+  }
+}
+
+function makeEntry(
+  runtime: AgentSessionRuntime,
+  uiTimeoutMs: number | undefined,
+  onSettled?: (sessionId: string) => void,
+): SessionRegistryEntry {
+  // 会话 id 会在 fork 后改变，所以回调每次现读 entry.sessionId 而不是捕获旧值
+  const entry = new SessionRegistryEntry(runtime, {
+    uiTimeoutMs,
+    onSettled: () => onSettled?.(entry.sessionId),
+  });
+  return entry;
+}
+
+async function isDirectory(path: string): Promise<boolean> {
+  try {
+    return (await stat(path)).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/** 按 id 定位会话文件（缺省实现：遍历 SDK 的全量列表） */
+async function findSessionFileViaSessionManager(
+  sessionId: string,
+  agentDir: string | undefined,
+): Promise<{ path: string; cwd: string } | null> {
+  // agentDir 只影响配置目录；会话目录由 SDK 默认规则解析
+  void agentDir;
+  const all = await SessionManagerClass.listAll();
+  const hit = all.find((info) => info.id === sessionId);
+  return hit === undefined ? null : { path: hit.path, cwd: hit.cwd };
+}
+
+/**
+ * 真实 runtime 工厂：走 `createAgentSessionRuntime`（不是 `createAgentSession`）——
+ * 只有 runtime 才有 `fork`/`switchSession`/`newSession`，那正是 fork/clone/恢复的
+ * 原语（docs/01 §8-1）。
+ */
+export function defaultCreateRuntime(agentDir: string | undefined): CreateRuntimeFn {
+  return async (input: CreateRuntimeInput): Promise<AgentSessionRuntime> => {
+    const dir = agentDir ?? getAgentDir();
+
+    const sessionManager =
+      input.sessionFile !== undefined
+        ? SessionManagerClass.open(input.sessionFile)
+        : SessionManagerClass.create(input.cwd);
+
+    const createRuntime: CreateAgentSessionRuntimeFactory = async ({
+      cwd,
+      agentDir: runtimeAgentDir,
+      sessionManager: runtimeSessionManager,
+      sessionStartEvent,
+    }) => {
+      const services = await createAgentSessionServices({
+        cwd,
+        agentDir: runtimeAgentDir,
+        // 纯聊天：只保留上下文文件作为系统提示词（G2-9/G2-10）。
+        // 关掉扩展/技能/模板/主题——纯聊天没有工具可执行，挂着它们只会污染提示词
+        ...(input.chatOnly
+          ? {
+              resourceLoaderOptions: {
+                noExtensions: true,
+                noSkills: true,
+                noPromptTemplates: true,
+                noThemes: true,
+                // 占位非空值阻止 loader 去发现配置里的提示词文件（与 pi 的
+                // `--system-prompt " "` 同一手法）；真正的提示词由下面的
+                // before_agent_start 扩展整份替换
+                systemPrompt: ' ',
+                appendSystemPrompt: [' '],
+                // 每轮重读：重载了上下文文件的会话下一轮就带上新内容
+                extensionFactories: [
+                  createExactSystemPromptExtension(() =>
+                    contextFilesSystemPrompt(services.resourceLoader.getAgentsFiles().agentsFiles),
+                  ),
+                ],
+              },
+            }
+          : {}),
+      });
+      const created = await createAgentSessionFromServices({
+        services,
+        sessionManager: runtimeSessionManager,
+        sessionStartEvent,
+        model: input.model,
+        thinkingLevel: input.thinkingLevel,
+        tools: input.tools,
+      });
+      return { ...created, services, diagnostics: services.diagnostics };
+    };
+
+    return createAgentSessionRuntime(createRuntime, {
+      cwd: sessionManager.getCwd(),
+      agentDir: dir,
+      sessionManager,
+    });
+  };
+}
+
+/** 纯聊天的系统提示词 = 上下文文件内容拼接（不含 pi 的结构化段落） */
+function contextFilesSystemPrompt(
+  agentsFiles: ReadonlyArray<{ path: string; content: string }>,
+): string {
+  return agentsFiles.map((file) => file.content).join('\n\n');
+}
+
+/** protocol 的三态应答 → 桥的判别联合 */
+function toUiResponse(
+  command: Extract<AgentCommand, { type: 'extension_ui_response' }>,
+): ExtensionUiResponse {
+  if (command.cancelled === true) return { id: command.id, cancelled: true };
+  if (command.confirmed !== undefined) return { id: command.id, confirmed: command.confirmed };
+  if (command.value !== undefined) return { id: command.id, value: command.value };
+  throw new UserInputError('extension_ui_response requires value, confirmed or cancelled');
+}
+
+export { TOOL_SELECTION_CUSTOM_TYPE };

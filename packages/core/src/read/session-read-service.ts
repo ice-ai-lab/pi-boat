@@ -1,7 +1,11 @@
-import { rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, stat } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import {
   buildSessionContext,
+  createAgentSessionServices,
+  getPackageDir,
   type SessionInfo as SdkSessionInfo,
   type SessionEntry,
   SessionManager,
@@ -65,10 +69,23 @@ export interface SessionListOptions {
   force?: boolean;
   /** 只返回该项目的会话（ProjectInfo.projectKey） */
   projectKey?: string;
+  /**
+   * 快路径：跳过 `enrich()`（每 cwd 一次 git 解析）。返回项的 projectRoot/projectKey
+   * 缺省——侧栏先用它把列表显示出来，分组随后由全量读补（ADR-0008）。
+   */
+  summary?: boolean;
+  /** 运行时注册表里的内存会话（尚未落盘）；由 server 从 AgentSessionService 取 */
+  transient?: SessionInfo[];
 }
 
 const DEFAULT_TAIL = 50;
 const MAX_TAIL = 1000;
+/** 正文搜索的候选上限（轻量字段未命中的部分按发件时间倒序取这么多） */
+const BODY_SEARCH_MAX_CANDIDATES = 300;
+/** 单文件正文扫描上限：超了说明这不是一条"会话"，读了也只是浪费 */
+const BODY_SEARCH_MAX_FILE_BYTES = 8 * 1024 * 1024;
+const AUTO_NAME_TIMEOUT_MS = 30_000;
+const AUTO_NAME_MAX_LENGTH = 80;
 
 /**
  * 子代理标记的 `customType`。
@@ -101,17 +118,27 @@ export class SessionReadService {
   async list(options: SessionListOptions = {}): Promise<SessionInfo[]> {
     if (options.force === true) this.invalidate();
     const scan = await scanSessionsDir(this.sessionsRoot);
+    // 快路径不读也不写 enrich 缓存：缓存存的是**带分组**的样子，混着存会让下一次
+    // 全量读拿到没有 projectKey 的条目，分组凭空消失
     let sessions =
-      this.listCache?.fingerprint === scan.fingerprint ? this.listCache.sessions : null;
+      options.summary === true
+        ? null
+        : this.listCache?.fingerprint === scan.fingerprint
+          ? this.listCache.sessions
+          : null;
     if (sessions === null) {
-      sessions = await this.enrich(await this.listAllSessions(scan));
-      this.listCache = { fingerprint: scan.fingerprint, sessions };
+      const raw = await this.listAllSessions(scan);
+      sessions =
+        options.summary === true
+          ? raw.map((info) => this.toWireInfo(info))
+          : await this.enrich(raw);
+      if (options.summary !== true) this.listCache = { fingerprint: scan.fingerprint, sessions };
     }
-    const filtered =
-      options.projectKey === undefined
-        ? sessions
-        : sessions.filter((session) => session.projectKey === options.projectKey);
-    return filtered;
+    // 内存会话（transient）排在最前：刚 ensure_session 建的还没落盘，但客户端必须看得见
+    const merged = mergeTransient(sessions, options.transient ?? []);
+    return options.projectKey === undefined
+      ? merged
+      : merged.filter((session) => session.projectKey === options.projectKey);
   }
 
   /** 会话目录指纹（GET /api/sessions 的 listFingerprint）：回答“磁盘侧列表内容变了吗” */
@@ -119,14 +146,54 @@ export class SessionReadService {
     return (await scanSessionsDir(this.sessionsRoot)).fingerprint;
   }
 
+  /**
+   * 搜索：先按**轻量字段**（名字 / 首条消息）筛，剩下的再逐文件扫正文（G2-7）。
+   *
+   * 为什么要扫正文：用户记得住"那个讲过 rate limiter 的会话"，记不住它开头写了什么。
+   * 但正文扫描必须**有界**：先按轻量字段 + 发件时间排序取前 N 个候选，避免整个
+   * 会话库（可能几万条）全读一遍。
+   */
   async search(q: string): Promise<SessionInfo[]> {
     const needle = q.toLowerCase();
     const all = await this.list();
-    return all.filter(
+    const byField = all.filter(
       (s) =>
         s.firstMessage.toLowerCase().includes(needle) ||
         (s.name?.toLowerCase().includes(needle) ?? false),
     );
+    const hits = new Map(byField.map((session) => [session.id, session]));
+
+    const candidates = all
+      .filter((session) => !hits.has(session.id))
+      .slice(0, BODY_SEARCH_MAX_CANDIDATES);
+    for (const candidate of candidates) {
+      if (await this.fileContains(candidate.path, needle)) hits.set(candidate.id, candidate);
+    }
+    return [...hits.values()];
+  }
+
+  /** 有界正文扫描：命中即停，不把整文件读进内存 */
+  private async fileContains(path: string, needle: string): Promise<boolean> {
+    try {
+      const info = await stat(path);
+      if (info.size > BODY_SEARCH_MAX_FILE_BYTES) return false;
+      const content = await readFile(path, 'utf8');
+      return content.toLowerCase().includes(needle);
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * 会话文件指纹（G2-6）：详情视图缓存的失效判据。
+   * 与列表指纹同构（size+mtime），但作用于单个文件；同样**无单调性**。
+   */
+  async revision(id: string): Promise<string | null> {
+    const manager = await this.openById(id);
+    if (manager === null) return null;
+    const file = manager.getSessionFile();
+    if (file === undefined) return `memory:${manager.getEntries().length}`;
+    return fileFingerprint(file);
   }
 
   /** 清空缓存（force 路径；项目解析缓存也一并清） */
@@ -149,17 +216,169 @@ export class SessionReadService {
     const stats = computeStats(entries, manager.getSessionId(), manager.getSessionFile());
     const context = this.buildContext(entries, leafId, {});
 
+    const filePath = manager.getSessionFile() ?? '';
+    const info = this.infoFromManager(manager, entries);
+    if (filePath !== '') info.revision = await fileFingerprint(filePath);
     return {
       sessionId: manager.getSessionId(),
-      filePath: manager.getSessionFile() ?? '',
-      info: this.infoFromManager(manager, entries),
+      filePath,
+      info,
       leafId,
       tree,
       context,
       stats,
-      // 活跃时长需运行时埋点；冷会话 M1 置 0（协议字段为必填，语义上无运行记录）
+      // 活跃时长需运行时埋点；冷会话置 0（协议字段为必填，语义上无运行记录）
       totalActiveMs: 0,
     };
+  }
+
+  // ------------------------------------------------------------------
+  // 会话引用集合（文件域 allowed-roots 之外放行的依据，protocol rest/files 头注）
+  // ------------------------------------------------------------------
+
+  /**
+   * 该会话**碰过的**文件路径：从 assistant 的 toolCall 参数里抽（read/write/edit/…）。
+   *
+   * 为什么只抽工具参数：那是"agent 真的访问了这个路径"的唯一可信来源——从
+   * 工具结果的文本里 grep 路径会把模型随口提到的路径也算进来，等于把闸门开成
+   * "凡是会话里出现过的字符串都可读"。
+   */
+  async referencedPaths(id: string): Promise<string[] | null> {
+    const manager = await this.openById(id);
+    if (manager === null) return null;
+    const paths = new Set<string>();
+    for (const entry of manager.getEntries()) {
+      if (entry.type !== 'message' || entry.message.role !== 'assistant') continue;
+      for (const block of entry.message.content) {
+        if (block.type !== 'toolCall') continue;
+        collectPathArguments(block.arguments, paths);
+      }
+    }
+    return [...paths];
+  }
+
+  // ------------------------------------------------------------------
+  // 推理文本惰性读取（GET .../entries/:entryId/thinking）
+  // ------------------------------------------------------------------
+
+  /**
+   * 单条 assistant 消息里某个 content block 的完整 thinking 文本。
+   * 历史下发默认剥掉 thinking（体积大、多数时候折叠），需要时按 block 取原文。
+   */
+  async thinking(
+    id: string,
+    entryId: string,
+    blockIndex: number,
+  ): Promise<{ thinking: string } | null> {
+    const manager = await this.openById(id);
+    if (manager === null) return null;
+    const entry = manager.getEntry(entryId);
+    if (entry?.type !== 'message' || entry.message.role !== 'assistant') return null;
+    const block = entry.message.content[blockIndex];
+    if (block?.type !== 'thinking') return null;
+    return { thinking: block.thinking };
+  }
+
+  // ------------------------------------------------------------------
+  // HTML 导出（GET /api/sessions/:id/export）
+  // ------------------------------------------------------------------
+
+  /**
+   * 导出会话为自包含 HTML。
+   *
+   * 走 SDK 的 `exportFromFile()`——它**没有**从包根转出（SDK 只把 CLI 的
+   * `--export` 入口留在内部），因此按绝对文件路径动态 import：这样绕开
+   * package `exports` 映射，也不依赖 `dist` 的内部目录结构之外的任何东西。
+   * 只用 `getPackageDir()`（那个是包根公开导出的）来定位。
+   */
+  async exportHtml(id: string): Promise<string | null> {
+    const manager = await this.openById(id);
+    if (manager === null) return null;
+    const source = manager.getSessionFile();
+    if (source === undefined) return null;
+
+    const dir = await mkdtemp(join(tmpdir(), 'piboat-export-'));
+    const outputPath = join(dir, 'session.html');
+    try {
+      const modulePath = join(getPackageDir(), 'dist', 'core', 'export-html', 'index.js');
+      const mod = (await import(pathToFileURL(modulePath).href)) as {
+        exportFromFile: (inputPath: string, options?: { outputPath?: string }) => Promise<string>;
+      };
+      await mod.exportFromFile(source, { outputPath });
+      return await readFile(outputPath, 'utf8');
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // auto-name（POST /api/sessions/:id/auto-name）
+  // ------------------------------------------------------------------
+
+  /**
+   * 让模型给会话起个名字。
+   *
+   * 用**会话自己的前几条消息**做输入（不从磁盘重读全文，避免把整段历史塞进
+   * 一次小请求）。模型取该 cwd 的默认模型；`persist` 为真时把结果写回会话文件
+   * （追加一条 session_info，与 `PATCH /api/sessions/:id` 同一落盘路径）。
+   */
+  async autoName(
+    id: string,
+    options: { cwd?: string; persist?: boolean } = {},
+  ): Promise<{ title: string } | null> {
+    const manager = await this.openById(id);
+    if (manager === null) return null;
+    const entries = manager.getEntries();
+    const excerpt = autoNameExcerpt(entries);
+    if (excerpt === '') throw new UserInputError('Session has no messages to summarize');
+
+    const cwd = options.cwd ?? manager.getCwd();
+    const services = await createAgentSessionServices({ cwd });
+    const provider = services.settingsManager.getDefaultProvider();
+    const modelId = services.settingsManager.getDefaultModel();
+    const model =
+      provider !== undefined && modelId !== undefined
+        ? services.modelRuntime.getModel(provider, modelId)
+        : (await services.modelRuntime.getAvailable())[0];
+    if (model === undefined) {
+      throw new UserInputError('No model available to generate a session name');
+    }
+
+    const message = await services.modelRuntime.completeSimple(
+      model,
+      {
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text:
+                  'Summarize this coding session as a short title (max 6 words, no quotes, ' +
+                  'no trailing punctuation). Reply with the title only.\n\n' +
+                  excerpt,
+              },
+            ],
+            timestamp: Date.now(),
+          },
+        ],
+      } as never,
+      { signal: AbortSignal.timeout(AUTO_NAME_TIMEOUT_MS) },
+    );
+    const title = message.content
+      .filter((block): block is { type: 'text'; text: string } => block.type === 'text')
+      .map((block) => block.text)
+      .join(' ')
+      .trim()
+      .replace(/^["'「]|["'」]$/g, '')
+      .split('\n')[0]
+      ?.trim();
+    if (title === undefined || title === '') {
+      throw new UserInputError('Model returned an empty session name');
+    }
+    const trimmed = title.slice(0, AUTO_NAME_MAX_LENGTH);
+    if (options.persist === true) manager.appendSessionInfo(trimmed);
+    return { title: trimmed };
   }
 
   // ------------------------------------------------------------------
@@ -434,6 +653,66 @@ function sliceBranchWindow(
   }
   chain.reverse();
   return chain;
+}
+
+/** 会话文件指纹：`size:mtimeMs`（与列表指纹同构；无单调性，只比较相等） */
+async function fileFingerprint(path: string): Promise<string> {
+  const info = await stat(path);
+  return `${info.size}:${Math.floor(info.mtimeMs)}`;
+}
+
+/** 内存会话并入列表：transient 排在最前，同 id 时以内存态为准 */
+function mergeTransient(sessions: SessionInfo[], transient: SessionInfo[]): SessionInfo[] {
+  if (transient.length === 0) return sessions;
+  const transientIds = new Set(transient.map((session) => session.id));
+  return [...transient, ...sessions.filter((session) => !transientIds.has(session.id))];
+}
+
+/** 工具参数里表示"文件路径"的键名（各家工具叫法不同，逐个认） */
+const PATH_ARGUMENT_KEYS = new Set([
+  'path',
+  'filePath',
+  'file_path',
+  'filepath',
+  'notebook_path',
+  'targetFile',
+]);
+
+/** 从工具参数里递归抽路径（只认上表键名；深度有界，防病态结构） */
+function collectPathArguments(value: unknown, out: Set<string>, depth = 0): void {
+  if (depth > 6 || typeof value !== 'object' || value === null) return;
+  if (Array.isArray(value)) {
+    for (const item of value) collectPathArguments(item, out, depth + 1);
+    return;
+  }
+  for (const [key, item] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof item === 'string' && PATH_ARGUMENT_KEYS.has(key) && item.trim() !== '') {
+      out.add(item);
+    } else if (typeof item === 'object') {
+      collectPathArguments(item, out, depth + 1);
+    }
+  }
+}
+
+/** auto-name 的输入：前几条 user/assistant 文本，截断到有界长度 */
+function autoNameExcerpt(entries: readonly SessionEntry[]): string {
+  const parts: string[] = [];
+  for (const entry of entries) {
+    if (entry.type !== 'message') continue;
+    const message = entry.message;
+    if (message.role !== 'user' && message.role !== 'assistant') continue;
+    const text =
+      typeof message.content === 'string'
+        ? message.content
+        : message.content
+            .filter((block): block is { type: 'text'; text: string } => block.type === 'text')
+            .map((block) => block.text)
+            .join(' ');
+    if (text.trim() === '') continue;
+    parts.push(`${message.role}: ${text.trim()}`);
+    if (parts.join('\n').length > 4000) break;
+  }
+  return parts.join('\n').slice(0, 4000);
 }
 
 function userMessageText(message: SdkAgentMessage): string {

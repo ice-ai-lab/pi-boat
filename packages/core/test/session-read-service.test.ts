@@ -579,3 +579,117 @@ describe('SessionReadService 列表缓存（指纹失效）', () => {
     expect(await svc.list()).not.toBe(rebuilt); // 失效后重建
   });
 });
+
+// ---------------------------------------------------------------------------
+// B4：详情指纹 / 推理文本 / 正文搜索 / summary 快路径 / transient 合并
+// ---------------------------------------------------------------------------
+
+describe('SessionReadService（B4）', () => {
+  let dir: string;
+  const sessionId = 'bbbb1111-2222-3333-4444-555566667777';
+  const ts = (i: number) => `2026-02-15T10:0${i}:00.000Z`;
+  const usage = {
+    input: 1,
+    output: 1,
+    cacheRead: 0,
+    cacheWrite: 0,
+    totalTokens: 2,
+    cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+  };
+
+  beforeAll(() => {
+    dir = mkdtempSync(join(tmpdir(), 'piboat-b4-sessions-'));
+    const entries = [
+      { type: 'session', version: 3, id: sessionId, timestamp: ts(0), cwd: '/proj' },
+      {
+        type: 'message',
+        id: 'u1',
+        parentId: null,
+        timestamp: ts(0),
+        message: { role: 'user', content: '帮我看看 rate limiter', timestamp: Date.parse(ts(0)) },
+      },
+      {
+        type: 'message',
+        id: 'a1',
+        parentId: 'u1',
+        timestamp: ts(1),
+        message: {
+          role: 'assistant',
+          content: [
+            { type: 'thinking', thinking: '先看令牌桶的实现' },
+            { type: 'text', text: '这是 expiring-map 的用法' },
+          ],
+          api: 'anthropic-messages',
+          provider: 'anthropic',
+          model: 'claude-test',
+          usage,
+          stopReason: 'stop',
+          timestamp: Date.parse(ts(1)),
+        },
+      },
+    ];
+    writeFileSync(
+      join(dir, `${sessionId}.jsonl`),
+      `${entries.map((e) => JSON.stringify(e)).join('\n')}\n`,
+    );
+  });
+  afterAll(() => rmSync(dir, { recursive: true, force: true }));
+
+  const service = () => new SessionReadService({ sessionDir: dir });
+
+  it('revision：文件指纹（size:mtime）；未知会话 → null', async () => {
+    const revision = await service().revision(sessionId);
+    expect(revision).toMatch(/^\d+:\d+$/);
+    expect(await service().revision('nope')).toBeNull();
+  });
+
+  it('detail：info 带 revision（详情视图缓存的失效判据）', async () => {
+    const detail = await service().detail(sessionId);
+    expect(detail?.info.revision).toMatch(/^\d+:\d+$/);
+  });
+
+  it('thinking：按 blockIndex 取全量推理文本；非 assistant / 非 thinking 块 → null', async () => {
+    expect(await service().thinking(sessionId, 'a1', 0)).toEqual({ thinking: '先看令牌桶的实现' });
+    expect(await service().thinking(sessionId, 'a1', 1)).toBeNull(); // 文本块
+    expect(await service().thinking(sessionId, 'u1', 0)).toBeNull(); // 非 assistant
+    expect(await service().thinking(sessionId, 'missing', 0)).toBeNull();
+  });
+
+  it('search：命中**正文**（不只是名字/首条消息）', async () => {
+    const hits = await service().search('expiring-map');
+    expect(hits.map((s) => s.id)).toEqual([sessionId]);
+    // 首条消息命中仍走轻量路径
+    expect((await service().search('rate limiter')).map((s) => s.id)).toEqual([sessionId]);
+    expect(await service().search('绝不存在的词')).toEqual([]);
+  });
+
+  it('list：summary=1 跳过项目解析（不回 projectKey，也不污染缓存）', async () => {
+    const full = await service().list();
+    const fast = await service().list({ summary: true });
+    expect(full[0]?.id).toBe(sessionId);
+    expect(fast[0]?.id).toBe(sessionId);
+    expect(fast[0]?.projectKey).toBeUndefined();
+    // 快路径不该把「无分组」的结果写进缓存：随后的全量读仍应带分组
+    const again = await service().list();
+    expect(again[0]?.projectRoot).toBe(full[0]?.projectRoot);
+  });
+
+  it('list：transient 内存会话排在最前，同 id 以内存态为准', async () => {
+    const transient = {
+      path: '',
+      id: 'mem-1',
+      cwd: '/proj',
+      created: ts(0),
+      modified: ts(0),
+      messageCount: 0,
+      firstMessage: '',
+      transient: true,
+    };
+    const sessions = await service().list({ transient: [transient] });
+    expect(sessions.map((s) => s.id)).toEqual(['mem-1', sessionId]);
+    // 同 id：内存态胜出（磁盘那条被去重）
+    const shadowed = await service().list({ transient: [{ ...transient, id: sessionId }] });
+    expect(shadowed).toHaveLength(1);
+    expect(shadowed[0]?.transient).toBe(true);
+  });
+});
