@@ -171,7 +171,29 @@ export const CompactionSummaryMessageSchema = z.object({
 });
 export type CompactionSummaryMessage = z.infer<typeof CompactionSummaryMessageSchema>;
 
-/** wire 层统一消息联合（与 SDK AgentMessage 完全一致：七角色，2026-09-18 定案不做额外收敛） */
+/**
+ * 转录 system 消息（SDK ≥ 0.86）：每次请求把 prompt 段落 + 工具声明落盘，
+ * 并以 `message_start` / `message_end` 广播。**载体可达但不进 UI**：它携带完整
+ * prompt 与全部工具 schema，体积大且不是对话内容。
+ *
+ * 两条路径的处置（两者必须一致，否则实时与历史形状漂移）：
+ * - 实时：core 投影层直接丢弃（`events/wire-event.ts`，不消耗 seq）
+ * - 历史：保留在原始条目与树里（`SessionTreeNode.entry`），但 `context.messages`
+ *   投影跳过它
+ */
+export const SystemMessageSchema = z.object({
+  role: z.literal('system'),
+  content: z.union([z.string(), z.array(TextContentSchema)]),
+  /** 具名、有序的 prompt 段落：后到的消息按名替换，`null` 表示移除该段 */
+  sections: z.record(z.string(), z.string().nullable()).optional(),
+  /** 此点起可用的工具完整定义 / 不再可用的工具引用（形状由扩展约定，不进 UI） */
+  toolsAdded: z.array(z.unknown()).optional(),
+  toolsRemoved: z.array(z.unknown()).optional(),
+  timestamp: z.number(),
+});
+export type SystemMessage = z.infer<typeof SystemMessageSchema>;
+
+/** wire 层统一消息联合（与 SDK AgentMessage 对齐：八角色） */
 export const AgentMessageSchema = z.discriminatedUnion('role', [
   UserMessageSchema,
   AssistantMessageSchema,
@@ -180,6 +202,7 @@ export const AgentMessageSchema = z.discriminatedUnion('role', [
   CustomMessageSchema,
   BranchSummaryMessageSchema,
   CompactionSummaryMessageSchema,
+  SystemMessageSchema,
 ]);
 export type AgentMessage = z.infer<typeof AgentMessageSchema>;
 

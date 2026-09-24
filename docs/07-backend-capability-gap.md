@@ -13,8 +13,8 @@
 |---|---|---|---|
 | 路由/handler | ≈55 个（78 − §8 排除/延后的 23） | 15 个端点 | 需补 ≈40 个 handler |
 | Agent 命令 | 25 条（27 − Shell 直连组 2） | 11 条（M1 子集） | 缺 14 条 |
-| SSE 事件 | 24 种 + 2 条投影过滤 | 24 种，无投影过滤 | 投影口径需重定 + SDK 升级 |
-| SDK | `0.87.1` | `~0.85.1` | ✅ **已定：对齐 `0.87.x`**（ADR-0010，B1 首项） |
+| SSE 事件 | 24 种 + 3 条投影过滤 | 24 种 + 3 条投影过滤 | ✅ 已对齐（ADR-0010） |
+| SDK | `0.87.1` | `~0.87.1` | ✅ 已对齐（ADR-0010，B1 已完成） |
 | 核心服务 | 一组专用服务 + 领域模块 | 3 个服务（agent / read / project） | 缺 ConfigService / SystemService / 扩展 UI 通道 |
 
 **一期排除 / 延后**（用户 2026-01 定案，详见 §8）：**鉴权（本机访问控制 / LAN）**、**登录（provider OAuth/API Key 入口）**、**终端（PTY，含 Shell 直连与 `bash-output`）**、**内建子代理运行时（延后，可由 pi 扩展提供）**。
@@ -35,19 +35,10 @@
 
 ## 2. 全局性缺口（G1 已定 / G2 待补）
 
-### G1. SDK 版本落后两个 minor ✅ 已定（最高优先级）
+### G1. SDK 版本对齐 `0.87.x` ✅ 已完成（ADR-0010）
 
-`~0.85.1` → `0.87.1` 不是「顺手升一下」：≥ 0.86 的语义**改变了 core 的投影与状态读取方式**，是大量上层行为的地基。
-
-| ≥ 0.86 的变化 | 对 pi-boat 的冲击 |
-|---|---|
-| 每次请求把 prompt 段落 + 工具声明**落盘为 transcript system 消息**，并以 `message_start/end` 广播 | wire 投影必须新增过滤（否则每条消息携带全部工具 schema 上流）；`messageCount` 口径变化 |
-| `agent.state.systemPrompt` 改为**转录回放且不可赋值** | 系统提示词面板必须验证「显示的是否是实际发送的 prompt」，精确下发只能靠 `before_agent_start` 覆写 |
-| 新增 `usage` 条目（`kind: "cache_warm"`）与 `context_edit` 条目 | `computeStats` 口径要跟 SDK `/session` 对齐 |
-| 会话列表增量枚举（`listSessionsIncremental`）、`SessionManager.listAll()` 排序语义 | 列表扫描/缓存实现可简化，指纹口径要复验 |
-
-**已定（2026-01）：对齐 `0.87.x`**（ADR-0010）。动作：单独提交 + 全量回归（`wire-event.test.ts` 事件快照回归必跑，AGENTS.md 强制）。
-这一步放最前，否则后面每个域都建立在会漂移的地基上。
+**已完成（2026-01，ADR-0010）**。落地的三处语义缺口：wire 投影丢弃转录 system 消息（含 `agent_end.messages`）；历史 `context.messages` 同口径跳过（`entryIds` 同步）；`computeStats` 计入 `usage` 条目。protocol 补 `SystemMessage` + `UsageEntry` + `ContextEditEntry`（tree 会下发原始条目，schema 不认识就会整响应校验失败）。
+**遗留真机验证项**（单测覆盖不到，见 ADR-0010「后果」）：系统提示词面板显示的仍是实际下发的 prompt 吗；真实会话流里 system 过滤与历史/实时形状一致。
 
 ### G2. 本仓文档未登记的核心运行时能力 🔴
 
@@ -244,7 +235,7 @@
 | 批次 | 内容 | 依赖 | 产出 |
 |---|---|---|---|
 | **B0 定案** | §5 的 ADR + `docs/02` 路由基线刷新 | — | 定案文档 |
-| **B1 SDK 升级** ✅ 已定 | 升 `0.87.x`（ADR-0010）、wire 投影对齐（system 消息过滤 / `agent_end` / `turn_*` 取舍）、`computeStats` 口径、事件快照回归全绿 | B0 | core 地基 |
+| **B1 SDK 升级** ✅ 已完成 | 升 `0.87.x`（ADR-0010）、wire 投影对齐（system 消息过滤 / `agent_end` / `turn_*` 取舍）、`computeStats` 口径、事件快照回归全绿 | — | core 地基（遗留 2 项真机验证，见 §2 G1） |
 | **B2 命令通道补全** | 缺的 14 条命令 + fork runtime 替换 + `set_tools` 冷会话重建 + 扩展 UI 通道（G2-4）+ 工具预设（G2-9）+ 性能统计累加 + 精确系统提示词（G2-10） | B1 | agent 域完整 |
 | **B3 模型域** | `models` / `models-config`(+catalog/discover/test) / `models/enabled`(G2-2) / `models/refresh`(G2-3) / 启动偏好（G2-11） | B1 | ConfigService |
 | **B4 会话域增强** | export（含深链补丁）/ auto-name / thinking / `snapshotRevision`(G2-6) / `summary=1`(G2-8) / 正文搜索(G2-7) / 外部写入检测(G2-5) / transient 合并 / `deferMedia`+`deferThinking` 定稿 | B1 | 会话域完整 |
@@ -361,8 +352,9 @@
 ## 9. 下一步
 
 1. **待定案**（阻塞对应批次）：ADR-0011（模型可见范围 + 目录刷新）、ADR-0012（扩展 UI 双向通道）、ADR-0013（冷会话拉起 + 外部写入检测）
-2. **已定待执行**：ADR-0010（SDK 对齐 `0.87.x`）→ 直接开工 B1；ADR-0014（§8 的排除/延后）→ 落成 ADR 文件并同步 `docs/adr/README.md`
-3. 把本文件登记进 `docs/01 §7` 里程碑表
-4. 从 B1 开工（B0 已随本文完成大半）
+2. **已完成**：ADR-0010（SDK 对齐 `0.87.x`，B1）——遗留 2 项真机验证（§2 G1）
+3. **待落成 ADR 文件**：ADR-0014（§8 的排除/延后）——`docs/01` §9-4a 已记录，只缺可检索的决策文件
+4. 把本文件登记进 `docs/01 §7` 里程碑表
+5. 开工 **B2 命令通道补全**（缺的 14 条命令 + 扩展 UI 通道 + 工具预设）
 
 > 本文与代码不一致时以代码为准并当天更新（AGENTS.md）。

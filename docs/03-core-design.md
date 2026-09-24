@@ -68,6 +68,7 @@ toolcall 增量缺 `id/toolName`。投影规则（各 case 就近注释于源码
 | `turn_end / agent_end / message_start/end` | 消息逐条过 `toWireAgentMessage` | SDK→protocol 契约边界，不许 spread 透传泄漏 SDK 类型 |
 | `queue_update` | readonly 数组 → 可变数组 | wire 类型要求 |
 | `session_info_changed` | `name === undefined` → 字段缺省 | wire 上不显式携带 undefined |
+| 转录 system 消息（`role === 'system'`） | **整条丢弃**（`message_start` / `message_end` 返回 null；`agent_end.messages` 里过滤） | 携带完整 prompt + 全部工具 schema，尺寸随扩展/技能数量增长，且不是对话内容；历史路径同口径（`context.messages` 跳过它），两侧一致才不漂移（SDK ≥ 0.86） |
 | 其余（`turn_start / tool_execution_* / compaction_* / auto_retry_* / …`） | 结构透传（TS 结构化检查兜底） | 2026-09-20 定案：与 SDK 对齐，减少分支与心智负担 |
 
 ## 5. seq 与 late join 时序
@@ -165,7 +166,7 @@ agent-session.js:776/784/949）②`agent_settled` 事件幂等兜底（steer/fol
 - `list/search`：`SessionManager.listAll` 扫描（目录指纹缓存，ADR-0008）+ 客户端式过滤（搜索索引 M3）
 - `detail`：tree/stats/context 装配；`totalActiveMs` 冷会话置 0（需运行时埋点）
 - `rename`：`appendSessionInfo` 追加行（空白名抛 UserInputError）；运行中会话改走命令通道（M2）
-- `computeStats`：对齐 SDK `getSessionStats` 聚合口径（导出的纯函数）
+- `computeStats`：对齐 SDK `getSessionStats` 聚合口径（导出的纯函数）。⚠️ **必须计入 `usage` 条目**（如 `kind: "cache_warm"` 的 prompt 缓存预热，SDK ≥ 0.86）：它不进模型上下文但计费，漏掉它 token / cost 就与 SDK `/session` 不一致；`context_edit` 条目对统计无影响（不改原始消息）
 - `delete`（docs/04 §8-2）：按 header.parentSession（父会话文件路径）建子链，BFS 收集
   传递闭包，**只级联带子代理标记的子会话**（判定用 custom 条目的 `customType`，字面量
   见 `SessionReadService.delete()`；fork 子会话仍是顶层列表项，不级联）；运行中拦截归 server（409）
@@ -187,7 +188,7 @@ agent-session.js:776/784/949）②`agent_settled` 事件幂等兜底（steer/fol
   wire-event（**事件快照回归**）、read（分页/压缩边界）、project-resolver（归一/缓存）、
   project-read（项目聚合）
 - **事件快照回归**（`wire-event.test.ts`）：SDK 事件样例 → wire 输出断言。SDK 升级
-  （版本锁 0.85.x）或改投影代码时**必须跑**（AGENTS.md），防事件格式漂移
+  （版本锁 0.87.x）或改投影代码时**必须跑**（AGENTS.md），防事件格式漂移
 - 运行：`pnpm turbo run test`（或 `pnpm --filter @ice-ai/core test`）
 
 ## 10. 待落地（按里程碑）
@@ -202,9 +203,9 @@ agent-session.js:776/784/949）②`agent_settled` 事件幂等兜底（steer/fol
   server 400（已有映射）。动机是一个实证结论：SDK `createAgentSession({ cwd })` 对不存在的路径
   **不报错照样建会话**，之后每次 read/bash/edit 工具调用都在会话里失败，用户看到的是“agent 莫名一直报错”
   而不是“路径错了”（docs/02 §4.1、docs/06 §11.3 行 1b）
-- **SDK 升级注意**：`systemPrompt` 的来源是 `session.systemPrompt`（0.85.x 即 `agent.state.systemPrompt` 直通）。
-  ⚠️ **Pi 0.86 起该字段改为“转录回放”且不可赋值**（升级时必须实测确认），宿主若要下发精确 prompt 只能靠
-  `before_agent_start` 扩展覆写——升级 SDK 时必须重验「系统提示词面板显示的仍是否实际发送的 prompt」
-  （docs/06 §11.2 附注）
+- **`systemPrompt` 的语义（ADR-0010 已升级到 0.87.x）**：`agent.state.systemPrompt` 是**转录回放**
+  （从落盘的 system 消息重建），不是某次请求实际下发的 prompt；精确下发只能靠 `before_agent_start`
+  扩展覆写（`docs/06` §11.2 的 exactSystemPrompt 路径）。⚠️ 面板显示值须在真机跑一轮会话时重验，
+  单测覆盖不到（B1 遗留的实测项）
 - **server 前置**：SSE 重放缓冲（M1 已降级为忽略 Last-Event-ID，docs/04 §5.5）、
   deferMedia 占位符（待 protocol 定稿；`toolResultImage` 读取已就位）

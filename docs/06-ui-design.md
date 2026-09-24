@@ -267,10 +267,10 @@ Lucide、`cva` + `clsx` + `tailwind-merge`（`cn()`）、markdown 走 `react-mar
 
 | 原型展示 | 现状 | 取向 |
 |---|---|---|
-| 性能统计：轮数/步数、LLM 耗时、工具耗时、生成速度 t/s（`StatCardGroup` 4 卡 + 2 pill） | `SessionStatsInfo`/`AgentState` **均无这些字段**；SDK `SessionStats` 也没有（已核对 0.85.1 `.d.ts`） | ✅ **已定：core 累加**（2026-09-22）——`rounds` ← `agent_start` 数、`steps` ← `turn_start` 数、`llmMs` ← 每 turn 起止、`toolMs` ← `tool_execution_start/end`、`tps` ← output tokens / `llmMs`。⚠️ **冷会话**（本进程未运行过）无耗时数据，字段必须可选，`undefined` 时 UI 不展示该卡 |
+| 性能统计：轮数/步数、LLM 耗时、工具耗时、生成速度 t/s（`StatCardGroup` 4 卡 + 2 pill） | `SessionStatsInfo`/`AgentState` **均无这些字段**；SDK `SessionStats` 也没有（已核对 0.87.1 `.d.ts`） | ✅ **已定：core 累加**（2026-09-22）——`rounds` ← `agent_start` 数、`steps` ← `turn_start` 数、`llmMs` ← 每 turn 起止、`toolMs` ← `tool_execution_start/end`、`tps` ← output tokens / `llmMs`。⚠️ **冷会话**（本进程未运行过）无耗时数据，字段必须可选，`undefined` 时 UI 不展示该卡 |
 | 「最近提交 29d8be9」 | `SessionInfo` 只有 `branch`/`isWorktree` | M3 git 域返回后拼装，不进 `SessionInfo`（维持原议） |
 | 工具预设分段 `chat-only/read-only/default/full` | protocol 无枚举 | ✅ **已定（2026-09-22）**：预设判定归 **core**——只有 core 知道 SDK 的默认工具集（`default` 无法在客户端静态枚举）；M2 开工时定命令形状（`set_tools` 收 preset 名或新命令），**不养期货** |
-| 输入卡「模式：默认/只读/**全自动·免确认执行命令**」 | 与工具预设语义重叠；「免确认」在 SDK 0.85 无对应能力 | ✅ **已定（2026-09-22）：与工具预设合并**，模式菜单直接展示四项预设（标签用工具集描述），**删掉「全自动·免确认」**——AGENTS.md：命名不得暗示它做不到的事 |
+| 输入卡「模式：默认/只读/**全自动·免确认执行命令**」 | 与工具预设语义重叠；「免确认」在 SDK 0.87 无对应能力 | ✅ **已定（2026-09-22）：与工具预设合并**，模式菜单直接展示四项预设（标签用工具集描述），**删掉「全自动·免确认」**——AGENTS.md：命名不得暗示它做不到的事 |
 | 系统提示词「版本 r42」 | `AgentState.systemPrompt` **已在 M1 契约内**（core 在 `getRunningState()` 读 `session.systemPrompt`） | ✅ **已定（2026-09-22）：展示，形态取整宽面板**。实现取舍（见下）：**删掉「版本 r42」与「约 700 tokens / 占用上下文 0.07%」**（前端无 tokenizer，硬凑会误导）；「注入于会话创建时」改为「最近一次构建」——上下文文件重载后 prompt 会变 |
 | 每轮 `usage-line` | ✅ `message.usage` 已覆盖 | 无需动作 |
 
@@ -282,7 +282,7 @@ Lucide、`cva` + `clsx` + `tailwind-merge`（`cn()`）、markdown 走 `react-mar
 - 数据源：`get_state` 的 `systemPrompt`（pi-boat 已具备）。**pi-boat 应改用轻查端点 `GET /api/agent/:id`**，因为 `get_state` 走命令 FIFO，run 期间会排到 prompt 结束（docs/02 §6.1）
 - **面板打开时才懒加载**（不占用 prompt 前的初始化）：打开时拉一次即可
 - 刷新后的限制：M1 未做会话恢复，刷新后会话不在注册表 → 轻查返回 `{running:false}`，面板只能显示「尚未加载」（M2 恢复能力到位后消失）
-- ⚠️ SDK 升级注意：**Pi 0.86 起 `agent.state.systemPrompt` 改为转录回放且不可赋值**（精确 prompt 需 `before_agent_start` 扩展覆写）；pi-boat 锁 0.85.x 时是直通，升级时必须重验「面板显示的是否仍是实际发送的 prompt」
+- ⚠️ `agent.state.systemPrompt` 是**转录回放**（ADR-0010 已升级到 0.87.x），不是实际下发的 prompt；精确 prompt 需 `before_agent_start` 扩展覆写。**面板显示值属 B1 遗留实测项**：必须真机跑一轮会话核对，单测覆盖不到
 
 ### 11.3 已收口的 M1 流程/规格细节（2026-09-22）
 

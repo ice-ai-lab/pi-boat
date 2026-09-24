@@ -40,7 +40,7 @@ const assistant: AssistantMessage = {
 };
 
 describe('domain/message', () => {
-  it('parses all five agent message roles', () => {
+  it('parses all six agent message roles', () => {
     const samples = [
       { role: 'user', content: 'hi', timestamp: 1 },
       assistant,
@@ -61,6 +61,14 @@ describe('domain/message', () => {
         timestamp: 1,
       },
       { role: 'custom', customType: 'todo', content: 'injected', display: true, timestamp: 1 },
+      // 转录 system 消息（SDK ≥ 0.86）：载体可达但不进 UI
+      {
+        role: 'system',
+        content: 'base prompt',
+        sections: { tools: 'named section', removed: null },
+        toolsAdded: [{ name: 'read' }],
+        timestamp: 1,
+      },
     ];
     for (const message of samples) {
       expect(AgentMessageSchema.parse(message)).toEqual(message);
@@ -77,22 +85,41 @@ describe('domain/message', () => {
 });
 
 describe('domain/session-entry', () => {
-  it('parses all nine entry types plus header', () => {
+  it('parses all eleven entry types plus header', () => {
     const base = { id: 'e1', parentId: null, timestamp: '2026-01-01T00:00:00Z' };
     const entries: SessionEntry[] = [
       { type: 'message', ...base, message: { role: 'user', content: 'hi', timestamp: 1 } },
       { type: 'thinking_level_change', ...base, thinkingLevel: 'high' },
       { type: 'model_change', ...base, provider: 'anthropic', modelId: 'claude' },
+      // 用量条目（SDK ≥ 0.86）：不进上下文但计费
+      {
+        type: 'usage',
+        ...base,
+        kind: 'cache_warm',
+        provider: 'anthropic',
+        model: 'claude',
+        usage,
+        note: 'prompt cache warm',
+      },
       {
         type: 'compaction',
         ...base,
         summary: 's',
         firstKeptEntryId: 'e0',
         tokensBefore: 1000,
+        systemMessage: { role: 'system', content: 'prompt at boundary', timestamp: 1 },
       },
       { type: 'branch_summary', ...base, fromId: 'e0', summary: 's' },
       { type: 'custom', ...base, customType: 'artifact', data: { v: 1 } },
       { type: 'custom_message', ...base, customType: 'todo', content: 'x', display: true },
+      // 上下文编辑条目（SDK ≥ 0.86）：省略或替换既有条目的模型上下文
+      { type: 'context_edit', ...base, targetId: 'e0', replacement: null },
+      {
+        type: 'context_edit',
+        ...base,
+        targetId: 'e1',
+        replacement: { content: [{ type: 'text', text: 'rewritten' }] },
+      },
       { type: 'label', ...base, targetId: 'e0', label: 'v1' },
       { type: 'session_info', ...base, name: 'my session' },
     ];

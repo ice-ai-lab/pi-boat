@@ -14,3 +14,4 @@
 | [0007](0007-local-auth-without-token.md) | 本机鉴权删除 Bearer token 与 SSE 票据——Host / Origin / Sec-Fetch-Site 三闸常开 | 已接受 | 2026-09-22 |
 | [0008](0008-project-grouping-and-list-cache.md) | 项目分组（projectKey 归一）与会话列表缓存——列表性能分层 | 已接受 | 2026-09-22 |
 | [0009](0009-frontend-stack.md) | 前端技术栈与分层（client / ui / web）——Tailwind v4 / Axios / TanStack Query 边界 / 不引外部 skills | 已接受 | 2026-09-22 |
+| [0010](0010-sdk-0-87-alignment.md) | pi SDK 从 0.85.x 对齐到 0.87.x（含 system / usage / context_edit 三类新记录的处理） | 已接受 | 2026-01 |
