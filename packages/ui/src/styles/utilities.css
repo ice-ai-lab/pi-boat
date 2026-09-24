@@ -33,7 +33,7 @@
   }
 }
 
-/* 三档阴影：直接用 v4 token（--elev-sm/--elev-card/--elev-pop，见 prototype.css） */
+/* 三档阴影：直接用 v4 token（--elev-sm/--elev-card/--elev-pop，见 styles/tokens.css） */
 @utility elev-panel {
   box-shadow: var(--elev-card);
 }
@@ -59,39 +59,9 @@
   }
 }
 
-/* 细滚动条：Firefox 与 WebKit 两套互斥规则（同时写会让 WebKit 丢弃全部伪元素规则） */
-@supports not selector(::-webkit-scrollbar) {
-  .scrollbar-thin,
-  .scrollbar-thin * {
-    scrollbar-width: thin;
-    scrollbar-color: var(--sb-thumb) transparent;
-  }
-}
-.scrollbar-thin::-webkit-scrollbar {
-  width: var(--sb-width);
-  height: var(--sb-width);
-}
-.scrollbar-thin::-webkit-scrollbar-track {
-  background: transparent;
-}
-.scrollbar-thin::-webkit-scrollbar-thumb {
-  border: 0 solid transparent;
-  border-radius: 999px;
-  background: var(--sb-thumb);
-  background-clip: content-box;
-}
-.scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background-color: var(--sb-thumb-hover);
-}
-.scrollbar-thin::-webkit-scrollbar-corner {
-  background: transparent;
-}
-
-/* 毛玻璃浮层里的滚动条换 l2 档 thumb */
-.pop-surface {
-  --sb-thumb: var(--sb-thumb-l2);
-  --sb-thumb-hover: var(--sb-thumb-hover-l2);
-}
+/* 滚动条统一走 base.css 的全局规则（8px + --sb-thumb），
+   旧版 .scrollbar-thin 专属细滚动条与 .pop-surface 的 l2 thumb 变体已随 v4 设计稿移除；
+   tsx 里的 .scrollbar-thin / .pop-surface 类名仅作语义标记保留。 */
 
 /* 顶部 content 渐隐（.scrollbody 的 mask） */
 @utility mask-fade-top {
@@ -106,7 +76,6 @@
   -webkit-backdrop-filter: blur(40px) saturate(150%);
 }
 
-/* 注意：**不在这里写 @layer base 的 body/button 重置**——原型已自带
-   （`body{font-family:var(--font);font-size:14px;line-height:22px;…}` 与
-   `button{…;font-size:inherit}`）。旧版的 `button{font:inherit}` 会把 line-height
-   也变成继承值（22px），而原型里按钮是 UA 的 `normal`，会让 .disc-head/.hchip 基线差 1–2px。 */
+/* 注意：**不在这里写 @layer base 的 body/button 重置**——全局 reset 在
+   styles/base.css。旧版的 `button{font:inherit}` 会把 line-height 也变成继承值，
+   而原型里按钮是 UA 的 `normal`，会让 .disc-head/.hchip 基线差 1–2px。 */

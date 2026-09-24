@@ -8,7 +8,7 @@ import { ModelBadge } from './model-badge';
 
 /**
  * 输入卡（原型 `.composer-seat` + `.composer-inner` + `.input-card` + `.ctl-row` + `.send-btn`）。
- * - 自动增高 24–200px、Enter 发送 / Shift+Enter 换行（Textarea 内）
+ * - 自动增高 26–168px、Enter 发送 / Shift+Enter 换行（Textarea 内）
  * - `streaming` 时发送按钮变停止（`abort`）；idle 且空文本时禁用
  * - `.ctl-row`：附件按钮（默认）→ 模式 chip → 模型 chip → spacer → extras → 发送/停止
  * - `stats` 插槽渲染 `.stats`（原型放在 `.composer-inner` 内、输入卡下方）
@@ -48,7 +48,7 @@ export function Composer({
   modeOptions,
   onModeChange,
   disabled = false,
-  placeholder = '回复 Pi，Enter 发送 · Shift+Enter 换行',
+  placeholder = '继续对话…（Enter 发送，Shift+Enter 换行）',
   className,
   stats,
   actions,

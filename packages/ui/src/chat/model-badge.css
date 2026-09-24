@@ -1,0 +1,23 @@
+/* ModelBadge —— assistant 轮次头部模型行（.mline）
+   输入卡中的模型 chip 变体（.ctl-chip.model）也归本组件。
+   （拆自原 styles/prototype.css，ADR-0011） */
+
+.mline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 9px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--t3);
+}
+.mline .badges {
+  display: flex;
+  gap: 5px;
+}
+
+/* 输入卡里的模型 chip：基础 .ctl-chip 见 composer.css，此处只补模型变体 */
+.ctl-chip.model {
+  font-family: var(--mono);
+  font-size: 10.5px;
+}

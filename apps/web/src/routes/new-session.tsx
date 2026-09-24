@@ -10,7 +10,7 @@ import { describeApiError } from '../lib/errors';
 import { isAbsolutePath, readStoredCwd, storeCwd } from '../lib/prefs';
 
 /**
- * 新会话（hero，原型 `.hero` + `#heroSlot`）。
+ * 新会话（hero，v3 稿 `.hero` + `#heroSlot`；v4 稿未画，见 ADR-0012）。
  *
  * 首条消息的走法：只建空会话（`ensure_session`），带着首条消息跳转到会话页，
  * 由会话页**先建 SSE 再发 prompt**——否则 run 可能跑在订阅之前（事件不重放）。
@@ -98,7 +98,7 @@ export function NewSessionRoute() {
             onChange={setText}
             onSubmit={() => void start()}
             disabled={busy}
-            placeholder="消息… 输入 / 使用命令"
+            placeholder="继续对话…（Enter 发送，Shift+Enter 换行）"
           />
           <button
             type="button"

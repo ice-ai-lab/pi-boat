@@ -1,0 +1,201 @@
+/* Composer —— 底部输入区：渐隐垫 / 排队消息 / 输入卡 / 控制行 / 发送钮
+   模型 chip 变体（.ctl-chip.model）在 model-badge.css；
+   指标行（.stats）在 stats-pills.css；模式菜单在 mode-chip.css。
+   （拆自原 styles/prototype.css，ADR-0011） */
+
+.composer-seat {
+  flex: none;
+  position: relative;
+  padding: 0 24px 12px;
+  z-index: 30;
+}
+.composer-seat::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -36px;
+  height: 36px;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--bg) 0%, transparent),
+    var(--bg) 88%
+  );
+  pointer-events: none;
+}
+.composer-inner {
+  max-width: var(--chat-w);
+  margin: 0 auto;
+  position: relative;
+}
+
+/* 排队消息（steer / follow-up） */
+.queue {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+.qrow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 27px;
+  padding: 0 11px;
+  border: 1px solid var(--l1);
+  border-radius: var(--r-m);
+  background: color-mix(in srgb, var(--bg-raised) 72%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  font-size: 11.5px;
+  color: var(--t2);
+}
+.qrow .qk {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  padding: 1.5px 5px;
+  border-radius: 4px;
+}
+.qrow.steer .qk {
+  background: var(--k-think-bg);
+  color: var(--k-think);
+}
+.qrow.fup .qk {
+  background: var(--accent-weak);
+  color: var(--accent);
+}
+.qrow .qx {
+  margin-left: auto;
+  color: var(--t4);
+  display: flex;
+}
+.qrow .qx:hover {
+  color: var(--k-err);
+}
+.qrow .qx .ico {
+  width: 11px;
+  height: 11px;
+}
+
+.input-card {
+  background: var(--bg-raised);
+  border-radius: 14px;
+  box-shadow: var(--elev-card);
+  transition: box-shadow 0.2s var(--ease);
+}
+.input-card:focus-within {
+  box-shadow:
+    0 0 0 0.5px var(--accent-line),
+    0 2px 6px rgba(70, 56, 32, 0.05),
+    0 10px 28px rgba(70, 56, 32, 0.06);
+}
+[data-theme="dark"] .input-card:focus-within {
+  box-shadow:
+    0 0 0 0.5px var(--accent-line),
+    0 2px 6px rgba(0, 0, 0, 0.26),
+    0 10px 28px rgba(0, 0, 0, 0.32);
+}
+.input-card textarea {
+  display: block;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  outline: none;
+  resize: none;
+  padding: 12px 15px 3px;
+  font-size: 13.5px;
+  line-height: 1.66;
+  min-height: 26px;
+  max-height: 168px;
+}
+.input-card textarea::placeholder {
+  color: var(--t3);
+}
+.ctl-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 5px 8px 9px;
+}
+.ctl-btn {
+  height: 26px;
+  min-width: 26px;
+  padding: 0 5px;
+  border-radius: 7px;
+  color: var(--t3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition:
+    background 0.13s,
+    color 0.13s;
+}
+.ctl-btn:hover {
+  background: var(--hover);
+  color: var(--t1);
+}
+.ctl-btn .ico {
+  width: 14px;
+  height: 14px;
+}
+.ctl-btn.on {
+  color: var(--k-think);
+}
+.ctl-chip {
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  color: var(--t2);
+  transition:
+    background 0.13s,
+    color 0.13s;
+}
+.ctl-chip:hover {
+  background: var(--hover);
+  color: var(--t1);
+}
+.ctl-chip .ico {
+  width: 11px;
+  height: 11px;
+}
+.send-btn {
+  margin-left: auto;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background 0.15s,
+    transform 0.15s;
+}
+.send-btn:hover {
+  background: var(--accent-hover);
+}
+.send-btn:active {
+  transform: scale(0.93);
+}
+.send-btn .ico {
+  width: 13px;
+  height: 13px;
+  stroke-width: 1.9;
+}
+.send-btn.stop {
+  background: var(--k-err);
+  border-radius: 8px;
+}
+.send-btn.stop:hover {
+  background: #a84a3b;
+}

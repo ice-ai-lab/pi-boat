@@ -1,143 +1,120 @@
-/* ============================================================================
-   PiBoat ui —— token 单一来源（docs/06-ui-design.md §2/§3）
-   视觉基准：docs/design/piboat-web-v4.html（设计代号「纸墨 Paper & Ink」）
-   签名细节：暖纸三层表面 / 暖调 hairline / 克制靛蓝 / serif 品牌字 /
-             单一抬升面（输入卡+浮层）/ 毛玻璃浮层 / 细滚动条
+/* ============================================================
+   PiBoat ui —— 全局样式唯一入口（@ice-ai/ui/theme.css）
 
-   规则：
-   - 原始变量定义在 prototype.css 的 :root（暗色 [data-theme="dark"]）——那是
-     v4 设计稿的逐字移植，是视觉的唯一来源
-   - 本文件的 :root 只做 **旧语义 token → v4 token 的别名映射**（不出现字面颜色），
-     让仍使用 Tailwind 工具类的组件自动获得纸墨配色；暗色切换由 v4 的
-     [data-theme="dark"] 块一次性带动全部别名
-   - `@theme inline` 把语义 token 映射为 Tailwind 工具类（bg-surface 等）
-   ============================================================================ */
+   结构（ADR-0011）：
+   1. Tailwind v4（theme/utilities 两层；preflight 关闭，全局 reset 由
+      styles/base.css 提供，见 docs/06 §2）
+   2. styles/tokens.css      设计令牌（纸墨 v4；表面三层参考 pi-web）
+   3. styles/utilities.css   Tailwind @utility + 滚动条/玻璃小件
+   4. styles/base.css        全局 reset + 跨组件共享小件
+   5. 组件样式 —— 每个组件一个 css 文件，与其 tsx 同目录（就近放置，
+      随组件导出可携），此处统一 @import 聚合；旧语义 token 的别名
+      映射在文件末尾
+
+   视觉基准：docs/design/piboat-web-v4.html
+   ============================================================ */
+
 @import "tailwindcss/theme.css";
 @import "tailwindcss/utilities.css";
-/* 注意：**不引入 tailwindcss/preflight.css**。
-   原型自带 reset（`*{box-sizing;margin;padding}` + button/input 归一），叠第二套 reset
-   会破坏逐字对齐（v3 时期的教训：button{font:inherit} 会改变 .disc-head 基线）。 */
-/* 共享 utility（hairline/sq/elev/shimmer/mask） */
+@import "./src/styles/tokens.css";
 @import "./src/styles/utilities.css";
-/* 原型样式逐字移植（v4 纸墨）。放在最后：无 layer 的规则天然压过 Tailwind 的 @layer。 */
-@import "./src/styles/prototype.css";
-/* 应用补充（v4 未覆盖的真实应用样式），必须在 prototype.css 之后 */
-@import "./src/styles/additions.css";
+@import "./src/styles/base.css";
 
+/* ---- primitives ---- */
+@import "./src/primitives/popover.css";
+@import "./src/primitives/toast.css";
+
+/* ---- inspect ---- */
+@import "./src/inspect/file-dock.css";
+@import "./src/inspect/session-list-item.css";
+@import "./src/inspect/workspace-menu.css";
+@import "./src/inspect/tool-list.css";
+@import "./src/inspect/stats-card-group.css";
+
+/* ---- chat ---- */
+@import "./src/chat/message-list.css";
+@import "./src/chat/user-bubble.css";
+@import "./src/chat/assistant-turn.css";
+@import "./src/chat/model-badge.css";
+@import "./src/chat/collapse-row.css";
+@import "./src/chat/process-group.css";
+@import "./src/chat/diff-view.css";
+@import "./src/chat/markdown-view.css";
+@import "./src/chat/code-block.css";
+@import "./src/chat/usage-line.css";
+@import "./src/chat/stats-pills.css";
+@import "./src/chat/composer.css";
+@import "./src/chat/mode-chip.css";
+@import "./src/chat/empty-state.css";
+@import "./src/chat/message-minimap.css";
+@import "./src/chat/scroll-to-bottom-button.css";
+@import "./src/chat/content-width-controls.css";
+@import "./src/chat/system-prompt-panel.css";
+
+/* ============================================================
+   旧语义 token 别名（Tailwind 语义类名 → 设计令牌）
+   只做 var 引用，禁止出现字面颜色；字面值在 src/styles/tokens.css
+   ============================================================ */
 :root {
-  /* —— 旧语义 token → v4 token 别名（仅 var 引用，无字面色） —— */
-
-  /* 表面 */
-  --surface: var(--bg);
-  --surface-side: var(--bg-side);
-  --surface-raised: var(--bg-raised);
-  /* 描边（v4 三档：--l1/--l2/--l3；旧 --line-4 并入 l3） */
-  --line-1: var(--l1);
-  --line-2: var(--l2);
-  --line-3: var(--l2);
-  --line-4: var(--l3);
-  /* 文字四级 */
-  --fg: var(--t1);
-  --fg-muted: var(--t2);
-  --fg-subtle: var(--t3);
-  --fg-faint: var(--t4);
-  /* 点缀（--accent/--accent-hover/--accent-weak/--accent-line 由 v4 原生定义，无需别名） */
-  /* 语义色（v4 全部降饱和：k-think/bash/read/edit/err） */
-  --success: var(--k-bash);
-  --success-soft: var(--k-bash-bg);
-  --danger: var(--k-err);
-  --danger-soft: var(--k-err-bg);
-  --warn: var(--k-think);
-  --warn-soft: var(--k-think-bg);
-  --teal: var(--k-edit);
-  --teal-soft: var(--k-edit-bg);
-  --info-soft: var(--k-read-bg);
-  /* 轨迹分段指示色 */
-  --seg-sys: var(--t4);
-  --seg-tools: var(--k-think);
-  --seg-msg: var(--accent);
-  /* 工具名 → 色 */
-  --tool-think: var(--k-think);
-  --tool-bash: var(--k-bash);
-  --tool-read: var(--k-read);
-  --tool-edit: var(--k-edit);
-  --tool-err: var(--k-err);
-  /* markdown / 代码（v4：代码块落在凹陷面 --bg-inset） */
-  --md-panel: var(--bg-inset);
-  --md-border: var(--l2);
-  --md-subtle: var(--l1);
-  --md-accent: var(--accent);
-  --code-bg: var(--bg-inset);
-  --code-banner: var(--bg-inset);
-  /* 三档阴影 → v4 elev 梯度 */
-  --elev-panel: var(--elev-card);
-  --elev-soft: var(--elev-pop);
-  --elev-soft-sm: var(--elev-sm);
-  /* 字体 */
-  --font-ui: var(--font);
-  --font-code: var(--mono);
-  /* 细滚动条（v4 已定义 --sb-thumb/--sb-thumb-hover；l2 档在浮层内用 l3 深度） */
-  --sb-thumb-l2: var(--sb-thumb-hover);
-  --sb-thumb-hover-l2: var(--l3);
-  --sb-width: 6px;
-}
-
-/* 语义 token → Tailwind 工具类（bg-surface / border-line-2 / text-fg-muted / shadow-panel） */
-@theme inline {
-  --color-surface: var(--surface);
-  --color-surface-side: var(--surface-side);
-  --color-surface-raised: var(--surface-raised);
-
-  --color-line-1: var(--line-1);
-  --color-line-2: var(--line-2);
-  --color-line-3: var(--line-3);
-  --color-line-4: var(--line-4);
-
-  --color-fg: var(--fg);
-  --color-fg-muted: var(--fg-muted);
-  --color-fg-subtle: var(--fg-subtle);
-  --color-fg-faint: var(--fg-faint);
-
+  --color-surface: var(--bg); /* 应用基底（纸） */
+  --color-panel: var(--bg-side); /* 面板/侧栏 */
+  --color-raised: var(--bg-raised); /* 抬升面 */
+  --color-sunken: var(--bg-inset); /* 凹陷面 */
+  --color-line: var(--l1);
+  --color-line-strong: var(--l2);
+  --color-line-strongest: var(--l3);
+  --color-ink: var(--t1);
+  --color-ink-secondary: var(--t2);
+  --color-ink-tertiary: var(--t3);
+  --color-ink-quaternary: var(--t4);
   --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
   --color-accent-weak: var(--accent-weak);
   --color-accent-line: var(--accent-line);
-
+  --color-selected: var(--sel);
   --color-hover: var(--hover);
-  --color-bubble: var(--bubble);
-  --color-menu: var(--menu);
+  --color-think: var(--k-think);
+  --color-think-weak: var(--k-think-bg);
+  --color-bash: var(--k-bash);
+  --color-bash-weak: var(--k-bash-bg);
+  --color-read: var(--k-read);
+  --color-read-weak: var(--k-read-bg);
+  --color-edit: var(--k-edit);
+  --color-edit-weak: var(--k-edit-bg);
+  --color-error: var(--k-err);
+  --color-error-weak: var(--k-err-bg);
+  --color-add-weak: var(--add-bg);
+  --color-del-weak: var(--del-bg);
+}
 
-  --color-success: var(--success);
-  --color-success-soft: var(--success-soft);
-  --color-danger: var(--danger);
-  --color-danger-soft: var(--danger-soft);
-  --color-warn: var(--warn);
-  --color-warn-soft: var(--warn-soft);
-  --color-teal: var(--teal);
-  --color-teal-soft: var(--teal-soft);
-  --color-info-soft: var(--info-soft);
-
-  --color-seg-sys: var(--seg-sys);
-  --color-seg-tools: var(--seg-tools);
-  --color-seg-msg: var(--seg-msg);
-
-  --color-tool-think: var(--tool-think);
-  --color-tool-bash: var(--tool-bash);
-  --color-tool-read: var(--tool-read);
-  --color-tool-edit: var(--tool-edit);
-  --color-tool-err: var(--tool-err);
-
-  --color-code-bg: var(--code-bg);
-  --color-code-banner: var(--code-banner);
-  --color-md-panel: var(--md-panel);
-  --color-md-border: var(--md-border);
-  --color-md-accent: var(--md-accent);
-
-  --shadow-panel: var(--elev-panel);
-  --shadow-soft: var(--elev-soft);
-  --shadow-soft-sm: var(--elev-soft-sm);
-
-  --font-sans: var(--font-ui);
-  --font-mono: var(--font-code);
-
-  --radius-squircle: 9px;
+@theme inline {
+  --color-surface: var(--color-surface);
+  --color-panel: var(--color-panel);
+  --color-raised: var(--color-raised);
+  --color-sunken: var(--color-sunken);
+  --color-line: var(--color-line);
+  --color-line-strong: var(--color-line-strong);
+  --color-line-strongest: var(--color-line-strongest);
+  --color-ink: var(--color-ink);
+  --color-ink-secondary: var(--color-ink-secondary);
+  --color-ink-tertiary: var(--color-ink-tertiary);
+  --color-ink-quaternary: var(--color-ink-quaternary);
+  --color-accent: var(--color-accent);
+  --color-accent-hover: var(--color-accent-hover);
+  --color-accent-weak: var(--color-accent-weak);
+  --color-accent-line: var(--color-accent-line);
+  --color-selected: var(--color-selected);
+  --color-hover: var(--color-hover);
+  --color-think: var(--color-think);
+  --color-think-weak: var(--color-think-weak);
+  --color-bash: var(--color-bash);
+  --color-bash-weak: var(--color-bash-weak);
+  --color-read: var(--color-read);
+  --color-read-weak: var(--color-read-weak);
+  --color-edit: var(--color-edit);
+  --color-edit-weak: var(--color-edit-weak);
+  --color-error: var(--color-error);
+  --color-error-weak: var(--color-error-weak);
+  --color-add-weak: var(--color-add-weak);
+  --color-del-weak: var(--color-del-weak);
 }

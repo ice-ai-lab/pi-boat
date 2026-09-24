@@ -1,0 +1,17 @@
+/* AssistantTurn —— assistant 轮次容器与流式徽标
+   模型行（.mline）在 model-badge.css；折叠行体系在 collapse-row.css。
+   （拆自原 styles/prototype.css，ADR-0011） */
+
+.livebadge {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--k-think-bg);
+  color: var(--k-think);
+  font-weight: 600;
+}
+.livebadge.fast {
+  background: var(--k-bash-bg);
+  color: var(--k-bash);
+}

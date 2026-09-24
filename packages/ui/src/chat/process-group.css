@@ -1,0 +1,106 @@
+/* ProcessGroup —— 处理详情折叠组（grp 体系）与压缩/重试系统行
+   （拆自原 styles/prototype.css 与 additions.css，ADR-0011） */
+
+.grp {
+  border: 1px solid var(--l1);
+  border-radius: var(--r-l);
+  margin: 4px 0 2px;
+  background: color-mix(in srgb, var(--bg-inset) 42%, transparent);
+  overflow: hidden;
+}
+.grp-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 10px;
+  cursor: pointer;
+  user-select: none;
+}
+.grp.open > .grp-head {
+  border-bottom: 1px solid var(--l1);
+}
+.grp-head svg.chev {
+  stroke: var(--t3);
+}
+.gtitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--t1);
+}
+.gmeta {
+  font-size: 11px;
+  color: var(--t3);
+}
+.grp-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.26s var(--ease);
+}
+.grp.open > .grp-body {
+  grid-template-rows: 1fr;
+}
+.grp-body > div {
+  overflow: hidden;
+  min-height: 0;
+}
+.grp-kids {
+  padding: 5px 6px 7px;
+}
+.child-rail {
+  margin-left: 11px;
+  padding-left: 6px;
+  border-left: 1px solid var(--l2);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* 系统事件行（compact / retry 等提示） */
+.sys-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 10px;
+  margin: 6px 0;
+  border: 1px solid var(--l1);
+  border-radius: var(--r-m);
+  font-size: 12px;
+  color: var(--t2);
+}
+.sys-row .ico {
+  flex: none;
+  margin-top: 2px;
+  color: var(--t3);
+}
+.sys-row.err {
+  border-color: color-mix(in srgb, var(--k-err) 28%, transparent);
+  color: var(--k-err);
+}
+.sys-row.err .ico {
+  color: var(--k-err);
+}
+.sys-row.warn .ico {
+  color: var(--k-think);
+}
+.sys-row .rule {
+  flex: 1;
+  min-width: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.sys-row .txt {
+  flex: 1;
+  min-width: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 子轨迹文本行（折叠详情内的段落文本） */
+.text-row {
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--t2);
+  white-space: pre-wrap;
+  word-break: break-word;
+}

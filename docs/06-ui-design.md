@@ -1,9 +1,10 @@
 # PiBoat —— ui 详细设计
 
 > `@ice-ai/ui`：纯展示组件库。本文是 `docs/01-overview.md` §3.1 的实现细化，
-> **视觉与交互基准是 `docs/design/piboat-web-v3.html`（原型 v3）**，数据形状来自
+> **视觉与交互基准是 `docs/design/piboat-web-v4.html`（原型 v4）**，数据形状来自
 > `docs/05-client-design.md` §6 的视图模型，类型来自 `@ice-ai/protocol`。
-> 状态：**M1 已落地**（2026-09-23，实现见 `packages/ui/src/`，宿主装配见 `apps/web/src/`）。
+> 状态：**M1 已落地**（2026-09-23，实现见 `packages/ui/src/`，宿主装配见 `apps/web/src/`）；
+> 2026-09-24 按 v4 稿完成一轮对账（文案/尺寸对齐、死件清理，见 ADR-0012）。
 > 技术栈基准由 ADR-0009 收口（见 §11.1）。
 > 与代码不一致时以代码为准并当天更新本文档。
 
@@ -24,42 +25,54 @@
 
 ## 2. 视觉基准与 token 单一来源
 
-- **唯一基准**：`docs/design/piboat-web-v3.html`。原型是 v0.1，允许增量演进，但**签名细节必须保留**：
-  0.5px hairline、superellipse 圆角、`#4176E6` 业务蓝、毛玻璃浮层、sticky 输入卡 + 渐变淡入、细滚动条
-- **token 单一来源**：`packages/ui/src/styles/prototype.css` —— 原型 `<style>` 的**逐字移植**（ADR-0010）
-  - 类名与原型一致（`.sidebar`/`.chat-col`/`.md`/`.disc`/…），可逐项对账；`theme.css` 只在其上补
-    `@theme inline { --color-surface: var(--surface); … }` 给少量 Tailwind 工具类用
-  - `@import 'tailwindcss/theme.css'` + `'tailwindcss/utilities.css'`，**不引 `preflight.css`**：
-    原型自带 reset，preflight 的 `button{font:inherit}` 会把按钮 `line-height` 变成继承值（原型是 UA `normal`）
-  - 原型 `--mono` 引用的 `--font-noto-mono` 未定义，已在 `prototype.css` 末尾补上（否则整条 `font-family` 失效）
-  - **暗色不能写死在 `@theme` 里**（`@theme` 是编译期常量，写死则切主题失效）
+- **唯一基准**：`docs/design/piboat-web-v4.html`。原型允许增量演进，但**签名细节必须保留**：
+  0.5px hairline、superellipse 圆角、靛蓝点缀、毛玻璃浮层、sticky 输入卡 + 渐变淡入、细滚动条；
+  表面三层（基底/侧栏面板/凹陷面）取 pi-web 配色——亮：纸白 `#ffffff` + 浅灰面板 `#f5f5f5` +
+  凹陷 `#eeeeee`，暗：`#1a1a1a` / `#242424` / `#222222`（ADR-0011）
+- **token 单一来源**：`packages/ui/src/styles/tokens.css` —— 亮/暗两个变量块，唯一允许出现
+  字面颜色的地方；`theme.css` 只在其上做旧语义别名 + `@theme inline` 映射（ADR-0011）
+  - 类名与 v4 原型一致（`.side`/`.disc`/`.md`/`…`），可逐项对账
+- **基准分层（ADR-0012）**：v4 稿是**视觉基准**（配色/尺寸/排版逐项对账）；v4 稿未画的**功能位**
+  （hero / `#heroSlot`、侧栏折叠、侧栏宽度拖拽、底栏版本号、列表运行提示）继承自 v3 稿，
+  已按 v4 token 重绘后保留——**不因「v4 没画」而删除**，也不另造与两稿都不同的形态
+- **样式就近放置**（ADR-0011，修订 ADR-0010 的「单文件逐字移植」承载）：组件样式与组件 tsx
+  同目录（如 `chat/composer.css`、`inspect/file-dock.css`、web 端 `components/sidebar.css`）；
+  `packages/ui/theme.css` 聚合 ui 侧，`apps/web/src/index.css` 聚合 web 侧（排其后，保持
+  原 additions 的后置覆盖级联）；`styles/base.css` 只放全局 reset 与跨组件共享小件
+  （ico 尺寸 / `svg.chev` / `.mini-btn` / `.shimmer` / 共享动画帧）
+- **preflight 不引**（沿 ADR-0010）：全局 reset 由 `base.css` 提供；`button{font:inherit}` 会把
+  按钮 `line-height` 变成继承值，而原型按钮是 UA `normal`（`.disc-head` 等基线会差 1–2px）
+- **暗色不能写死在 `@theme` 里**（`@theme` 是编译期常量，写死则切主题失效）
 - **消费方式**：`apps/web/src/index.css` `@import '@ice-ai/ui/theme.css'` +
   `@source '../../../packages/ui/src'`（Tailwind v4 需显式扫包外源码，否则 ui 的类名被摇掉）
 - **dev 数据接入**（ADR-0009）：`apps/web/vite.config.ts` 把 `/api`（含 SSE）代理到 `http://127.0.0.1:9527`
   ——浏览器视角同源，与生产拓扑一致；代理**不得开启响应缓冲/压缩**，否则 `EventSource` 收不到帧
 
-## 3. token 映射表（原型 var → 语义名）
+## 3. token 映射表（tokens.css → 语义别名）
 
-| 原型 | 语义名（Tailwind 类） | 说明 |
+字面色只写在 `styles/tokens.css`（亮 `:root` / 暗 `[data-theme="dark"]`，两主题同套变量名；
+切换入口 + `piboat.theme` 持久化已落地，ADR-0010）；`theme.css` 在其上做语义别名并声明进
+`@theme inline`（仅 var 引用，无字面颜色）。**组件 css 直接消费原始变量**（如 `var(--k-bash)`），
+语义别名只服务少数 tsx 里的 Tailwind 工具类：
+
+| 原始变量（tokens.css） | 语义别名（`@theme inline`） | 说明 |
 |---|---|---|
-| `--bg-base` `--bg-side` `--bg-raised` | `--color-surface` `--color-surface-side` `--color-surface-raised` | 页面底 / 侧栏 / 浮起面 |
-| `--l1` … `--l4` | `--color-line-1` … `--color-line-4` | 由弱到强的 4 档描边（`border-line-2`），保留 1:1 不合并 |
-| `--t1` … `--t4` | `--color-fg` `--color-fg-muted` `--color-fg-subtle` `--color-fg-faint` | 文字四级 |
-| `--accent` `--accent-weak` | `--color-accent` `--color-accent-weak` | `#4176E6` 及弱底 |
-| `--hover` `--bubble` `--menu` | `--color-hover` `--color-bubble` `--color-menu` | `--menu` 是毛玻璃底（需配合 `backdrop-blur`） |
-| `--green/red/amber/teal` + `-bg` | `--color-success/danger/warn/teal` + `-soft` | 语义名取代色名；`teal` 暂留（仅工具色用） |
-| `--seg-sys/-tools/-msg` | `--color-seg-sys/-tools/-msg` | 轨迹分段的指示色 |
-| `--k-think/-bash/-read/-edit/-err` | `--color-tool-*` | 工具名→色，见 §7 |
-| `--pw-panel/-border/-subtle/-accent` | `--md-panel` `--md-border` `--md-subtle` `--md-accent` | **markdown 排版专用**，与业务 token 隔离（照搬 pi-web） |
-| `--code-bg` `--code-banner` | `--color-code-bg` `--color-code-banner` | 代码块/折叠体底 |
-| `--elev-panel/-soft/-soft-sm` | `--shadow-panel/-soft/-soft-sm` | 三档阴影（均以 0.5px 环起始） |
-| `--font` `--mono` | `--font-sans` `--font-mono` | ⚠️ 原型 `--font-noto-mono` **未定义**，移植时补或删 |
+| `--bg` | `--color-surface` | 应用基底：亮纸白 `#ffffff` / 暗 `#1a1a1a`（参考 pi-web） |
+| `--bg-side` | `--color-panel` | 侧栏：亮 `#f5f5f5` / 暗 `#242424` |
+| `--bg-raised` | `--color-raised` | 抬升面：输入卡 / 浮层 |
+| `--bg-inset` | `--color-sunken` | 凹陷面：代码块 / 引用 / 表格头 |
+| `--l1`…`--l3` | `--color-line` / `-line-strong` / `-line-strongest` | 暖调 hairline 3 档（冷灰描边落在暖底会显脏） |
+| `--t1`…`--t4` | `--color-ink` / `-secondary` / `-tertiary` / `-quaternary` | 墨色四级 |
+| `--accent` `--accent-hover` `--accent-weak` `--accent-line` | `--color-accent*` | 克制靛蓝 `#4a5ec9`（暗 `#98a5ef`） |
+| `--hover` / `--sel` | `--color-hover` / `--color-selected` | 悬停 / 选中弱底 |
+| `--k-think` `--k-bash` `--k-read` `--k-edit` `--k-err`（+`-bg`） | `--color-think/bash/read/edit/error`（+`-weak`） | 工具/轨迹语义色，色表见 §7 |
+| `--add-bg` / `--del-bg` | `--color-add-weak` / `--color-del-weak` | diff 增/删弱底 |
 
-> **深色主题**（2026-09-22 决策）：**M1 不支持**。`theme.css` 保留原型的 `[data-theme="dark"]` 变量块但标注“未启用”——
-> 切换入口与 `prefers-color-scheme` 跟随留到 M2（§11.3 行 4）
-| `--sb-w` `--rb-w` `--chat-w` | **不进 `@theme`** | 布局尺寸走组件 props / CSS 变量（可拖拽、可持久化） |
-| `--sb-thumb*` | 滚动条 utility（§5） | Firefox 与 WebKit 两套互斥规则，**不可合并写** |
-| `--term-*` | 保留不用 | 终端未进产品范围（docs/02 §5.3 已移除） |
+**不进 `@theme`、由组件 css 直接消费的令牌**：`--bubble(-line)`（用户气泡）、`--menu`（毛玻璃浮层底，
+配 `glass` utility）、`--c-kw…--c-punc`（代码高亮 token 清单，当前 shiki 走内联色）、
+`--elev-sm/-card/-pop`（三档阴影，经 `elev-*` utility 消费）、`--font/--serif/--mono`、
+`--r-s…--r-xl`（圆角梯度）、`--ease`、`--sbw`/`--chat-w`（布局尺寸，可拖拽/持久化，§8.4/8.5）、
+`--sb-thumb(-hover)`（滚动条 thumb，`base.css` 全局规则消费）。
 
 ## 4. 组件清单
 
@@ -71,11 +84,8 @@
 | 组件 | 关键 props | 原型来源 |
 |---|---|---|
 | `Icon` | `name`（lucide 名）`size` | 31 个 `#i-*` symbol，映射见 §6 |
-| `IconButton` | `icon` `title` `on` | `.icon-btn`（原型约 20 处） |
-| `Button` | `variant: primary\|ghost\|chip\|pill\|menu-item` `size` | 收敛 `.new-session` `.send-btn` `.cbtn` `.hchip` `.model-btn` `.mode-chip` `.dtab` `.spill` `.wi` `.mi` `.vtab` 共 11 个变体 |
-| `Textarea` | `value` `onChange` `autoGrow` `maxRows=200px` `onKeyDown` | `.input-card textarea` + `fit()` |
+| `Textarea` | `value` `onChange` `autoGrow` `maxHeightPx=168px` `onKeyDown` | `.input-card textarea` + `fit()`（v4：26–168px） |
 | `Switch` | `checked` `onCheckedChange` | `.switch[data-tool]` |
-| `SegmentedControl` | `items` `value` `onChange` | `.preset-seg` `.view-tabs` |
 | `Popover` | `trigger` `open` `onOpenChange` `align` `width` | `.pop` + `#wsMenu` + `#modeMenu`（4 处同一交互：锚点定位、点外/Esc/`data-x` 三路关闭） |
 | `Tooltip` | `content` `children` | `.mm-tip` `title` 属性 |
 | `Toast` | `message`（队列化） | `.toast` + `toast()`，底部居中浮层 |
@@ -106,17 +116,18 @@
 | `MessageMinimap` | `turns` `scrollRef` | `.minimap` + `.mm-bar` + `.mm-tip` 预览，算法见 §8.3 |
 | `ScrollToBottomButton` | `visible` `onClick` | **原型未画，M1 新增件**（照 pi-web `.chat-scroll-to-bottom`）：圆形按钮 + 下箭头，悬于 composer 上方，`visible = 有溢出 && 未贴底`，`smooth` 滚动，带 `aria-label`（§8.2） |
 | `ContentWidthControls` | `width` `onWidthChange` `min` `max` | `.chat-handle` 双侧 + `--mh-y` 指针跟随光条 |
-| `EmptyState` | `title` `subtitle` `children` | `.hero`（boat 浮动 + 插槽 + 版本脚注）。**M1 用它承载 cwd 输入**（原型预留的 `#heroSlot`）：路径输入 → `POST /api/agent/new` → 成功后 cwd 转只读展示（`.ws-line`），见 §11.3 行 1 |
+| `EmptyState` | `title` `subtitle` `children` | **v3 稿 `.hero`**（boat 浮动 + 插槽 + 版本脚注）；v4 稿未画 hero，按 ADR-0012 继承并以 v4 token 重绘。**M1 用它承载 cwd 输入**（v3 稿预留的 `#heroSlot`）：路径输入 → `POST /api/agent/new` → 成功后 cwd 转只读展示（`.ws-line`），见 §11.3 行 1 |
 
 **M1 实现的文件与映射**（`packages/ui/src/`，文件名 kebab-case）：
 
 | 目录 | 文件 | 说明 |
 |---|---|---|
-| `primitives/` | `icon.tsx`（Icon + BoatMark 品牌 SVG）· `button.tsx`（Button + IconButton，cva 变体）· `textarea.tsx` · `switch.tsx` · `segmented-control.tsx` · `popover.tsx` · `tooltip.tsx` · `chip.tsx` · `progress-ring.tsx` · `scroll-area.tsx` · `toast.tsx` | 全部自绘（shadcn CLI 未引入，见 docs/01 §4 注） |
+| `primitives/` | `icon.tsx`（Icon + BoatMark 品牌 SVG）· `textarea.tsx` · `switch.tsx` · `popover.tsx` · `tooltip.tsx` · `chip.tsx` · `progress-ring.tsx` · `scroll-area.tsx` · `toast.tsx` | 全部自绘（shadcn CLI 未引入，见 docs/01 §4 注） |
 | `chat/` | `message-list.tsx` · `user-bubble.tsx` · `assistant-turn.tsx` · `markdown-view.tsx` · `code-block.tsx` · `diff-view.tsx` · `collapse-row.tsx`（CollapseRow + ToolTag + ThinkTag + StoppedTag）· `thinking-row.tsx` · `tool-row.tsx` · `process-group.tsx`（+ SystemRow/TrailRowView）· `composer.tsx` · `model-badge.tsx`（ModelTag + ModelBadge）· `mode-chip.tsx` · `usage-line.tsx` · `stats-pills.tsx` · `system-prompt-panel.tsx` · `scroll-to-bottom-button.tsx` · `empty-state.tsx` | M1 对话域组件全集 |
 | `hooks/` | `use-auto-scroll.ts` | 吸附模型的纯函数 + hook |
-| `styles/` | `prototype.css` · `utilities.css` | 原型 `<style>` 逐字移植（唯一视觉来源）与少量共享 utility（`hairline`/`sq`/`elev-*`/`shimmer`/`mask-fade-top`） |
-| 根 | `theme.css` | 引入 Tailwind theme/utilities + `prototype.css`（原型 `<style>` 逐字）+ `@theme inline` 映射 |
+| `styles/` | `tokens.css` · `utilities.css` · `base.css` | tokens.css：亮/暗设计令牌（唯一字面色来源）；utilities.css：`@utility` 共享件（见 §5）；base.css：全局 reset + 跨组件共享小件（见 §5） |
+| 组件样式 | `chat/*.css` · `inspect/*.css` · `primitives/*.css`（与 tsx 同目录） | ADR-0011 就近拆分（如 `composer.css` `file-dock.css` `popover.css`），类名与 v4 原型一致 |
+| 根 | `theme.css` | 聚合入口：Tailwind 两层 + `styles/` 三件 + 25 个组件 css `@import` + 语义别名 `@theme inline`；web 端 `apps/web/src/index.css` 再聚合 web 组件 css（排其后，保持后置覆盖级联） |
 
 **M1 已落地的原型件**（ADR-0010 前移）：`MessageMinimap`、`ContentWidthControls`、`StatsCardGroup`、
 `ToolList`、`FileDock`（`.rightbar` 三栏骨架 + dock 结构）、主题切换、左右栏拖拽 handle、
@@ -143,31 +154,46 @@
 |---|---|---|---|
 | `WorkspaceMenu` | `ui/src/inspect/workspace-menu.tsx` | `projects` `activeKey` `loading` `onSelect` `onSelectCustom` `runningKeys?`；内部持有展开态（Popover）；路径用 `direction: rtl` 让省略号落在左侧 | `#wsBtn` + `#wsMenu` |
 | `SessionListItem` | `ui/src/inspect/session-list-item.tsx` | `session` `active` `running` `onSelect` `onRename?` `onDelete?`；外层 div 定位 + 标题 button + 并列操作 button（原型是 button 套 button，HTML 非法且键盘不可达） | `.session-item` + hover `.ops` |
-| `AppShell` / `Sidebar` / `ConvHeader` | `apps/web/src/components/` | 两栏骨架 + 侧栏折叠/宽度拖拽（持久化 `piboat.sidebar`）+ 中栏头部；文件夹空间状态在 `apps/web/src/lib/app-state.tsx`（Context + localStorage，不引 Zustand） | `.app` / `.sidebar` / `.conv-header` |
-| `formatRelativeTime` / `groupByDay` | `ui/src/lib/format.ts` | 会话列表的时间（`21 分钟前` / `昨天 17:42` / `09-18`）与 今天/昨天/更早 分组（纯函数，有单测） | `.session-item .sm` / `.list-label` |
+| `AppShell` / `Sidebar` / `ConvHeader` | `apps/web/src/components/` | 两栏骨架 + 侧栏折叠/宽度拖拽（持久化 `piboat.sidebar`）+ 中栏头部；文件夹空间状态在 `apps/web/src/lib/app-state.tsx`（Context + localStorage，不引 Zustand） | `.app` / `.side` / `.head`（v4 类名）；折叠与宽度拖拽是 v3 稿的功能位，v4 稿未画（ADR-0012） |
+| `formatRelativeTime` / `groupByDay` | `ui/src/lib/format.ts` | 会话列表的时间（`21 分钟前` / `昨天 17:42` / `09-18`）与 今天/昨天/更早 分组（纯函数，有单测） | `.session-item .sm` / `.day`（v4：每个分组都带日期标签，含首组） |
 
-**侧栏与原型的两处有意差异**：
+**侧栏与原型的有意差异**：
 
 1. **不画右栏（文件浏览器 dock）**：它依赖 `GET /api/files/*`，该域在 M3（docs/01 §6）。界面不放假面板
    ——没有的能力不画（AGENTS.md：命名/界面不得暗示它做不到的事）。同理头部只留 `系统` chip，`工具`/`统计` 归 M2。
 2. **会话搜索是列表内过滤**：原型只有一个搜索框；服务端的 `/api/sessions/search` 是跨项目全文搜索，
    与「在当前空间的列表里找」语义不同——M1 做客户端过滤，M2 再分流（跨项目搜索给独立入口）。
+3. **列表分组不再画 v3 的「会话」总标签**：v4 稿的 `.day` 每个分组都带日期标签（首组也是「今天」），
+   故首组改用日期标签；「N 个会话运行中」作为 v3 功能位挂在首组右侧（`.run-hint`，ADR-0012）。
+   同时修掉 v3 遗留规则 `.day > span:last-child`——它会把「只有一个 span」的日期标签也推到右侧并降级为
+   `--t4`/500（与 v4 稿的左对齐/650/`--t3` 不符），现右对齐只落在 `.run-hint` 上。
+4. **字栈跟随系统**：会话列表继承 `--font`，侧栏 `.tag` / `.model-chip` / `.ver` 走 `--mono`
+   ——两者完全跟随系统字体，项目不自带字体文件；`--serif` 的 brand wordmark 不动。
+5. **会话标题只在选中行加粗**：`.sess .st` 由 v4 的 `font-weight: 520` 降为 `400`，`520` 收进
+   `.sess.on .st`；hover 不加粗。
 
 ### 4.5 不进 ui（留 `apps/web`）
 
 AppShell 两栏布局 + 拖拽/折叠、主题切换、路由、QueryClient、Suspense/ErrorBoundary
 边界，以及全部取数与过滤装配。
 
-## 5. 共享 utility（`ui/src/styles/utilities.css`）
+## 5. 共享 utility（`styles/utilities.css`）与全局基础（`styles/base.css`）
 
 | 名字 | 定义 | 原型来源 |
 |---|---|---|
 | `hairline` | `border-width: 0.5px`（四向变体） | 全站 0.5px 描边，出现于 `.pop-rule` `.group-disc` `.child-rail` `.tnode .lno` 等 |
 | `sq` | `border-radius` + `@supports (corner-shape: superellipse(1.5))` 增强 | `.sq`（48 处）；**必须保留 `@supports` 兜底**，该特性仅较新 Chromium/Safari 支持 |
-| `elev-panel` / `elev-soft` / `elev-soft-sm` | 三档 `box-shadow` | `.pop` `.input-card` `.new-session` 等 |
-| `shimmer` | 文字渐变扫光（`background-clip: text`） | 流式思考行 |
-| `scrollbar-thin` | WebKit 伪元素 + Firefox 标准属性**两套互斥**规则 | 原型 §119–152 |
+| `elev-panel` / `elev-soft` / `elev-soft-sm` | 三档 `box-shadow`（`--elev-card` / `--elev-pop` / `--elev-sm`） | `.pop` `.input-card` `.new-session` 等 |
+| `shimmer` | 文字渐变扫光（`@utility` + `pi-shimmer` 帧）；`base.css` 另有参数不同的 `.shimmer` 类（`shim` 帧），组件按原型出处各取其一 | 流式思考行 |
 | `mask-fade-top` | `mask-image: linear-gradient(...)` | `.scrollbody`（含 `-webkit-` 前缀） |
+| `glass` | `--menu` 毛玻璃底 + `blur(40px) saturate(150%)` | `.pop` / toast / minimap tip |
+
+**`base.css`**（全局基础，非 utility）：`*` 盒模型 reset、`body` 字体/底色（不叠 Tailwind preflight，
+§2）、`::selection`、`button/input` 继承、`:focus-visible`、**全局滚动条**（WebKit 8px + Firefox
+`thin`，`@supports` 互斥写法，**不可合并**）、`.num` / `.ico`（`.s12/.s14/.s18`）/ `svg.chev` /
+`.mini-btn`、共享动画帧（`rot`/`pulse`/`pop-in`）、`prefers-reduced-motion` 全站降级。
+旧版 `.scrollbar-thin` 专属细滚动条与 `.pop-surface` 的 l2 thumb 变体已随 v4 移除（引用了 v4 已删的
+`--sb-width`/`--sb-thumb-l2`，属死规则；类名在 tsx 仅作语义标记保留）。
 
 ## 6. 图标对账表（31 → lucide）
 
@@ -195,12 +221,12 @@ AppShell 两栏布局 + 拖拽/折叠、主题切换、路由、QueryClient、Su
 
 | toolName | token | 备注 |
 |---|---|---|
-| （思考行） | `--color-tool-think` | 原型 `.tag.think` 用 `--hover` 灰底 + `--t2` 字 |
-| `bash` | `--color-tool-bash` | 绿 |
-| `read` | `--color-tool-read` | 业务蓝 |
-| `edit` | `--color-tool-edit` | teal |
-| 执行失败（任意工具） | `--color-tool-err` | 红，与工具色叠加为"错误态" |
-| **其余全部**（`write` `grep` `find` `todo_write` `task` …） | 默认橙（`warn` + `warn-soft`） | ⚠️ 原型只画了 3 个具名色，其余落默认橙；M2 起按需扩表，**不允许组件内写死颜色** |
+| （思考行） | `--k-think(-bg)` | 原型 `.tag.think` |
+| `bash` | `--k-bash(-bg)` | 绿 |
+| `read` | `--k-read(-bg)` | 业务蓝 |
+| `edit` | `--k-edit(-bg)` | teal |
+| 执行失败（任意工具） | `--k-err(-bg)` | 红（`.tag.err` / `.exit-chip`） |
+| **其余全部**（`write` `grep` `find` `todo_write` `task` …） | 无具名色 | 现行实现：`.tag.tool` 只定 mono 字体，无底色字色（未具名工具不染色）；要给具名色须先扩 tokens.css 的 `--k-*`，**不允许组件内写字面颜色** |
 
 ## 8. 交互规格
 
@@ -211,7 +237,7 @@ AppShell 两栏布局 + 拖拽/折叠、主题切换、路由、QueryClient、Su
   （历史无此边界，会让刷新前后形状漂移）——完整规则与候选方案见 `docs/05` §6.5
 - **流式期间的形态**（**已定：方案 2**，照 pi-web）：末轮在 `isStreaming` 期间**平铺不分组**，轮结束后才成组并收起；
   `defaultExpanded = 本轮没拿到回答`（中断/报错时默认展开，避免空白）
-- 静态默认：**收起**（原型 HTML 中除 hero 外均为收起态）
+- 静态默认：**收起**（v4 稿 HTML 中均为收起态）
 - 流式行为：新出现的思考/工具行**自动展开**（`.shimmer` 态），其内容结束后**自动收起**
 - **用户手动展开过的行/组不得被自动收起覆盖**：M1 由组件本地 state 实现（`userOpen: boolean | null`，
   `open = userOpen ?? 默认态`），**未**把 `userToggled` 写回视图模型——视图模型保持纯派生、无 UI 状态
@@ -264,7 +290,8 @@ hover/拖动显示 2px 光条、光条跟随指针 Y（`--mh-y`）、±36px 渐�
 
 ### 8.6 其他
 
-- Composer 自动增高（`min-height:24px; max-height:200px`）、`Enter` 发送 / `Shift+Enter` 换行（原型
+- Composer 自动增高（`min-height:26px; max-height:168px`，v4 稿 `.input-card textarea` + `fit()` 上限）、
+  `Enter` 发送 / `Shift+Enter` 换行（原型
   脚本行为，具体快捷键见 §11）
 - 浮层关闭三路：点外部、Esc、`[data-x]`（`closePops/closeAll`）
 - 主题切换：`[data-theme]` 属性 + `localStorage`；「跟随系统」在 M2 用 `prefers-color-scheme` + `matchMedia`
@@ -279,7 +306,7 @@ M1 只保证**大屏可用**；小屏不做适配，屏幕特别小时**停止�
   显示一个极简提示（复用 `EmptyState`）：“窗口过窄（< 880px），请加宽窗口”
 - **M1 不做**：drawer / 单栏重排 / `useIsMobile` / 底部导航。移动端与 PWA 形态随 M3 路径一起排期
 - 但**保留「禁写死桌面假设」这条低成本约定**（docs/01 §5.5 ①）：组件不把三栏/固定宽度当硬前提，
-  以免将来要适配时得重写；具体表现为：布局尺寸走 props/CSS 变量、不把 `--sb-w`/`--rb-w` 参与
+  以免将来要适配时得重写；具体表现为：布局尺寸走 props/CSS 变量、不把 `--sbw` 参与
   窄屏计算、组件不依赖 `window.innerWidth` 做结构判断
 - Electron 主窗口的最小宽度由 M4 设（与 880 对齐）
 
@@ -307,7 +334,7 @@ M1 只保证**大屏可用**；小屏不做适配，屏幕特别小时**停止�
 | 4 | 侧栏会话项写死"19 条消息""昨天"分组等假数据 | 接 `SessionInfo.modified/messageCount` |
 | 5 | `.viewer-code` 自养高亮（`.kw/.st/.fn/.cm`） | 换 shiki（与 `MarkdownView` 的 `CodeBlock` 同源，不要两套高亮器） |
 | 6 | `.tnode`/`.mm-bar` 用 `div` 承担点击 | 改 `button`（§8.3、§9.2） |
-| 7 | 原型 hero 版本文案 `web v0.1.0` | 接构建期注入的真实版本号 |
+| 7 | v3 稿 hero 版本文案 `web v0.1.0`（v4 稿无 hero） | 接构建期注入的真实版本号：hero 脚注 + 侧栏底栏 `.ver`，值取 `__APP_VERSION__` |
 
 ## 11. 待决策与协议缺口
 
@@ -317,7 +344,8 @@ Tailwind CSS v4（`@theme inline`）、React Compiler、
 Lucide、`cva` + `clsx` + `tailwind-merge`（`cn()`）、markdown 走 `react-markdown` + `remark-gfm`
 + `shiki` + `rehype-sanitize`（禁裸 `dangerouslySetInnerHTML`——**M1 实测取法**：shiki 用 `codeToTokens`
 渲染 React 元素，而不是 `codeToHtml` + innerHTML）。**ui 不引 TanStack Query**（§1 边界 2）。
-shadcn/ui CLI 未在 M1 引入：M1 的 11 个 primitive 都是自绘轻量件（cva + clsx + tailwind-merge），
+shadcn/ui CLI 未在 M1 引入：M1 的 9 个 primitive 都是自绘轻量件（clsx + tailwind-merge；`cva` 属
+ADR-0009 的既定栈，M2 接入 shadcn 组件时启用——M1 已无 cva 变体件，见 ADR-0012），
 shadcn 的价值在表单/复杂弹层（M2+），届时按本包 alias 落位 `primitives/`。
 外部前端规范 skills **不引入本仓**——规范即 ADR-0009 + 本文 + `docs/05`（避免两处规范漂移，
 且其模板的 zod 3 / TS 5.8 / Biome 1.9 与本仓 zod 4 / TS 7 / Biome 2 冲突）。

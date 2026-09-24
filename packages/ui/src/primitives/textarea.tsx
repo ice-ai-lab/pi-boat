@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 
-/** 自动增高：min-height 24px / max-height 200px（原型 `.input-card textarea` + `fit()`） */
+/** 自动增高：min-height 26px / max-height 168px（v4 原型 `.input-card textarea` + `fit()` 的上限） */
 export interface TextareaProps {
   value: string;
   onChange: (value: string) => void;
@@ -18,7 +18,7 @@ export function Textarea({
   onChange,
   onSubmit,
   placeholder,
-  maxHeightPx = 200,
+  maxHeightPx = 168,
   disabled,
   className,
   autoFocus,
@@ -58,7 +58,7 @@ export function Textarea({
         }
       }}
       className={`w-full resize-none border-0 bg-transparent outline-none ${className ?? ''}`}
-      style={{ minHeight: 24, maxHeight: maxHeightPx }}
+      style={{ minHeight: 26, maxHeight: maxHeightPx }}
     />
   );
 }

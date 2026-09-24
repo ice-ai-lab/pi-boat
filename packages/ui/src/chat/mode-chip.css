@@ -1,0 +1,64 @@
+/* ModeChip —— 输入卡 .ctl-chip 的弹出菜单（思考等级 / 权限模式）
+   入场动画 @keyframes pop-in 在 base.css（与工作空间菜单共用）。
+   （拆自原 styles/additions.css，ADR-0011） */
+
+.mode-menu {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  min-width: 216px;
+  z-index: 90;
+  background: var(--menu);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  border-radius: var(--r-l);
+  box-shadow: var(--elev-pop);
+  padding: 5px;
+  opacity: 0;
+  transform: translateY(4px) scale(0.99);
+  pointer-events: none;
+  transition:
+    opacity 0.15s var(--ease),
+    transform 0.15s var(--ease);
+  transform-origin: bottom left;
+}
+.mode-menu.show {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+.mode-menu .mi {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 9px;
+  border-radius: var(--r-s);
+  font-size: 12px;
+  color: var(--t1);
+  text-align: left;
+  transition: background 0.12s;
+}
+.mode-menu .mi:hover {
+  background: var(--hover);
+}
+.mode-menu .mi.on {
+  background: var(--sel);
+  font-weight: 550;
+}
+.mode-menu .mi .mk {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--t3);
+  width: 34px;
+  flex: none;
+}
+.mode-menu .mi .md {
+  font-size: 10.5px;
+  color: var(--t3);
+  margin-left: auto;
+  flex: none;
+}

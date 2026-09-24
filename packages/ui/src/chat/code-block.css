@@ -1,0 +1,46 @@
+/* CodeBlock —— 代码块外壳（头栏/语言/复制钮/滚动区）
+   代码高亮由 shiki 生成内联色。mini-btn（复制钮）在 base.css。
+   （拆自原 styles/prototype.css，ADR-0011） */
+
+.codeblk {
+  margin: 14px 0;
+  border: 1px solid var(--l1);
+  border-radius: var(--r-l);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--bg-inset) 55%, var(--bg-raised));
+}
+.codeblk .cb-head {
+  height: 31px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px 0 13px;
+  border-bottom: 1px solid var(--l1);
+  background: var(--bg-inset);
+}
+.codeblk .cb-lang {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--t3);
+  font-weight: 600;
+}
+.codeblk .cb-file {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--t3);
+  margin-left: 2px;
+}
+.codeblk .cb-act {
+  margin-left: auto;
+  display: flex;
+  gap: 3px;
+}
+.codeblk pre {
+  padding: 12px 15px;
+  overflow-x: auto;
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 1.68;
+}

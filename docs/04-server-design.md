@@ -188,7 +188,7 @@ M3 实现：每个 SSE 连接持有会话 lease，观看中的空闲会话不被
    `registryVersion` 轮询端点；静态托管代码就位（apps/web 待建，目录存在即挂载）
 
 验收线不变：浏览器完成一轮带工具调用的编程任务（docs/01 §7 M1）——前端设计已就位
-（`docs/05-client-design.md` 视图模型与事件折叠、`docs/06-ui-design.md` 组件与 token；视觉基准 `docs/design/piboat-web-v3.html`），
+（`docs/05-client-design.md` 视图模型与事件折叠、`docs/06-ui-design.md` 组件与 token；视觉基准 `docs/design/piboat-web-v4.html`），
 待实现。
 **验收命令**：`packages/server/test/server.test.ts`（30 用例，安全层三闸 / 信封映射 / 浏览 / 项目 / SSE 均覆盖）；
 手工验证用 `curl -N` 对 SSE 端点即可（序列与时序见 §5.1）。

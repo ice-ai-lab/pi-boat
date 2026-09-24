@@ -1,0 +1,195 @@
+/* ============================================================
+   PiBoat ui —— 全局基础（reset + 跨组件共享小件）
+   组件各自的样式在组件文件旁（如 chat/composer.css），不放这里。
+   ============================================================ */
+
+/* ---------- 基础 reset（不叠 Tailwind preflight，原因见 theme.css） ---------- */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+html,
+body {
+  height: 100%;
+}
+body {
+  font-family: var(--font);
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--t1);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+  transition:
+    background-color 0.25s,
+    color 0.25s;
+}
+::selection {
+  background: rgba(74, 94, 201, 0.2);
+}
+[data-theme="dark"] ::selection {
+  background: rgba(152, 165, 239, 0.28);
+}
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+button:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  outline-offset: 1px;
+  border-radius: var(--r-s);
+}
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--sb-thumb);
+  border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--sb-thumb-hover);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+@supports not selector(::-webkit-scrollbar) {
+  body,
+  body * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--sb-thumb) transparent;
+  }
+}
+
+/* ---------- 跨组件共享小件 ---------- */
+.num {
+  font-variant-numeric: tabular-nums;
+}
+.ico {
+  width: 15px;
+  height: 15px;
+  flex: none;
+  display: block;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.ico.s12 {
+  width: 12px;
+  height: 12px;
+}
+.ico.s14 {
+  width: 14px;
+  height: 14px;
+}
+.ico.s18 {
+  width: 18px;
+  height: 18px;
+}
+
+/* 折叠行箭头基础（disc/grp 头部共用；尺寸微调归各组件） */
+svg.chev {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  stroke: var(--t3);
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.18s var(--ease);
+}
+
+/* 气泡操作小钮（user-bubble 操作位 / code-block 复制钮共用） */
+.mini-btn {
+  height: 21px;
+  padding: 0 6px;
+  border-radius: var(--r-s);
+  font-size: 10.5px;
+  color: var(--t3);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  transition:
+    background 0.13s,
+    color 0.13s;
+}
+.mini-btn:hover {
+  background: var(--hover);
+  color: var(--t1);
+}
+.mini-btn .ico {
+  width: 11px;
+  height: 11px;
+}
+
+/* 流式扫光（model-badge 模型行 / thinking-row 流式文案共用；
+   Tailwind 版 @utility shimmer 在 utilities.css，参数不同，二者并存） */
+.shimmer {
+  background: linear-gradient(90deg, var(--t3) 25%, var(--t1) 50%, var(--t3) 75%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shim 1.7s linear infinite;
+}
+@keyframes shim {
+  to {
+    background-position: -220% 0;
+  }
+}
+
+/* ---------- 共享动画帧 ---------- */
+@keyframes rot {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes pulse {
+  0% {
+    transform: scale(0.5);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 动效降级：全站唯一入口（勿在各组件重复） */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

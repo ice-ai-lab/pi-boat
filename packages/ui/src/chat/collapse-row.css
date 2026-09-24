@@ -1,0 +1,169 @@
+/* CollapseRow —— 折叠行体系（思考行/工具行/diff 摘要等统一外壳）
+   工具行（tool-row）、思考行（thinking-row）复用本体系的
+   .disc/.tag/.pre/.prose/.exit-chip/.run-spin；shimmer 在 base.css。
+   （拆自原 styles/prototype.css 与 additions.css，ADR-0011） */
+
+.disc {
+  border-radius: var(--r-m);
+}
+.disc + .disc {
+  margin-top: 3px;
+}
+.disc-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 8px;
+  cursor: pointer;
+  user-select: none;
+  border-radius: var(--r-m);
+}
+.disc.open > .disc-head > svg.chev {
+  transform: rotate(90deg);
+}
+.disc-title {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--t1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.disc-title.plain {
+  font-family: var(--font);
+  color: var(--t2);
+}
+.disc-dur {
+  margin-left: auto;
+  flex: none;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--t3);
+  font-variant-numeric: tabular-nums;
+}
+.disc-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.24s var(--ease);
+}
+.disc.open > .disc-body {
+  grid-template-rows: 1fr;
+}
+.disc-body > div {
+  overflow: hidden;
+  min-height: 0;
+}
+.disc-inner {
+  margin: 1px 8px 8px 30px;
+  border: 1px solid var(--l1);
+  border-radius: var(--r-m);
+  background: var(--bg-inset);
+  padding: 10px 13px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.disc-inner .pre {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  line-height: 1.68;
+  color: var(--t2);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.disc-inner .prose {
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: var(--t2);
+}
+.disc-inner .prose p + p {
+  margin-top: 7px;
+}
+
+/* 药丸标签：思考行唯一带图标 */
+.tag {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 19px;
+  padding: 0 7px;
+  border-radius: 99px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.tag .ico {
+  width: 10.5px;
+  height: 10.5px;
+}
+.tag.think {
+  background: var(--k-think-bg);
+  color: var(--k-think);
+}
+.tag.tool {
+  font-family: var(--mono);
+  font-weight: 550;
+}
+.tag.bash {
+  background: var(--k-bash-bg);
+  color: var(--k-bash);
+}
+.tag.read {
+  background: var(--k-read-bg);
+  color: var(--k-read);
+}
+.tag.edit {
+  background: var(--k-edit-bg);
+  color: var(--k-edit);
+}
+.tag.err {
+  background: var(--k-err-bg);
+  color: var(--k-err);
+}
+.exit-chip {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-weight: 600;
+  color: var(--k-err);
+  background: var(--k-err-bg);
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+.run-spin {
+  width: 11px;
+  height: 11px;
+  flex: none;
+  animation: rot 0.9s linear infinite;
+  margin-left: auto;
+}
+.run-spin circle {
+  fill: none;
+  stroke: var(--t3);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 22 12;
+}
+
+/* 停止标记（折叠行右上角小红标） */
+.stopped-tag {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--k-err);
+  background: var(--k-err-bg);
+  border-radius: 5px;
+  padding: 2px 5px;
+  text-transform: uppercase;
+}
+
+/* 工具行参数 JSON 弱化展示 */
+.pre.subtle {
+  color: var(--t3);
+  max-height: 120px;
+  overflow: hidden;
+}

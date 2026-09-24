@@ -1,0 +1,34 @@
+/* ScrollToBottomButton —— 滚动区右下角「回到底部」按钮
+   （拆自原 styles/additions.css，ADR-0011） */
+
+.up-fab {
+  position: absolute;
+  right: 22px;
+  bottom: 18px;
+  z-index: 30;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--bg-raised);
+  box-shadow: var(--elev-card);
+  color: var(--t2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: translateY(6px);
+  pointer-events: none;
+  transition:
+    opacity 0.18s var(--ease),
+    transform 0.18s var(--ease),
+    background 0.14s,
+    color 0.14s;
+}
+.up-fab.show {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+}
+.up-fab:hover {
+  color: var(--t1);
+}

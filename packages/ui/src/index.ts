@@ -7,7 +7,7 @@
  * 3. 不发明形状：props 类型来自 protocol 与 docs/05 的视图模型
  *
  * 三册目录：`primitives/`（无业务语义）、`chat/`（对话域）、`inspect/`（统计与检视，M2/M3）。
- * 视觉基准：`docs/design/piboat-web-v3.html`；token 单一来源：本包 `theme.css`。
+ * 视觉基准：`docs/design/piboat-web-v4.html`；token 单一来源：本包 `theme.css`。
  */
 
 // chat
@@ -74,14 +74,12 @@ export {
   groupByDay,
 } from './lib/format';
 // primitives
-export { Button, buttonVariants, IconButton } from './primitives/button';
 export { Chip } from './primitives/chip';
 export { BoatMark, Icon, type IconName } from './primitives/icon';
 export { IconSprite } from './primitives/icon-sprite';
 export { Popover } from './primitives/popover';
 export { ProgressRing } from './primitives/progress-ring';
 export { ScrollArea } from './primitives/scroll-area';
-export { SegmentedControl } from './primitives/segmented-control';
 export { Switch } from './primitives/switch';
 export { Textarea } from './primitives/textarea';
 export { Toast } from './primitives/toast';

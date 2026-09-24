@@ -1,0 +1,56 @@
+/* StatsCardGroup —— 统计浮层（#popStats）内容：指标网格与上下文占用条
+   浮层外壳见 primitives/popover.css。
+   （拆自原 styles/prototype.css，ADR-0011） */
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--l1);
+}
+.stat-cell {
+  background: var(--bg-raised);
+  padding: 11px 14px;
+}
+.stat-cell .sk {
+  font-size: 10px;
+  color: var(--t3);
+  letter-spacing: 0.05em;
+  margin-bottom: 3px;
+}
+.stat-cell .sv {
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--t1);
+  font-variant-numeric: tabular-nums;
+}
+.stat-cell .sv small {
+  font-size: 10px;
+  color: var(--t3);
+  font-weight: 400;
+}
+.ctx-row {
+  padding: 11px 14px 13px;
+  background: var(--bg-raised);
+}
+.ctx-row .ck {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--t3);
+  margin-bottom: 6px;
+}
+.ctx-bar {
+  height: 4px;
+  border-radius: 99px;
+  background: var(--bg-inset);
+  overflow: hidden;
+}
+.ctx-bar i {
+  display: block;
+  height: 100%;
+  width: 31%;
+  border-radius: 99px;
+  background: var(--accent);
+}

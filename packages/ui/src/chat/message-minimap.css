@@ -1,0 +1,77 @@
+/* MessageMinimap —— 会话 minimap：右缘刻度条与悬停预览
+   （拆自原 styles/prototype.css 与 additions.css，ADR-0011） */
+
+.minimap {
+  position: absolute;
+  right: 9px;
+  top: 56px;
+  bottom: 56px;
+  width: 16px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  justify-content: center;
+}
+.mmbar {
+  width: 3px;
+  border-radius: 99px;
+  background: var(--l3);
+  transition:
+    width 0.16s var(--ease),
+    background 0.16s;
+  cursor: pointer;
+  flex: none;
+}
+.mmbar:hover {
+  width: 6px;
+  background: var(--t3);
+}
+.mmbar.live {
+  background: var(--accent);
+  animation: mmpulse 1.9s ease-in-out infinite;
+}
+@keyframes mmpulse {
+  50% {
+    opacity: 0.45;
+  }
+}
+.mmtip {
+  position: absolute;
+  right: 22px;
+  top: 0;
+  width: 232px;
+  z-index: 50;
+  background: var(--menu);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: var(--r-l);
+  box-shadow: var(--elev-pop);
+  padding: 11px 13px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateX(4px);
+  transition: 0.16s var(--ease);
+}
+.mmtip.show {
+  opacity: 1;
+  transform: none;
+}
+.mmtip .t1 {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+.mmtip .t2 {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--t3);
+}
+
+/* 刻度条原生是 button，去默认样式 */
+button.mmbar {
+  padding: 0;
+  border: 0;
+  background: var(--l3);
+}

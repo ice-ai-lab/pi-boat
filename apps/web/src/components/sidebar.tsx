@@ -98,7 +98,8 @@ export function Sidebar() {
         <div className="wm">
           Pi<em>Boat</em>
         </div>
-        <span className="tag">M1</span>
+        <span className="tag">v4</span>
+        {/* 收起侧边栏（v3 稿的 #sbCollapse；v4 静态稿未画，保留，见 ADR-0012） */}
         <button
           type="button"
           className="ico-btn"
@@ -163,16 +164,6 @@ export function Sidebar() {
       />
 
       <div className="sess-list">
-        <div className="day">
-          <span>会话</span>
-          {runningCount === 0 ? null : (
-            <span className="run-hint">
-              <i />
-              {runningCount} 个会话运行中
-            </span>
-          )}
-        </div>
-
         {sessionsQuery.isError ? (
           <p style={{ padding: '4px 4px 8px', fontSize: 11.5, color: 'var(--k-err)' }}>
             {describeApiError(sessionsQuery.error)}
@@ -191,12 +182,17 @@ export function Sidebar() {
 
         {groups.map((group, index) => (
           <div key={group.label}>
-            {/* 首组的标题就是上面的「会话」（原型同形） */}
-            {groups.length > 1 && index > 0 ? (
-              <div className="day">
-                <span>{group.label}</span>
-              </div>
-            ) : null}
+            {/* 日期分组：v4 稿每个分组都带标签（首组也是「今天」）；
+                右侧运行提示是 v3 稿的功能位，v4 稿未画，挂在首组右侧（见 ADR-0012） */}
+            <div className="day">
+              <span>{group.label}</span>
+              {index === 0 && runningCount > 0 ? (
+                <span className="run-hint">
+                  <i />
+                  {runningCount} 个会话运行中
+                </span>
+              ) : null}
+            </div>
             {group.items.map((session) => (
               <SessionListItem
                 key={session.id}
@@ -212,6 +208,8 @@ export function Sidebar() {
         ))}
       </div>
 
+      {/* 底栏：模型 chip + 技能/设置（M2 占位）+ 主题切换 + 版本号。
+          技能按钮与版本号来自 v3 稿；v4 静态稿底栏只有 chip + 主题/设置，见 ADR-0012 */}
       <div className="side-foot">
         <button type="button" className="model-chip" title="模型（M2）" disabled>
           <span className="dotok" />

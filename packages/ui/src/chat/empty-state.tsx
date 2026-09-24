@@ -3,7 +3,8 @@ import { cn } from '../lib/cn';
 import { Icon } from '../primitives/icon';
 
 /**
- * 空状态 / hero（原型 `.hero`：浮动帆船 + 标题 + 插槽 + 当前空间 + 版本脚注）。
+ * 空状态 / hero（v3 稿 `.hero`：浮动帆船 + 标题 + 插槽 + 当前空间 + 版本脚注；
+ * v4 稿未画 hero，按 ADR-0012 继承并以 v4 token 重绘）。
  * M1 用它承载新会话：路径输入（当没有可用的文件夹空间时）与首条消息。
  */
 export interface EmptyStateProps {

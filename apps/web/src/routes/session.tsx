@@ -174,7 +174,11 @@ export function SessionRoute() {
         streaming={session.streaming}
         model={state?.model ?? null}
         disabled={notRunning}
-        placeholder={notRunning ? '会话未运行，无法继续（M2 支持恢复）' : '消息… 输入 / 使用命令'}
+        placeholder={
+          notRunning
+            ? '会话未运行，无法继续（M2 支持恢复）'
+            : '继续对话…（Enter 发送，Shift+Enter 换行）'
+        }
         stats={<StatsPills stats={stats} />}
       />
     </>

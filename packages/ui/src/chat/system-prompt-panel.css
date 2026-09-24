@@ -1,0 +1,23 @@
+/* SystemPromptPanel —— 系统提示词浮层内容（#popSys 的 pop-body 内）
+   浮层外壳见 primitives/popover.css。
+   （拆自原 styles/additions.css，ADR-0011） */
+
+.sysprompt .pop-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 10px 16px 0;
+}
+.sysprompt .pop-chips .chip {
+  height: 22px;
+  padding: 0 8px;
+  font-size: 10.5px;
+  border-radius: 99px;
+  border: 1px solid var(--l2);
+  color: var(--t3);
+}
+.sysprompt .pop-chips .chip.on {
+  border-color: var(--accent-line);
+  color: var(--accent);
+  background: var(--accent-weak);
+}

@@ -1,0 +1,38 @@
+/* Toast —— 全局轻提示
+   （拆自原 styles/additions.css，ADR-0011） */
+
+.toast {
+  position: fixed;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: var(--r-m);
+  background: var(--menu);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: var(--elev-pop);
+  font-size: 12px;
+  color: var(--t1);
+  animation: toast-in 0.18s var(--ease);
+}
+.toast.ok .ico {
+  color: var(--k-bash);
+}
+.toast.err .ico {
+  color: var(--k-err);
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%);
+  }
+}

@@ -1,0 +1,99 @@
+/* AppShell —— 三栏骨架 / 侧栏折叠拖拽 / FileDock 外壳 / 会话滚动壳
+   （拆自原 styles/prototype.css 与 additions.css，ADR-0011） */
+
+/* ---------- 应用骨架 ---------- */
+.app {
+  display: grid;
+  grid-template-columns: var(--sbw) minmax(0, 1fr) auto;
+  height: 100vh;
+}
+
+/* ---------- 中栏 ---------- */
+.main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  position: relative;
+  background: var(--bg);
+  transition: background-color 0.25s;
+}
+
+/* ---------- 会话滚动壳（session / new-session 两路由共用） ---------- */
+.conv-shell {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+/* 滚动区顶部/底部淡出 */
+.conv-shell::before,
+.conv-shell::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 22px;
+  z-index: 10;
+  pointer-events: none;
+}
+.conv-shell::before {
+  top: 0;
+  background: linear-gradient(to bottom, var(--bg), transparent);
+}
+.conv-shell::after {
+  bottom: 0;
+  background: linear-gradient(to top, var(--bg), transparent);
+}
+
+/* ---------- 右侧 FileDock 外壳（宽度/开合归壳；内容样式见 ui/inspect/file-dock.css） ---------- */
+.dock {
+  width: 0;
+  overflow: hidden;
+  flex: none;
+  transition: width 0.22s var(--ease);
+  border-left: 1px solid transparent;
+}
+.dock.open {
+  width: 302px;
+  border-left-color: var(--l1);
+}
+
+/* ---------- 侧栏折叠 / 侧栏拖拽手柄（原 additions.css） ---------- */
+.drag-handle {
+  width: 3px;
+  cursor: col-resize;
+  position: relative;
+  z-index: 60;
+  flex: none;
+}
+.drag-handle::after {
+  content: "";
+  position: absolute;
+  inset: 0 -2px; /* 扩大热区 */
+}
+#dragL {
+  position: absolute;
+  left: var(--sbw);
+  top: 0;
+  bottom: 0;
+  transition: left 0.22s var(--ease);
+}
+.sb-collapsed #dragL {
+  left: 0;
+}
+.drag-handle:hover::after,
+.drag-handle.dragging::after {
+  background: var(--accent-line);
+}
+body.resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+body.resizing * {
+  pointer-events: none !important;
+}
+
+/* 折叠后整栏隐藏（壳级布局语义，故在此而非 sidebar.css） */
+.sb-collapsed .side {
+  display: none;
+}

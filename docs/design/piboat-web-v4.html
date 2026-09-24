@@ -8,17 +8,17 @@
 /* ============================================================
    PiBoat Web 原型 v4 · 设计代号「纸墨 Paper & Ink」
    功能骨架参照 pi-boat（三栏 AppShell / 处理详情 / minimap / 统计）
-   视觉语言重新设计：暖纸底 + 暖调 hairline + 克制靛蓝
+   视觉语言重新设计：纸白底（参考 pi-web 配色）+ 暖调 hairline + 克制靛蓝
    核心诉求：久看不累 —— 低饱和中性色、宽松节奏、单一抬升面
    ============================================================ */
 
 /* ---------- 设计令牌：亮色「纸」 ---------- */
 :root{
   /* 表面：暖纸三层 */
-  --bg:#f6f5f1;            /* 应用基底：暖纸 */
-  --bg-side:#efece5;       /* 侧栏：深一度的纸 */
-  --bg-raised:#fdfdfb;     /* 抬升面：输入卡/浮层（全场唯一暖白） */
-  --bg-inset:#f0eee8;      /* 凹陷面：代码块/引用/表格头 */
+  --bg:#ffffff;            /* 应用基底：纸白（参考 pi-web light） */
+  --bg-side:#f5f5f5;       /* 侧栏：浅灰面板（pi-web bg-panel） */
+  --bg-raised:#ffffff;     /* 抬升面：输入卡/浮层 */
+  --bg-inset:#eeeeee;      /* 凹陷面：代码块/引用/表格头 */
 
   /* 描边：暖调（冷灰描边落在暖底上会显脏） */
   --l1:rgba(80,66,40,.055);
@@ -62,7 +62,7 @@
   --elev-pop:0 0 0 .5px var(--l2),0 6px 16px rgba(70,56,32,.07),0 18px 48px rgba(70,56,32,.10);
 
   /* 浮层：毛玻璃暖纸 */
-  --menu:rgba(253,253,250,.86);
+  --menu:rgba(255,255,255,.86);
 
   /* 字体 */
   --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Hiragino Sans GB",sans-serif;
@@ -86,10 +86,10 @@
 
 /* ---------- 设计令牌：暗色「墨」 ---------- */
 [data-theme="dark"]{
-  --bg:#201e1a;
-  --bg-side:#25221d;
-  --bg-raised:#2c2923;
-  --bg-inset:#2a2721;
+  --bg:#1a1a1a;            /* 参考 pi-web dark 基底 */
+  --bg-side:#242424;       /* 侧栏：pi-web bg-panel */
+  --bg-raised:#242424;     /* 抬升面 */
+  --bg-inset:#222222;      /* 凹陷面 */
   --l1:rgba(238,228,205,.065);
   --l2:rgba(238,228,205,.11);
   --l3:rgba(238,228,205,.17);
@@ -117,7 +117,7 @@
   --elev-sm:0 0 0 .5px var(--l2),0 1px 3px rgba(0,0,0,.28);
   --elev-card:0 0 0 .5px var(--l2),0 2px 6px rgba(0,0,0,.26),0 10px 28px rgba(0,0,0,.32);
   --elev-pop:0 0 0 .5px var(--l2),0 6px 16px rgba(0,0,0,.32),0 18px 48px rgba(0,0,0,.42);
-  --menu:rgba(44,41,35,.86);
+  --menu:rgba(36,36,36,.86);
   --sb-thumb:rgba(238,228,205,.13);
   --sb-thumb-hover:rgba(238,228,205,.24);
 }

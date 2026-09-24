@@ -1,9 +1,13 @@
-/**
- * 全局样式入口（docs/06-ui-design.md §2）：
- * - Tailwind 与 token 由 `@ice-ai/ui/theme.css` 统一引入（`@theme inline` 映射见该文件）
- * - `@source` 必须显式指向包外源码，否则 Tailwind 扫不到 ui 的类名（类名被摇掉）
- */
+/* PiBoat Web 全局入口（ADR-0011）
+   1. @ice-ai/ui/theme.css：Tailwind + 设计令牌 + ui 包全部组件样式
+      （组件 css 就近放在 packages/ui/src/**，由 theme.css 统一聚合）
+   2. web 自有组件样式：与组件 tsx 同目录，在此聚合（排在 theme.css
+      之后，保持原 additions.css「后置覆盖」的级联语义） */
 @import "@ice-ai/ui/theme.css";
+@import "./components/app-shell.css";
+@import "./components/sidebar.css";
+@import "./components/conv-header.css";
+
 @source "../../../packages/ui/src";
 
 html,

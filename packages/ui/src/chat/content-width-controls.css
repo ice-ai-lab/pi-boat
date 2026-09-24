@@ -1,0 +1,20 @@
+/* ContentWidthControls —— 阅读宽度拖拽手柄（改 --chat-w）
+   （拆自原 styles/additions.css，ADR-0011） */
+
+.chat-handle {
+  position: absolute;
+  left: 50%;
+  transform: translateX(calc(var(--chat-w) / 2 + 26px));
+  top: 56px;
+  height: 18px;
+  width: 7px;
+  border-radius: 99px;
+  background: var(--l2);
+  cursor: ew-resize;
+  z-index: 25;
+  transition: background 0.14s;
+}
+.chat-handle:hover,
+.chat-handle.dragging {
+  background: var(--t3);
+}

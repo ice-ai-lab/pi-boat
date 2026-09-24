@@ -1,0 +1,19 @@
+/* MessageList —— 会话滚动容器与轮次间距
+   用户气泡/assistant 行/折叠行等子结构样式见各自组件旁的 css。
+   （拆自原 styles/prototype.css，ADR-0011） */
+
+.conv-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  scroll-behavior: smooth;
+}
+.conv {
+  max-width: var(--chat-w);
+  margin: 0 auto;
+  padding: 30px 34px 48px;
+}
+.turn {
+  margin-bottom: 38px;
+  scroll-margin-top: 14px;
+}

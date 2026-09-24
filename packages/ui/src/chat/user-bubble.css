@@ -1,0 +1,49 @@
+/* UserBubble —— 用户消息：右对齐气泡，尾部小角
+   （拆自原 styles/prototype.css 与 additions.css，ADR-0011） */
+
+.u-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 14px;
+}
+.u-wrap {
+  max-width: 76%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.u-bubble {
+  background: var(--bubble);
+  border: 1px solid var(--bubble-line);
+  border-radius: 15px 15px 5px 15px;
+  padding: 9px 14px;
+  font-size: 13.5px;
+  line-height: 1.72;
+  color: var(--t1);
+}
+.u-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
+  font-size: 10.5px;
+  color: var(--t3);
+}
+.u-meta .acts {
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.u-row:hover .u-meta .acts {
+  opacity: 1;
+}
+
+/* 气泡内代码图片附件 */
+.u-img {
+  max-width: 100%;
+  border-radius: 9px;
+  border: 1px solid var(--l2);
+  display: block;
+  margin: 6px 0 2px;
+}

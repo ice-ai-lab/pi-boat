@@ -1,0 +1,46 @@
+/* StatsPills —— 输入卡下常驻指标行
+   （拆自原 styles/prototype.css，ADR-0011） */
+
+.stats {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 7px 4px 0;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--t3);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+}
+.stats .it {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.stats .it b {
+  font-weight: 450;
+  color: var(--t2);
+}
+.stats .it .ico {
+  width: 10.5px;
+  height: 10.5px;
+}
+.stats .grow {
+  flex: 1;
+}
+.stats .ring {
+  width: 12px;
+  height: 12px;
+  transform: rotate(-90deg);
+}
+.stats .ring .bgc {
+  stroke: var(--l2);
+  fill: none;
+  stroke-width: 2.6;
+}
+.stats .ring .fgc {
+  stroke: var(--accent);
+  fill: none;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+}

@@ -1,0 +1,229 @@
+/* Sidebar —— 品牌区 / 新建按钮 / 搜索行 / 会话列表容器 / 底栏
+   会话条目（.sess/.st/.sm/.spin/.unread/.ops）样式在
+   packages/ui/src/inspect/session-list-item.css（随组件）。
+   （拆自原 styles/prototype.css 与 additions.css，ADR-0011） */
+
+/* ---------- 左侧栏 ---------- */
+.side {
+  background: var(--bg-side);
+  border-right: 1px solid var(--l1);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  transition: background-color 0.25s;
+}
+.brand {
+  height: 54px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 17px;
+}
+.brand .mark {
+  width: 19px;
+  height: 19px;
+  stroke: var(--accent);
+  fill: none;
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.brand .mark .sail {
+  fill: var(--accent-weak);
+}
+.brand .wm {
+  font-family: var(--serif);
+  font-size: 16.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--t1);
+}
+.brand .wm em {
+  font-style: normal;
+  color: var(--accent);
+}
+.brand .tag {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--t3);
+  border: 1px solid var(--l2);
+  border-radius: 99px;
+  padding: 1.5px 6px;
+  margin-left: 2px;
+  letter-spacing: 0.04em;
+}
+
+.act {
+  flex: none;
+  display: flex;
+  gap: 7px;
+  padding: 2px 12px 10px;
+}
+.btn-new {
+  flex: 1;
+  height: 31px;
+  border-radius: var(--r-m);
+  background: var(--bg-raised);
+  box-shadow: var(--elev-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 550;
+  color: var(--t1);
+  transition:
+    box-shadow 0.18s var(--ease),
+    transform 0.18s var(--ease);
+}
+.btn-new:hover {
+  box-shadow: var(--elev-card);
+}
+.btn-new:active {
+  transform: scale(0.985);
+}
+.btn-new .ico {
+  width: 13px;
+  height: 13px;
+  stroke-width: 1.8;
+}
+.ico-btn {
+  width: 31px;
+  height: 31px;
+  flex: none;
+  border-radius: var(--r-m);
+  color: var(--t2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background 0.14s,
+    color 0.14s;
+}
+.ico-btn:hover {
+  background: var(--hover);
+  color: var(--t1);
+}
+.brand > .ico-btn {
+  margin-left: auto;
+}
+
+/* 搜索展开行（点击放大镜后出现） */
+.search-row {
+  display: none;
+  margin: 0 12px 8px;
+  position: relative;
+}
+.search-row.show {
+  display: block;
+}
+.search-row input {
+  width: 100%;
+  height: 30px;
+  border-radius: var(--r-m);
+  border: 1px solid var(--l2);
+  background: var(--bg-raised);
+  padding: 0 9px 0 28px;
+  font-size: 12px;
+  outline: none;
+}
+.search-row input:focus {
+  border-color: var(--accent-line);
+}
+.search-row .ico {
+  position: absolute;
+  left: 8px;
+  top: 8px;
+  width: 14px;
+  height: 14px;
+  color: var(--t3);
+}
+
+/* 会话列表容器：无圆角、紧凑不过挤、左 2px 选中条（条目在 session-list-item.css） */
+.sess-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 8px;
+}
+
+/* 日期分组：左标签 + 右运行提示（v4 稿 `.day` 是左对齐日期标签）。
+   旧规则 `.day > span:last-child` 会把「只有一个 span」的日期标签也推到右边
+   并降级为 t4/500，与 v4 稿不符 → 右对齐只落在 `.run-hint` 上（见 ADR-0012）。 */
+.day {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 13px 17px 5px;
+  padding-right: 14px;
+  font-size: 10.5px;
+  font-weight: 650;
+  letter-spacing: 0.1em;
+  color: var(--t3);
+  user-select: none;
+}
+.day .run-hint {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+.day .run-hint i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
+  animation: pulse 1.9s ease-out infinite;
+}
+
+/* 侧栏底栏 */
+.side-foot {
+  flex: none;
+  border-top: 1px solid var(--l1);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 10px;
+}
+.model-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 27px;
+  padding: 0 10px;
+  border-radius: var(--r-m);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--t2);
+  transition:
+    background 0.14s,
+    color 0.14s;
+  margin-right: auto;
+}
+.model-chip:hover {
+  background: var(--hover);
+  color: var(--t1);
+}
+.model-chip .dotok {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--k-bash);
+}
+/* v3 稿底栏的版本号（v4 稿底栏未画；值来自构建期注入的 __APP_VERSION__，见 docs/adr/0012） */
+.side-foot .ver {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  color: var(--t4);
+  letter-spacing: 0.03em;
+}

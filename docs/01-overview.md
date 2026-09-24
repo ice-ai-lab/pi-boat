@@ -131,8 +131,9 @@ pi-boat/
 - 只依赖 `protocol` 类型与 `client` hooks，不依赖任何宿主框架（Next.js / Electron 等）→ Web 与桌面端直接复用
 - Tailwind 4 + token 单一来源 `ui/theme.css`（`:root` / `[data-theme="dark"]` 两套变量，经 `@theme inline`
   暴露给 Tailwind；暗色不得写死在 `@theme` 里）
-- **视觉与交互基准 = `docs/design/piboat-web-v3.html`（原型 v3，2026-09-22 定稿）**：0.5px hairline /
-  superellipse 圆角 / `#4176E6` 业务蓝 / 毛玻璃浮层 / sticky 输入卡等签名细节必须保留（docs/06 §2）
+- **视觉与交互基准 = `docs/design/piboat-web-v4.html`（原型 v4，2026-09-24 定稿，ADR-0012）**：0.5px hairline /
+  superellipse 圆角 / 靛蓝 `--accent`（`#4a5ec9`）/ 毛玻璃浮层 / sticky 输入卡等签名细节必须保留（docs/06 §2）；
+  v4 未画的功能位（hero、侧栏折叠、宽度拖拽、底栏版本号、列表运行提示）继承 v3 稿并按 v4 token 重绘（ADR-0012）
 
 ### 3.2 拆包策略：先粗后细
 
@@ -153,7 +154,7 @@ pi-boat/
 | 路由 | React Router v7（library 模式） | ADR-0002 留白的路由选型，在原型的 `/session/:id` 深链需求下定为库模式（纯 SPA 无 SSR/loader 需求） |
 | 服务端状态 | TanStack Query（仅 `client/react` 层） | REST 读的缓存/失效；`listFingerprint` 作为列表失效键（ADR-0008） |
 | 客户端状态 | Zustand（**M2 起**） | M1 单会话无全局 UI 状态，按需引入（不养期货） |
-| 组件与图标 | shadcn/ui（落位 `ui/primitives`）+ Lucide（ADR-0009） | 无障碍原语不手写；原型 sprite 的 31 个图标逐一换 Lucide（对账表 docs/06 §6）。M1 实测：`primitives/` 手写（cva + clsx + tailwind-merge），shadcn CLI 未使用（P0–P2 组件均为自绘轻量件，shadcn 的价值在表单/复杂弹层，随 M2 再引入） |
+| 组件与图标 | shadcn/ui（落位 `ui/primitives`）+ Lucide（ADR-0009） | 无障碍原语不手写；原型 sprite 的 31 个图标逐一换 Lucide（对账表 docs/06 §6）。M1 实测：`primitives/` 手写（clsx + tailwind-merge；`cva` 待 M2 接入 shadcn 时启用），shadcn CLI 未使用（P0–P2 组件均为自绘轻量件，shadcn 的价值在表单/复杂弹层，随 M2 再引入） |
 | 前端 HTTP | **Axios 统一实例**；响应经 protocol 的 Zod 解析（ADR-0009） | 拦截器只管 baseURL + 错误信封归一（ADR-0007 删 token 后无凭据注入需求）。M1 实现：`ApiClient.baseURL` 默认空串 = 同源，protocol 路径常量自带 `/api` 前缀（见 docs/05 §4） |
 | 前端栈基准 | **ADR-0009 已收口（2026-09-22）** | 含 React Compiler、markdown（react-markdown + shiki）、**不引外部 skills**；唯一遗留：dev 接入方式（ADR-0009 文末） |
 | 前端构建实测（M1 落地） | React Compiler 走 `react({ compiler: true })`（`oxc-transform-react` 的 Rust 实现）；shiki 用 `codeToTokens` 渲染 React 元素（**不**用 `codeToHtml` + innerHTML）；`theme.css` 由 `@ice-ai/ui` 导出、web 用 `@source` 扫包外源码 | 见 docs/06 §2/§11.1 与 ADR-0009；`vite.config.ts` 因 tsc 产物的 extensionless import 问题改引 `packages/protocol/src/constants.ts`（M4 统一收敛） |
@@ -164,9 +165,10 @@ pi-boat/
 | 测试 | Vitest（core/protocol/client/ui）+ Playwright（web E2E） | |
 | 发布 | Changesets（如需发包）；桌面端 electron-builder | |
 
-> **原型登记**：`docs/design/piboat-web-v3.html` 是 v0.1 的视觉/交互基准（未走 ADR，属设计资产而非架构决策）。
+> **原型登记**：`docs/design/piboat-web-v4.html` 是 v0.1 的视觉/交互基准（2026-09-24 由 v3 迁移，见 ADR-0012）。
 > 它定义了一层文档此前没有的东西——**事件上方的视图模型**（处理详情分组 / 折叠行 / 每轮 usage），
-> 该形状由 client 承载（docs/05 §6），不进 protocol。
+> 该形状由 client 承载（docs/05 §6），不进 protocol。v3 稿（2026-09-22 定稿）仍是 hero /
+> 侧栏折叠 / 宽度拖拽 / 底栏版本号 / 列表运行提示这几个功能位的出处。
 
 ---
 
@@ -455,4 +457,4 @@ type WireAgentEvent =
 
 ---
 
-*详细设计按包推进：《core 详细设计》见 `docs/03-core-design.md`（M1 已落地）、《server 详细设计》见 `docs/04-server-design.md`（M1 已落地）、《client 详细设计》见 `docs/05-client-design.md`、《ui 详细设计》见 `docs/06-ui-design.md`（后两篇为开工前设计稿，随 Web 原型 v3 定稿）；视觉/交互基准为 `docs/design/piboat-web-v3.html`。协议契约以 `docs/02-protocol-inventory.md` 为准（覆盖产品全量 API 面）。*
+*详细设计按包推进：《core 详细设计》见 `docs/03-core-design.md`（M1 已落地）、《server 详细设计》见 `docs/04-server-design.md`（M1 已落地）、《client 详细设计》见 `docs/05-client-design.md`、《ui 详细设计》见 `docs/06-ui-design.md`（后两篇为开工前设计稿，随 Web 原型 v4 定稿）；视觉/交互基准为 `docs/design/piboat-web-v4.html`（ADR-0012）。协议契约以 `docs/02-protocol-inventory.md` 为准（覆盖产品全量 API 面）。*

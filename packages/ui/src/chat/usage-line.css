@@ -1,0 +1,19 @@
+/* UsageLine —— 每轮用量行
+   （拆自原 styles/prototype.css，ADR-0011） */
+
+.usage {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 11px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--t3);
+  font-variant-numeric: tabular-nums;
+}
+.usage .sep {
+  color: var(--t4);
+}
+.usage .tm {
+  margin-left: auto;
+}

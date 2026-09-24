@@ -1,0 +1,158 @@
+/* ConvHeader —— 顶栏：三段网格 / 居中指标 / 右侧工具与浮层挂载点
+   浮层本体样式见 packages/ui/src/primitives/popover.css（随组件）。
+   （拆自原 styles/prototype.css 与 additions.css，ADR-0011） */
+
+/* 顶栏：44px 单行 · 三段网格保证指标绝对居中 */
+.head {
+  height: 46px;
+  flex: none;
+  z-index: 40;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--l1);
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.head-l {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.vtab {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: var(--r-m);
+  flex: none;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--t1);
+  background: var(--sel);
+  display: flex;
+  align-items: center;
+}
+.head-title {
+  font-size: 12.5px;
+  font-weight: 520;
+  color: var(--t2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.live {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  color: var(--t3);
+  flex: none;
+}
+.live .pdot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  position: relative;
+}
+.live .pdot::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 1px solid var(--accent);
+  animation: pulse 1.9s ease-out infinite;
+}
+/* @keyframes pulse 在 styles/base.css（与侧栏 run-hint 共用） */
+
+/* 居中指标（点击开统计浮层） */
+.metrics {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  height: 28px;
+  padding: 0 13px;
+  border-radius: 99px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--t2);
+  transition: background 0.14s;
+  user-select: none;
+}
+.metrics:hover {
+  background: var(--hover);
+}
+.metrics b {
+  font-weight: 400;
+  color: var(--t1);
+}
+.metrics .sep {
+  color: var(--t4);
+}
+.metrics .ring {
+  width: 13px;
+  height: 13px;
+  transform: rotate(-90deg);
+}
+.metrics .ring .bgc {
+  stroke: var(--l2);
+  fill: none;
+  stroke-width: 2.4;
+}
+.metrics .ring .fgc {
+  stroke: var(--accent);
+  fill: none;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+button.metrics {
+  font: inherit;
+  letter-spacing: inherit;
+}
+
+.head-r {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+}
+.chip {
+  height: 27px;
+  padding: 0 10px;
+  border-radius: var(--r-m);
+  font-size: 12px;
+  color: var(--t2);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition:
+    background 0.14s,
+    color 0.14s;
+}
+.chip:hover {
+  background: var(--hover);
+  color: var(--t1);
+}
+.chip.on {
+  background: var(--accent-weak);
+  color: var(--accent);
+}
+.chip .ico {
+  width: 13px;
+  height: 13px;
+}
+.vr {
+  width: 1px;
+  height: 15px;
+  background: var(--l2);
+  margin: 0 6px;
+}
+
+/* 右侧工具组：窄侧栏时不挤压中栏 */
+.head-tools {
+  min-width: 0;
+  overflow: visible;
+}
