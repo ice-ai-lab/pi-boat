@@ -64,7 +64,7 @@ packages/client/src/
 
 - 单一 Axios 实例（`ADR-0009`）：`baseURL` 指向 server，**拦截器只做两件事**——错误信封归一
   （非 2xx → 解出 `CommandError` 并以类型化异常抛出）与可选超时；**不做**凭据注入（ADR-0007 已无凭据）
-- 每个端点 = `protocol` 的路径常量 + 请求/响应 schema，**不自造形状**（与 server 路由同一份契约）
+- 每个端点 = `protocol` 的请求/响应 schema（路由路径用字面量），**不自造形状**（与 server 路由同一份契约）
 - 流程固定为：`axios.request` → **`schema.safeParse`** → 成功返回 `data` / 失败抛带 path 的错误
   （ADR-0005 铁律：Axios 只负责把 JSON 拿回来，解析权归 Zod）
 - 错误信封（docs/04 §4.1）：非 2xx 统一解出 `CommandError`（含 `code`，如 `prompt_rejected`），

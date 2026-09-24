@@ -21,7 +21,7 @@
 |---|---|---|
 | REST 路由 | 49 个路由文件（52 个端点文件，其中 2 个为 SSE，部分含多方法） | 九大功能域（§6）。⚠️ **计数已过期且不完整**（2026-01 复核：能力面基线实测 55 个路由文件 / 78 个 handler；本表未收录 `/api/models/enabled`、`/api/models/refresh`、`DELETE /api/auth/api-key/:provider`、`/api/web-auth` 等条目）——差异与补齐依据见 `docs/07-backend-capability-gap.md` |
 | SSE 事件流 | 1（agent 事件流；auth 登录流一期排除） | `agent/[id]/events`；~~`auth/login/[provider]`~~（2026-01 排除，见 §6.5） |
-| RPC 命令 | 25（命令通道 24 + `agent/new` 专属 `ensure_session`；2026-09-22 删 Shell 直连组，2026-01 删不存在的 `extension_ui_input`） | `POST /api/agent/:id` 请求体判别联合（§4） |
+| RPC 命令 | **24 已全部实现**（命令通道 24 个；2026-09-22 删 Shell 直连组，2026-01 删不存在的 `extension_ui_input`） | `POST /api/agent/:id` 请求体判别联合（§4） |
 | 领域类型 | ~40 个 | domain/ 七文件（§3、§10） |
 | 事件 wire 类型 | 24 种（SDK 透传 22 + 服务层自加 2；2026-09-22：删 bash_execution_update） | SDK `JsonAgentSessionEvent` 投影 + 服务层事件（§5.1） |
 
@@ -113,12 +113,12 @@
 |---|---|
 | 对话 | `prompt {message, images?, streamingBehavior?}` → null；`steer / follow_up {message, images?}`；`abort`；`clear_queue` → `{steering[], followUp[]}` |
 | 状态 | `get_state` → AgentState；`get_session_stats` → SessionStatsInfo；`get_last_assistant_text` → `{text}` |
-| 模型/思考 | `set_model {provider, modelId}` → `{id, provider}`；`set_thinking_level {level}` |
+| 模型/思考 | `set_model {provider, modelId}` → `ModelRef`（`{provider, modelId}`，与 `AgentState.model` 同形）；`set_thinking_level {level}` |
 | 压缩 | `compact {customInstructions?}`；`abort_compaction`；`set_auto_compaction {enabled}`；`set_auto_retry {enabled}` |
 | 分支 | `fork {entryId}` → `{cancelled, newSessionId}`（**破坏性原地替换**，见概要设计 §8-1）；`fork_branch {entryId}` → 新会话不改当前；`clone {leafId?}`；`navigate_tree {targetId}` → `{cancelled, editorText?}` |
-| 工具 | `get_tools` → ToolInfo[]（含 active）；`set_tools {toolNames}` → **双路径**：运行中会话走 switch 返回 null；冷会话走 route 层 `setRpcSessionTools` 重建 runtime，信封 data 为 `{sessionId, recreated}`（返回形状不同，协议需两态） |
+| 工具 | `get_tools` → ToolInfo[]（含 active）；`set_tools {toolNames? \| preset?}`（两者恰给一个，core 校验）→ **双路径**：只需换激活名单时走 switch 返回 null；`preset:'none'`（纯聊天边界）或 `preset:'configured'`（撤销钉住）要换 resource loader ⇒ 重建 runtime，data 为 `{sessionId, recreated}` |
 | 命令面板 | `get_commands` → `{commands: SlashCommandInfo[]}` |
-| 会话管理 | `set_session_name {name}` → null（空白名报错）；`reload` → `{success}`（重绑扩展/同步信任/刷新模型缓存）；`ensure_session`（仅 `agent/new` 的 type 值：只建 runtime 不发首条消息，供客户端预查命令） |
+| 会话管理 | `set_session_name {name}` → null（空白名报错）；`reload` → null（重绑扩展并重载资源）；`ensure_session`（仅 `agent/new` 的 type 值：只建 runtime 不发首条消息，供客户端预查命令） |
 | 扩展 UI | `extension_ui_response`（~~`extension_ui_input`~~ 不存在，见 ADR-0012） |
 
 > ⚠️ 2026-09-22 决策：**Shell 直连组（`bash` / `abort_bash`，即 TUI `!`/`!!` 直接执行）不实现**，
@@ -179,6 +179,10 @@
 ---
 
 ## 6. ⑤ REST 资源类型（rest，按功能域 9 组）
+
+> **实现状态（2026-02）**：§6.1–§6.4、§6.6、§6.7、§6.9 与 §7 的端点**已全部落地**（共 57 条路由，
+> `packages/server/src/routes/`）；§6.5 认证与用量、§6.8 终端按 ADR-0014 排除。
+> 未实现的两处例外已在 `docs/07` §9「实现期发现的边界」逐条记明（`type=watch`、上传的 Range/分块/DOCX）。
 
 ### 6.1 会话列表与项目分组
 
@@ -357,23 +361,26 @@ packages/protocol/src/
 │   └── wire-agent-event.ts  # WireAgentEvent + seq 语义
 │                           #   （终端 TerminalEvent 与 rest/terminal.ts 已按
 │                           #    2026-01 决策移除，不再预留文件）
-└── rest/               # ⑤⑥REST 资源（按域一文件：类型 + 路径常量 + Zod）
+└── rest/               # ⑤⑥REST 资源（按域一文件：类型 + Zod；不导出路径常量，§3）
     ├── agent.ts           # agent 运行时域：new / 命令通道 / SSE / running / 轻查
     ├── sessions.ts         # 列表（projectKey/force）+ 详情/分页/惰性加载/搜索/导出/auto-name
-    ├── projects.ts         # 项目清单契约（projectKey 分组视图 + listFingerprint，ADR-0008；无路径常量）
+    ├── projects.ts         # 项目清单契约（projectKey 分组视图 + listFingerprint，ADR-0008）
     ├── models.ts           # models / models-config / discover / test / catalog / enabled / refresh
     ├── files.ts            # home / default-cwd / cwd browse+validate / files / file-index
     ├── git.ts              # status / diff / worktrees
-    ├── resources.ts        # skills / plugins / subagents / tools-settings / project-trust
+    ├── resources.ts        # skills / plugins / tools-settings / project-trust（subagents 延后，见 docs/07 §8-4）
     └── misc.ts             # health / lease / push
 ```
 
 > 已排除、不再开文件：`auth.ts`（providers / login / api-key / logout / provider-usage，§6.5）与 `terminal.ts`（PTY，§6.8）——2026-01 定案，明细见 `docs/07-backend-capability-gap.md` §8。
 
-> 落地状态：M1 的 protocol 侧已定稿（2026-01）——domain/ 七文件全量、commands M1 子集、
-> events/wire-agent-event、rest/agent + rest/misc + rest/sessions（agent 域自 sessions 拆出，
-> 按 core 双服务边界分域，2026-09-22）；
-> M2/M3 条目按里程碑追加。
+> 落地状态（2026-02）：**一期 protocol 已全部落地**——domain/ 全量、commands 24 条命令、
+> events/wire-agent-event（27 种事件）、rest/ 七个文件（agent / sessions / projects / models /
+> files / git / resources / misc）。
+>
+> ⚠️ **不导出路径常量**：本包只定义请求/响应契约。路由字面量由 server 与 client 各自持有——
+> 常量的唯一价值是"两端共用一份"，而在 client SDK 尚未消费它之前，那些 export 只是
+> **无消费方的期货**（§3「不养期货」）。出现真实消费方时再加，并在同一提交里让调用方改用它。
 
 ## 11. 里程碑切片（从本清单取子集）
 
