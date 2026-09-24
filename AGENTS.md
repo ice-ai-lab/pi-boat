@@ -18,7 +18,8 @@ pnpm turbo run test         # Vitest（core/protocol/client/ui）
 pnpm turbo run lint         # Biome 2（lint + format；修复用 pnpm lint:fix）
 ```
 
-server 验收：单测 `packages/server/test/server.test.ts`（30 用例：安全层三闸 403 / 信封映射 / 会话浏览 / 项目 / SSE）；
+server 验收：单测 `packages/server/test/server.test.ts`（66 用例：安全层三闸 403 / 信封映射 / 会话浏览 / 项目 / SSE / 模型 / 资源 / 文件系统）；
+一期后端已全部落地（57 端点 / 24 命令 / 27 类 wire 事件），进度与遗留见 `docs/01` §7.1 与 `docs/07` §9
 路由与传输语义见 `docs/04-server-design.md`
 
 - 开发期浏览器页面与 `/api/*`（含 SSE）都走 `vite dev`（9528），后者把 `/api` **代理**到 agent server（9527）——浏览器视角同源，与生产拓扑一致，`AgentClient` 的 baseURL 用相对路径 `/api`（ADR-0009）；CORS 白名单保留给直连备选（Electron / LAN / PWA）。端口单一来源为 `protocol` 的 `PORTS`，server 可用 `PORT` 环境变量覆盖
@@ -27,7 +28,7 @@ server 验收：单测 `packages/server/test/server.test.ts`（30 用例：安�
 ## Monorepo 结构与依赖铁律
 
 ```
-apps/web          前端 SPA —— Vite + React 19 静态产物（待建，决策见 ADR-0002）
+apps/web          前端 SPA —— Vite + React 19 静态产物（未建，目录尚未创建，决策见 ADR-0002）
 apps/desktop      Electron（二期，未建）
 packages/protocol 纯类型 + Zod schema，零业务逻辑 —— 前后端唯一契约
 packages/core     Agent 业务核心 —— 全仓唯一允许依赖 pi SDK 的包

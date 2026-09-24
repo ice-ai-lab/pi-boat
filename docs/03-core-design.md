@@ -2,7 +2,8 @@
 
 > `@ice-ai/core`：Agent 业务核心。本文是 `docs/01-overview.md` §3.1/§5.5 的实现细化，
 > API 契约以 `docs/02-protocol-inventory.md` 与 `@ice-ai/protocol` 为准。
-> 状态：M1 已落地（2026-09-22） · 与代码不一致时以代码为准并当天更新本文档。
+> 状态：**一期全部落地**（M1，2026-09-22；M2/M3 对应模块随 B2–B7 于 2026-02 补齐，见 `docs/07` §6）
+> · 与代码不一致时以代码为准并当天更新本文档。
 
 ---
 
@@ -21,13 +22,53 @@ core 是 pi SDK 之上的**传输无关**业务层，补齐 SDK 没有的三件�
 
 ## 2. 模块地图
 
+21 个源文件 / 13 个测试文件（184 用例）。按目录分四组：**agent**（运行时）、**read**（磁盘只读）、
+**config**（模型与配置）、**resources + system**（资源与宿主能力）。
+
+### 2.1 agent（会话运行时）
+
 | 文件 | 职责 | 测试 |
 |---|---|---|
-| `agent/agent-session-service.ts` | 注册表 + 命令分发（FIFO）+ 新建会话 + late-join 订阅入口 | `agent-session-service.test.ts` |
-| `agent/session-entry.ts` | 注册表单元：委托订阅 / seq 计数 / 流内状态跟踪 / dispose | `session-entry.test.ts` |
+| `agent/agent-session-service.ts` | 注册表 + 命令分发（FIFO，均 24 条命令）+ 新建/reload + fork·clone·navigate_tree 的 runtime 替换 + late-join 订阅入口 | `agent-session-service.test.ts` |
+| `agent/session-entry.ts` | 注册表单元：委托订阅 / seq 计数 / 流内状态跟踪（queue、半截消息、扩展 UI、perf 累加）/ dispose | `session-entry.test.ts` |
+| `agent/extension-ui-bridge.ts` | 扩展 UI 宿主：阻塞型请求的兜底超时、未决请求结清、widgets/status 代际管理（ADR-0012） | `extension-ui-bridge.test.ts` |
+| `agent/liveness.ts` | `LivenessRegistry`（lease + idle 回收）+ `PushService`（VAPID、订阅落盘、完成通知投递） | `liveness.test.ts` |
+| `agent/session-tool-selection.ts` | 工具预设的会话内持久化（custom 条目读写，`TOOL_SELECTION_CUSTOM_TYPE`） | —（随 service 测） |
+| `agent/exact-system-prompt.ts` | 精确系统提示词覆写（内联 extension 的 `before_agent_start`） | —（真机验证项） |
+| `agent/sdk-types.ts` | SDK 类型的最小再导出（隔离 SDK 依赖面） | — |
+
+### 2.2 read（`.jsonl` 只读与项目视图）
+
+| 文件 | 职责 | 测试 |
+|---|---|---|
+| `read/session-read-service.ts` | 列表/正文搜索/详情/分页/改名/统计/级联删除/工具图片/文件指纹（`revision`） | `session-read-service.test.ts` |
+| `read/project-read-service.ts` | 项目清单（ADR-0008 派生视图，与列表共用扫描与 resolver） | `project-read-service.test.ts` |
+| `read/project-resolver.ts` | cwd → 项目归一（git 仓库根 / worktree / `projectKey`，60s 缓存） | `project-resolver.test.ts` |
+| `read/dir-scan.ts` | 会话目录元数据扫描 + 目录指纹（列表缓存键，不解析正文） | —（随 read/project 测） |
+
+### 2.3 config（模型与 models.json）
+
+| 文件 | 职责 | 测试 |
+|---|---|---|
+| `config/config-service.ts` | models.json 读写、provider 发现/连通测试、目录刷新（仅手动联网，ADR-0011③） | `model-scope.test.ts`（同域） |
+| `config/model-scope.ts` | 可见范围编辑引擎：glob/fuzzy 解析、最小编辑、`prune`/`resync`、最后一个模型拒绝（ADR-0011） | `model-scope.test.ts` |
+| `config/models-config-store.ts` | models-store overlay 与 cost 归一 | `models-config-store.test.ts` |
+
+### 2.4 resources / system（资源与宿主能力）
+
+| 文件 | 职责 | 测试 |
+|---|---|---|
+| `resources/resource-service.ts` | skills / plugins / 工具设置 / 项目信任（`DefaultResourceLoader` + `SettingsManager` 同源） | `resource-service.test.ts` |
+| `resources/settings-file.ts` | `settings.json` 自由字段读写（`.lock` 目录互斥 + 原子替换，与 pi CLI 互斥） | —（随 resource 测） |
+| `system/system-service.ts` | 文件树/读文件/上传、git status·diff、worktree 增删查 | `system-service.test.ts` |
+| `system/path-guard.ts` | allowed-roots 判定（`PathGuard` / `isInsideRoot` / `samePath`），全仓唯一安全边界实现 | `system-service.test.ts` |
+
+### 2.5 事件投影
+
+| 文件 | 职责 | 测试 |
+|---|---|---|
 | `events/wire-event.ts` | SDK 事件 → wire 事件投影（**全仓唯一触碰 SDK 事件内部结构的文件**） | `wire-event.test.ts` |
 | `events/wire-message.ts` | SDK 消息 → wire 消息（七角色已对齐，仅剥 readonly + 类型边界） | — |
-| `read/session-read-service.ts` | `.jsonl` 只读浏览：列表/搜索/详情/分页/改名/统计/级联删除/工具图片读取 | `session-read-service.test.ts` |
 
 ## 3. 会话注册表与生命周期
 
@@ -35,7 +76,7 @@ core 是 pi SDK 之上的**传输无关**业务层，补齐 SDK 没有的三件�
 
 直接订阅 SDK session 有三个缺口：
 
-1. **runtime 替换**（M2 fork）：旧订阅指向死对象；订阅者挂 Entry，替换时只需在 Entry 上换 `session` 引用并重绑
+1. **runtime 替换**（fork/clone/navigate_tree）：旧订阅指向死对象；订阅者挂 Entry，替换时只需在 Entry 上换 `session` 引用并重绑（替换会在旧流上下发 `session_replaced`）
 2. **无序号**：SDK 事件流没有 seq，无法去重与差量重放（§5）
 3. **无当前值查询**：SDK 只有事件没有快照查询（排队消息、进行中消息、lastSeq）
 
@@ -112,7 +153,7 @@ return task;                                   // 错误由本次调用方接住
 
 同会话串行、跨会话并行；**前一条命令失败不阻塞后续命令**（错误不传染队列链）。
 
-### 6.2 M1 命令子集与实现要点
+### 6.2 命令实现要点（24 条命令全量；下表为易踩坑的一批）
 
 | 命令 | 要点 |
 |---|---|
@@ -122,7 +163,7 @@ return task;                                   // 错误由本次调用方接住
 | `get_state` | 装配 AgentState：queued/isPromptRunning 来自 **Entry 流内跟踪**，其余直读 SDK；`lastSeq` 与各字段同块同步读取 |
 | `get_session_stats` / `get_last_assistant_text` | 直通 SDK 装配 |
 | `get_commands` | 聚合三源：扩展命令 + prompt 模板 + 技能（`skill:` 前缀） |
-| `get_tools` / `set_tools` | active 集合来自 `agent.state.tools`；set_tools M1 只走 switch 路径（下一轮生效），冷会话重建归 M2 |
+| `get_tools` / `set_tools` | active 集合来自 `agent.state.tools`；`set_tools` 收 `{preset}` 或 `{toolNames}`（恰好一个，core 校验）：运行中走 switch 路径（下一轮生效）返回 `null`；冷会话**重建 runtime** 返回 `{sessionId, recreated:true}` |
 
 ### 6.3 isPromptRunning 双来源销账（2026-09-21 修复）
 
@@ -163,15 +204,15 @@ agent-session.js:776/784/949）②`agent_settled` 事件幂等兜底（steer/fol
 
 ### 7.2 其余方法
 
-- `list/search`：`SessionManager.listAll` 扫描（目录指纹缓存，ADR-0008）+ 客户端式过滤（搜索索引 M3）
+- `list/search`：`SessionManager.listAll` 扫描（目录指纹缓存，ADR-0008）+ 轻量字段过滤，再对有限候选扫正文（G2-7；候选数与单文件字节数均有上限）
 - `detail`：tree/stats/context 装配；`totalActiveMs` 冷会话置 0（需运行时埋点）
-- `rename`：`appendSessionInfo` 追加行（空白名抛 UserInputError）；运行中会话改走命令通道（M2）
+- `rename`：`appendSessionInfo` 追加行（空白名抛 UserInputError）；运行中会话 `PATCH` 仍返 **409**（server 提示改走 `set_session_name` 命令，避免与 SDK 写盘竞争）
 - `computeStats`：对齐 SDK `getSessionStats` 聚合口径（导出的纯函数）。⚠️ **必须计入 `usage` 条目**（如 `kind: "cache_warm"` 的 prompt 缓存预热，SDK ≥ 0.86）：它不进模型上下文但计费，漏掉它 token / cost 就与 SDK `/session` 不一致；`context_edit` 条目对统计无影响（不改原始消息）
 - `delete`（docs/04 §8-2）：按 header.parentSession（父会话文件路径）建子链，BFS 收集
   传递闭包，**只级联带子代理标记的子会话**（判定用 custom 条目的 `customType`，字面量
   见 `SessionReadService.delete()`；fork 子会话仍是顶层列表项，不级联）；运行中拦截归 server（409）
 - `toolResultImage`（docs/04 §8-3）：按 entryId + blockIndex 读 toolResult 消息的图片块，
-  base64 解码为二进制；deferMedia 占位符形状待 protocol 定稿（M1 历史图片全文直发）
+  base64 解码为二进制；`deferMedia` 占位符形状待后续定（历史图片全文直发）
 
 ## 8. 错误类型
 
@@ -184,28 +225,35 @@ agent-session.js:776/784/949）②`agent_settled` 事件幂等兜底（steer/fol
 
 ## 9. 测试与事件快照回归
 
-- 六个测试文件（约 1600 行）：service（FIFO/create/late-join）、entry（seq/dispose/销账）、
-  wire-event（**事件快照回归**）、read（分页/压缩边界）、project-resolver（归一/缓存）、
-  project-read（项目聚合）
+- **13 个测试文件 / 184 用例（约 3400 行）**：service（FIFO/create/late-join/fork/命令全集）、
+  entry（seq/dispose/销账）、wire-event（**事件快照回归**）、read（分页/压缩边界/正文搜索/指纹）、
+  project-resolver（归一/缓存）、project-read（项目聚合）、extension-ui-bridge（超时/结清/代际）、
+  liveness（lease/idle 回收/push 投递）、model-scope（编辑引擎/最后模型拒绝）、
+  models-config-store、resource-service、system-service（PathGuard/上传/worktree）
+- `test/helpers/fake-runtime.ts`：不启真 SDK 的 runtime 替身（大多数服务测试的基座）
 - **事件快照回归**（`wire-event.test.ts`）：SDK 事件样例 → wire 输出断言。SDK 升级
   （版本锁 0.87.x）或改投影代码时**必须跑**（AGENTS.md），防事件格式漂移
 - 运行：`pnpm turbo run test`（或 `pnpm --filter @ice-ai/core test`）
 
-## 10. 待落地（按里程碑）
+## 10. 落地状态与遗留
 
-- **M2**：fork/压缩/模型组命令（fork 的 runtime 替换在 Entry 上换引用重绑）、扩展 UI 通道、
-  set_tools 冷会话重建、ConfigService、改名走命令通道、列表 transient 合并、
-  **性能统计累加**（`rounds`←`agent_start`、`steps`←`turn_start`、`llmMs`、`toolMs`、`tps`→
-  `SessionStatsInfo.perf?`；累加在 SessionEntry 的流内状态上，**冷会话（本进程未跑过）为 `undefined`**，docs/02 §11.1）、
-  **工具预设解析**（模式菜单四项 → 工具名清单；`default` 集只有 core 知道 SDK 的默认工具，docs/02 §11.1）
-- **M3**：idle 回收与 liveness lease、SystemService（文件/git worktree）、导出 HTML / auto-name
-- **M1 内补**（开工时做，不拖到 M2）：`create()` 前置 **cwd 校验**——不存在或非目录 → `UserInputError` →
-  server 400（已有映射）。动机是一个实证结论：SDK `createAgentSession({ cwd })` 对不存在的路径
-  **不报错照样建会话**，之后每次 read/bash/edit 工具调用都在会话里失败，用户看到的是“agent 莫名一直报错”
-  而不是“路径错了”（docs/02 §4.1、docs/06 §11.3 行 1b）
-- **`systemPrompt` 的语义（ADR-0010 已升级到 0.87.x）**：`agent.state.systemPrompt` 是**转录回放**
-  （从落盘的 system 消息重建），不是某次请求实际下发的 prompt；精确下发只能靠 `before_agent_start`
-  扩展覆写（`docs/06` §11.2 的 exactSystemPrompt 路径）。⚠️ 面板显示值须在真机跑一轮会话时重验，
+### 10.1 已落地（原「待落地」清单全部清空）
+
+| 原计划 | 落点 |
+|---|---|
+| M2：fork/压缩/模型组命令、扩展 UI 通道、`set_tools` 冷会话重建、ConfigService、改名走命令通道、列表 transient 合并 | `agent-session-service.ts` / `extension-ui-bridge.ts` / `session-tool-selection.ts` / `config/`；改名走命令通道已在 `set_session_name` |
+| M2：**性能统计累加**（`rounds`/`steps`/`llmMs`/`toolMs`/`tps` → `SessionStatsInfo.perf?`；累加在 SessionEntry 的流内状态上，**冷会话为 `undefined`**） | `agent/session-entry.ts`（docs/02 §11.1） |
+| M2：**工具预设解析**（四项预设 → 工具名清单；`default` 集只有 core 知道） | `agent/session-tool-selection.ts` + `set_tools {preset}` |
+| M3：idle 回收与 liveness lease、SystemService（文件/git worktree）、导出 HTML / auto-name | `agent/liveness.ts` / `system/`；导出与 auto-name 在 `session-read-service` + model 域 |
+| M1 内补：`create()` 前置 **cwd 校验**（不存在或非目录 → `UserInputError` → 400） | ✅ 已落地（`create()`：SDK 对不存在 cwd **不报错照样建会话**，之后每次工具调用都失败，用户看到的是“agent 莫名一直报错”） |
+| 外部写入检测 + `resume`（ADR-0013） | ✅ 全量读时比磁盘与内存索引，落后就重建 runtime（`wrapperRebuilt`） |
+
+### 10.2 遗留（有意保留 / 待真机验证）
+
+- **`systemPrompt` 的语义（ADR-0010 已升到 0.87.x）**：`agent.state.systemPrompt` 是**转录回放**
+  （从落盘的 system 消息重建），不是某次请求实际下发的 prompt；精确下发靠 `before_agent_start`
+  扩展覆写（`agent/exact-system-prompt.ts`，docs/06 §11.2）。⚠️ 面板显示值须在真机跑一轮会话时重验，
   单测覆盖不到（B1 遗留的实测项）
-- **server 前置**：SSE 重放缓冲（M1 已降级为忽略 Last-Event-ID，docs/04 §5.5）、
-  deferMedia 占位符（待 protocol 定稿；`toolResultImage` 读取已就位）
+- **`deferMedia` 占位符形状**待后续定（历史图片目前全文直发；`toolResultImage` 惰性读取已就位）
+- **SSE 重放缓冲**（Last-Event-ID 差量重放）：core 仍只发不存，重连降级为整体重建（docs/04 §5.5，
+  `docs/07` B8 可选）
