@@ -1,10 +1,18 @@
 import {
   type AgentSessionService,
+  type ConfigService,
+  InvalidScopeEditError,
+  LastModelRejectionError,
   type ProjectReadService,
   PromptRejectedError,
+  type PushService,
+  type ResourceService,
   type SessionListOptions,
   SessionNotFoundError,
   type SessionReadService,
+  SkillInstallError,
+  SystemAccessError,
+  type SystemService,
   UserInputError,
 } from '@ice-ai/core';
 import type { AgentCommand, SessionContextQuery, WireAgentEvent } from '@ice-ai/protocol';
@@ -45,6 +53,16 @@ function fakeAgentService() {
       thinkingLevel: 'medium' as const,
     })),
     send: vi.fn(async (id: string, _command: AgentCommand) => ({ sessionId: id })),
+    resume: vi.fn(async (id: string) => {
+      if (!running.has(id)) throw new SessionNotFoundError(id);
+      return {
+        success: true,
+        data: null,
+        sessionId: id,
+        model: { provider: 'anthropic', modelId: 'claude-test' },
+        thinkingLevel: 'medium' as const,
+      };
+    }),
     subscribe: vi.fn((id: string, listener: Listener) => {
       // 模仿 core 时序：注册 → connected{lastSeq}（§5.2；快照 message_start 场景略）
       const set = listeners.get(id) ?? new Set<Listener>();
@@ -60,6 +78,8 @@ function fakeAgentService() {
     runningSessionIds: () => [...running],
     registryVersion: 7,
     disposeAll: vi.fn(),
+    transientInfos: vi.fn(() => []),
+    probeExternalWrite: vi.fn(async () => false),
     /** 测试驱动：向某会话的全部订阅者广播事件（seq 由本 fake 重排） */
     emit: (id: string, event: WireAgentEvent) => {
       seq += 1;
@@ -70,6 +90,7 @@ function fakeAgentService() {
 }
 
 function fakeReadService() {
+  // B4 新增面（export / auto-name / thinking / revision）——路由层只验校验与错误映射
   const info = {
     path: '/tmp/s1.jsonl',
     id: 'sess-disk',
@@ -83,7 +104,54 @@ function fakeReadService() {
     list: vi.fn(async (_options?: SessionListOptions) => [info]),
     listFingerprint: vi.fn(async () => 'fp-test'),
     search: vi.fn(async () => [info]),
-    detail: vi.fn(async (id: string) => (id === 'sess-disk' ? { sessionId: id } : null)),
+    detail: vi.fn(async (id: string) =>
+      id === 'sess-disk'
+        ? {
+            sessionId: id,
+            filePath: '/tmp/s1.jsonl',
+            info: {
+              path: '/tmp/s1.jsonl',
+              id,
+              cwd: '/tmp',
+              created: '2026-01-01T00:00:00.000Z',
+              modified: '2026-01-01T00:00:00.000Z',
+              messageCount: 2,
+              firstMessage: 'hello',
+            },
+            leafId: null,
+            tree: [],
+            context: {
+              messages: [],
+              entryIds: [],
+              thinkingLevel: 'medium',
+              model: null,
+              hasMore: false,
+            },
+            stats: {
+              sessionId: id,
+              userMessages: 1,
+              assistantMessages: 1,
+              toolCalls: 0,
+              toolResults: 0,
+              totalMessages: 2,
+              tokens: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
+              cost: 0,
+            },
+            totalActiveMs: 0,
+          }
+        : null,
+    ),
+    revision: vi.fn(async (id: string) => (id === 'sess-disk' ? '12:34' : null)),
+    referencedPaths: vi.fn(async (id: string) =>
+      id === 'sess-disk' ? ['/outside/ref.png'] : null,
+    ),
+    exportHtml: vi.fn(async (id: string) =>
+      id === 'sess-disk' ? '<html><body>ok</body></html>' : null,
+    ),
+    thinking: vi.fn(async (_id: string, entryId: string) =>
+      entryId === 'e1' ? { thinking: '推理全文' } : null,
+    ),
+    autoName: vi.fn(async (id: string) => (id === 'sess-disk' ? { title: '自动命名' } : null)),
     context: vi.fn(async (id: string, _q: SessionContextQuery) =>
       id === 'sess-disk'
         ? { messages: [], entryIds: [], thinkingLevel: 'medium', model: null, hasMore: false }
@@ -130,16 +198,228 @@ function fakeProjectService() {
   return service as unknown as ProjectReadService;
 }
 
+/** 模型域 fake：路由层只做校验与错误映射（真实语义归 core 单测） */
+function fakeConfigService() {
+  const enabledResponse = {
+    patterns: ['anthropic/claude-*'],
+    models: [{ id: 'claude-x', name: 'Claude X', provider: 'anthropic', input: ['text'] }],
+    scope: 'global' as const,
+    settingsPath: '/tmp/agent/settings.json',
+    canWrite: true,
+    warnings: [],
+  };
+  return {
+    models: vi.fn(async () => ({
+      models: { 'anthropic:claude-x': 'Claude X' },
+      modelList: enabledResponse.models,
+      defaultModel: { provider: 'anthropic', modelId: 'claude-x' },
+      defaultThinkingLevel: 'medium' as const,
+      thinkingLevels: { 'anthropic:claude-x': ['off', 'high'] },
+      thinkingLevelMaps: {},
+      thinkingLevelPins: {},
+    })),
+    readConfig: vi.fn(() => ({ modelsPath: '/tmp/agent/models.json', config: { providers: {} } })),
+    writeConfig: vi.fn(() => ({ modelsPath: '/tmp/agent/models.json' })),
+    discover: vi.fn(async () => ({ models: [{ id: 'm1', name: 'M1' }] })),
+    testModel: vi.fn(async () => ({ ok: true, latencyMs: 12, text: 'ok' })),
+    catalog: vi.fn(async () => ({ models: [] })),
+    enabled: vi.fn(async () => enabledResponse),
+    updateEnabled: vi.fn(async (_cwd: string, input: { providerId?: string }) => {
+      if (input.providerId === 'last') {
+        throw new LastModelRejectionError();
+      }
+      return enabledResponse;
+    }),
+    refresh: vi.fn(async () => ({ ok: true, changed: false })),
+  };
+}
+
+/** 系统域 fake：路由层只验校验/鉴权映射（真实语义归 core 单测） */
+function fakeSystemService() {
+  const allowed = (path: string) => path.startsWith('/repo');
+  return {
+    home: vi.fn(() => '/home/tester'),
+    defaultCwd: vi.fn(async () => '/home/tester/pi-cwd-20260215'),
+    browseCwd: vi.fn(async (path?: string) =>
+      path === '/nope'
+        ? null
+        : {
+            path: path ?? '/home/tester',
+            parentPath: '/home',
+            directories: [{ name: 'repo', path: '/home/tester/repo', readable: true }],
+          },
+    ),
+    validateCwd: vi.fn(async (cwd: string) =>
+      cwd === '/repo'
+        ? { success: true, cwd, projectRoot: cwd, projectKey: cwd }
+        : { success: false, cwd, projectRoot: cwd, projectKey: '' },
+    ),
+    listDirectory: vi.fn(async (path: string) =>
+      path.startsWith('/repo')
+        ? {
+            path,
+            entries: [{ name: 'a.ts', path: `${path}/a.ts`, type: 'file' as const, size: 3 }],
+          }
+        : null,
+    ),
+    // 模仿 PathGuard：roots 内直接放行；roots 之外需要会话引用命中
+    meta: vi.fn(async (path: string, references: string[] = []) =>
+      path.startsWith('/repo') || references.includes(path)
+        ? {
+            path,
+            type: 'file' as const,
+            size: 3,
+            modified: '2026-02-15T10:00:00.000Z',
+            category: 'text' as const,
+          }
+        : null,
+    ),
+    readFile: vi.fn(async (path: string, references: string[] = []) =>
+      path.startsWith('/repo') || references.includes(path)
+        ? { data: Buffer.from('abc'), mimeType: 'text/plain', name: 'a.ts' }
+        : null,
+    ),
+    checkUploadConflicts: vi.fn(async (_dir: string, names: string[]) =>
+      names.map((name) => ({ name, exists: name === 'exists.txt' })),
+    ),
+    saveUpload: vi.fn(async (_dir: string, name: string, data: Uint8Array, policy: string) => {
+      if (name === 'skip.txt' && policy === 'skip') return { skipped: name };
+      return { path: `/repo/${name}`, size: data.byteLength, finalName: name };
+    }),
+    fileIndex: vi.fn(async (cwd: string, q?: string) => {
+      if (!allowed(cwd)) throw new SystemAccessError();
+      return { files: q === undefined ? ['a.ts', 'b/c.ts'] : ['a.ts'], truncated: false };
+    }),
+    gitStatus: vi.fn(async (cwd: string) =>
+      allowed(cwd)
+        ? {
+            isGitRepository: true,
+            repositoryRoot: '/repo',
+            branch: 'main',
+            files: [{ path: 'a.ts', kind: 'modified' as const, staged: false }],
+            additions: 1,
+            deletions: 2,
+          }
+        : {
+            isGitRepository: false,
+            repositoryRoot: null,
+            branch: null,
+            files: [],
+            additions: 0,
+            deletions: 0,
+          },
+    ),
+    gitDiff: vi.fn(async (_cwd: string, path: string, _staged: boolean) =>
+      path === 'a.ts'
+        ? { supported: true, status: 'modified' as const, patch: '@@ -1 +1 @@' }
+        : { supported: false, reason: 'file-not-changed' },
+    ),
+    worktrees: vi.fn(async (cwd: string) => ({
+      projectRoot: '/repo',
+      projectKey: '/repo',
+      isGit: allowed(cwd),
+      isTopLevel: true,
+      currentWorktreePath: '/repo',
+      worktrees: allowed(cwd)
+        ? [{ path: '/repo', branch: 'main', head: 'abc12345', bare: false, current: true }]
+        : [],
+    })),
+    createWorktree: vi.fn(async (_cwd: string, branch: string) => ({
+      path: `/repo.worktrees/${branch}`,
+      branch,
+    })),
+    removeWorktree: vi.fn(async (_cwd: string, path: string, force: boolean) =>
+      !force && path === '/dirty' ? { dirty: ['a.ts'] } : null,
+    ),
+  };
+}
+
+function fakePushService() {
+  const subscriptions = new Set<string>();
+  return {
+    config: vi.fn(async () => ({ publicKey: 'BAbc', enabled: true })),
+    subscribe: vi.fn((input: { subscription: { endpoint: string } }) => {
+      const created = !subscriptions.has(input.subscription.endpoint);
+      subscriptions.add(input.subscription.endpoint);
+      return created;
+    }),
+    get subscriptionCount() {
+      return subscriptions.size;
+    },
+  };
+}
+
+function fakeResourceService() {
+  return {
+    trust: vi.fn((cwd: string) => ({ requiresTrust: true, trusted: cwd === '/trusted' })),
+    setTrust: vi.fn((cwd: string, trusted: boolean, active: boolean) => {
+      if (active) return { rejection: 'session-active' as const };
+      if (trusted && cwd === '/nothing') return { rejection: 'no-trusted-resources' as const };
+      return { response: { requiresTrust: true, trusted } };
+    }),
+    skills: vi.fn(async () => ({ skills: [], diagnostics: [], projectResourcesLoaded: true })),
+    patchSkill: vi.fn(async (_input: unknown) => {
+      throw new InvalidScopeEditError('Unknown skill: nope');
+    }),
+    searchSkills: vi.fn(async (query: string) => ({
+      results: [{ package: query, installs: 1, url: 'https://npm' }],
+    })),
+    installSkill: vi.fn(async (input: { package: string }) => {
+      if (input.package === 'bad') throw new SkillInstallError('registry unreachable');
+      return { skills: [], diagnostics: [], projectResourcesLoaded: true };
+    }),
+    checkSkillUpdates: vi.fn(async () => ({ results: [] })),
+    updateSkills: vi.fn(async () => ({ results: [] })),
+    plugins: vi.fn(async () => ({
+      packages: [],
+      standaloneExtensions: [],
+      totals: { packages: 0, extensions: 0, skills: 0 },
+      diagnostics: [],
+      projectResourcesLoaded: true,
+    })),
+    pluginAction: vi.fn(async () => ({
+      packages: [],
+      standaloneExtensions: [],
+      totals: { packages: 0, extensions: 0, skills: 0 },
+      diagnostics: [],
+      projectResourcesLoaded: true,
+    })),
+    checkPluginUpdates: vi.fn(async () => ({ results: [] })),
+    toolSettings: vi.fn(async () => ({ isWindows: false, powerShellEnabled: false })),
+    updateToolSettings: vi.fn(async (_cwd: string, enabled: boolean) => ({
+      isWindows: process.platform === 'win32',
+      powerShellEnabled: enabled,
+    })),
+  };
+}
+
 function makeApp() {
   const agentService = fakeAgentService();
   const readService = fakeReadService();
   const projectService = fakeProjectService();
+  const configService = fakeConfigService();
+  const systemService = fakeSystemService();
+  const pushService = fakePushService();
+  const resourceService = fakeResourceService();
   const app = createAgentServer({
     agentService,
     readService,
     projectService,
+    configService: configService as unknown as ConfigService,
+    systemService: systemService as unknown as SystemService,
+    pushService: pushService as unknown as PushService,
+    resourceService: resourceService as unknown as ResourceService,
   });
-  return { app, agentService, readService, projectService };
+  return {
+    app,
+    agentService,
+    readService,
+    projectService,
+    configService,
+    systemService,
+    pushService,
+    resourceService,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -221,9 +501,13 @@ describe('POST /api/agent/:id 命令通道', () => {
 
   it('未知命令 type → 400（区别于 404）；缺 type / 非法 JSON 同为 400', async () => {
     const { app } = makeApp();
-    const unknown = await post(app, { type: 'fork', entryId: 'e1' }); // fork 是 M2 命令
+    const unknown = await post(app, { type: 'no_such_command' }); // 未登记的命令字面量
     expect(unknown.status).toBe(400);
     expect(await unknown.json()).toMatchObject({ error: expect.stringContaining('command') });
+
+    // B2 起 fork 是合法命令：不再被「未知 type」挡下（fake service 一律 200）
+    const fork = await post(app, { type: 'fork', entryId: 'e1' });
+    expect(fork.status).not.toBe(400);
 
     const noType = await post(app, { message: 'hi' });
     expect(noType.status).toBe(400);
@@ -280,6 +564,24 @@ describe('POST /api/agent/:id 命令通道', () => {
     const boom = await post(app, { type: 'abort' });
     expect(boom.status).toBe(500);
     expect(await boom.json()).toEqual({ error: 'Internal server error' });
+  });
+});
+
+describe('POST /api/agent/:id/resume（ADR-0013）', () => {
+  it('冷会话 → 404；注册表内会话 → 200 NewSessionOk 形状', async () => {
+    const { app } = makeApp();
+    const cold = await request(app, '/api/agent/nope/resume', { method: 'POST' });
+    expect(cold.status).toBe(404);
+
+    const warm = await request(app, '/api/agent/sess-live/resume', { method: 'POST' });
+    expect(warm.status).toBe(200);
+    expect(await warm.json()).toMatchObject({ success: true, sessionId: 'sess-live' });
+  });
+
+  it('必须是 POST：GET 该路径不被路由（GET 不得有副作用，ADR-0007）', async () => {
+    const { app } = makeApp();
+    const res = await request(app, '/api/agent/sess-live/resume');
+    expect(res.status).toBe(404);
   });
 });
 
@@ -340,14 +642,32 @@ describe('轻查与浏览路由', () => {
       sessions: [{ id: 'sess-disk' }],
     });
     // force=1 不再被忽略：交给 core 跳过列表缓存（ADR-0008）
-    expect(readService.list).toHaveBeenCalledWith({ force: true, projectKey: undefined });
+    expect(readService.list).toHaveBeenCalledWith({
+      force: true,
+      projectKey: undefined,
+      summary: false,
+      transient: [],
+    });
   });
 
   it('GET /api/sessions?projectKey：透传给 core 的项目过滤；非法 force 值 → 400', async () => {
     const { app, readService } = makeApp();
     const filtered = await request(app, '/api/sessions?projectKey=%2Frepo');
     expect(filtered.status).toBe(200);
-    expect(readService.list).toHaveBeenCalledWith({ force: false, projectKey: '/repo' });
+    expect(readService.list).toHaveBeenCalledWith({
+      force: false,
+      projectKey: '/repo',
+      summary: false,
+      transient: [],
+    });
+    // summary=1：快路径透传（跳过 core 的项目解析）
+    await request(app, '/api/sessions?summary=1');
+    expect(readService.list).toHaveBeenLastCalledWith({
+      force: false,
+      projectKey: undefined,
+      summary: true,
+      transient: [],
+    });
 
     const bad = await request(app, '/api/sessions?force=true');
     expect(bad.status).toBe(400);
@@ -456,6 +776,75 @@ describe('轻查与浏览路由', () => {
 // SSE 事件流（docs/04 §5）
 // ---------------------------------------------------------------------------
 
+describe('会话域 B4 路由（docs/02 §6.2/§6.3、ADR-0013b）', () => {
+  it('GET /api/sessions/:id/revision：指纹 200 / 未知会话 404', async () => {
+    const { app } = makeApp();
+    const ok = await request(app, '/api/sessions/sess-disk/revision');
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toEqual({ revision: '12:34' });
+    expect((await request(app, '/api/sessions/nope/revision')).status).toBe(404);
+  });
+
+  it('GET /api/sessions/:id/export：text/html + 下载头（inline=1 改内联）；未知 404', async () => {
+    const { app } = makeApp();
+    const res = await request(app, '/api/sessions/sess-disk/export');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/html');
+    expect(res.headers.get('content-disposition')).toContain('attachment');
+    expect(res.headers.get('cache-control')).toBe('no-store');
+    expect(await res.text()).toContain('<html>');
+
+    const inline = await request(app, '/api/sessions/sess-disk/export?inline=1');
+    expect(inline.headers.get('content-disposition')).toContain('inline');
+
+    expect((await request(app, '/api/sessions/nope/export')).status).toBe(404);
+  });
+
+  it('POST /api/sessions/:id/auto-name：dryRun 透传 + 未知会话 404', async () => {
+    const { app, readService } = makeApp();
+    const res = await request(app, '/api/sessions/sess-disk/auto-name', {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ dryRun: true }),
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ title: '自动命名' });
+    expect(readService.autoName).toHaveBeenCalledWith('sess-disk', {
+      cwd: undefined,
+      persist: false,
+    });
+    expect((await request(app, '/api/sessions/nope/auto-name', { method: 'POST' })).status).toBe(
+      404,
+    );
+  });
+
+  it('GET .../thinking：blockIndex 非法 → 400；无此块 → 404；命中 → {thinking}', async () => {
+    const { app } = makeApp();
+    expect(
+      (await request(app, '/api/sessions/sess-disk/entries/e1/thinking?blockIndex=x')).status,
+    ).toBe(400);
+    expect(
+      (await request(app, '/api/sessions/sess-disk/entries/e2/thinking?blockIndex=0')).status,
+    ).toBe(404);
+    const ok = await request(app, '/api/sessions/sess-disk/entries/e1/thinking?blockIndex=0');
+    expect(await ok.json()).toEqual({ thinking: '推理全文' });
+  });
+
+  it('GET /api/sessions/:id?force=1：外部写入探测 → wrapperRebuilt', async () => {
+    const { app, agentService } = makeApp();
+    const plain = await request(app, '/api/sessions/sess-disk');
+    expect(await plain.json()).not.toHaveProperty('wrapperRebuilt');
+    expect(agentService.probeExternalWrite).not.toHaveBeenCalled();
+
+    (
+      agentService as unknown as { probeExternalWrite: ReturnType<typeof vi.fn> }
+    ).probeExternalWrite.mockResolvedValueOnce(true);
+    const forced = await request(app, '/api/sessions/sess-disk?force=1');
+    expect(agentService.probeExternalWrite).toHaveBeenCalledWith('sess-disk');
+    expect(await forced.json()).toMatchObject({ wrapperRebuilt: true });
+  });
+});
+
 describe('GET /api/agent/:id/events（SSE）', () => {
   it('冷会话 → 404（不自动拉起，§5.3 条件 3）', async () => {
     const { app } = makeApp();
@@ -513,5 +902,524 @@ describe('GET /api/agent/:id/events（SSE）', () => {
     expect(new TextDecoder().decode(first.value)).toBe(':\n\n');
     closeAllAgentEventStreams();
     await expect(reader.read()).rejects.toThrow(/shutting down/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 模型域路由（docs/02 §6.4、ADR-0011）
+// ---------------------------------------------------------------------------
+
+describe('模型域路由', () => {
+  it('GET /api/models：只读快照（含 thinkingLevels / defaultModel）', async () => {
+    const { app } = makeApp();
+    const res = await request(app, '/api/models?cwd=/tmp');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      defaultModel: { provider: 'anthropic', modelId: 'claude-x' },
+      thinkingLevels: { 'anthropic:claude-x': ['off', 'high'] },
+    });
+  });
+
+  it('GET /api/models：cwd 不存在 / 不是目录 → 400', async () => {
+    const { app } = makeApp();
+    expect((await request(app, '/api/models?cwd=/nope/nope')).status).toBe(400);
+    expect((await request(app, `/api/models?cwd=${encodeURIComponent('/etc/hosts')}`)).status).toBe(
+      400,
+    );
+  });
+
+  it('GET/PUT /api/models-config：原文读写；body 不是对象 → 400', async () => {
+    const { app, configService } = makeApp();
+    const read = await request(app, '/api/models-config');
+    expect(read.status).toBe(200);
+    expect(await read.json()).toMatchObject({ modelsPath: expect.stringContaining('models.json') });
+
+    const put = await request(app, '/api/models-config', {
+      method: 'PUT',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ config: { providers: {} } }),
+    });
+    expect(put.status).toBe(200);
+    expect(configService.writeConfig).toHaveBeenCalledTimes(1);
+
+    const bad = await request(app, '/api/models-config', {
+      method: 'PUT',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ config: 'nope' }),
+    });
+    expect(bad.status).toBe(400);
+  });
+
+  it('POST /api/models-config/discover：校验 provider 草稿；缺 baseUrl → 400', async () => {
+    const { app } = makeApp();
+    const ok = await request(app, '/api/models-config/discover', {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({
+        providerName: 'p',
+        provider: { baseUrl: 'http://x', api: 'openai-completions' },
+      }),
+    });
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toMatchObject({ models: [{ id: 'm1' }] });
+
+    const bad = await request(app, '/api/models-config/discover', {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ providerName: 'p', provider: { api: 'x' } }),
+    });
+    expect(bad.status).toBe(400);
+  });
+
+  it('POST /api/models-config/test：model.id 必填', async () => {
+    const { app } = makeApp();
+    const ok = await request(app, '/api/models-config/test', {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({
+        providerName: 'p',
+        provider: { baseUrl: 'http://x', api: 'openai-completions' },
+        model: { id: 'm' },
+      }),
+    });
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toMatchObject({ ok: true, latencyMs: 12 });
+
+    const bad = await request(app, '/api/models-config/test', {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({
+        providerName: 'p',
+        provider: { baseUrl: 'http://x', api: 'openai-completions' },
+        model: {},
+      }),
+    });
+    expect(bad.status).toBe(400);
+  });
+
+  it('GET /api/models-config/catalog：透传 q', async () => {
+    const { app, configService } = makeApp();
+    expect((await request(app, '/api/models-config/catalog?q=gpt')).status).toBe(200);
+    expect(configService.catalog).toHaveBeenCalledWith('gpt');
+  });
+
+  it('GET /api/models/enabled：只读范围（scope / canWrite / settingsPath）', async () => {
+    const { app } = makeApp();
+    const res = await request(app, '/api/models/enabled?cwd=/tmp');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      patterns: ['anthropic/claude-*'],
+      scope: 'global',
+      canWrite: true,
+    });
+  });
+
+  it('PUT /api/models/enabled：最后一个模型 → 409 reason=last-model', async () => {
+    const { app } = makeApp();
+    const res = await request(app, '/api/models/enabled', {
+      method: 'PUT',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ cwd: '/tmp', providerId: 'last', modelId: 'm', enabled: false }),
+    });
+    expect(res.status).toBe(409);
+    expect(await res.json()).toMatchObject({ reason: 'last-model' });
+
+    const ok = await request(app, '/api/models/enabled', {
+      method: 'PUT',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ cwd: '/tmp', providerId: 'p', modelId: 'm', enabled: true }),
+    });
+    expect(ok.status).toBe(200);
+  });
+
+  it('POST /api/models/refresh：空 body 合法（缺省刷全部）', async () => {
+    const { app, configService } = makeApp();
+    const res = await request(app, '/api/models/refresh', { method: 'POST' });
+    expect(res.status).toBe(200);
+    expect(configService.refresh).toHaveBeenCalledWith({});
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 系统域路由（docs/02 §6.6 / §6.7）
+// ---------------------------------------------------------------------------
+
+describe('系统域路由', () => {
+  it('GET /api/home、POST /api/default-cwd', async () => {
+    const { app } = makeApp();
+    expect(await (await request(app, '/api/home')).json()).toEqual({ home: '/home/tester' });
+    const cwd = await request(app, '/api/default-cwd', { method: 'POST' });
+    expect(await cwd.json()).toMatchObject({ cwd: expect.stringContaining('pi-cwd-') });
+  });
+
+  it('GET /api/cwd/browse：缺省家目录；不存在 → 404', async () => {
+    const { app } = makeApp();
+    expect((await request(app, '/api/cwd/browse')).status).toBe(200);
+    expect((await request(app, '/api/cwd/browse?path=/nope')).status).toBe(404);
+  });
+
+  it('POST /api/cwd/validate：success:false 也是 200（业务结果而非传输错误）', async () => {
+    const { app } = makeApp();
+    const ok = await request(app, '/api/cwd/validate', {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ cwd: '/repo' }),
+    });
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toMatchObject({ success: true, projectKey: '/repo' });
+
+    const bad = await request(app, '/api/cwd/validate', {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ cwd: '/nope' }),
+    });
+    expect(bad.status).toBe(200);
+    expect(await bad.json()).toMatchObject({ success: false });
+
+    expect(
+      (
+        await request(app, '/api/cwd/validate', {
+          method: 'POST',
+          headers: JSON_HEADERS,
+          body: '{}',
+        })
+      ).status,
+    ).toBe(400);
+  });
+
+  it('GET /api/files/*：list 走 roots；read 缺省内联、download 附件；拒绝 → 403', async () => {
+    const { app } = makeApp();
+    const list = await request(app, '/api/files//repo?type=list');
+    expect(list.status).toBe(200);
+    expect(await list.json()).toMatchObject({ entries: [{ name: 'a.ts' }] });
+
+    const read = await request(app, '/api/files//repo/a.ts?type=read');
+    expect(read.headers.get('content-disposition')).toContain('inline');
+    const download = await request(app, '/api/files//repo/a.ts?type=download');
+    expect(download.headers.get('content-disposition')).toContain('attachment');
+
+    // 越权：路径不含 /repo 前缀 ⇒ fake 返回 null ⇒ 403 且不回显路径
+    const denied = await request(app, '/api/files//etc/passwd?type=read');
+    expect(denied.status).toBe(403);
+    expect(await denied.json()).toEqual({ error: 'Access denied' });
+  });
+
+  it('GET /api/files/*?sessionId=：会话引用放行（roots 之外也可读）', async () => {
+    const { app, readService } = makeApp();
+    const denied = await request(app, '/api/files//outside/ref.png?type=meta');
+    expect(denied.status).toBe(403);
+
+    const allowed = await request(app, '/api/files//outside/ref.png?type=meta&sessionId=sess-disk');
+    expect(allowed.status).toBe(200);
+    expect(readService.referencedPaths).toHaveBeenCalledWith('sess-disk');
+  });
+
+  it('GET /api/files/*?type=watch → 400（一期不做文件监听）', async () => {
+    const { app } = makeApp();
+    expect((await request(app, '/api/files//repo?type=watch')).status).toBe(400);
+  });
+
+  it('POST /api/files/*?type=upload-check：冲突预检；缺 fileNames → 400', async () => {
+    const { app } = makeApp();
+    const ok = await request(app, '/api/files//repo?type=upload-check', {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ fileNames: ['exists.txt', 'new.txt'] }),
+    });
+    expect(await ok.json()).toEqual({
+      conflicts: [
+        { name: 'exists.txt', exists: true },
+        { name: 'new.txt', exists: false },
+      ],
+    });
+    expect(
+      (
+        await request(app, '/api/files//repo?type=upload-check', {
+          method: 'POST',
+          headers: JSON_HEADERS,
+          body: JSON.stringify({ fileNames: [] }),
+        })
+      ).status,
+    ).toBe(400);
+  });
+
+  it('POST /api/files/*?type=upload：multipart 落盘 + 冲突跳过', async () => {
+    const { app, systemService } = makeApp();
+    const form = new FormData();
+    form.append('file', new Blob(['hello']), 'note.txt');
+    form.append('file', new Blob(['x']), 'skip.txt');
+    const res = await request(app, '/api/files//repo?type=upload&conflict=skip', {
+      method: 'POST',
+      body: form,
+    });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      uploaded: [{ path: '/repo/note.txt', size: 5 }],
+      skipped: ['skip.txt'],
+    });
+    expect(systemService.saveUpload).toHaveBeenCalledTimes(2);
+  });
+
+  it('GET /api/file-index：越权 → 403；正常 → files', async () => {
+    const { app } = makeApp();
+    expect((await request(app, '/api/file-index?cwd=/repo')).status).toBe(200);
+    expect(await (await request(app, '/api/file-index?cwd=/repo&q=a')).json()).toMatchObject({
+      files: ['a.ts'],
+    });
+    expect((await request(app, '/api/file-index?cwd=/outside')).status).toBe(403);
+    expect((await request(app, '/api/file-index')).status).toBe(400);
+  });
+
+  it('GET /api/git/status 与 /api/git/diff', async () => {
+    const { app } = makeApp();
+    expect(await (await request(app, '/api/git/status?cwd=/repo')).json()).toMatchObject({
+      isGitRepository: true,
+      additions: 1,
+    });
+    expect(await (await request(app, '/api/git/diff?cwd=/repo&path=a.ts')).json()).toMatchObject({
+      supported: true,
+      patch: expect.stringContaining('@@'),
+    });
+    expect(await (await request(app, '/api/git/diff?cwd=/repo&path=b.ts')).json()).toMatchObject({
+      supported: false,
+      reason: 'file-not-changed',
+    });
+    expect((await request(app, '/api/git/diff?cwd=/repo')).status).toBe(400);
+  });
+
+  it('worktrees：GET 清单 / POST 创建 / DELETE 脏工作区 409', async () => {
+    const { app } = makeApp();
+    expect(await (await request(app, '/api/worktrees?cwd=/repo')).json()).toMatchObject({
+      isGit: true,
+      worktrees: [{ branch: 'main', current: true }],
+    });
+
+    const created = await request(app, '/api/worktrees', {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ cwd: '/repo', branch: 'feat-x' }),
+    });
+    expect(created.status).toBe(200);
+    expect(await created.json()).toMatchObject({ branch: 'feat-x' });
+
+    const dirty = await request(app, '/api/worktrees', {
+      method: 'DELETE',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ cwd: '/repo', path: '/dirty' }),
+    });
+    expect(dirty.status).toBe(409);
+    expect(await dirty.json()).toMatchObject({ dirty: ['a.ts'] });
+
+    const forced = await request(app, '/api/worktrees', {
+      method: 'DELETE',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ cwd: '/repo', path: '/dirty', force: true }),
+    });
+    expect(forced.status).toBe(200);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 生命周期与推送（docs/02 §7、B7）
+// ---------------------------------------------------------------------------
+
+describe('liveness lease 与推送路由', () => {
+  it('POST /api/agent/:id/lease：renewed:true / false（**不是** 404）', async () => {
+    const { app } = makeApp();
+    const ok = await request(app, '/api/agent/sess-live/lease', { method: 'POST' });
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toEqual({ success: true, renewed: true });
+
+    const gone = await request(app, '/api/agent/nope/lease', { method: 'POST' });
+    expect(gone.status).toBe(200);
+    expect(await gone.json()).toEqual({ success: true, renewed: false });
+  });
+
+  it('GET /api/push/config 与 POST /api/push/subscribe：按 endpoint upsert', async () => {
+    const { app, pushService } = makeApp();
+    expect(await (await request(app, '/api/push/config')).json()).toEqual({
+      publicKey: 'BAbc',
+      enabled: true,
+    });
+
+    const body = JSON.stringify({
+      subscription: { endpoint: 'https://push/x', keys: { p256dh: 'p', auth: 'a' } },
+      locale: 'zh-CN',
+    });
+    const first = await request(app, '/api/push/subscribe', {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body,
+    });
+    expect(await first.json()).toEqual({ success: true, created: true });
+    const second = await request(app, '/api/push/subscribe', {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body,
+    });
+    expect(await second.json()).toEqual({ success: true, created: false });
+    expect(pushService.subscribe).toHaveBeenCalledTimes(2);
+  });
+
+  it('POST /api/push/subscribe：subscription 形状不全 → 400', async () => {
+    const { app } = makeApp();
+    const res = await request(app, '/api/push/subscribe', {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ subscription: { endpoint: 'x' } }),
+    });
+    expect(res.status).toBe(400);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 资源域路由（docs/02 §6.9、B6）
+// ---------------------------------------------------------------------------
+
+describe('资源域路由', () => {
+  it('GET /api/project-trust：requiresTrust + trusted；缺 cwd → 400', async () => {
+    const { app } = makeApp();
+    expect(await (await request(app, '/api/project-trust?cwd=/trusted')).json()).toEqual({
+      requiresTrust: true,
+      trusted: true,
+    });
+    expect((await request(app, '/api/project-trust')).status).toBe(400);
+  });
+
+  it('POST /api/project-trust：两种拒绝都是 409 + reason', async () => {
+    const { app } = makeApp();
+    const nothing = await request(app, '/api/project-trust', {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ cwd: '/nothing' }),
+    });
+    expect(nothing.status).toBe(409);
+    expect(await nothing.json()).toMatchObject({ reason: 'no-trusted-resources' });
+
+    // fake agentService 的 runningSessionIds 含 sess-live，而 sessions 列表含 sess-disk ⇒ 无交集
+    const ok = await request(app, '/api/project-trust', {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ cwd: '/repo' }),
+    });
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toMatchObject({ trusted: true });
+  });
+
+  it('GET /api/skills 与 PATCH /api/skills（未知 skill → 400）', async () => {
+    const { app, resourceService } = makeApp();
+    expect(await (await request(app, '/api/skills?cwd=/repo')).json()).toMatchObject({
+      skills: [],
+      projectResourcesLoaded: true,
+    });
+
+    const patched = await request(app, '/api/skills', {
+      method: 'PATCH',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ name: 'nope', disableModelInvocation: true }),
+    });
+    expect(patched.status).toBe(400);
+    expect(await patched.json()).toMatchObject({ error: 'Unknown skill: nope' });
+    expect(resourceService.patchSkill).toHaveBeenCalled();
+  });
+
+  it('skills search / install（安装失败 → 400）/ check / update', async () => {
+    const { app } = makeApp();
+    const search = await request(app, '/api/skills/search', {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ query: 'pi-skill' }),
+    });
+    expect(await search.json()).toMatchObject({ results: [{ package: 'pi-skill' }] });
+    expect(
+      (
+        await request(app, '/api/skills/search', {
+          method: 'POST',
+          headers: JSON_HEADERS,
+          body: JSON.stringify({}),
+        })
+      ).status,
+    ).toBe(400);
+
+    const okInstall = await request(app, '/api/skills/install', {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ package: 'good', scope: 'global' }),
+    });
+    expect(okInstall.status).toBe(200);
+    const badInstall = await request(app, '/api/skills/install', {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ package: 'bad', scope: 'project' }),
+    });
+    expect(badInstall.status).toBe(400);
+
+    expect((await request(app, '/api/skills/check', { method: 'POST' })).status).toBe(400);
+    expect((await request(app, '/api/skills/check?cwd=/repo', { method: 'POST' })).status).toBe(
+      200,
+    );
+    expect((await request(app, '/api/skills/update?cwd=/repo', { method: 'POST' })).status).toBe(
+      200,
+    );
+  });
+
+  it('plugins：列表 / 动作 / 更新检查', async () => {
+    const { app, resourceService } = makeApp();
+    expect(await (await request(app, '/api/plugins?cwd=/repo')).json()).toMatchObject({
+      totals: { packages: 0 },
+      projectResourcesLoaded: true,
+    });
+
+    const action = await request(app, '/api/plugins', {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ action: 'install', source: 'pi-skill-x', cwd: '/repo' }),
+    });
+    expect(action.status).toBe(200);
+    expect(resourceService.pluginAction).toHaveBeenCalledWith({
+      action: 'install',
+      source: 'pi-skill-x',
+      cwd: '/repo',
+    });
+
+    // 缺 source 的 install 由 core 拦（route 只校验形状）
+    expect(
+      (
+        await request(app, '/api/plugins', {
+          method: 'POST',
+          headers: JSON_HEADERS,
+          body: JSON.stringify({ action: 'nope', cwd: '/repo' }),
+        })
+      ).status,
+    ).toBe(400);
+
+    expect((await request(app, '/api/plugins/check?cwd=/repo', { method: 'POST' })).status).toBe(
+      200,
+    );
+  });
+
+  it('GET/PUT /api/tools/settings：PowerShell 开关', async () => {
+    const { app, resourceService } = makeApp();
+    expect(await (await request(app, '/api/tools/settings')).json()).toEqual({
+      isWindows: false,
+      powerShellEnabled: false,
+    });
+    const put = await request(app, '/api/tools/settings', {
+      method: 'PUT',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ powerShellEnabled: true }),
+    });
+    expect(put.status).toBe(200);
+    expect(resourceService.updateToolSettings).toHaveBeenCalled();
+
+    expect(
+      (
+        await request(app, '/api/tools/settings', {
+          method: 'PUT',
+          headers: JSON_HEADERS,
+          body: JSON.stringify({}),
+        })
+      ).status,
+    ).toBe(400);
   });
 });

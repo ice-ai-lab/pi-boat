@@ -1,4 +1,9 @@
-import { PromptRejectedError, SessionNotFoundError, UserInputError } from '@ice-ai/core';
+import {
+  PromptRejectedError,
+  SessionBusyError,
+  SessionNotFoundError,
+  UserInputError,
+} from '@ice-ai/core';
 import type { CommandError } from '@ice-ai/protocol';
 
 /**
@@ -6,7 +11,10 @@ import type { CommandError } from '@ice-ai/protocol';
  * 未识别异常一律 500 且不回传内部信息——堆栈/路径只进服务端日志
  * （新增路由检查清单 ③：错误响应不泄漏内部路径/堆栈）。
  */
-export function mapCoreError(error: unknown): { status: 400 | 404 | 500; body: CommandError } {
+export function mapCoreError(error: unknown): {
+  status: 400 | 404 | 409 | 500;
+  body: CommandError;
+} {
   if (error instanceof SessionNotFoundError) {
     return { status: 404, body: { error: error.message } };
   }
@@ -18,6 +26,10 @@ export function mapCoreError(error: unknown): { status: 400 | 404 | 500; body: C
   }
   if (error instanceof UserInputError) {
     return { status: 400, body: { error: error.message } };
+  }
+  if (error instanceof SessionBusyError) {
+    // 409：请求本身没错，但当前状态不允许（正在跑的一轮结束才行）
+    return { status: 409, body: { error: error.message } };
   }
   console.error('[server] unhandled error:', error);
   return { status: 500, body: { error: 'Internal server error' } };

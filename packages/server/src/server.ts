@@ -1,13 +1,26 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { serveStatic } from '@hono/node-server/serve-static';
-import type { AgentSessionService, ProjectReadService, SessionReadService } from '@ice-ai/core';
+import type {
+  AgentSessionService,
+  ConfigService,
+  LivenessRegistry,
+  ProjectReadService,
+  PushService,
+  ResourceService,
+  SessionReadService,
+  SystemService,
+} from '@ice-ai/core';
 import type { HealthResponse } from '@ice-ai/protocol';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { registerAgentRoutes } from './routes/agent';
+import { registerModelRoutes } from './routes/models';
 import { registerProjectRoutes } from './routes/projects';
+import { registerPushRoutes } from './routes/push';
+import { registerResourceRoutes } from './routes/resources';
 import { registerSessionRoutes } from './routes/sessions';
+import { registerSystemRoutes } from './routes/system';
 import { DEV_WEB_ORIGINS, securityMiddleware } from './security';
 
 /**
@@ -18,6 +31,12 @@ export interface AgentServerDeps {
   agentService: AgentSessionService;
   readService: SessionReadService;
   projectService: ProjectReadService;
+  configService: ConfigService;
+  systemService: SystemService;
+  pushService: PushService;
+  resourceService: ResourceService;
+  /** liveness lease 注册表（缺省不接线：测试可省） */
+  liveness?: LivenessRegistry;
   /** 生产静态托管目录（apps/web/dist 的绝对路径）；缺省不托管（dev 页面来自 vite 9528） */
   staticRoot?: string;
 }
@@ -35,9 +54,17 @@ export function createAgentServer(deps: AgentServerDeps): Hono {
     return c.json(body);
   });
 
-  registerAgentRoutes(app, { agentService: deps.agentService });
+  registerAgentRoutes(app, { agentService: deps.agentService, liveness: deps.liveness });
   registerSessionRoutes(app, { agentService: deps.agentService, readService: deps.readService });
   registerProjectRoutes(app, { projectService: deps.projectService });
+  registerModelRoutes(app, { configService: deps.configService });
+  registerSystemRoutes(app, { systemService: deps.systemService, readService: deps.readService });
+  registerPushRoutes(app, { pushService: deps.pushService });
+  registerResourceRoutes(app, {
+    resourceService: deps.resourceService,
+    agentService: deps.agentService,
+    readService: deps.readService,
+  });
 
   // 静态托管（docs/04 §7 生产形态）：apps/web/dist + SPA fallback，单进程即完整产品。
   // serveStatic 的 root 按 join(root, path) 解析，绝对路径可直接用

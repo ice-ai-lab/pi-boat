@@ -24,6 +24,24 @@ type StreamCloser = (closeController: boolean | 'error') => void;
  */
 const activeClosers = new Set<StreamCloser>();
 
+/**
+ * 按会话统计活跃 SSE 流（idle 回收判据之一，B7）。
+ * 为什么要计数而不是布尔：同一会话可能被多个标签页同时观看，任一关闭都不该
+ * 让"有人看"变成假。
+ */
+const activeStreamsBySession = new Map<string, number>();
+
+/** 该会话当前有几个活跃事件流 */
+export function activeStreamCount(sessionId: string): number {
+  return activeStreamsBySession.get(sessionId) ?? 0;
+}
+
+function trackStream(sessionId: string, delta: 1 | -1): void {
+  const next = (activeStreamsBySession.get(sessionId) ?? 0) + delta;
+  if (next <= 0) activeStreamsBySession.delete(sessionId);
+  else activeStreamsBySession.set(sessionId, next);
+}
+
 /** 进程关停路径：硬断全部活跃流（error 让客户端立即感知并重连） */
 export function closeAllAgentEventStreams(): void {
   for (const close of [...activeClosers]) {
@@ -64,6 +82,7 @@ export function createAgentEventStream(
         if (closed) return;
         closed = true;
         activeClosers.delete(cleanup);
+        trackStream(sessionId, -1);
         if (heartbeat !== null) clearInterval(heartbeat);
         unsubscribe?.();
         if (closeController === 'error') {
@@ -82,6 +101,7 @@ export function createAgentEventStream(
       };
       forceClose = cleanup;
       activeClosers.add(cleanup);
+      trackStream(sessionId, 1);
 
       // 路径 5：写失败（broken pipe / 流已取消）→ 清理
       const write = (text: string): void => {
