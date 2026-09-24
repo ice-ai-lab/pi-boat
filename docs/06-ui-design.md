@@ -32,6 +32,17 @@
 - **token 单一来源**：`packages/ui/src/styles/tokens.css` —— 亮/暗两个变量块，唯一允许出现
   字面颜色的地方；`theme.css` 只在其上做旧语义别名 + `@theme inline` 映射（ADR-0011）
   - 类名与 v4 原型一致（`.side`/`.disc`/`.md`/`…`），可逐项对账
+- **字体基线对齐 pi-web（2026-09-24 定案）**：`--font` 与 pi-web `app/globals.css` 同栈
+  （`-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`）；`--mono` 与 pi-web 同族
+  同序回退（`"Noto Sans Mono Variable"`, `JetBrains Mono`, `Fira Code`, `Consolas`, `ui-monospace`,
+  `PingFang SC`, `Microsoft YaHei`, `monospace`）
+  - 等宽是**项目自托管的 webfont**：`@fontsource-variable/noto-sans-mono`（`@ice-ai/ui` 的依赖，
+    在 `theme.css` @import `wght.css`），7 个 subset 由 Vite 打进 `dist/assets`，浏览器按
+    `unicode-range` 只取所需——对应 pi-web 用 `next/font/google` 自托管 `Noto_Sans_Mono`。
+    两边等宽因而同字形，不再依赖本机装没装 SF Mono
+  - 与 v4 稿的差异：v4 `--font` 尾段显式列 `PingFang SC` / `Hiragino Sans GB`，现交由
+    `-apple-system` 的系统回退接管（macOS 结果相同，但与 pi-web 逐字一致）。
+    `--serif`（`Songti SC`，品牌字 / hero 用）是 macOS 自带，保持 v4 原样
 - **基准分层（ADR-0012）**：v4 稿是**视觉基准**（配色/尺寸/排版逐项对账）；v4 稿未画的**功能位**
   （hero / `#heroSlot`、侧栏折叠、侧栏宽度拖拽、底栏版本号、列表运行提示）继承自 v3 稿，
   已按 v4 token 重绘后保留——**不因「v4 没画」而删除**，也不另造与两稿都不同的形态
@@ -167,8 +178,8 @@
    故首组改用日期标签；「N 个会话运行中」作为 v3 功能位挂在首组右侧（`.run-hint`，ADR-0012）。
    同时修掉 v3 遗留规则 `.day > span:last-child`——它会把「只有一个 span」的日期标签也推到右侧并降级为
    `--t4`/500（与 v4 稿的左对齐/650/`--t3` 不符），现右对齐只落在 `.run-hint` 上。
-4. **字栈跟随系统**：会话列表继承 `--font`，侧栏 `.tag` / `.model-chip` / `.ver` 走 `--mono`
-   ——两者完全跟随系统字体，项目不自带字体文件；`--serif` 的 brand wordmark 不动。
+4. **字栈对齐 pi-web**：会话列表继承 `--font`（系统 UI 栈），侧栏 `.tag` / `.model-chip` / `.ver`
+   走 `--mono`（自托管 Noto Sans Mono，§2）——两者与 pi-web 同字形；`--serif` 的 brand wordmark 不动。
 5. **会话标题只在选中行加粗**：`.sess .st` 由 v4 的 `font-weight: 520` 降为 `400`，`520` 收进
    `.sess.on .st`；hover 不加粗。
 

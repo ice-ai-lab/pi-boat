@@ -4,7 +4,7 @@
    表面三层（基底/侧栏/浮起）参考 pi-web 站点：纸白 + 中性浅灰，
    暗色对应中性深灰；其余签名（暖调 hairline / 克制靛蓝 / serif 品牌字）
    保持 v4 原样。
-   例外：字栈改走 WorkBuddy 同款「完全跟随系统」（--font/--mono，见 docs/06 §2）。
+   例外：字栈对齐 pi-web（--font 系统 UI 栈 / --mono 自托管 Noto Sans Mono，见 docs/06 §2）。
 
    规则：
    - 本文件只放原始变量定义（亮色 :root / 暗色 [data-theme="dark"]），
@@ -76,12 +76,16 @@
   /* 浮层：毛玻璃纸白 */
   --menu: rgba(255, 255, 255, 0.86);
 
-  /* 字体：跟随系统（WorkBuddy 同款栈）——不指定需要额外安装/打包的字体。
-     旧栈里的 Roboto / "Hiragino Sans GB" / "JetBrains Mono" 正是被去掉的“设置的字体”；
-     --serif 的 Songti SC 本就是 macOS 自带，品牌字/hero 用它，故保持原样。 */
-  --font: "PingFang SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* 字体：两条栈均对齐 pi-web（2026-09-24 定案，见 docs/06 §2）。
+     正文 = 系统 UI 栈（macOS 上 -apple-system 即 SF Pro，中文由系统回退接管）；
+     等宽 = 自托管 Noto Sans Mono（webfont 由 theme.css @import fontsource 引入，
+     对应 pi-web 的 next/font/google 自托管 Noto_Sans_Mono），家族名带 "Variable"。
+     --serif 的 Songti SC 是 macOS 自带，v4 的 brand wordmark 签名，不动。 */
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --serif: "Songti SC", "Noto Serif SC", Georgia, "Times New Roman", serif;
-  --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --mono:
+    "Noto Sans Mono Variable", "JetBrains Mono", "Fira Code", Consolas, ui-monospace, "PingFang SC",
+    "Microsoft YaHei", monospace;
 
   /* 圆角梯度 */
   --r-s: 6px;

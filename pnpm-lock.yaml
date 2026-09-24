@@ -374,6 +374,9 @@ importers:
 
   packages/ui:
     dependencies:
+      '@fontsource-variable/noto-sans-mono':
+        specifier: ^5.3.0
+        version: 5.3.0
       '@ice-ai/client':
         specifier: workspace:*
         version: link:../client
@@ -1001,6 +1004,9 @@ packages:
     peerDependenciesMeta:
       '@noble/hashes':
         optional: true
+
+  '@fontsource-variable/noto-sans-mono@5.3.0':
+    resolution: {integrity: sha512-EgozyWG4nG2U1OT+zfdyHP1L8O0fUFMUBOilVF9urTshqIdfeGV9/FUQxaNHdPvHtV1cQCs1Ql0W1q93SiPK2w==}
 
   '@google/genai@1.52.0':
     resolution: {integrity: sha512-gwSvbpiN/17O9TbsqSsE/OzZcpv5Fo4RQjdngGgogtuB9RsyJ8ZHhX5KjHj1bp5N9snN2eK8LDGXSaWW2hof8Q==}
@@ -3557,6 +3563,8 @@ snapshots:
     optional: true
 
   '@exodus/bytes@1.15.2': {}
+
+  '@fontsource-variable/noto-sans-mono@5.3.0': {}
 
   '@google/genai@1.52.0(supports-color@7.2.0)':
     dependencies:

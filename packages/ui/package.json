@@ -25,6 +25,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@fontsource-variable/noto-sans-mono": "^5.3.0",
     "@ice-ai/client": "workspace:*",
     "@ice-ai/protocol": "workspace:*",
     "class-variance-authority": "^0.7.1",

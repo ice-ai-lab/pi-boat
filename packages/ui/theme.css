@@ -4,10 +4,12 @@
    结构（ADR-0011）：
    1. Tailwind v4（theme/utilities 两层；preflight 关闭，全局 reset 由
       styles/base.css 提供，见 docs/06 §2）
-   2. styles/tokens.css      设计令牌（纸墨 v4；表面三层参考 pi-web）
-   3. styles/utilities.css   Tailwind @utility + 滚动条/玻璃小件
-   4. styles/base.css        全局 reset + 跨组件共享小件
-   5. 组件样式 —— 每个组件一个 css 文件，与其 tsx 同目录（就近放置，
+   2. 等宽字体 Noto Sans Mono（自托管 webfont；--mono 的字体来源，
+      与 pi-web 的 next/font 自托管同源，见 docs/06 §2）
+   3. styles/tokens.css      设计令牌（纸墨 v4；表面三层参考 pi-web）
+   4. styles/utilities.css   Tailwind @utility + 滚动条/玻璃小件
+   5. styles/base.css        全局 reset + 跨组件共享小件
+   6. 组件样式 —— 每个组件一个 css 文件，与其 tsx 同目录（就近放置，
       随组件导出可携），此处统一 @import 聚合；旧语义 token 的别名
       映射在文件末尾
 
@@ -16,6 +18,7 @@
 
 @import "tailwindcss/theme.css";
 @import "tailwindcss/utilities.css";
+@import "@fontsource-variable/noto-sans-mono/wght.css";
 @import "./src/styles/tokens.css";
 @import "./src/styles/utilities.css";
 @import "./src/styles/base.css";
