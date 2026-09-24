@@ -2,6 +2,7 @@ import type { AgentSession, AgentSessionEvent } from '@earendil-works/pi-coding-
 import type { WireAgentEvent } from '@ice-ai/protocol';
 import { describe, expect, it, vi } from 'vitest';
 import { SessionRegistryEntry } from '../src/agent/session-entry';
+import { fakeRuntime } from './helpers/fake-runtime';
 
 /** 最小 AgentSession fake：只实现 Entry 用到的面 */
 function fakeSession(id = 's1') {
@@ -26,7 +27,7 @@ function fakeSession(id = 's1') {
 describe('SessionRegistryEntry', () => {
   it('SDK 事件投影后分发且 seq 单调递增（turn_* 透传；丢弃不消耗 seq）', () => {
     const { session, emit } = fakeSession();
-    const entry = new SessionRegistryEntry(session);
+    const entry = new SessionRegistryEntry(fakeRuntime(session));
     const seen: WireAgentEvent[] = [];
     entry.subscribe((e) => seen.push(e));
 
@@ -46,7 +47,7 @@ describe('SessionRegistryEntry', () => {
 
   it('多播：多个订阅者收到同一事件；退订只影响自己', () => {
     const { session, emit } = fakeSession();
-    const entry = new SessionRegistryEntry(session);
+    const entry = new SessionRegistryEntry(fakeRuntime(session));
     const a: WireAgentEvent[] = [];
     const b: WireAgentEvent[] = [];
     const offA = entry.subscribe((e) => a.push(e));
@@ -62,7 +63,7 @@ describe('SessionRegistryEntry', () => {
 
   it('订阅者抛错不影响其他订阅者', () => {
     const { session, emit } = fakeSession();
-    const entry = new SessionRegistryEntry(session);
+    const entry = new SessionRegistryEntry(fakeRuntime(session));
     const b: WireAgentEvent[] = [];
     entry.subscribe(() => {
       throw new Error('boom');
@@ -74,14 +75,14 @@ describe('SessionRegistryEntry', () => {
 
   it('queue_update 跟踪为快照（queuedMessages 数据源）', () => {
     const { session, emit } = fakeSession();
-    const entry = new SessionRegistryEntry(session);
+    const entry = new SessionRegistryEntry(fakeRuntime(session));
     emit({ type: 'queue_update', steering: ['s1'], followUp: ['f1'] });
     expect(entry.queuedMessages).toEqual({ steering: ['s1'], followUp: ['f1'] });
   });
 
   it('进行中的流式消息：message_update 记录 / message_end 清空（late join 快照源）', () => {
     const { session, emit } = fakeSession();
-    const entry = new SessionRegistryEntry(session);
+    const entry = new SessionRegistryEntry(fakeRuntime(session));
     const partial = { role: 'assistant', content: [{ type: 'text', text: '半截' }] } as never;
     emit({
       type: 'message_update',
@@ -95,7 +96,7 @@ describe('SessionRegistryEntry', () => {
 
   it('prompt 生命周期：agent_settled 销账（steer/follow_up 的销账依据，prompt 命令的幂等兜底）', () => {
     const { session, emit } = fakeSession();
-    const entry = new SessionRegistryEntry(session);
+    const entry = new SessionRegistryEntry(fakeRuntime(session));
     const seen: WireAgentEvent[] = [];
     entry.subscribe((e) => seen.push(e));
 
@@ -109,7 +110,7 @@ describe('SessionRegistryEntry', () => {
 
   it('clearPromptPending：清除标记（错误经 REST 信封回发送方，不发事件）', () => {
     const { session } = fakeSession();
-    const entry = new SessionRegistryEntry(session);
+    const entry = new SessionRegistryEntry(fakeRuntime(session));
     const seen: WireAgentEvent[] = [];
     entry.subscribe((e) => seen.push(e));
     entry.markPromptDispatched();
@@ -120,7 +121,7 @@ describe('SessionRegistryEntry', () => {
 
   it('emitEvent 与 SDK 事件共用 seq 计数器', () => {
     const { session, emit } = fakeSession();
-    const entry = new SessionRegistryEntry(session);
+    const entry = new SessionRegistryEntry(fakeRuntime(session));
     const seen: WireAgentEvent[] = [];
     entry.subscribe((e) => seen.push(e));
 
@@ -131,21 +132,22 @@ describe('SessionRegistryEntry', () => {
     expect(seen.map((e) => e.seq)).toEqual([1, 2, 3]);
   });
 
-  it('dispose：广播 session_shutdown → 清订阅 → dispose SDK；之后再订阅报错', () => {
+  it('dispose：广播 session_shutdown → 清订阅 → dispose runtime；之后再订阅报错', () => {
     const { session } = fakeSession();
-    const entry = new SessionRegistryEntry(session);
+    const runtime = fakeRuntime(session);
+    const entry = new SessionRegistryEntry(runtime);
     const seen: WireAgentEvent[] = [];
     entry.subscribe((e) => seen.push(e));
 
     entry.dispose('idle');
     expect(seen).toHaveLength(1);
     expect(seen[0]).toMatchObject({ type: 'session_shutdown', reason: 'idle' });
-    expect(session.dispose).toHaveBeenCalledTimes(1);
+    expect(runtime.dispose).toHaveBeenCalledTimes(1);
     expect(entry.subscriberCount).toBe(0);
     expect(entry.isDisposed).toBe(true);
     expect(() => entry.subscribe(() => {})).toThrow(/disposed/);
     // 幂等
     entry.dispose();
-    expect(session.dispose).toHaveBeenCalledTimes(1);
+    expect(runtime.dispose).toHaveBeenCalledTimes(1);
   });
 });

@@ -119,6 +119,15 @@ function render(event: WireAgentEvent): void {
     case 'session_shutdown':
       console.log(`🔌 session_shutdown (${event.reason ?? 'unknown'})`);
       break;
+    case 'session_replaced':
+      console.log(`🔀 session_replaced → ${event.newSessionId} (${event.reason})`);
+      break;
+    case 'extension_ui_request':
+      console.log(`🪟 扩展 UI 请求：${event.request.method}`);
+      break;
+    case 'extension_ui_closed':
+      console.log(`🪟 扩展 UI 关闭：${event.id} (${event.reason})`);
+      break;
 
     // 无需渲染的事件：显式列出，使下面的 default 只承接「协议新增的类型」
     case 'agent_start':
