@@ -160,6 +160,11 @@ describe('events/wire-agent-event', () => {
       thinking_level_changed: { level: 'high' },
       connected: { sessionId: 's1', isStreaming: false, lastSeq: seq - 1 },
       session_shutdown: {},
+      session_replaced: { newSessionId: 's2', reason: 'fork' },
+      extension_ui_request: {
+        request: { id: 'ui_1', method: 'select', title: 't', options: ['a', 'b'] },
+      },
+      extension_ui_closed: { id: 'ui_1', reason: 'timeout' },
       turn_start: {},
       turn_end: { message: assistantSample, toolResults: [] },
     };
@@ -172,7 +177,9 @@ describe('events/wire-agent-event', () => {
     }
     // 反向：样例表不存在未声明类型
     expect(Object.keys(minimal).sort()).toEqual([...WIRE_AGENT_EVENT_TYPES].sort());
-    // 24 种：SDK 透传 22 + 服务层自加 2（2026-09-20 删自加三事件；2026-09-22 删 bash_execution_update）
-    expect(WIRE_AGENT_EVENT_TYPES).toHaveLength(24);
+    // 27 种：SDK 透传 22 + 服务层自加 5（connected/session_shutdown）；
+    // 2026-09-20 删自加三事件；2026-09-22 删 bash_execution_update；
+    // B2 加 session_replaced / extension_ui_request / extension_ui_closed
+    expect(WIRE_AGENT_EVENT_TYPES).toHaveLength(27);
   });
 });

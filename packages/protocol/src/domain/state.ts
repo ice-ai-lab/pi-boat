@@ -57,6 +57,26 @@ export const AgentStateSchema = z.object({
 });
 export type AgentState = z.infer<typeof AgentStateSchema>;
 
+/**
+ * 会话性能统计（仅在**本进程跑过**的会话上有值；冷会话为 undefined）。
+ * 由 SessionRegistryEntry 在流内累加（docs/02 §11.1 的「性能统计累加」）：
+ * LLM 耗时取 turn_start→turn_end，工具耗时取 tool_execution_start→end。
+ * 与 `getSessionStats()` 的 token/cost 口径无关——后者从条目聚合（含历史）。
+ */
+export const SessionPerfSchema = z.object({
+  /** 轮数（agent_start → agent_settled） */
+  rounds: z.number(),
+  /** 步数（turn 数） */
+  steps: z.number(),
+  /** 模型耗时合计（毫秒） */
+  llmMs: z.number(),
+  /** 工具耗时合计（毫秒） */
+  toolMs: z.number(),
+  /** 输出 token / 秒（llmMs 为 0 时为 0） */
+  tokensPerSecond: z.number(),
+});
+export type SessionPerf = z.infer<typeof SessionPerfSchema>;
+
 /** token 四项汇总（SessionStatsInfo.tokens） */
 export const TokenSummarySchema = z.object({
   input: z.number(),
@@ -83,6 +103,8 @@ export const SessionStatsInfoSchema = z.object({
   totalActiveMs: z.number().optional(),
   /** rpc 层附加：当前会话名 */
   sessionName: z.string().optional(),
+  /** 本进程累加的性能统计；冷会话（本进程未跑过）为 undefined */
+  perf: SessionPerfSchema.optional(),
 });
 export type SessionStatsInfo = z.infer<typeof SessionStatsInfoSchema>;
 

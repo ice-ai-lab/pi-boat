@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   AgentMessageSchema,
   type AssistantMessage,
-  AssistantMessageSchema,
   type SessionEntry,
   SessionEntrySchema,
   SessionTreeNodeSchema,
