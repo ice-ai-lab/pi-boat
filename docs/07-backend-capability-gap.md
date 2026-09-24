@@ -48,7 +48,7 @@
 |---|---|---|
 | G2-2 | **模型可见范围（enabledModels）** | glob/fuzzy/`:thinkingLevel` 后缀语法、最小编辑（不整表重写）、`provider/*` vs `provider/**` 的 minimatch 陷阱、项目 `.pi/settings.json` shadow 只读、`prune` / `resync` 两种修复操作、禁用最后一个模型返回 409。**本仓完全未登记** |
 | G2-3 | **模型目录刷新** | 远端 catalog overlay 落 `~/.pi/agent/models-store.json`、常规读取走离线态（不联网）、只有用户显式点按钮才联网、按 provider 合并并发刷新、变更检测比 id/name 不比字节 |
-| G2-4 | **扩展 UI 通道本体** | `docs/02 §3.5` 只登记了 10 种 method 的形状且「随 M2 再定」；**渲染代际、清理、错误处理、`custom` UI 的双向通道**均未登记 |
+| G2-4 | **扩展 UI 通道本体** | 形状已定（ADR-0012）：按 SDK RPC 面实现 **9 个 method**（无 `custom`），核心缺口是硬件级细节——**阻塞型请求的默认超时**（SDK 不兜）、会话终止时未决请求结清、widgets/status 按 key 的**代际管理与 reload 清理**；`docs/02 §3.5` 原登记的 10 method（含 `custom`）与 `extension_ui_input` 已按核实结果修正 |
 | G2-5 | **会话文件外部写入检测** | 终端 pi CLI 与 server 同时写同一 `.jsonl` 时，内存 runtime 会读到旧索引；`docs/01 §8-10` 只提了文件锁，没提这条。需要「仅在全量读（挂载/刷新）时探测磁盘并重建 runtime」的机制 |
 | G2-6 | **会话视图缓存 + `snapshotRevision`** | 客户端靠不透明 revision 决定历史窗口能否复用。本仓无此概念（`docs/05 §6.4` 只说「靠 REST 重建」） |
 | G2-7 | **会话内容搜索** | 本仓 `SessionReadService.search()` **只过滤 firstMessage/name**（元数据）；需要搜正文并按树归组 |
@@ -76,7 +76,8 @@
 | `POST /api/agent/:id/lease` | 🟡 | M3 登记，未实现（配合 G2-12） |
 | `GET /api/agent/:id/bash-output` | ⛔ | **不做**（2026-01 定案：所有终端类能力一律不要）。超长 bash 输出临时文件的读取端点与 Shell 直连命令组（`bash` / `abort_bash`）一并不做；`BashExecutionMessage` 的历史渲染不受影响 |
 
-缺失命令（14）：`set_model`、`set_thinking_level`、`compact`、`abort_compaction`、`set_auto_compaction`、`set_auto_retry`、`fork`、`fork_branch`、`clone`、`navigate_tree`、`set_session_name`、`reload`、`extension_ui_response`、`extension_ui_input`。
+缺失命令（14）：`set_model`、`set_thinking_level`、`compact`、`abort_compaction`、`set_auto_compaction`、`set_auto_retry`、`fork`、`fork_branch`、`clone`、`navigate_tree`、`set_session_name`、`reload`、`extension_ui_response`。
+（⚠️ 原列的 `extension_ui_input` **不存在**——0.87.1 `RpcCommand` 里没有这个命令，属误记；扩展 UI 只需 `extension_ui_response` 一个回填命令，见 ADR-0012）
 （`bash` / `abort_bash` 属 Shell 直连组，本仓已决策不做 —— 复核即可。）
 
 **命令域实现硬约束**：
@@ -217,11 +218,11 @@
 
 | 编号 | 议题 | 状态 | 影响面 |
 |---|---|---|---|
-| ADR-0010 | SDK `0.85.x` → `0.87.x` | ✅ **已定（2026-01）：升**，B1 首项 | 全仓（core 投影 / 状态读取 / 统计口径） |
-| ADR-0011 | 模型可见范围（enabledModels）与目录刷新 | 待定案（建议：**实现**，否则「模型面板」无法覆盖） | protocol + core + server |
-| ADR-0012 | 扩展 UI 双向通道定形（10 method + widgets/custom 代际） | 待定案（建议：**定形**，M2 原计划提前） | protocol + core + client + ui |
-| ADR-0013 | 冷会话自动拉起 + 会话文件外部写入检测 | 待定案（建议：**采纳「点开即恢复」语义**） | server + core |
-| ADR-0014 | 一期范围：排除鉴权 / 登录 / 终端，延后子代理运行时 | ✅ **已定（2026-01）**，待落成 ADR 文件 | 全仓（防止反复重建） |
+| ADR-0010 | SDK 对齐 `0.87.x` | ✅ 已落地（B1 完成，含 2 项遗留真机验证） | 全仓（core 投影 / 状态读取 / 统计口径） |
+| ADR-0011 | 模型可见范围（enabledModels）与目录刷新 | ✅ 已定：完整引擎 + 全局可写/项目只读 + 仅手动刷新 | protocol + core + server（B3） |
+| ADR-0012 | 扩展 UI 双向通道 | ✅ 已定：按 SDK RPC 面实现 **9 个 method**，不引入 TUI 渲染（`custom` 明确不支持） | protocol + core + client + ui（B2） |
+| ADR-0013 | 冷会话恢复 + 外部写入检测 | ✅ 已定：恢复走**显式 `POST /resume`**（保住「GET 无副作用」）；外部写入**仅全量读**时检测，run 期间不检测 | server + core（B4） |
+| ADR-0014 | 一期范围：排除鉴权 / 登录 / 终端，延后内建子代理运行时 | ✅ 已落成 ADR 文件（并标注 **ADR-0007 的 LAN 段被取代**） | 全仓（防止反复重建） |
 
 > ADR-0007 的「GET 不得有副作用」是硬约束：新增的 `GET /api/models/enabled`（只读）都没问题，但**不得**引入任何有副作用的 GET。
 > ADR-0014 不是新决策，而是把已定的排除/延后项**落成可检索的决策记录**——这类「有意不做」若不记录，后续会话很容易重新加回来。
@@ -351,10 +352,10 @@
 
 ## 9. 下一步
 
-1. **待定案**（阻塞对应批次）：ADR-0011（模型可见范围 + 目录刷新）、ADR-0012（扩展 UI 双向通道）、ADR-0013（冷会话拉起 + 外部写入检测）
-2. **已完成**：ADR-0010（SDK 对齐 `0.87.x`，B1）——遗留 2 项真机验证（§2 G1）
-3. **待落成 ADR 文件**：ADR-0014（§8 的排除/延后）——`docs/01` §9-4a 已记录，只缺可检索的决策文件
-4. 把本文件登记进 `docs/01 §7` 里程碑表
-5. 开工 **B2 命令通道补全**（缺的 14 条命令 + 扩展 UI 通道 + 工具预设）
+1. ✅ **定案已齐**：ADR-0010～0014 全部已接受（§5），B0 完成
+2. ✅ **B1 已完成**（SDK 对齐 `0.87.x`）——遗留 2 项真机验证（§2 G1）
+3. 待办：把本文件登记进 `docs/01 §7` 里程碑表
+4. 开工 **B2 命令通道补全**：缺的 14 条命令 + fork runtime 替换 + `set_tools` 冷会话重建 + **扩展 UI 通道（ADR-0012 的 9 个 method）** + 工具预设（G2-9）+ 精确系统提示词（G2-10）
+5. 然后依次 B3（模型域，ADR-0011）→ B4（会话域，ADR-0013）→ B5（文件/Git/Worktree）→ B6（资源域）→ B7（生命周期与通知）
 
 > 本文与代码不一致时以代码为准并当天更新（AGENTS.md）。

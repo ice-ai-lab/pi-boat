@@ -21,7 +21,7 @@
 |---|---|---|
 | REST 路由 | 49 个路由文件（52 个端点文件，其中 2 个为 SSE，部分含多方法） | 九大功能域（§6）。⚠️ **计数已过期且不完整**（2026-01 复核：能力面基线实测 55 个路由文件 / 78 个 handler；本表未收录 `/api/models/enabled`、`/api/models/refresh`、`DELETE /api/auth/api-key/:provider`、`/api/web-auth` 等条目）——差异与补齐依据见 `docs/07-backend-capability-gap.md` |
 | SSE 事件流 | 1（agent 事件流；auth 登录流一期排除） | `agent/[id]/events`；~~`auth/login/[provider]`~~（2026-01 排除，见 §6.5） |
-| RPC 命令 | 26（命令通道 25 + `agent/new` 专属 `ensure_session`；2026-09-22：删 Shell 直连组） | `POST /api/agent/:id` 请求体判别联合（§4） |
+| RPC 命令 | 25（命令通道 24 + `agent/new` 专属 `ensure_session`；2026-09-22 删 Shell 直连组，2026-01 删不存在的 `extension_ui_input`） | `POST /api/agent/:id` 请求体判别联合（§4） |
 | 领域类型 | ~40 个 | domain/ 七文件（§3、§10） |
 | 事件 wire 类型 | 24 种（SDK 透传 22 + 服务层自加 2；2026-09-22：删 bash_execution_update） | SDK `JsonAgentSessionEvent` 投影 + 服务层事件（§5.1） |
 
@@ -93,18 +93,21 @@
 | `ToolInfo` | `name/description/parameters/promptGuidelines/sourceInfo` + `active`（get_tools 时叠加） |
 | `SlashCommandInfo` | `name/description/source("prompt"|"skill"|"extension")/sourceInfo`（斜杠命令面板） |
 
-### 3.5 扩展 UI 协议（M2 规划；schema 未定义，2026-09-20 定案随里程碑再定）
+### 3.5 扩展 UI 协议（形状已定：ADR-0012）
 
-- `ExtensionUiRequest`（**10 种 method**）：`select / confirm / input / editor / notify / setStatus / setWidget / setTitle / set_editor_text / custom`，阻塞型（select/confirm/input/editor/custom）带 `id/timeout/expiresAt`；各 method 载荷：`notify {message, notifyType?}`、`setStatus {statusKey, statusText?}`（statusText=undefined 即清除该项）、`setWidget {widgetKey, widgetLines?, widgetPlacement?}`（同上，undefined 即清除）、`setTitle {title}`、`set_editor_text {text}`（向编辑器插入文本）、`custom {…, closed?}`（closed=true 为服务端关闭通知，客户端据此撤下 UI）
-- `ExtensionUiResponse`：`{id, value} | {id, confirmed} | {id, cancelled:true}`
-- `ExtensionStatusItem / ExtensionWidgetItem`
-- ⚠️ 最容易被漏掉的协议成员；扩展交互经命令通道（`extension_ui_response/input`）与事件通道（`extension_ui_request`）双向完成
+> ⚠️ 2026-01 按 SDK 0.87.1 的 **RPC 面**核实后修正：members 是 **9 种**，**没有 `custom`**（RPC 模式自身不支持自定义 UI，其 `custom()` 直接返回 `undefined`），且**没有 `extension_ui_input`** 命令（原记属误记）。形状以 `RpcExtensionUIRequest` / `RpcExtensionUIResponse` 为准。
+
+- `ExtensionUiRequest`（**9 种 method**）：`select {title, options[], timeout?}` / `confirm {title, message, timeout?}` / `input {title, placeholder?, timeout?}` / `editor {title, prefill?}`（前四种阻塞型，`id` 由 SDK 生成）· `notify {message, notifyType?}` / `setStatus {statusKey, statusText?}` / `setWidget {widgetKey, widgetLines?, widgetPlacement?}` / `setTitle {title}` / `set_editor_text {text}`（后五种 fire-and-forget）。`statusText` / `widgetLines` 缺省 = 清除该项
+- `ExtensionUiResponse`：`{id, value} | {id, confirmed} | {id, cancelled:true}`（经命令通道 `extension_ui_response` 回填）
+- `ExtensionStatusItem / ExtensionWidgetItem`：按 key 覆盖的集合，随 `AgentState` 快照下发
+- ⚠️ 宿主必须自补两件事（SDK 不兜）：**阻塞型请求的服务端默认超时**（`timeout` 是扩展自己传的，`editor` 压根没这个字段）、**会话终止时把未决请求以 `cancelled` 结清**
+- 事件通道 `extension_ui_request` ↔ 命令通道 `extension_ui_response` 双向完成；TUI 专属成员（`onTerminalInput` / `setWorking*` / `setFooter` / `setHeader` / 工厂形态的 `setWidget` 等）逐个 no-op，见 ADR-0012
 
 ---
 
 ## 4. ③ Agent 命令通道（commands）
 
-`POST /api/agent/:id` 请求体判别联合（**26 命令** = 命令通道 25 个 + `agent/new` 专属 `ensure_session`。⚠️ `custom_message` 不是命令——它是会话条目类型 `CustomMessageEntry`，见 §3.1）：
+`POST /api/agent/:id` 请求体判别联合（**25 命令** = 命令通道 24 个 + `agent/new` 专属 `ensure_session`。⚠️ `custom_message` 不是命令——它是会话条目类型 `CustomMessageEntry`，见 §3.1）：
 
 | 分组 | 命令（参数 → 返回） |
 |---|---|
@@ -116,7 +119,7 @@
 | 工具 | `get_tools` → ToolInfo[]（含 active）；`set_tools {toolNames}` → **双路径**：运行中会话走 switch 返回 null；冷会话走 route 层 `setRpcSessionTools` 重建 runtime，信封 data 为 `{sessionId, recreated}`（返回形状不同，协议需两态） |
 | 命令面板 | `get_commands` → `{commands: SlashCommandInfo[]}` |
 | 会话管理 | `set_session_name {name}` → null（空白名报错）；`reload` → `{success}`（重绑扩展/同步信任/刷新模型缓存）；`ensure_session`（仅 `agent/new` 的 type 值：只建 runtime 不发首条消息，供客户端预查命令） |
-| 扩展 UI | `extension_ui_response`；`extension_ui_input {id, data}` |
+| 扩展 UI | `extension_ui_response`（~~`extension_ui_input`~~ 不存在，见 ADR-0012） |
 
 > ⚠️ 2026-09-22 决策：**Shell 直连组（`bash` / `abort_bash`，即 TUI `!`/`!!` 直接执行）不实现**，
 > 随之删除 `bash_execution_update` 事件（§5.1）、`/bash-output` 端点（§6.3）与
