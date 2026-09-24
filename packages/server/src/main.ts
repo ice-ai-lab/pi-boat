@@ -5,13 +5,19 @@ import { fileURLToPath } from 'node:url';
 import { serve } from '@hono/node-server';
 import {
   AgentSessionService,
+  buildCompletionNotification,
+  ConfigService,
+  LivenessRegistry,
   ProjectReadService,
   ProjectResolver,
+  PushService,
+  ResourceService,
   SessionReadService,
+  SystemService,
 } from '@ice-ai/core';
 import { PORTS } from '@ice-ai/protocol';
 import { createAgentServer } from './server';
-import { closeAllAgentEventStreams } from './sse';
+import { activeStreamCount, closeAllAgentEventStreams } from './sse';
 
 /**
  * 启动序列（docs/04 §2）：读配置 → 实例化 core → 组装路由 → listen。
@@ -28,14 +34,51 @@ const readService = new SessionReadService({
   resolver,
 });
 const projectService = new ProjectReadService({ resolver });
+const configService = new ConfigService();
+// 路径闸门与只读服务共用同一 resolver：cwd/validate 与 worktrees 的项目键必须
+// 与会话列表的分组键一致（ADR-0008），否则前端按 projectKey 过滤会漏
+const systemService = new SystemService({ resolver });
 
 // apps/web/dist：src 与 dist 同深度（packages/server/<dir> → 仓库根的 apps/web/dist）
 const webDist = join(dirname(fileURLToPath(import.meta.url)), '../../..', 'apps/web/dist');
+
+// agentDir 由 core 自己解析（server 不得 import pi SDK，AGENTS 依赖铁律）
+const pushService = new PushService();
+const resourceService = new ResourceService();
+// idle 回收：判据 = 没有观看者（lease 过期且无 SSE 订阅）且没有在跑（B7 / G2-12）
+const liveness = new LivenessRegistry({
+  agentService,
+  subscriberCount: (id) => activeStreamCount(id),
+  onReap: (id) => agentService.disposeSession(id, 'idle'),
+});
+liveness.start();
+
+// 推送投递侧（G2-13）：只在**没有观看者**时发——用户正看着屏幕不需要通知。
+// `deliver` 内部处理"未装 web-push"与失效订阅（404/410 即删）。
+agentService.onSettled((sessionId) => {
+  if (activeStreamCount(sessionId) > 0) return;
+  const state = agentService.getRunningState(sessionId);
+  if (!state.running) return;
+  void pushService
+    .deliver(
+      buildCompletionNotification({
+        sessionId,
+        sessionName: undefined,
+        firstMessage: undefined,
+      }),
+    )
+    .catch((error) => console.error('[server] push deliver failed:', error));
+});
 
 const app = createAgentServer({
   agentService,
   readService,
   projectService,
+  configService,
+  systemService,
+  pushService,
+  resourceService,
+  liveness,
   staticRoot: existsSync(webDist) ? webDist : undefined,
 });
 
@@ -55,6 +98,7 @@ function shutdown(signal: string): void {
   if (shuttingDown) return;
   shuttingDown = true;
   console.log(`[piboat-server] ${signal} received, shutting down…`);
+  liveness.stop();
   agentService.disposeAll('server_shutdown');
   // 给 session_shutdown 帧一个冲刷窗口，再硬断剩余流
   setTimeout(() => {

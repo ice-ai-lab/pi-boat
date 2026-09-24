@@ -24,10 +24,12 @@ const COMMAND_TYPES = new Set<string>(
 
 export interface AgentRouteDeps {
   agentService: AgentSessionService;
+  /** liveness lease 注册表（idle 回收的"有人看"判据之一，B7） */
+  liveness?: { renew(sessionId: string): boolean };
 }
 
 export function registerAgentRoutes(app: Hono, deps: AgentRouteDeps): void {
-  const { agentService } = deps;
+  const { agentService, liveness } = deps;
 
   // POST /api/agent/new —— 新建会话（docs/02 §4.1）：NewSessionOk 扩展信封；
   // 首条消息被拒时会话保留、错误上抛（core 语义，docs/03）
@@ -45,6 +47,15 @@ export function registerAgentRoutes(app: Hono, deps: AgentRouteDeps): void {
     }
   });
 
+  // POST /api/agent/:id/lease —— 观看期间续 liveness lease（推迟 idle 回收）。
+  // renewed:false 是**正常结果**（会话已被回收/不存在），不是 404——
+  // 前端据它决定要不要显式 resume（ADR-0013）。
+  app.post('/api/agent/:id/lease', (c) => {
+    const id = c.req.param('id');
+    const renewed = liveness?.renew(id) ?? agentService.isRunning(id);
+    return c.json({ success: true, renewed });
+  });
+
   // GET /api/agent/running —— 可见 Tab 池轻量轮询（先于 /:id 注册）
   app.get('/api/agent/running', (c) => {
     const body: RunningSessionsResponse = {
@@ -54,6 +65,19 @@ export function registerAgentRoutes(app: Hono, deps: AgentRouteDeps): void {
       completionNotificationSuppressedSessionIds: [],
     };
     return c.json(body);
+  });
+
+  // POST /api/agent/:id/resume —— 从 .jsonl 重建 runtime 并登记（ADR-0013）。
+  // 为什么是显式 POST 而不是"建 SSE 流时自动拉起"：后者会让 GET 产生副作用，
+  // 直接违反 ADR-0007（无 Origin 的跳站 GET 没有凭据兜底）。
+  // 幂等：已在注册表内的会话直接返回现状，不会重复建 runtime。
+  app.post('/api/agent/:id/resume', async (c) => {
+    try {
+      return c.json(await agentService.resume(c.req.param('id')));
+    } catch (error) {
+      const { status, body } = mapCoreError(error);
+      return c.json(body, status);
+    }
   });
 
   // GET /api/agent/:id —— 单会话状态轻查：直读注册表、不进命令 FIFO
@@ -86,10 +110,11 @@ export function registerAgentRoutes(app: Hono, deps: AgentRouteDeps): void {
     }
   });
 
-  // GET /api/agent/:id/events —— SSE 事件流（sse.ts 六关流路径）
+  // GET /api/agent/:id/events —— SSE 事件流（sse.ts 六条关流路径）
   app.get('/api/agent/:id/events', (c) => {
     const id = c.req.param('id');
-    // 关闭条件 3：冷会话不自动拉起（恢复语义归 M2 的显式端点，不在建流时隐式创建 runtime）
+    // 关闭条件 3：冷会话不自动拉起——恢复走显式 `POST /api/agent/:id/resume`（ADR-0013）；
+    // 建流时隐式创建 runtime 会让 GET 产生副作用，违反 ADR-0007
     if (!agentService.isRunning(id)) {
       return c.json<CommandError>({ error: `Session not found: ${id}` }, 404);
     }
