@@ -4,6 +4,7 @@
 - 状态：已接受（Accepted）
 - 关联文档：`docs/01-overview.md` §5.2.1 / §5.2.2 / §5.6 / §9-4；`docs/02-protocol-inventory.md` §2 / §7 / §9-4；`docs/04-server-design.md` §2 / §6 / §7 / §8-6；AGENTS.md「新增路由检查清单」
 - 关联决策：ADR-0002（Web 前端独立 server + Vite SPA，开发期 2 进程）
+- 部分被取代：**LAN 段（「另议」）被 [ADR-0014](0014-phase-one-scope-exclusions.md) 取代**（2026-01：一期不引入任何访问凭据，非回环绑定明确不做）。本文的决策主体（删 token / 票据，三闸常开，GET 不得有副作用）**仍然有效**
 
 ## 背景
 
