@@ -37,6 +37,7 @@ import {
   searchSkills,
   updateSkills,
 } from '../endpoints/resources';
+import { getSessionDetail } from '../endpoints/sessions';
 import { browseCwd, getHome } from '../endpoints/system';
 import {
   createWorktree,
@@ -370,4 +371,14 @@ export function useCwdBrowseQuery(path?: string) {
 
 export function useHomeQuery() {
   return useQuery({ queryKey: settingsKeys.home(), queryFn: () => getHome(), staleTime: Infinity });
+}
+
+/** GET /api/sessions/:id —— 详情（含 tree/leafId/stats/info；分支导航与会话信息面板用） */
+export function useSessionDetailQuery(sessionId: string | null) {
+  return useQuery({
+    queryKey: ['sessionDetail', sessionId ?? ''],
+    queryFn: () => getSessionDetail(sessionId as string),
+    enabled: sessionId !== null,
+    retry: false,
+  });
 }

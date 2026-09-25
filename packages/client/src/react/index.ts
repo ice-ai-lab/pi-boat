@@ -29,6 +29,7 @@ export {
   useRemoveWorktreeMutation,
   useRenameSessionMutation,
   useSearchSkillsMutation,
+  useSessionDetailQuery,
   useSessionSearchQuery,
   useSessionsQuery,
   useSkillsQuery,

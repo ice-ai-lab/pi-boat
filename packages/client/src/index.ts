@@ -4,12 +4,28 @@
  */
 
 export {
+  abortAgentCompaction,
   agentEventsUrl,
+  clearAgentQueue,
+  cloneAgentSession,
+  compactAgent,
+  followUpAgent,
+  forkAgentBranch,
+  forkAgentSession,
+  getAgentCommands,
   getAgentRunningState,
+  getAgentStateLight,
+  getAgentStats,
+  getAgentTools,
+  navigateAgentTree,
   newAgentSession,
   renewAgentLease,
+  respondAgentExtensionUi,
   resumeAgentSession,
   sendAgentCommand,
+  setAgentSessionName,
+  setAgentTools,
+  steerAgent,
 } from './endpoints/agent';
 export {
   checkUploadConflicts,
@@ -50,8 +66,10 @@ export {
   updateSkills,
 } from './endpoints/resources';
 export {
+  autoNameSession,
   getSessionContext,
   getSessionDetail,
+  sessionExportUrl,
 } from './endpoints/sessions';
 export { browseCwd, getHome } from './endpoints/system';
 export {
@@ -121,6 +139,22 @@ export {
   parseUnifiedDiff,
 } from './files/unified-diff';
 export { ApiError, getJson, http, postCommand } from './http';
+export {
+  EMPTY_CURSOR,
+  type HistoryCursor,
+  historyNext,
+  historyPrev,
+  INPUT_HISTORY_LIMIT,
+  pushHistory,
+} from './input/input-history';
+export {
+  applySlashInsertion,
+  extractSlashQuery,
+  filterSlashCommands,
+  parseSlashSubmission,
+  type SlashQueryMatch,
+  slashSourceLabel,
+} from './input/slash-commands';
 export { AgentEventConnection, parseWireEvent } from './stream/agent-event-connection';
 export { AgentStream, disposeAgentStream, getAgentStream } from './stream/agent-stream';
 export { applyToolResult, assistantFinalText, fold, userText } from './stream/fold';
@@ -153,6 +187,13 @@ export {
   VISIBLE_PAGE_SIZE,
 } from './view-models/chat-lazy-load';
 export {
+  activeRange,
+  buildMinimapBars,
+  type MinimapBar,
+  scrollTopForBar,
+  turnTone,
+} from './view-models/minimap';
+export {
   configProviderNames,
   enabledScopeLabel,
   groupModelsByProvider,
@@ -179,3 +220,25 @@ export {
   SESSION_LIST_ITEM_HEIGHT,
   SESSION_LIST_OVERSCAN,
 } from './view-models/session-list-window';
+export {
+  contextPercent,
+  formatCost,
+  formatDurationMs,
+  formatTokens,
+  type StatsSummary,
+  summarizeStats,
+} from './view-models/session-stats';
+export {
+  applyTheme,
+  nextTheme,
+  type ResolvedTheme,
+  resolveTheme,
+  type ThemePreference,
+  themeLabel,
+} from './view-models/theme';
+export {
+  allWrittenFiles,
+  extractTurnWrittenFiles,
+  shortPath,
+  type WrittenFileGroup,
+} from './view-models/turn-written-files';

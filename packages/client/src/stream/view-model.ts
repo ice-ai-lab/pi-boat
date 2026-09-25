@@ -1,4 +1,4 @@
-import type { ModelRef, Usage } from '@ice-ai/protocol';
+import type { ExtensionUiRequest, ModelRef, Usage } from '@ice-ai/protocol';
 
 /**
  * 视图模型（docs/05 §6）：`fold`（实时事件）与 `rebuild`（历史消息）共同产出的
@@ -64,6 +64,8 @@ export type GroupedTrailItem = TrailItem | ProcessGroupData;
 /** fold 的整体状态（AgentStream 持有并通知订阅者） */
 export interface ChatState {
   turns: Turn[];
+  /** 待应答的扩展 UI 请求（ADR-0012）：阻塞型 method 必须应答，否则挂到宿主默认超时 */
+  extensionRequest: ExtensionUiRequest | null;
   /** agent run 进行中（agent_start…agent_settled 之外为 false） */
   streaming: boolean;
   /** 排队消息（steering 插队 / followUp 收尾追问） */
@@ -74,7 +76,13 @@ export interface ChatState {
 }
 
 export function emptyChatState(): ChatState {
-  return { turns: [], streaming: false, queued: { steering: [], followUp: [] }, terminated: false };
+  return {
+    turns: [],
+    extensionRequest: null,
+    streaming: false,
+    queued: { steering: [], followUp: [] },
+    terminated: false,
+  };
 }
 
 /** 末轮是否仍在进行（流式期间不分组、平铺渲染，docs/05 §6.5 方案 2） */

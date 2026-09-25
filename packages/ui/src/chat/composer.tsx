@@ -1,7 +1,8 @@
 import { ArrowUp, Square } from 'lucide-react';
-import { type KeyboardEvent, useCallback, useRef } from 'react';
+import { type KeyboardEvent, type ReactNode, useCallback, useRef } from 'react';
 import { Textarea } from '../primitives/textarea';
 import { cn } from '../utils/cn';
+import { type SuggestionItem, SuggestionMenu } from './suggestion-menu';
 
 /**
  * Composer（docs/06 §4.2）：sticky 输入卡 + 渐变淡入 + 发送↔停止。
@@ -16,8 +17,17 @@ export interface ComposerProps {
   disabled?: boolean;
   placeholder?: string;
   /** `@` 文件提及候选（web 层用 client 的 file-fuzzy 算出，本组件只渲染与回传选择） */
-  mentions?: { label: string; hint?: string }[];
+  mentions?: SuggestionItem[];
   onPickMention?(index: number): void;
+  /** `/` 斜杠命令候选（行首触发；与提及互斥，提及优先） */
+  slashCommands?: SuggestionItem[];
+  onPickSlashCommand?(index: number): void;
+  /** 排队消息条等附加行（渲染在输入卡上方） */
+  aboveInput?: ReactNode;
+  /** ↑ 历史上翻（仅有历史时由宿主提供） */
+  onHistoryPrev?(): void;
+  /** ↓ 历史下翻 */
+  onHistoryNext?(): void;
   /** 键盘上下键在候选间移动（web 层持有选中下标） */
   mentionActiveIndex?: number;
   onMentionActiveIndexChange?(index: number): void;
@@ -35,12 +45,19 @@ export function Composer({
   placeholder = '给 PiBoat 发消息…（Enter 发送，Shift+Enter 换行）',
   mentions,
   onPickMention,
+  slashCommands,
+  onPickSlashCommand,
+  aboveInput,
+  onHistoryPrev,
+  onHistoryNext,
   mentionActiveIndex = 0,
   onMentionActiveIndexChange,
   onCaretChange,
 }: ComposerProps) {
   const lastSubmitRef = useRef('');
   const mentionOpen = mentions !== undefined && mentions.length > 0;
+  const slashOpen = !mentionOpen && slashCommands !== undefined && slashCommands.length > 0;
+  const menuOpen = mentionOpen || slashOpen;
 
   const submit = useCallback(() => {
     const text = value.trim();
@@ -52,9 +69,9 @@ export function Composer({
 
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLTextAreaElement>) => {
-      // 提及菜单开着时：上下选、Tab/Enter 确认、Esc 关（不提交）
-      if (mentionOpen) {
-        const count = mentions?.length ?? 0;
+      // 候选菜单开着时：上下选、Tab/Enter 确认、Esc 关（不提交）
+      if (menuOpen) {
+        const count = mentionOpen ? (mentions?.length ?? 0) : (slashCommands?.length ?? 0);
         if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
           event.preventDefault();
           const step = event.key === 'ArrowDown' ? 1 : -1;
@@ -63,7 +80,8 @@ export function Composer({
         }
         if (event.key === 'Tab' || (event.key === 'Enter' && !event.nativeEvent.isComposing)) {
           event.preventDefault();
-          onPickMention?.(mentionActiveIndex);
+          if (mentionOpen) onPickMention?.(mentionActiveIndex);
+          else onPickSlashCommand?.(mentionActiveIndex);
           return;
         }
         if (event.key === 'Escape') {
@@ -75,15 +93,38 @@ export function Composer({
       if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
         event.preventDefault();
         submit();
+        return;
+      }
+      // ↑↓：光标在首/末行时才接管（否则让用户在多行文本里移动）
+      const textarea = event.currentTarget;
+      const textareaValue = textarea.value;
+      const caret = textarea.selectionStart ?? 0;
+      if (event.key === 'ArrowUp' && onHistoryPrev !== undefined) {
+        if (!textareaValue.slice(0, caret).includes('\n')) {
+          event.preventDefault();
+          onHistoryPrev();
+        }
+        return;
+      }
+      if (event.key === 'ArrowDown' && onHistoryNext !== undefined) {
+        if (!textareaValue.slice(caret).includes('\n')) {
+          event.preventDefault();
+          onHistoryNext();
+        }
       }
     },
     [
       submit,
+      menuOpen,
       mentionOpen,
       mentions,
+      slashCommands,
       mentionActiveIndex,
       onMentionActiveIndexChange,
       onPickMention,
+      onPickSlashCommand,
+      onHistoryPrev,
+      onHistoryNext,
       onChange,
       value,
     ],
@@ -91,34 +132,26 @@ export function Composer({
 
   return (
     <div className="relative shrink-0">
+      {aboveInput}
       {mentionOpen && (
-        <div
-          role="listbox"
-          aria-label="文件提及候选"
-          className="sq elev-panel absolute bottom-[calc(100%+6px)] left-1/2 z-30 max-h-64 w-(--chat-w) max-w-full -translate-x-1/2 overflow-y-auto bg-menu p-1 backdrop-blur-[40px] scrollbar-thin"
-        >
-          {mentions?.map((mention, index) => (
-            <button
-              key={mention.label}
-              type="button"
-              role="option"
-              aria-selected={index === mentionActiveIndex}
-              onMouseEnter={() => onMentionActiveIndexChange?.(index)}
-              onClick={() => onPickMention?.(index)}
-              className={cn(
-                'sq flex w-full items-baseline gap-2 px-2 py-1 text-left text-[12.5px]',
-                index === mentionActiveIndex
-                  ? 'bg-accent-weak text-accent'
-                  : 'text-fg-muted hover:bg-hover',
-              )}
-            >
-              <span className="truncate font-mono">{mention.label}</span>
-              {mention.hint !== undefined && (
-                <span className="ml-auto shrink-0 text-[10.5px] text-fg-faint">{mention.hint}</span>
-              )}
-            </button>
-          ))}
-        </div>
+        <SuggestionMenu
+          title="文件"
+          items={mentions ?? []}
+          activeIndex={mentionActiveIndex}
+          onPick={(index) => onPickMention?.(index)}
+          onHover={(index) => onMentionActiveIndexChange?.(index)}
+          emptyHint="没有匹配的文件"
+        />
+      )}
+      {slashOpen && (
+        <SuggestionMenu
+          title="命令"
+          items={slashCommands ?? []}
+          activeIndex={mentionActiveIndex}
+          onPick={(index) => onPickSlashCommand?.(index)}
+          onHover={(index) => onMentionActiveIndexChange?.(index)}
+          emptyHint="没有匹配的命令"
+        />
       )}
       <div className="pointer-events-none absolute -top-8 bottom-0 left-0 right-0 bg-gradient-to-t from-surface to-transparent" />
       <div
