@@ -22,3 +22,4 @@
 | [0015](0015-drop-exact-system-prompt.md) | 纯聊天不做精确系统提示词覆写——systemPrompt 一律按 pi 默认组装（撤销 G2-10） | 已接受 | 2026-09-24 |
 | [0016](0016-drop-web-push-notifications.md) | 删除 Web Push 完成通知（撤销 G2-13） | 已接受 | 2026-09-25 |
 | [0017](0017-sdk-types-as-protocol.md) | SDK 类型即协议——protocol 复用 pi-ai / pi-coding-agent 类型，不重复定义（部分取代 0006，修订 0005） | 已接受 | 2026-01 |
+| [0018](0018-cross-package-type-resolution.md) | 跨包引用类型解析走源码、运行时走 dist（tsconfig paths + build 清空 + vitest alias） | 已废弃（2026-09-25 当天撤销） | 2026-09-25 |
