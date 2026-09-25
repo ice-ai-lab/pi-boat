@@ -27,7 +27,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@ice-ai/protocol": "workspace:*"
+    "@ice-ai/protocol": "workspace:*",
+    "axios": "^1.20.0"
   },
   "peerDependencies": {
     "react": "^19.3.0"

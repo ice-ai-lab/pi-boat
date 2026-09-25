@@ -62,7 +62,7 @@
   -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 16px);
 }
 
-/* toast 入场（原型 popIn） */
+/* toast 入场（原型 popIn） + hero 浮动（原型 float） */
 @keyframes pb-pop-in {
   from {
     opacity: 0;
@@ -75,6 +75,15 @@
 }
 .toast-enter {
   animation: pb-pop-in 0.18s ease;
+}
+@keyframes pb-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-2deg);
+  }
+  50% {
+    transform: translateY(-7px) rotate(2deg);
+  }
 }
 
 /* 细滚动条（原型 §119–152）：Firefox 标准属性与 WebKit 伪元素两套互斥，不可合并写
