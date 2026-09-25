@@ -387,8 +387,7 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 | `apps/web` | ⬜ 未开工 | 目录尚未创建（Vite + React 19 SPA，ADR-0002） |
 | `apps/desktop` | ⬜ 二期 | Electron（M4） |
 
-**下一步**：前端（client → ui → web），验收线仍为 M1 的「浏览器完成一轮带工具调用的编程任务」——
-后端能力已是完成态，前端不需要等任何 M2/M3 后端项。
+**下一步**：前端一期按 `docs/08`（已定案，ADR-0019）的 F0–F5 批次推进——F0 骨架 → F1 对话 MVP（验收线仍为 M1 的「浏览器完成一轮带工具调用的编程任务」）→ F2 会话与项目 → F3 文件域 → F4 设置中心 → F5 对话增强与高级面板；后端能力已是完成态，前端不需要等任何后端项。
 
 ### 7.2 里程碑
 
@@ -485,6 +484,6 @@ type WireAgentEvent =
 
 ---
 
-*详细设计按包推进：《core 详细设计》见 `docs/03-core-design.md`（✅ 一期已落地）、《server 详细设计》见 `docs/04-server-design.md`（✅ 一期已落地）、《client 详细设计》见 `docs/05-client-design.md`、《ui 详细设计》见 `docs/06-ui-design.md`（后两篇为开工前设计稿，随 Web 原型 v3 定稿，代码未开工）；视觉/交互基准为 `docs/design/piboat-web-v3.html`。协议契约以 `docs/02-protocol-inventory.md` 为准（覆盖产品全量 API 面）。**一期后端能力全集的审查与补齐批次见 `docs/07-backend-capability-gap.md`**（它包含已完成的 B0–B7 记录、仍存边界与排除项；排除项见 ADR-0014）。*
+*详细设计按包推进：《core 详细设计》见 `docs/03-core-design.md`（✅ 一期已落地）、《server 详细设计》见 `docs/04-server-design.md`（✅ 一期已落地）、《client 详细设计》见 `docs/05-client-design.md`、《ui 详细设计》见 `docs/06-ui-design.md`（后两篇为开工前设计稿，随 Web 原型 v3 定稿，代码未开工）；**前端一期实施规划（对齐 pi-web 页面功能、复用策略与 F0–F5 批次）见 `docs/08-web-frontend-plan.md`**（2026-09-27 提案，§6 待决策项确认后生效）；视觉/交互基准为 `docs/design/piboat-web-v3.html`。协议契约以 `docs/02-protocol-inventory.md` 为准（覆盖产品全量 API 面）。**一期后端能力全集的审查与补齐批次见 `docs/07-backend-capability-gap.md`**（它包含已完成的 B0–B7 记录、仍存边界与排除项；排除项见 ADR-0014）。*
 
 **当前唯一待办：前端三包（client / ui / web）。** 后端不需要任何等项：55 个端点 / 24 条命令 / 27 类 wire 事件均已实现并有测试。

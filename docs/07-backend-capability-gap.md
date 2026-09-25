@@ -60,7 +60,7 @@
 | G2-8 | **列表 `summary=1` 快路径** | 侧栏先画壳不等全量解析 | `SessionListQuerySchema.summary` + `list({summary:true})` |
 | G2-9 | **工具预设持久化 + 纯聊天边界** | 预设归 core 解析（`default` 集只有 core 知道）；选择**持久化到会话内 custom 条目**；纯聊天（chat-only）不加载扩展/技能/prompt，跨越该边界**重建 runtime** | `core/src/agent/session-tool-selection.ts` + `set_tools {preset}` |
 | G2-10 | **精确系统提示词覆写**（已撤销） | 原为内联 extension 的 `before_agent_start` 返回 `{systemPrompt}`。**2026-09-24 撤销：删除该扩展**——pi 默认就会把上下文文件放进 `<project_context>`（与工具集无关），扩展只买到「剥掉包装」；且上游方案的另两个部件（占位符 override、状态读取优先 exact）未移植，留着只会造成面板内容随时机变化（ADR-0015） | 已删除（原 `core/src/agent/exact-system-prompt.ts`） |
-| G2-11 | **启动偏好持久化** | ⚠️ **仍缺口（与 §9 旧结论相反，本轮审查发现）**：新建会话/`set_model` 的显式选择只作用于会话（链内 `model_change` 条目），**不落 settings.json 的 `defaultModel`**（SDK 的 `setModel` 只在 `persist:true` 时写，本仓未传）。要落盘需 core 显式调 `settingsManager.setDefaultModelAndProvider()` 或在命令里加 `persist` 选项 | 待做 |
+| G2-11 | **启动偏好持久化** | ⚠️ 缺口仍实存（与 §9 旧结论相反，本轮审查发现）：新建会话/`set_model` 的显式选择只作用于会话（链内 `model_change` 条目），**不落 settings.json 的 `defaultModel`**（SDK 的 `setModel` 只在 `persist:true` 时写，本仓未传）。要落盘需 core 显式调 `settingsManager.setDefaultModelAndProvider()` 或在命令里加 `persist` 选项。**2026-09-27 定案（ADR-0019）：一期以前端 localStorage（startup-preferences）绕过，core 落盘不做** | 不做（非阻塞） |
 | G2-12 | **liveness lease + idle 回收** | 形状已落地：lease TTL **180s**（审查时猜的 90s 作废）、扫描周期 60s、判据 =「无观看者（lease 过期且无 SSE 订阅）且不在跑」；不需要 provider 注册表/`globalThis` 键（单进程 + server 侧 SSE 注册表就够） | `core/src/agent/liveness.ts` + `server/src/main.ts` |
 | G2-13 | **推送投递侧**（已撤销） | 原为 VAPID 密钥生成/持久化 + 订阅存储 + 完成时投递（只在无观看者时发），依赖可选包 `web-push`。**2026-09-25 撤销：整体删除订阅与投递侧**——`web-push` 从未进依赖、前端无 SW ⇒ 全链路是死码；且服务端绑 `127.0.0.1` + 桌面端浏览器退出后收不到推送，增量场景只剩「浏览器在后台运行但标签页全关」。通知只留前端页内（ADR-0016） | 已删除（原 `core/src/agent/push-service.ts` + `server/src/routes/push.ts`） |
 | G2-15 | **磁盘格式常量归属** | 会话文件里的 `customType` 已从字面量改为 core 具名常量：`TOOL_SELECTION_CUSTOM_TYPE`（`piboat:tool-selection`）与 `SUBAGENT_CUSTOM_TYPE`（`pi-web:subagent`） | `core/src/agent/session-tool-selection.ts` / `read/session-read-service.ts` |
@@ -140,7 +140,7 @@
 | `GET/PUT /api/models/enabled` | ✅ | G2-2 已落地（ADR-0011）：最小编辑引擎 + 项目 shadow 只读 + `prune`/`resync` + 最后一个模型 409 |
 | `POST /api/models/refresh` | ✅ | G2-3 已落地（ADR-0011③） |
 | catalog overlay / models-store | ✅ | `config/models-config-store.ts`（`~/.pi/agent/models-store.json`） |
-| 启动偏好落盘（G2-11） | ⏸ | **仍缺口**：显式模型/思考档只作用于会话，不写 settings.json `defaultModel` |
+| 启动偏好落盘（G2-11） | ⏸ | **仍缺口（非阻塞）**：显式模型/思考档只作用于会话，不写 settings.json `defaultModel`；一期由前端 localStorage 绕过（ADR-0019） |
 
 ### 3.5 文件系统域
 
@@ -220,7 +220,7 @@
 | 本机访问三闸 | Host / Origin / Sec-Fetch-Site 常开；**GET 不得有副作用**（ADR-0007） | **保留**（§8-1 排除的是凭据与 LAN，不是这三闸） |
 | 冷会话不自动拉起 | SSE 连接对冷会话 404；恢复走显式 `POST /api/agent/:id/resume` | ✅ **已定案并落地**（ADR-0013a）；`docs/04 §5.3` 关闭条件 3 保留 |
 | 扩展 UI 状态字段 | `AgentState.extensionStatuses/Widgets` 由 `ExtensionUiBridge` 按 key 代际维护 | ✅ 已补齐（G2-4 / ADR-0012） |
-| 启动偏好落盘 | 显式选的 model / thinking 是否写 settings.json `defaultModel` | ⏸ **仍缺口**（G2-11）：当前只作用于会话，不落盘 |
+| 启动偏好落盘 | 显式选的 model / thinking 是否写 settings.json `defaultModel` | ⏸ **仍缺口**（G2-11）：当前只作用于会话，不落盘；前端绕过已定（ADR-0019），core 侧不做 |
 | Shell 直连 | 不做 | 见 §3.1（⛔） |
 
 ---
@@ -390,7 +390,7 @@
 | 后台推送（Web Push） | **已删除**（ADR-0016，2026-09-25）：`push-service.ts`、`routes/push.ts`、两个端点、protocol 三个 schema、core 的 `onSettled` 钩子 | 未接线前是死码（`web-push` 不在依赖、无 SW）；本地绑定 + 桌面端浏览器退出后收不到推送，增量场景窄；重做时从上位实现搬运 |
 | 子代理运行时 | 延后（见 §8-4） | 可由 pi 扩展提供，后端零改动 |
 | `deferThinking` | 不做（历史 thinking 全文直发，按块惰性取原文另走 `/thinking`） | 2026-09-20 已定案 |
-| **启动偏好落盘（G2-11）** | **未实现**：显式选择的 model / thinking 只作用于会话，不写 settings.json `defaultModel`（旧版本本文档曾误记为“已并入模型域实现”） | 无独立端点需求，但“下次新建继承上次选择”目前不成立；要做得在 core 显式调 `setDefaultModelAndProvider()` |
+| **启动偏好落盘（G2-11）** | **未实现**：显式选择的 model / thinking 只作用于会话，不写 settings.json `defaultModel`（旧版本本文档曾误记为“已并入模型域实现”） | **已定案（ADR-0019，2026-09-27）：「下次新建继承上次选择」由前端 localStorage 承担（startup-preferences）；core 落盘不做，若将来要做须按本行方案 + 新 ADR |
 | SSE 差量重放 / 埋点 / gzip | 未做（B8 可选） | 当前靠快照重建已够用；触发条件：实测到重连丢帧痛点或 payload 压力 |
 | UNC cwd 路径往返 | 未处理（`//host/share` 会被 308 归一掉） | Windows 网络路径场景少；真要做需把 `//` 折进首段（见 §7 文件/路径条） |
 | 导出 HTML 长会话爆栈 | 未实测（复用 SDK `exportFromFile`） | 如果 SDK 内部是递归遍历，5000+ 条目会话可能在客户端爆栈；真机碰到再补迭代版 |

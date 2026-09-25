@@ -16,8 +16,11 @@
 | 2 | 不取数 | 不在 ui 里调 hooks 取数（M1）：容器与查询留在 `apps/web`，ui 保持可无 Provider 单测 |
 | 3 | 不发明形状 | props 的类型来源是 protocol 与 docs/05 的视图模型，不自定义业务类型 |
 
-例外（按需放开，需在本文件登记）：跨端复用的"容器型"组件（如 `SessionSidebar`）可在 M2 起依赖
-`@ice-ai/client/react` 的 hooks——AGENTS.md 允许 ui 依赖 client hooks，但每加一个都要有第二个真实用途。
+例外（按需放开，需在本文件登记）：跨端复用的“容器型”组件可依赖 `@ice-ai/client/react` 的 hooks
+——AGENTS.md 允许 ui 依赖 client hooks，但每加一个都要有第二个真实用途。
+**已登记四处**（ADR-0019，2026-09-27）：`sidebar/SessionSidebar`、`settings/SettingsPanel`、
+`files/FileViewer`、`extension/ExtensionWidgets`；第二用途 = `apps/desktop`（M4）复用。
+其余组件保持 props 驱动、无 Provider 可测；新增例外仍须逐个在此登记。
 
 ---
 
@@ -51,8 +54,10 @@
 | `--elev-panel/-soft/-soft-sm` | `--shadow-panel/-soft/-soft-sm` | 三档阴影（均以 0.5px 环起始） |
 | `--font` `--mono` | `--font-sans` `--font-mono` | ⚠️ 原型 `--font-noto-mono` **未定义**，移植时补或删 |
 
-> **深色主题**（2026-09-22 决策）：**M1 不支持**。`theme.css` 保留原型的 `[data-theme="dark"]` 变量块但标注“未启用”——
-> 切换入口与 `prefers-color-scheme` 跟随留到 M2（§11.3 行 4）
+> **深色主题**（2026-09-22 定「M1 不支持」→ **2026-09-27 修订〔ADR-0019〕：随前端 F5 交付**）：
+> light / dark / system 三态切换，`theme.css` 的 `[data-theme="dark"]` 变量块即为此预留；
+> 实现走 `[data-theme]` 属性 + localStorage（§8.6），「跟随系统」用 `prefers-color-scheme` + `matchMedia`。
+> F5 之前的批次不接切换、不做验证
 | `--sb-w` `--rb-w` `--chat-w` | **不进 `@theme`** | 布局尺寸走组件 props / CSS 变量（可拖拽、可持久化） |
 | `--sb-thumb*` | 滚动条 utility（§5） | Firefox 与 WebKit 两套互斥规则，**不可合并写** |
 | `--term-*` | 保留不用 | 终端未进产品范围（docs/02 §5.3 已移除） |
@@ -299,7 +304,7 @@ Lucide、`cva` + `clsx` + `tailwind-merge`（`cn()`）、markdown 走 `react-mar
 | 1b | （连带）**不存在的 cwd 会静默建会话** | 实证（2026-09-22）：SDK `createAgentSession({ cwd: '/不存在' })` **不报错照样建会话**，之后每次 read/bash/edit 都在会话里失败——用户看到的是“agent 莫名一直报错” | ✅ **已定且已落地：core 在 `create()` 前置校验**（存在且为目录 → 否则 `UserInputError` → 400）。**不拖到** `/api/cwd/validate`；也不可选“什么都不做” | **高** |
 | 2 | 自动滚底 vs “用户上滚后脱离” | 原型只有无条件 `scrollBottom()` | ✅ **已定（2026-09-22）：吸附模型**（贴底 8px / 重吸 96px / 上滚即脱离 / 新增 `ScrollToBottomButton`），见 §8.2 | 中 |
 | 3 | <880px 的响应式形态 | 原型只有 1180/880 两条覆盖式断点 | ✅ **已定（2026-09-22）：只保大屏，不做小屏适配**——<880px 显示“窗口过窄”提示，不做 drawer/重排；保留“禁写死桌面假设”，移动端随 M3 排期，见 §9.1 | 低 |
-| 4 | 深色主题是否进 M1 | 原型的 `[data-theme="dark"]` token 已完整 | ✅ **已定（2026-09-22）：M1 不支持深色主题**——不接切换、不做验证。`theme.css` 保留原型已有的 dark 变量块并标注“未启用”（照抄零成本，且 ui 是跨端资产；将来要删也不必回头对照原型），但**不是 M1 交付内容** | 低 |
+| 4 | 深色主题是否进 M1 | 原型的 `[data-theme="dark"]` token 已完整 | ✅ 已定（2026-09-22）：F1–F4 **不支持**——不接切换、不做验证（保留 dark 变量块的决策不变）；🔄 **修订（2026-09-27，ADR-0019）：随 F5 交付** light/dark/system 三态 | 低 |
 
 ---
 

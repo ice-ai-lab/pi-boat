@@ -23,3 +23,4 @@
 | [0016](0016-drop-web-push-notifications.md) | 删除 Web Push 完成通知（撤销 G2-13） | 已接受 | 2026-09-25 |
 | [0017](0017-sdk-types-as-protocol.md) | SDK 类型即协议——protocol 复用 pi-ai / pi-coding-agent 类型，不重复定义（部分取代 0006，修订 0005） | 已接受 | 2026-01 |
 | [0018](0018-cross-package-type-resolution.md) | 跨包引用类型解析走源码、运行时走 dist（tsconfig paths + build 清空 + vitest alias） | 已废弃（2026-09-25 当天撤销） | 2026-09-25 |
+| [0019](0019-frontend-phase-one-scope.md) | 前端一期范围与复用策略——对齐 pi-web 页面功能（i18n 单语 / 深色 F5 / ui 容器例外四处 / G2-11 前端绕过 / 单路由 ?s= / 视觉走原型；修订 docs/06 深色时点） | 已接受 | 2026-09-27 |
