@@ -1,7 +1,11 @@
-import { useState } from 'react';
+import { CLIENT_VERSION } from '@ice-ai/client';
+import { useProjectTrustQuery, useUpdateProjectTrustMutation } from '@ice-ai/client/react';
+import { ToastHost, type ToastItem, toastQueueReducer } from '@ice-ai/ui';
+import { useCallback, useReducer, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { ChatPane } from '../panes/chat-pane';
 import { FilesPane } from '../panes/files-pane';
+import { SettingsHost } from '../panes/settings-host';
 import { SidebarPane } from '../panes/sidebar-pane';
 import { useServerHealth } from './health';
 
@@ -23,6 +27,17 @@ export function WorkspaceLayout() {
   const [preferredCwd, setPreferredCwd] = useState<string | null>(null);
   /** 当前项目根：文件树/查看器的相对路径基准（由侧栏回传，见下方 onProjectRootChange） */
   const [projectRoot, setProjectRoot] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [toasts, dispatchToast] = useReducer(toastQueueReducer, [] as ToastItem[]);
+  const pushToast = useCallback((message: string, tone: ToastItem['tone'] = 'info') => {
+    const toast: ToastItem = { id: crypto.randomUUID(), message, tone };
+    dispatchToast({ type: 'add', toast });
+    setTimeout(() => dispatchToast({ type: 'dismiss', id: toast.id }), 4000);
+  }, []);
+  // 项目信任：需要信任但未信任时给出一个常驻提示（项目级资源未加载）
+  const trust = useProjectTrustQuery(projectRoot);
+  const updateTrust = useUpdateProjectTrustMutation(projectRoot);
+  const trustPending = trust.data?.requiresTrust === true && trust.data.trusted === false;
 
   return (
     <div className="app-shell flex h-dvh flex-col bg-surface">
@@ -31,7 +46,31 @@ export function WorkspaceLayout() {
           🚢
         </span>
         <span className="text-sm font-semibold text-fg">PiBoat</span>
-        <div className="ml-auto flex items-center gap-1.5 text-xs">
+        {trustPending && (
+          <button
+            type="button"
+            onClick={() =>
+              updateTrust.mutate(true, {
+                onSuccess: () => pushToast('已信任该项目，项目级资源已加载'),
+                onError: (error) => pushToast(`信任失败：${error.message}`, 'error'),
+              })
+            }
+            className="sq ml-2 bg-warn-soft px-2 py-0.5 text-[11px] text-warn hover:brightness-95"
+            title="该项目有需要信任的资源（skills / 扩展）；未信任则不会加载"
+          >
+            ⚠ 项目未信任 — 点击信任
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          title="设置"
+          aria-label="打开设置"
+          className="sq ml-auto px-2 py-0.5 text-[11.5px] text-fg-subtle hover:bg-hover hover:text-fg"
+        >
+          设置
+        </button>
+        <div className="ml-2 flex items-center gap-1.5 text-xs">
           <span
             aria-hidden
             className={`inline-block h-2 w-2 rounded-full ${HEALTH_DOT_CLASS[health]}`}
@@ -58,6 +97,15 @@ export function WorkspaceLayout() {
           <FilesPane root={projectRoot} sessionId={activeSessionId} />
         </aside>
       </div>
+      {settingsOpen && (
+        <SettingsHost
+          projectRoot={projectRoot}
+          version={CLIENT_VERSION}
+          onClose={() => setSettingsOpen(false)}
+          onNotice={(message, tone) => pushToast(message, tone ?? 'info')}
+        />
+      )}
+      <ToastHost items={toasts} />
     </div>
   );
 }

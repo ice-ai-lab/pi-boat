@@ -173,7 +173,31 @@ export function toggleModelInPatterns(input: ToggleInput): string[] {
   if (enabled) selectedIds.add(modelId);
   else selectedIds.delete(modelId);
 
-  if (selectedIds.size === 0) throw new LastModelRejectionError();
+  // 拒绝条件是**全局**只剩 0 个可见模型，而不是「该 provider 空了」——
+  // 别家还有模型时，关掉本家最后一个模型是合法操作（空列表才等于"全部可用"）。
+  const otherProvidersVisible = visible.filter(
+    (scoped) => scoped.model.provider !== providerId,
+  ).length;
+  if (selectedIds.size + otherProvidersVisible === 0) throw new LastModelRejectionError();
+
+  // patterns 为空 = 隐含「全部可见」。此时**必须把所有 provider 显式化**：
+  // 一旦写入非空列表，未列出的模型就不可见——只写被 toggle 的那家会让别家整体消失
+  // （docs/07 §7 的同类陷阱；既有测试只覆盖了 patterns 非空的路径）。
+  if (patterns.length === 0) {
+    const byProvider = new Map<string, string[]>();
+    for (const scoped of visible) {
+      const list = byProvider.get(scoped.model.provider) ?? [];
+      list.push(scoped.model.id);
+      byProvider.set(scoped.model.provider, list);
+    }
+    const explicit: string[] = [];
+    for (const [provider, allIds] of byProvider) {
+      const ids = provider === providerId ? [...selectedIds] : allIds;
+      if (ids.length === 0) continue;
+      explicit.push(...encodeProviderSelection(provider, ids, allIds, new Map()));
+    }
+    return explicit;
+  }
 
   // 保留不涉及该 provider 的 pattern（原样、原顺序）
   const kept = patterns.filter(

@@ -39,6 +39,37 @@ export {
   type ToastItem,
   toastQueueReducer,
 } from './primitives/toast';
+// settings 册（docs/06 §4.4）
+export {
+  DirectoryPicker,
+  type DirectoryPickerProps,
+} from './settings/directory-picker';
+export { GeneralSection, type GeneralSectionProps } from './settings/general-section';
+export {
+  type ModelItemView,
+  ModelsSection,
+  type ModelsSectionProps,
+} from './settings/models-section';
+export {
+  type PluginItemView,
+  PluginsSection,
+  type PluginsSectionProps,
+} from './settings/plugins-section';
+export {
+  SettingsNotice,
+  SettingsPanel,
+  type SettingsPanelProps,
+  SettingsRow,
+  type SettingsSectionItem,
+  SettingsSectionTitle,
+} from './settings/settings-panel';
+export {
+  type SkillItemView,
+  type SkillSearchItemView,
+  SkillsSection,
+  type SkillsSectionProps,
+  type SkillUpdateView,
+} from './settings/skills-section';
 // sidebar 册（docs/06 §4.3）
 export {
   ProjectPicker,

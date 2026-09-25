@@ -6,7 +6,7 @@ import type {
   WireAgentEvent,
 } from '@ice-ai/protocol';
 import { resultText, toolTitle } from './tool-display';
-import type { ChatState, SystemRow, ThinkingRow, ToolRow, TrailItem, Turn } from './view-model';
+import type { ChatState, SystemRow, ToolRow, TrailItem, Turn } from './view-model';
 
 /**
  * fold（docs/05 §6.3）：wire 事件 → 视图模型，纯函数（无 IO / 无 React）。

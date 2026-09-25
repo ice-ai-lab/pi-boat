@@ -24,9 +24,36 @@ export {
   validateCwd,
 } from './endpoints/files';
 export {
+  discoverModels,
+  getEnabledModels,
+  getModelCatalog,
+  getModels,
+  getModelsConfig,
+  putModelsConfig,
+  refreshModels,
+  testModel,
+  updateEnabledModels,
+} from './endpoints/models';
+export {
+  checkPluginUpdates,
+  checkSkillUpdates,
+  getPlugins,
+  getProjectTrust,
+  getSkills,
+  getToolsSettings,
+  installSkill,
+  patchSkill,
+  pluginAction,
+  putProjectTrust,
+  putToolsSettings,
+  searchSkills,
+  updateSkills,
+} from './endpoints/resources';
+export {
   getSessionContext,
   getSessionDetail,
 } from './endpoints/sessions';
+export { browseCwd, getHome } from './endpoints/system';
 export {
   createWorktree,
   deleteSession,
@@ -125,6 +152,15 @@ export {
   shouldShowScrollToLatest,
   VISIBLE_PAGE_SIZE,
 } from './view-models/chat-lazy-load';
+export {
+  configProviderNames,
+  enabledScopeLabel,
+  groupModelsByProvider,
+  isLastEnabledModel,
+  type ProviderGroup,
+  parseModelsConfigDraft,
+  toggleHint,
+} from './view-models/models';
 export {
   filterSessions,
   formatRelativeTime,

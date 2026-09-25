@@ -5,7 +5,6 @@ import {
   FileJson,
   File as FileOutlineIcon,
   FileText,
-  FileType,
   Folder,
   FolderOpen,
   Image as ImageIcon,

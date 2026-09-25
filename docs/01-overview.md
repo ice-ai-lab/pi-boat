@@ -382,12 +382,12 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 | `packages/protocol` | ✅ 一期全量落地 | 24 命令 / 27 类 wire 事件 / rest 七域；见 `docs/02` |
 | `packages/core` | ✅ 一期全量落地 | 8 个服务，20 源文件 / 12 测试文件（180 用例）；见 `docs/03` |
 | `packages/server` | ✅ 一期全量落地 | 55 端点（含 health），6 路由文件 / 64 用例；见 `docs/04` |
-| `packages/client` | 🚧 F3 文件域就位 | endpoints（agent/会话/项目/git/worktree/files/file-index）+ stream + view-models + files 模块（路径/类型/fuzzy/diff/页签）+ Query hooks（54 用例） |
-| `packages/ui` | 🚧 F3 文件域就位 | token/utilities + primitives 8 件 + chat 册 + sidebar 册 + files 册（FileTree/FileTabs/FileViewer/CodeViewer/DiffView/ImagePreview） |
-| `apps/web` | 🚧 F3 文件域可用（2026-09-27） | 三栏 + 侧栏会话/文件双页签 + 右栏多标签查看器 + `@` 提及 + 上传；F4 设置、F5 增强 |
+| `packages/client` | 🚧 F4 设置域就位 | + models/resources/system 端点与设置域 Query hooks + view-models/models（62 用例） |
+| `packages/ui` | 🚧 F4 设置域就位 | + settings 册（SettingsPanel/通用/模型/skills/扩展包/DirectoryPicker）+ Switch |
+| `apps/web` | 🚧 F4 设置中心可用（2026-09-27） | + 设置浮层（四节 + 节记忆）+ 项目信任提示条 + 目录选择器；F5 增强（分支/统计/扩展 UI/minimap/斜杠/深色主题/shiki） |
 | `apps/desktop` | ⬜ 二期 | Electron（M4） |
 
-**下一步**：前端一期按 `docs/08`（已定案，ADR-0019）的 F0–F5 批次推进——✅ F0 骨架（2026-09-27）；✅ F1 对话 MVP（2026-09-27：**M1 验收线达成**）；✅ F2 会话与项目（2026-09-27）；✅ F3 文件域（2026-09-27：侧栏文件树 + 右栏多标签查看器 + 代码视图/git diff/图片预览 + 上传 + `@` 文件提及）；接下来 F4 设置中心 → F5 对话增强与高级面板。
+**下一步**：前端一期按 `docs/08`（已定案，ADR-0019）的 F0–F5 批次推进——✅ F0 骨架（2026-09-27）；✅ F1 对话 MVP（2026-09-27：**M1 验收线达成**）；✅ F2 会话与项目（2026-09-27）；✅ F3 文件域（2026-09-27）；✅ F4 设置中心（2026-09-27：可见模型/模型配置与目录刷新/skills/扩展包/工具设置/项目信任；期间修复 core 的 enabledModels「隐含全部」toggle bug）；接下来 F5 对话增强与高级面板。
 
 ### 7.2 里程碑
 
