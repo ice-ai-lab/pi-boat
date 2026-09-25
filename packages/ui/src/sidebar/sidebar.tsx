@@ -33,6 +33,11 @@ export interface SidebarProps {
   /** 搜索态：结果平铺，不显示项目头 */
   searching?: boolean;
   emptyHint?: string;
+  /**
+   * 内容槽：提供时替换会话列表（侧栏「文件」页签用），
+   * 新建会话按钮 / 项目选择器 / 搜索槽保持不变——切页签不该丢掉切项目的能力。
+   */
+  content?: ReactNode;
 }
 
 export function Sidebar({
@@ -55,6 +60,7 @@ export function Sidebar({
   searchSlot,
   searching = false,
   emptyHint = '还没有会话',
+  content,
 }: SidebarProps) {
   const activity = getProjectActivity(sessions, runningSessionIds);
 
@@ -80,7 +86,9 @@ export function Sidebar({
         />
       )}
 
-      {sessions.length === 0 ? (
+      {content !== undefined ? (
+        <div className="flex min-h-0 flex-1 flex-col">{content}</div>
+      ) : sessions.length === 0 ? (
         <p className="px-1 py-3 text-[12px] text-fg-faint">
           {searching ? '无匹配会话' : emptyHint}
         </p>

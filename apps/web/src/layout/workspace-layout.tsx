@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { ChatPane } from '../panes/chat-pane';
+import { FilesPane } from '../panes/files-pane';
 import { SidebarPane } from '../panes/sidebar-pane';
 import { useServerHealth } from './health';
 
@@ -20,6 +21,8 @@ export function WorkspaceLayout() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeSessionId = searchParams.get('s');
   const [preferredCwd, setPreferredCwd] = useState<string | null>(null);
+  /** 当前项目根：文件树/查看器的相对路径基准（由侧栏回传，见下方 onProjectRootChange） */
+  const [projectRoot, setProjectRoot] = useState<string | null>(null);
 
   return (
     <div className="app-shell flex h-dvh flex-col bg-surface">
@@ -40,6 +43,7 @@ export function WorkspaceLayout() {
         <aside className="hairline-r w-(--sb-w) shrink-0 border-line-2 bg-surface-side">
           <SidebarPane
             activeSessionId={activeSessionId}
+            onProjectRootChange={setProjectRoot}
             onSelectSession={(id) => setSearchParams({ s: id })}
             onNewSession={(cwd) => {
               setPreferredCwd(cwd);
@@ -50,8 +54,8 @@ export function WorkspaceLayout() {
         <main className="flex min-w-0 flex-1 flex-col">
           <ChatPane preferredCwd={preferredCwd} />
         </main>
-        <aside className="hairline-l w-(--rb-w) shrink-0 border-line-2 bg-surface-side p-3">
-          <p className="text-xs text-fg-faint">右栏（F3：文件页签 / 查看器）</p>
+        <aside className="hairline-l w-(--rb-w) shrink-0 border-line-2 bg-surface">
+          <FilesPane root={projectRoot} sessionId={activeSessionId} />
         </aside>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { filterSessions, getRecentProjects, workspaceKeyOf } from '@ice-ai/client';
+import { filterSessions, getRecentProjects, validateCwd, workspaceKeyOf } from '@ice-ai/client';
 import {
   useCreateWorktreeMutation,
   useDeleteSessionMutation,
@@ -10,8 +10,9 @@ import {
 } from '@ice-ai/client/react';
 import type { ToastItem } from '@ice-ai/ui';
 import { SessionSearch, Sidebar, ToastHost, toastQueueReducer } from '@ice-ai/ui';
-import { useCallback, useMemo, useReducer, useState } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { getLastCwd } from '../services/workspace-memory';
+import { FileExplorerPane } from './file-explorer-pane';
 
 /**
  * SidebarPane（F2）：侧栏数据装配——会话列表（轮询）/ 项目分组 / 搜索 /
@@ -22,9 +23,19 @@ export interface SidebarPaneProps {
   onSelectSession(sessionId: string): void;
   /** 新建会话：带上项目/工作区 cwd（null = 用上次记忆的 cwd） */
   onNewSession(cwd: string | null): void;
+  /** 当前项目根变化（文件树与查看器需要同一基准） */
+  onProjectRootChange(root: string | null): void;
 }
 
-export function SidebarPane({ activeSessionId, onSelectSession, onNewSession }: SidebarPaneProps) {
+/** 侧栏两个页签：会话 / 文件（docs/06 §4.3） */
+type SidebarTab = 'sessions' | 'files';
+
+export function SidebarPane({
+  activeSessionId,
+  onSelectSession,
+  onNewSession,
+  onProjectRootChange,
+}: SidebarPaneProps) {
   const sessionsQuery = useSessionsQuery();
   const [searchQuery, setSearchQuery] = useState('');
   const searchResult = useSessionSearchQuery(searchQuery);
@@ -33,6 +44,11 @@ export function SidebarPane({ activeSessionId, onSelectSession, onNewSession }: 
   const createWorktreeMutation = useCreateWorktreeMutation();
   const removeWorktreeMutation = useRemoveWorktreeMutation();
   const [toasts, dispatchToast] = useReducer(toastQueueReducer, [] as ToastItem[]);
+  const [tab, setTab] = useState<SidebarTab>('sessions');
+  /** 用户显式选中的项目（无活动会话时用它；有活动会话则以会话所属项目为准） */
+  const [selectedProjectKey, setSelectedProjectKey] = useState<string | null>(null);
+  /** 服务端解析出的项目真实根（符号链接场景与 projectRoot 不同） */
+  const [resolvedRoot, setResolvedRoot] = useState<string | null>(null);
 
   const pushToast = useCallback((message: string, tone: ToastItem['tone'] = 'info') => {
     const toast: ToastItem = { id: crypto.randomUUID(), message, tone };
@@ -51,8 +67,11 @@ export function SidebarPane({ activeSessionId, onSelectSession, onNewSession }: 
   const activeProjectKey = useMemo(() => {
     const active = allSessions.find((session) => session.id === activeSessionId);
     if (active !== undefined) return workspaceKeyOf(active);
+    if (selectedProjectKey !== null && projects.some((p) => p.key === selectedProjectKey)) {
+      return selectedProjectKey;
+    }
     return projects[0]?.key ?? null;
-  }, [allSessions, activeSessionId, projects]);
+  }, [allSessions, activeSessionId, projects, selectedProjectKey]);
 
   const effectiveProjectKey = activeProjectKey;
   const projectSessions = useMemo(() => {
@@ -66,6 +85,23 @@ export function SidebarPane({ activeSessionId, onSelectSession, onNewSession }: 
   const activeProject = projects.find((project) => project.key === effectiveProjectKey);
   // worktree 列表按当前项目代表 cwd 拉取（服务端按仓库归并）
   const worktreesQuery = useWorktreesQuery(activeProject?.cwd ?? null);
+
+  // 项目根回传：文件树/查看器与侧栏共用同一基准（cwd 可能是子目录，root 才是仓库根）。
+  // 回调放 ref，效果只依赖项目根 —— 避免父层传内联 lambda 时的重复上报与依赖争议。
+  const projectRoot = activeProject?.root ?? null;
+  const rootChangeRef = useRef(onProjectRootChange);
+  rootChangeRef.current = onProjectRootChange;
+  useEffect(() => {
+    setResolvedRoot(null);
+    rootChangeRef.current(projectRoot);
+    // 首屏默认项目的根也要可读（否则文件页签一片 403）
+    if (projectRoot !== null) void validateCwd(projectRoot).catch(() => null);
+  }, [projectRoot]);
+
+  // 真实根就绪后改报它（右栏与左侧文件树共用同一基准）
+  useEffect(() => {
+    if (resolvedRoot !== null) rootChangeRef.current(resolvedRoot);
+  }, [resolvedRoot]);
 
   const handleRename = useCallback(
     (sessionId: string, name: string) => {
@@ -89,6 +125,23 @@ export function SidebarPane({ activeSessionId, onSelectSession, onNewSession }: 
 
   return (
     <>
+      <div className="hairline-b flex shrink-0 gap-1 border-line-2 px-2.5 pt-2.5">
+        {(['sessions', 'files'] as const).map((candidate) => (
+          <button
+            key={candidate}
+            type="button"
+            aria-pressed={tab === candidate}
+            onClick={() => setTab(candidate)}
+            className={
+              tab === candidate
+                ? 'sq bg-accent-weak px-2 py-0.5 text-[11.5px] text-accent'
+                : 'sq px-2 py-0.5 text-[11.5px] text-fg-subtle hover:bg-hover hover:text-fg'
+            }
+          >
+            {candidate === 'sessions' ? '会话' : '文件'}
+          </button>
+        ))}
+      </div>
       <Sidebar
         sessions={projectSessions}
         projects={projects}
@@ -98,10 +151,14 @@ export function SidebarPane({ activeSessionId, onSelectSession, onNewSession }: 
         worktrees={worktreesQuery.data?.worktrees ?? []}
         currentWorktreePath={worktreesQuery.data?.currentWorktreePath ?? null}
         worktreeBusy={createWorktreeMutation.isPending || removeWorktreeMutation.isPending}
-        searching={searchQuery.trim().length > 0}
+        searching={tab === 'sessions' && searchQuery.trim().length > 0}
         onSelectProject={(projectKey) => {
           const project = projects.find((candidate) => candidate.key === projectKey);
-          if (project !== undefined) onNewSession(project.cwd);
+          if (project === undefined) return;
+          setSelectedProjectKey(projectKey);
+          // 授权项目根：文件树/查看器读文件受 allowed-roots 约束（用户点选 = 显式选择）
+          void validateCwd(project.root).catch(() => null);
+          onNewSession(project.cwd);
         }}
         onSelectWorktree={(path) => onNewSession(path)}
         onCreateWorktree={(branch) => {
@@ -137,7 +194,19 @@ export function SidebarPane({ activeSessionId, onSelectSession, onNewSession }: 
         onRenameSession={handleRename}
         onDeleteSession={handleDelete}
         onNewSession={() => onNewSession(activeProject?.cwd ?? getLastCwd() ?? null)}
-        searchSlot={<SessionSearch onQueryChange={setSearchQuery} />}
+        searchSlot={
+          tab === 'sessions' ? <SessionSearch onQueryChange={setSearchQuery} /> : undefined
+        }
+        content={
+          tab === 'files' ? (
+            <FileExplorerPane
+              root={projectRoot}
+              onResolvedRoot={setResolvedRoot}
+              onError={(message) => pushToast(message, 'error')}
+              onNotice={(message) => pushToast(message)}
+            />
+          ) : undefined
+        }
       />
       <ToastHost items={toasts} />
     </>

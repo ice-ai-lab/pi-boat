@@ -1,4 +1,5 @@
 import type {
+  GitDiffResponse,
   GitStatusResponse,
   ProjectInfo,
   SessionListResponse,
@@ -54,6 +55,17 @@ export function listProjects(force = false): Promise<{
 /** GET /api/git/status?cwd= */
 export function getGitStatus(cwd: string): Promise<GitStatusResponse> {
   return getJson<GitStatusResponse>(`/git/status?cwd=${encodeURIComponent(cwd)}`);
+}
+
+/** GET /api/git/diff?cwd=&path=&staged= —— 单文件 unified patch（二进制/无差异时 supported=false） */
+export function getGitDiff(
+  cwd: string,
+  path: string,
+  options: { staged?: boolean } = {},
+): Promise<GitDiffResponse> {
+  const params = new URLSearchParams({ cwd, path });
+  if (options.staged === true) params.set('staged', '1');
+  return getJson<GitDiffResponse>(`/git/diff?${params.toString()}`);
 }
 
 /** GET /api/worktrees?cwd= */
