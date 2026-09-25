@@ -1,6 +1,6 @@
 {
   "name": "@ice-ai/client",
-  "description": "PiBoat 类型安全 client SDK + React hooks（框架无关核心 + client/react 子导出）",
+  "description": "PiBoat 类型安全 client SDK + React hooks（框架无关核心 + client/react 子导出，双入口）",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,6 +10,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "default": "./dist/react/index.js"
     }
   },
   "files": [
@@ -25,9 +29,14 @@
   "dependencies": {
     "@ice-ai/protocol": "workspace:*"
   },
+  "peerDependencies": {
+    "react": "^19.3.0"
+  },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",
     "@ice-ai/typescript-config": "workspace:*",
+    "@types/react": "^19",
+    "react": "^19.3.0",
     "typescript": "~7.0.2",
     "vitest": "^5.0.1"
   }

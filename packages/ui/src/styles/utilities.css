@@ -1,0 +1,107 @@
+/**
+ * 共享 utility（docs/06 §5）。类名与原型一一对应；组件内不得另写重复规则。
+ * 消费方式：apps/web 的 index.css `@import '@ice-ai/ui/utilities.css'`。
+ */
+
+/* 0.5px hairline（原型全站描边规格，四向变体） */
+.hairline {
+  border-width: 0.5px;
+}
+.hairline-t {
+  border-top-width: 0.5px;
+}
+.hairline-r {
+  border-right-width: 0.5px;
+}
+.hairline-b {
+  border-bottom-width: 0.5px;
+}
+.hairline-l {
+  border-left-width: 0.5px;
+}
+
+/* superellipse 圆角（原型 .sq，48 处）：默认 10px，可被 per-use 的 rounded-* 覆盖；
+   @supports 兜底必须保留——corner-shape 仅较新 Chromium/Safari 支持（docs/06 §5） */
+.sq {
+  border-radius: 10px;
+}
+@supports (corner-shape: superellipse(1.5)) {
+  .sq {
+    corner-shape: superellipse(1.5);
+  }
+}
+
+/* 三档阴影（token 见 theme.css） */
+.elev-panel {
+  box-shadow: var(--elev-panel);
+}
+.elev-soft {
+  box-shadow: var(--elev-soft);
+}
+.elev-soft-sm {
+  box-shadow: var(--elev-soft-sm);
+}
+
+/* 流式思考行扫光（原型 .shimmer） */
+.shimmer {
+  background: linear-gradient(90deg, var(--t3) 35%, var(--t1) 50%, var(--t3) 65%);
+  background-size: 300% 100%;
+  background-clip: text;
+  color: transparent;
+  animation: pb-shimmer 1.6s linear infinite;
+}
+@keyframes pb-shimmer {
+  to {
+    background-position: -300% 0;
+  }
+}
+
+/* 顶部渐隐 mask（原型 .scrollbody） */
+.mask-fade-top {
+  mask-image: linear-gradient(to bottom, transparent 0, #000 16px);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 16px);
+}
+
+/* toast 入场（原型 popIn） */
+@keyframes pb-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.toast-enter {
+  animation: pb-pop-in 0.18s ease;
+}
+
+/* 细滚动条（原型 §119–152）：Firefox 标准属性与 WebKit 伪元素两套互斥，不可合并写
+   （同时支持两者的新 Chromium 会丢弃全部 ::-webkit-scrollbar 规则，原型同款防护） */
+@supports not selector(::-webkit-scrollbar) {
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: var(--sb-thumb) transparent;
+  }
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: var(--sb-width);
+  height: var(--sb-width);
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  border: 0 solid transparent;
+  border-radius: 999px;
+  corner-shape: round;
+  background: var(--sb-thumb);
+  background-clip: content-box;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background-color: var(--sb-thumb-hover);
+}
+.scrollbar-thin::-webkit-scrollbar-corner {
+  background: transparent;
+}

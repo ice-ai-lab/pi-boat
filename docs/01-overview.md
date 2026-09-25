@@ -382,12 +382,12 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 | `packages/protocol` | ✅ 一期全量落地 | 24 命令 / 27 类 wire 事件 / rest 七域；见 `docs/02` |
 | `packages/core` | ✅ 一期全量落地 | 8 个服务，20 源文件 / 12 测试文件（180 用例）；见 `docs/03` |
 | `packages/server` | ✅ 一期全量落地 | 55 端点（含 health），6 路由文件 / 64 用例；见 `docs/04` |
-| `packages/client` | ⬜ 未开工 | 仅占位导出；设计稿已就位（`docs/05`） |
-| `packages/ui` | ⬜ 未开工 | 仅占位组件；设计稿已就位（`docs/06`） |
-| `apps/web` | ⬜ 未开工 | 目录尚未创建（Vite + React 19 SPA，ADR-0002） |
+| `packages/client` | 🚧 F0 骨架就位 | 双入口工程化（`.` + `./react` 子导出，docs/05 §7）；F1 填充流/端点/hooks；设计稿 docs/05 |
+| `packages/ui` | 🚧 F0 骨架就位 | `theme.css`（原型 token 单一来源）+ utilities.css + primitives 首批 6 件（9 用例）；设计稿 docs/06 |
+| `apps/web` | 🚧 F0 骨架就位（2026-09-27） | Vite 7 + RR7 + Query + Tailwind v4 + React Compiler；三栏空壳 + `/api` 代理 + MobileGate + Playwright 冒烟；后续批次见 `docs/08` |
 | `apps/desktop` | ⬜ 二期 | Electron（M4） |
 
-**下一步**：前端一期按 `docs/08`（已定案，ADR-0019）的 F0–F5 批次推进——F0 骨架 → F1 对话 MVP（验收线仍为 M1 的「浏览器完成一轮带工具调用的编程任务」）→ F2 会话与项目 → F3 文件域 → F4 设置中心 → F5 对话增强与高级面板；后端能力已是完成态，前端不需要等任何后端项。
+**下一步**：前端一期按 `docs/08`（已定案，ADR-0019）的 F0–F5 批次推进——✅ F0 骨架已完成（2026-09-27：三栏空壳 + health 连通 + Playwright 冒烟）；接下来 F1 对话 MVP（验收线仍为 M1 的「浏览器完成一轮带工具调用的编程任务」）→ F2 会话与项目 → F3 文件域 → F4 设置中心 → F5 对话增强与高级面板；后端能力已是完成态，前端不需要等任何后端项。
 
 ### 7.2 里程碑
 

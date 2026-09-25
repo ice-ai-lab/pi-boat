@@ -1,5 +1,5 @@
 {
-  "extends": "@ice-ai/typescript-config/base.json",
+  "extends": "@ice-ai/typescript-config/react.json",
   "compilerOptions": {
     "noEmit": true
   },

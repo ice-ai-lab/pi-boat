@@ -12,7 +12,8 @@
 
 ```bash
 pnpm install                # Node ≥ 22.19（engines 强制）
-pnpm turbo run dev          # 目前仅 agent server (9527, tsx watch)；web 前端待建后加入（vite dev, 9528）
+pnpm turbo run dev          # agent server (9527, tsx watch) + web (9528, vite dev，/api 代理到 9527)
+                            # web E2E：pnpm --filter @ice-ai/web run test:e2e（Playwright，自动拉起两个 dev server）
 pnpm turbo run build        # 全量构建（M0 验收线）
 pnpm turbo run test         # Vitest（core/protocol/client/ui）
 pnpm turbo run lint         # Biome 2（lint + format；修复用 pnpm lint:fix）
