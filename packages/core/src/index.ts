@@ -61,7 +61,6 @@ export {
 } from './agent/session-tool-selection';
 export {
   ConfigService,
-  type ConfigServiceOptions,
   InvalidScopeEditError,
   ProjectShadowedError,
 } from './config/config-service';
@@ -106,7 +105,6 @@ export {
 export {
   isPowerShellEnabled,
   ResourceService,
-  type ResourceServiceOptions,
   replaceShellTool,
   SkillInstallError,
   setDisableModelInvocation,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { AgentCommandSchema, CommandResultSchemas, NewSessionRequestSchema } from '../src/index';
+import type { AgentCommand, AgentCommandResults } from '../src/index';
+import { AgentCommandSchema, NewSessionRequestSchema } from '../src/index';
 
 describe('commands/agent-command', () => {
   it('parses all M1 command variants', () => {
@@ -81,35 +82,36 @@ describe('commands/agent-command', () => {
     expect(() => AgentCommandSchema.parse({ type: 'extension_ui_response', value: 'v' })).toThrow();
   });
 
-  it('exposes a result schema per command', () => {
-    expect(Object.keys(CommandResultSchemas).sort()).toEqual(
-      [
-        'prompt',
-        'steer',
-        'follow_up',
-        'abort',
-        'clear_queue',
-        'get_state',
-        'get_session_stats',
-        'get_last_assistant_text',
-        'get_commands',
-        'get_tools',
-        'set_tools',
-        'set_model',
-        'set_thinking_level',
-        'compact',
-        'abort_compaction',
-        'set_auto_compaction',
-        'set_auto_retry',
-        'fork',
-        'fork_branch',
-        'clone',
-        'navigate_tree',
-        'set_session_name',
-        'reload',
-        'extension_ui_response',
-      ].sort(),
-    );
+  it('每个命令都有返回值类型（编译期穷尽）', () => {
+    // 出参不再有运行时 schema（ADR-0017）：防线是类型完备性——
+    // 命令联合新增一条而 AgentCommandResults 没跟上时，这里直接编译失败。
+    const covered: Record<AgentCommand['type'], keyof AgentCommandResults> = {
+      prompt: 'prompt',
+      steer: 'steer',
+      follow_up: 'follow_up',
+      abort: 'abort',
+      clear_queue: 'clear_queue',
+      get_state: 'get_state',
+      get_session_stats: 'get_session_stats',
+      get_last_assistant_text: 'get_last_assistant_text',
+      get_commands: 'get_commands',
+      get_tools: 'get_tools',
+      set_tools: 'set_tools',
+      set_model: 'set_model',
+      set_thinking_level: 'set_thinking_level',
+      compact: 'compact',
+      abort_compaction: 'abort_compaction',
+      set_auto_compaction: 'set_auto_compaction',
+      set_auto_retry: 'set_auto_retry',
+      fork: 'fork',
+      fork_branch: 'fork_branch',
+      clone: 'clone',
+      navigate_tree: 'navigate_tree',
+      set_session_name: 'set_session_name',
+      reload: 'reload',
+      extension_ui_response: 'extension_ui_response',
+    };
+    expect(Object.keys(covered)).toHaveLength(24);
   });
 });
 

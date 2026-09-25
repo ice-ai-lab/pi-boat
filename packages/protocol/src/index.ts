@@ -1,6 +1,7 @@
 /**
  * @ice-ai/protocol —— 前后端唯一契约：REST 请求/响应类型、事件 wire 格式
- * （WireAgentEvent）与领域类型。纯类型 + Zod schema，零业务逻辑。
+ * （WireAgentEvent）与领域类型。领域形状复用 SDK 公开导出（ADR-0017），
+ * Zod 只用于 HTTP 入参校验；零业务逻辑。
  * 详见 docs/01-overview.md §3.1、实施清单 docs/02-protocol-inventory.md。
  */
 

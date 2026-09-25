@@ -1,9 +1,5 @@
 import type { AgentSessionEvent } from '@earendil-works/pi-coding-agent';
-import type {
-  JsonAssistantMessageEvent,
-  ToolResultMessage,
-  WireAgentEvent,
-} from '@ice-ai/protocol';
+import type { AssistantStreamEvent, ToolResultMessage, WireAgentEvent } from '@ice-ai/protocol';
 import { toWireAgentMessage } from './wire-message';
 
 /**
@@ -44,7 +40,7 @@ export type WireAgentEventPayload = DistributiveOmit<WireAgentEvent, 'seq'>;
  */
 function toJsonAssistantMessageEvent(
   event: Extract<AgentSessionEvent, { type: 'message_update' }>['assistantMessageEvent'],
-): JsonAssistantMessageEvent {
+): AssistantStreamEvent {
   // toolcall_start / toolcall_delta：从累积 partial 里提取 id / toolName
   if (event.type === 'toolcall_start' || event.type === 'toolcall_delta') {
     const toolCall = event.partial.content[event.contentIndex];
@@ -57,14 +53,14 @@ function toJsonAssistantMessageEvent(
       ...deltaEvent,
       id: toolCall.id,
       toolName: toolCall.name,
-    } as JsonAssistantMessageEvent;
+    } as AssistantStreamEvent;
   }
   // 其余子事件：剥离 partial 后原样透传（start/text_*/thinking_*/toolcall_end/done/error）
   if ('partial' in event) {
     const { partial: _partial, ...rest } = event;
-    return rest as JsonAssistantMessageEvent;
+    return rest as AssistantStreamEvent;
   }
-  return event as JsonAssistantMessageEvent;
+  return event as AssistantStreamEvent;
 }
 
 /**
@@ -134,10 +130,8 @@ export function toWireAgentEventPayload(event: AgentSessionEvent): WireAgentEven
         followUp: [...event.followUp],
       };
     case 'session_info_changed':
-      // name === undefined = 清除命名；wire 上字段缺省而非显式 undefined
-      return event.name === undefined
-        ? { type: 'session_info_changed' }
-        : { type: 'session_info_changed', name: event.name };
+      // name === undefined = 清除命名（wire 上 JSON.stringify 会丢掉该键，两种形态同形）
+      return { type: 'session_info_changed', name: event.name };
     case 'bash_execution_update':
       // 2026-09-22 决策：Shell 直连（TUI 的 ! 直接执行）不实现，事件不入 wire
       // （docs/02 §4 移除注）；防御性丢弃，不消耗 seq

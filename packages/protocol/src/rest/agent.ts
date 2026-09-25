@@ -1,5 +1,4 @@
-import { z } from 'zod';
-import { AgentStateSchema } from '../domain/state';
+import type { AgentState } from '../domain/state';
 
 /**
  * ⑤ REST 资源——agent 运行时域（docs/02 §4 命令通道 / §6.1 轮询与轻查）。
@@ -16,13 +15,12 @@ import { AgentStateSchema } from '../domain/state';
 // ---------------------------------------------------------------------------
 
 /** GET /api/agent/running */
-export const RunningSessionsResponseSchema = z.object({
+export type RunningSessionsResponse = {
   /** 同 SessionListResponse.registryVersion */
-  registryVersion: z.number(),
-  runningSessionIds: z.array(z.string()),
-  completionNotificationSuppressedSessionIds: z.array(z.string()),
-});
-export type RunningSessionsResponse = z.infer<typeof RunningSessionsResponseSchema>;
+  registryVersion: number;
+  runningSessionIds: string[];
+  completionNotificationSuppressedSessionIds: string[];
+};
 
 /**
  * GET /api/agent/:id —— 单会话状态轻查：
@@ -31,8 +29,4 @@ export type RunningSessionsResponse = z.infer<typeof RunningSessionsResponseSche
  * ⚠️ 必须走注册表直读、不进命令 FIFO——get_state 命令与运行中的 prompt 串行，
  * run 期间发它会排队到 run 结束，轮询实时状态只能用本端点（docs/02 §6.1）。
  */
-export const AgentRunningStateSchema = z.union([
-  z.object({ running: z.literal(false) }),
-  z.object({ running: z.literal(true), state: AgentStateSchema }),
-]);
-export type AgentRunningState = z.infer<typeof AgentRunningStateSchema>;
+export type AgentRunningState = { running: false } | { running: true; state: AgentState };

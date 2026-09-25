@@ -2,11 +2,18 @@ import { describe, expect, it } from 'vitest';
 import * as protocol from '../src/index';
 import {
   ProjectsQuerySchema,
-  ProjectsResponseSchema,
-  SessionDetailResponseSchema,
+  type ProjectsResponse,
+  type SessionDetailResponse,
   SessionListQuerySchema,
-  SessionListResponseSchema,
+  type SessionListResponse,
 } from '../src/index';
+
+/**
+ * REST 契约测试（ADR-0017 后形态）：
+ * - **入参**仍是 zod：这里 parse 正/反例（server 用同一份 schema 校验，失败 → 400）
+ * - **出参**只是类型：样例用 `const body: X = {…}` 做**编译期**断言——
+ *   比 schema parse 更强（SDK 加字段/改字段直接编译失败，而不是少一条断言）
+ */
 
 const sessionInfo = {
   path: '/home/u/.pi/sessions/s1.jsonl',
@@ -19,19 +26,20 @@ const sessionInfo = {
 };
 
 describe('rest/sessions', () => {
-  it('parses the session list envelope', () => {
-    const body = {
+  it('会话列表信封的形状（含 registryVersion 与 listFingerprint 的语义区别）', () => {
+    const body: SessionListResponse = {
       sessions: [sessionInfo],
       registryVersion: 3,
       listFingerprint: 'a1b2c3d4e5f60718',
       runningSessionIds: ['s1'],
       completionNotificationSuppressedSessionIds: [],
     };
-    expect(SessionListResponseSchema.parse(body)).toEqual(body);
+    expect(body.sessions).toHaveLength(1);
+    expect(body.registryVersion).toBe(3);
   });
 
-  it('parses a session detail snapshot', () => {
-    const body = {
+  it('会话详情快照的形状（tree / context / stats / wrapperRebuilt）', () => {
+    const body: SessionDetailResponse = {
       sessionId: 's1',
       filePath: '/home/u/.pi/sessions/s1.jsonl',
       info: sessionInfo,
@@ -51,6 +59,7 @@ describe('rest/sessions', () => {
       },
       stats: {
         sessionId: 's1',
+        sessionFile: undefined,
         userMessages: 1,
         assistantMessages: 1,
         toolCalls: 0,
@@ -61,13 +70,15 @@ describe('rest/sessions', () => {
       },
       totalActiveMs: 1200,
     };
-    expect(SessionDetailResponseSchema.parse(body)).toEqual(body);
+    expect(body.tree[0]?.entry.type).toBe('session_info');
+    // wrapperRebuilt 只在 force=1 触发重建时出现（ADR-0013b）
+    expect(body.wrapperRebuilt).toBeUndefined();
   });
 });
 
 describe('rest/projects（ADR-0008）', () => {
-  it('parses a projects response（含 cwds 合并信息）', () => {
-    const body = {
+  it('项目清单的形状（同一仓库的多个 cwd 合并为一项）', () => {
+    const body: ProjectsResponse = {
       listFingerprint: 'a1b2c3d4e5f60718',
       projects: [
         {
@@ -91,7 +102,7 @@ describe('rest/projects（ADR-0008）', () => {
         },
       ],
     };
-    expect(ProjectsResponseSchema.parse(body)).toEqual(body);
+    expect(body.projects).toHaveLength(2);
   });
 
   it('list 查询参数只接受 force=1（严格），其余值报错', () => {

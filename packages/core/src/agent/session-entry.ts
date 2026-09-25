@@ -42,7 +42,6 @@ export type WireAgentEventListener = (event: WireAgentEvent) => void;
 
 export interface SessionRegistryEntryOptions {
   /** 扩展 UI 宿主兜底超时（毫秒）；测试调小 */
-  uiTimeoutMs?: number;
   /**
    * 会话被替换后重新绑定扩展的回调（service 提供：它持有命令上下文动作）。
    * 由 `runtime.setRebindSession` 触发，也由构造时调用一次。
@@ -96,7 +95,6 @@ export class SessionRegistryEntry {
     this.ui = new ExtensionUiBridge({
       emit: (request) => this.emitUiRequest(request),
       emitClosed: (id, reason) => this.emitUiClosed(id, reason),
-      defaultTimeoutMs: options.uiTimeoutMs,
     });
     this.attachSdkSubscription();
   }

@@ -1,7 +1,7 @@
 # ADR-0005：protocol 保留 Zod schema 作为类型单一真相源
 
 - 日期：2026-09-20
-- 状态：已接受（Accepted）
+- 状态：已接受（Accepted）· **被 [ADR-0017](0017-sdk-types-as-protocol.md) 修订**（2026-01：zod 边界收缩到 HTTP 入参；出参与 SDK 已有的形状不再维护 schema，「会话文件解析 / SSE 逐帧」两条校验边界撤回）
 - 关联文档：`docs/01-overview.md` §3.1 / §5.5；`docs/02-protocol-inventory.md` §1.3 铁律 1、4；AGENTS.md「packages/protocol」
 
 ## 背景

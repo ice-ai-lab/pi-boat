@@ -408,6 +408,69 @@ describe('computeStats（纯函数）', () => {
     expect(stats.cost).toBeCloseTo(0.3);
     expect(stats.totalMessages).toBe(0);
   });
+
+  // 口径漂移防线（ADR-0017）：这份实现手工跟随 SDK 的 getSessionStats，
+  // 下面每一条都是曾经漏掉的项——SDK 源码对照见实现处的表格。
+  it('与 SDK 口径一致：摘要用量、toolResult 用量、totalMessages 计数', () => {
+    const entries = [
+      {
+        type: 'compaction',
+        id: 'c1',
+        parentId: null,
+        timestamp: ts(0),
+        summary: 's',
+        firstKeptEntryId: 'e0',
+        tokensBefore: 100,
+        usage, // 摘要那次 LLM 调用也要计费
+      },
+      {
+        type: 'message',
+        id: 'e1',
+        parentId: null,
+        timestamp: ts(1),
+        message: {
+          role: 'toolResult',
+          toolCallId: 'tc',
+          toolName: 'read',
+          content: [],
+          usage, // 工具侧用量
+          isError: false,
+          timestamp: 1,
+        },
+      },
+      {
+        type: 'message',
+        id: 'e2',
+        parentId: null,
+        timestamp: ts(2),
+        message: { role: 'system', content: 'prompt', timestamp: 2 },
+      },
+      {
+        type: 'message',
+        id: 'e3',
+        parentId: null,
+        timestamp: ts(3),
+        message: {
+          role: 'assistant',
+          content: [{ type: 'toolCall', id: 'tc', name: 'read', arguments: {} }],
+          api: 'a',
+          provider: 'p',
+          model: 'm',
+          usage,
+          stopReason: 'toolUse',
+          timestamp: 3,
+        },
+      },
+    ] as unknown as Parameters<typeof computeStats>[0];
+    const stats = computeStats(entries, 's');
+    expect(stats.totalMessages).toBe(3); // 含 system——SDK 的 totalMessages 是一切 message 条目
+    expect(stats.toolResults).toBe(1);
+    expect(stats.assistantMessages).toBe(1);
+    expect(stats.toolCalls).toBe(1);
+    // 三份 usage（compaction + toolResult + assistant）都要计入
+    expect(stats.tokens).toEqual({ input: 30, output: 60, cacheRead: 0, cacheWrite: 0, total: 90 });
+    expect(stats.cost).toBeCloseTo(0.9);
+  });
 });
 
 describe('SessionReadService（SDK ≥ 0.86 新条目）', () => {
@@ -431,7 +494,7 @@ describe('SessionReadService（SDK ≥ 0.86 新条目）', () => {
     expect(context.entryIds).toHaveLength(context.messages.length);
   });
 
-  it('stats：usage 条目计入 token / cost；system 消息不计消息数', async () => {
+  it('stats：usage 条目计入 token / cost；totalMessages 按 SDK 口径含 system 消息', async () => {
     const detail = await new SessionReadService({ sessionDir: dir }).detail(sessionId);
     if (!detail) throw new Error('missing detail');
     expect(detail.stats.tokens).toEqual({
@@ -441,7 +504,10 @@ describe('SessionReadService（SDK ≥ 0.86 新条目）', () => {
       cacheWrite: 0,
       total: 30,
     });
-    expect(detail.stats.totalMessages).toBe(1);
+    // SDK `getSessionStats` 的 totalMessages 数的是**一切 message 条目**（含 system），
+    // 本函数逐条对齐它（ADR-0017）——此前这里漏掉 system 与 toolResult/摘要用量，
+    // 导致同一会话在冷（本函数）/热（getSessionStats）两条路径上数字不一致。
+    expect(detail.stats.totalMessages).toBe(2);
   });
 });
 
