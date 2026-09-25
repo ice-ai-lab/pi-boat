@@ -5,7 +5,6 @@ import {
   LastModelRejectionError,
   type ProjectReadService,
   PromptRejectedError,
-  type PushService,
   type ResourceService,
   type SessionListOptions,
   SessionNotFoundError,
@@ -334,21 +333,6 @@ function fakeSystemService() {
   };
 }
 
-function fakePushService() {
-  const subscriptions = new Set<string>();
-  return {
-    config: vi.fn(async () => ({ publicKey: 'BAbc', enabled: true })),
-    subscribe: vi.fn((input: { subscription: { endpoint: string } }) => {
-      const created = !subscriptions.has(input.subscription.endpoint);
-      subscriptions.add(input.subscription.endpoint);
-      return created;
-    }),
-    get subscriptionCount() {
-      return subscriptions.size;
-    },
-  };
-}
-
 function fakeResourceService() {
   return {
     trust: vi.fn((cwd: string) => ({ requiresTrust: true, trusted: cwd === '/trusted' })),
@@ -399,7 +383,6 @@ function makeApp() {
   const projectService = fakeProjectService();
   const configService = fakeConfigService();
   const systemService = fakeSystemService();
-  const pushService = fakePushService();
   const resourceService = fakeResourceService();
   const app = createAgentServer({
     agentService,
@@ -407,7 +390,6 @@ function makeApp() {
     projectService,
     configService: configService as unknown as ConfigService,
     systemService: systemService as unknown as SystemService,
-    pushService: pushService as unknown as PushService,
     resourceService: resourceService as unknown as ResourceService,
   });
   return {
@@ -417,7 +399,6 @@ function makeApp() {
     projectService,
     configService,
     systemService,
-    pushService,
     resourceService,
   };
 }
@@ -1220,10 +1201,10 @@ describe('系统域路由', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 生命周期与推送（docs/02 §7、B7）
+// 生命周期（liveness lease，docs/02 §7、B7）
 // ---------------------------------------------------------------------------
 
-describe('liveness lease 与推送路由', () => {
+describe('liveness lease 路由', () => {
   it('POST /api/agent/:id/lease：renewed:true / false（**不是** 404）', async () => {
     const { app } = makeApp();
     const ok = await request(app, '/api/agent/sess-live/lease', { method: 'POST' });
@@ -1233,42 +1214,6 @@ describe('liveness lease 与推送路由', () => {
     const gone = await request(app, '/api/agent/nope/lease', { method: 'POST' });
     expect(gone.status).toBe(200);
     expect(await gone.json()).toEqual({ success: true, renewed: false });
-  });
-
-  it('GET /api/push/config 与 POST /api/push/subscribe：按 endpoint upsert', async () => {
-    const { app, pushService } = makeApp();
-    expect(await (await request(app, '/api/push/config')).json()).toEqual({
-      publicKey: 'BAbc',
-      enabled: true,
-    });
-
-    const body = JSON.stringify({
-      subscription: { endpoint: 'https://push/x', keys: { p256dh: 'p', auth: 'a' } },
-      locale: 'zh-CN',
-    });
-    const first = await request(app, '/api/push/subscribe', {
-      method: 'POST',
-      headers: JSON_HEADERS,
-      body,
-    });
-    expect(await first.json()).toEqual({ success: true, created: true });
-    const second = await request(app, '/api/push/subscribe', {
-      method: 'POST',
-      headers: JSON_HEADERS,
-      body,
-    });
-    expect(await second.json()).toEqual({ success: true, created: false });
-    expect(pushService.subscribe).toHaveBeenCalledTimes(2);
-  });
-
-  it('POST /api/push/subscribe：subscription 形状不全 → 400', async () => {
-    const { app } = makeApp();
-    const res = await request(app, '/api/push/subscribe', {
-      method: 'POST',
-      headers: JSON_HEADERS,
-      body: JSON.stringify({ subscription: { endpoint: 'x' } }),
-    });
-    expect(res.status).toBe(400);
   });
 });
 

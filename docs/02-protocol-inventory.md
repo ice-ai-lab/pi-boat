@@ -19,7 +19,7 @@
 
 | 类别 | 数量 | 说明 |
 |---|---|---|
-| REST 路由 | **一期范围内全部落地**（57 个端点：`packages/server/src/routes/` 56 + `server.ts` 的 `/api/health`） | 九大功能域（§6）；§6.5 认证与用量、§6.8 终端按 ADR-0014 排除 |
+| REST 路由 | **一期范围内全部落地**（55 个端点：`packages/server/src/routes/` 54 + `server.ts` 的 `/api/health`） | 九大功能域（§6）；§6.5 认证与用量、§6.8 终端按 ADR-0014 排除；后台推送（§7 的 `/api/push/*`）按 ADR-0016 删除 |
 | SSE 事件流 | 1（agent 事件流；auth 登录流一期排除） | `agent/[id]/events`；~~`auth/login/[provider]`~~（2026-01 排除，见 §6.5） |
 | RPC 命令 | **24 已全部实现**（命令通道 24 个；2026-09-22 删 Shell 直连组，2026-01 删不存在的 `extension_ui_input`） | `POST /api/agent/:id` 请求体判别联合（§4） |
 | 领域类型 | ~40 个 | domain/ 七文件（§3、§10） |
@@ -180,7 +180,7 @@
 
 ## 6. ⑤ REST 资源类型（rest，按功能域 9 组）
 
-> **实现状态（2026-02）**：§6.1–§6.4、§6.6、§6.7、§6.9 与 §7 的端点**已全部落地**（共 57 条路由，
+> **实现状态（2026-02）**：§6.1–§6.4、§6.6、§6.7、§6.9 与 §7 的端点**已全部落地**（共 55 条路由，
 > `packages/server/src/routes/`）；§6.5 认证与用量、§6.8 终端按 ADR-0014 排除。
 > 未实现的两处例外已在 `docs/07` §9「实现期发现的边界」逐条记明（`type=watch`、上传的 Range/分块/DOCX）。
 
@@ -311,10 +311,10 @@
 | 端点 | 形状 | 备注 |
 |---|---|---|
 | `POST /api/agent/:id/lease` | → `{success, renewed}` | SSE 观看期间续 liveness lease，推迟 idle 回收（概要设计 §5.4 已纳入设计） |
-| `GET /api/push/config` | → `{publicKey}` | VAPID 公钥（私钥不出服务端） |
-| `POST /api/push/subscribe` | `{subscription{endpoint,keys{p256dh,auth}}, locale}` | 按 endpoint upsert |
 | `GET /api/health` | → `{ok, name}` | M0 已落地 |
 | 应用更新检查 | —（暂缓） | 发布通道未定，暂不纳入协议 |
+
+> **已删除（2026-09-25，ADR-0016）**：`GET /api/push/config`、`POST /api/push/subscribe` —— 订阅与投递侧整体移除，后台推送不做；通知只留前端页内。
 
 ---
 
@@ -372,7 +372,7 @@ packages/protocol/src/
     ├── files.ts            # home / default-cwd / cwd browse+validate / files / file-index
     ├── git.ts              # status / diff / worktrees
     ├── resources.ts        # skills / plugins / tools-settings / project-trust（subagents 延后，见 docs/07 §8-4）
-    └── misc.ts             # health / lease / push
+    └── misc.ts             # health / lease
 ```
 
 > 已排除、不再开文件：`auth.ts`（providers / login / api-key / logout / provider-usage，§6.5）与 `terminal.ts`（PTY，§6.8）——2026-01 定案，明细见 `docs/07-backend-capability-gap.md` §8。
@@ -394,7 +394,7 @@ packages/protocol/src/
 |---|---|---|
 | **M1 对话 MVP** | §2 全部 + §3 领域类型全量 + §4 命令子集（prompt/steer/followUp/abort/get_state/get_session_stats/get_commands/get_tools/set_tools/get_last_assistant_text）+ 新建会话 + §5 事件全量 + §6.1/6.2/6.3（列表/详情/分页）+ health | ✅ 已落地 |
 | **M2 会话与模型** | §4 剩余命令（分支组/压缩组/set_model/set_thinking_level/set_session_name/reload）+ §6.4 模型 | ✅ 已落地 |
-| **M3 完整体验** | §6.6 文件 + §6.7 git + ~~§6.8 终端~~（已移除） + §6.9 资源 + §7 辅助（lease/push） | ✅ 已落地 |
+| **M3 完整体验** | §6.6 文件 + §6.7 git + ~~§6.8 终端~~（已移除） + §6.9 资源 + §7 辅助（lease） | ✅ 已落地 |
 | **M4 桌面端** | 无新增（Electron 复用同一协议） | 二期 |
 | 前端（client / ui / web） | 消费上述全部切片 | ⬜ 未开工（设计稿见 `docs/05` / `docs/06`） |
 

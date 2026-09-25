@@ -158,8 +158,6 @@ export class AgentSessionService {
    * "上次我们看过的样子"而不是"我们最后写的样子"。
    */
   private readonly fileBaselines = new Map<string, string>();
-  /** 每轮结束的监听器（推送投递侧挂这里，G2-13） */
-  private readonly settledListeners = new Set<(sessionId: string) => void>();
   /**
    * 运行时注册表版本号：每次结构性变动（create/disposeSession/re-key）+1。
    * ⚠️ 只含注册表变动；磁盘扫描侧的变化（其他进程写入会话、会话首条 assistant 消息
@@ -200,7 +198,7 @@ export class AgentSessionService {
       chatOnly: toolNames !== undefined && toolNames.length === 0,
     });
 
-    const entry = await this.register(makeEntry(runtime, this.uiTimeoutMs, this.settledCallback()));
+    const entry = await this.register(makeEntry(runtime, this.uiTimeoutMs));
     const { session } = entry;
 
     if (provider !== undefined && modelId !== undefined) {
@@ -255,7 +253,7 @@ export class AgentSessionService {
       tools,
       chatOnly: pinned !== undefined && pinned.length === 0,
     });
-    const entry = await this.register(makeEntry(runtime, this.uiTimeoutMs, this.settledCallback()));
+    const entry = await this.register(makeEntry(runtime, this.uiTimeoutMs));
     return this.okEnvelope(entry);
   }
 
@@ -747,9 +745,7 @@ export class AgentSessionService {
       cwd: forkedManager.getCwd(),
       sessionFile: forkedPath,
     });
-    const forkedEntry = await this.register(
-      makeEntry(runtime, this.uiTimeoutMs, this.settledCallback()),
-    );
+    const forkedEntry = await this.register(makeEntry(runtime, this.uiTimeoutMs));
     if (forkedEntry.sessionId !== forkedId) {
       // 理论不可达（同一文件里读出的 id 必须一致）；真出现说明 SDK 语义变了
       this.disposeSession(forkedEntry.sessionId, 'error');
@@ -796,10 +792,6 @@ export class AgentSessionService {
       extensionStatuses: entry.ui.statusItems,
       extensionWidgets: entry.ui.widgetItems,
     };
-  }
-
-  private settledCallback(): (sessionId: string) => void {
-    return (sessionId) => this.emitSettled(sessionId);
   }
 
   // ------------------------------------------------------------------
@@ -862,27 +854,6 @@ export class AgentSessionService {
     return this.#registryVersion;
   }
 
-  /**
-   * 注册"某会话跑完一轮"的监听（B7 推送投递侧）。
-   * 返回退订函数；监听器异常不影响事件流与 SDK 会话。
-   */
-  onSettled(listener: (sessionId: string) => void): () => void {
-    this.settledListeners.add(listener);
-    return () => {
-      this.settledListeners.delete(listener);
-    };
-  }
-
-  private emitSettled(sessionId: string): void {
-    for (const listener of this.settledListeners) {
-      try {
-        listener(sessionId);
-      } catch (error) {
-        console.error('[core] settled listener failed:', error);
-      }
-    }
-  }
-
   /** 关闭单个会话（idle 回收 / server 关停时调用） */
   disposeSession(
     sessionId: string,
@@ -930,13 +901,8 @@ async function statFingerprint(path: string): Promise<string | null> {
 function makeEntry(
   runtime: AgentSessionRuntime,
   uiTimeoutMs: number | undefined,
-  onSettled?: (sessionId: string) => void,
 ): SessionRegistryEntry {
-  // 会话 id 会在 fork 后改变，所以回调每次现读 entry.sessionId 而不是捕获旧值
-  const entry = new SessionRegistryEntry(runtime, {
-    uiTimeoutMs,
-    onSettled: () => onSettled?.(entry.sessionId),
-  });
+  const entry = new SessionRegistryEntry(runtime, { uiTimeoutMs });
   return entry;
 }
 

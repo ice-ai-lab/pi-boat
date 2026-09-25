@@ -7,7 +7,7 @@
 >
 > 状态：**一期后端已全部交付**（B0–B7，2026-02）· 审查日期：2026-01
 > 审查基线：一期要求后端能力面覆盖既有 Web 实现的全部后端能力（基线快照：55 个路由文件 / 78 个 handler / 27 条 RPC 命令 / SDK `0.87.1`），**扣除 §8 的排除项**
-> 本仓现状（2026-02）：**57 个端点 / 24 条命令 / 27 类 wire 事件 / 9 个 core 服务**；前端（client / ui / web）未开工
+> 本仓现状（2026-02，端点/服务数按 2026-09-25 ADR-0016 删除推送后刷新）：**55 个端点 / 24 条命令 / 27 类 wire 事件 / 8 个 core 服务**；前端（client / ui / web）未开工
 > 用途：① 历史：记录“为何要补、补了什么”；② 现役：§7/§8/§9 是后续开工前的对照与防反复重建。
 > **🔴 未定案条目不得开工**（§2/§3 中残留的 🔴 已在本轮全部转化为 ✅ 或移入 §8/§9）。
 
@@ -17,14 +17,14 @@
 
 | 维度 | 一期目标 | 审查时（2026-01） | 现况（2026-02） |
 |---|---|---|---|
-| 路由/handler | ≈55 个（78 − §8 排除/延后的 23） | 15 个端点 | ✅ **57 个端点**（§6 批次 B3–B7 全部完成） |
+| 路由/handler | ≈55 个（78 − §8 排除/延后的 23） | 15 个端点 | ✅ **55 个端点**（§6 批次 B3–B7 完成后于 2026-09-25 删除 `/api/push/*`） |
 | Agent 命令 | 25 条（27 − Shell 直连组 2） | 11 条（M1 子集） | ✅ **24 条**（Shell 直连组按 §8-3 排除；`extension_ui_input` 不存在，见 §3.1） |
 | SSE 事件 | 24 种 + 3 条投影过滤 | 24 种 + 3 条投影过滤 | ✅ **27 种顶层类型**（含 ADR-0012 的扩展 UI 两事件 + `session_replaced`） |
 | SDK | `0.87.1` | `~0.87.1` | ✅ 已对齐（ADR-0010，B1 已完成） |
-| 核心服务 | 一组专用服务 + 领域模块 | 3 个服务（agent / read / project） | ✅ **9 个服务**（+ Config / System / Resource / Liveness / Push / ExtensionUiBridge） |
+| 核心服务 | 一组专用服务 + 领域模块 | 3 个服务（agent / read / project） | ✅ **8 个服务**（+ Config / System / Resource / Liveness / ExtensionUiBridge） |
 
-**一期排除 / 延后**（用户 2026-01 定案，详见 §8）：**鉴权（本机访问控制 / LAN）**、**登录（provider OAuth/API Key 入口）**、**终端（PTY，含 Shell 直连与 `bash-output`）**、**内建子代理运行时（延后，可由 pi 扩展提供）**。
-四者均**不在一期实现**，且在 `docs/01` 里的残留描述已同步清除（延后项见 §8-4）。
+**一期排除 / 延后**（用户 2026-01 / 2026-09 定案，详见 §8）：**鉴权（本机访问控制 / LAN）**、**登录（provider OAuth/API Key 入口）**、**终端（PTY，含 Shell 直连与 `bash-output`）**、**后台推送（Web Push，含订阅与投递侧）**、**内建子代理运行时（延后，可由 pi 扩展提供）**。
+五者均**不在一期实现**，且在 `docs/01` 里的残留描述已同步清除（延后项见 §8-4）。
 
 **五类标记**（全文统一；§2/§3 的旧标记已按现况刷新，历史结论见每行括注）：
 
@@ -34,7 +34,7 @@
 - ⛔ **排除/不做**：一期不做或已有决策，见 §8
 - ⛔ **有意留下的边界**：实现期发现、明确不做的细节，见 §9
 
-> ⚠️ `docs/02 §1.2` 的“49 路由 / 52 端点”已过期，已在本轮刷新为 57 个端点（同步完成，重基线完毕）。
+> ⚠️ `docs/02 §1.2` 的“49 路由 / 52 端点”已过期，已在本轮刷新为 55 个端点（同步完成，重基线完毕）。
 
 ---
 
@@ -62,7 +62,7 @@
 | G2-10 | **精确系统提示词覆写**（已撤销） | 原为内联 extension 的 `before_agent_start` 返回 `{systemPrompt}`。**2026-09-24 撤销：删除该扩展**——pi 默认就会把上下文文件放进 `<project_context>`（与工具集无关），扩展只买到「剥掉包装」；且上游方案的另两个部件（占位符 override、状态读取优先 exact）未移植，留着只会造成面板内容随时机变化（ADR-0015） | 已删除（原 `core/src/agent/exact-system-prompt.ts`） |
 | G2-11 | **启动偏好持久化** | ⚠️ **仍缺口（与 §9 旧结论相反，本轮审查发现）**：新建会话/`set_model` 的显式选择只作用于会话（链内 `model_change` 条目），**不落 settings.json 的 `defaultModel`**（SDK 的 `setModel` 只在 `persist:true` 时写，本仓未传）。要落盘需 core 显式调 `settingsManager.setDefaultModelAndProvider()` 或在命令里加 `persist` 选项 | 待做 |
 | G2-12 | **liveness lease + idle 回收** | 形状已落地：lease TTL **180s**（审查时猜的 90s 作废）、扫描周期 60s、判据 =「无观看者（lease 过期且无 SSE 订阅）且不在跑」；不需要 provider 注册表/`globalThis` 键（单进程 + server 侧 SSE 注册表就够） | `core/src/agent/liveness.ts` + `server/src/main.ts` |
-| G2-13 | **推送投递侧** | VAPID 密钥生成/持久化、订阅存储、完成时投递（只在**无观看者**时发）；投递依赖可选包 `web-push`，未装则 `{enabled:false, reason:'web-push-not-installed'}` | `PushService`（`core/src/agent/liveness.ts`）+ `server/src/routes/push.ts` |
+| G2-13 | **推送投递侧**（已撤销） | 原为 VAPID 密钥生成/持久化 + 订阅存储 + 完成时投递（只在无观看者时发），依赖可选包 `web-push`。**2026-09-25 撤销：整体删除订阅与投递侧**——`web-push` 从未进依赖、前端无 SW ⇒ 全链路是死码；且服务端绑 `127.0.0.1` + 桌面端浏览器退出后收不到推送，增量场景只剩「浏览器在后台运行但标签页全关」。通知只留前端页内（ADR-0016） | 已删除（原 `core/src/agent/push-service.ts` + `server/src/routes/push.ts`） |
 | G2-15 | **磁盘格式常量归属** | 会话文件里的 `customType` 已从字面量改为 core 具名常量：`TOOL_SELECTION_CUSTOM_TYPE`（`piboat:tool-selection`）与 `SUBAGENT_CUSTOM_TYPE`（`pi-web:subagent`） | `core/src/agent/session-tool-selection.ts` / `read/session-read-service.ts` |
 
 ---
@@ -188,8 +188,7 @@
 | 端点 | 状态 | 说明 |
 |---|---|---|
 | `GET /api/health` | ✅ | 一致 |
-| `GET /api/push/config` | ✅ | VAPID 公钥（私钥不出服务端）；未装 `web-push` → `enabled:false` |
-| `POST /api/push/subscribe` | ✅ | 按 endpoint upsert；投递侧已落地（G2-13，只在无观看者时发） |
+| ~~`GET /api/push/config`~~ / ~~`POST /api/push/subscribe`~~ | ⛔ | **已删除**（ADR-0016，2026-09-25）：后台推送整体不做，§8-6 |
 | `POST /api/agent/:id/lease` | ✅ | 见 G2-12 / §3.1 |
 | 服务端耗时埋点（env 开关） | ⏸ | B8 可选：`Server-Timing` + 结构化日志，慢路径诊断用（未做） |
 | 响应 gzip（≥1KB 才压） | ⏸ | B8 可选（未做） |
@@ -255,7 +254,7 @@
 | **B4 会话域增强** ✅ 已完成 | export（SDK `exportFromFile`）/ auto-name / thinking / `revision`(G2-6) / `summary=1`(G2-8) / 正文搜索(G2-7) / 外部写入探测(G2-5，ADR-0013b) / transient 合并 | B1 ✅ | 会话域完整 |
 | **B5 文件 / Git / Worktree** ✅ 已完成 | files list/read/download/meta/preview + upload/upload-check（引用放行、文件名清洗、冲突策略）/ file-index（git ls-files + 模糊打分）/ home / default-cwd / cwd browse+validate / git status+diff / worktrees 全组（路径归一 + 409 dirty） | B0 ✅ | SystemService + PathGuard |
 | **B6 资源域** ✅ 已完成 | skills（list / PATCH frontmatter / search / install / check / update）/ plugins（list / 五种动作 / check）/ tools-settings / project-trust | B2 ✅ | ResourceService（子代理延后，见 §8-4） |
-| **B7 生命周期与通知** ✅ 已完成 | liveness lease / idle 回收（G2-12）+ 推送订阅与投递侧（G2-13，投递依赖可选 `web-push`） | B1 ✅ | LivenessRegistry + PushService |
+| **B7 会话生命周期** ✅ 已完成 | liveness lease / idle 回收（G2-12）；原「推送订阅与投递侧」（G2-13）已删（ADR-0016） | B1 ✅ | LivenessRegistry |
 | **B8 可选** | 耗时埋点、gzip、SSE 环形缓冲差量重放 | — | 锦上添花 |
 
 **每批验收线**：
@@ -363,12 +362,21 @@
 | Electron / 桌面端 | 二期 | M4 |
 | i18n / 主题 / PWA | 前端阶段 | 不进后端 |
 
+### 8-6 后台推送（Web Push）⛔
+
+**结论（2026-09-25）：一期不做后台推送**，订阅侧与投递侧一并删除（ADR-0016）。
+
+- **删除的内容**：`core/src/agent/push-service.ts`（VAPID 密钥持久化、订阅表落盘、`deliver()`）、`server/src/routes/push.ts`、protocol 三个 schema、core 的 `AgentSessionService.onSettled` 钩子与 `SessionRegistryEntryOptions.onSettled`。
+- **为什么删**：① `web-push` 从未进依赖、前端无 service worker ⇒ 整条链路四步缺三步，代码是**死码**（对外零效果，对内让人以为功能存在）；② 服务端绑 `127.0.0.1`，通知只会出现在本机，而桌面端浏览器进程退出后收不到推送——增量场景只剩「浏览器在后台运行 + 标签页全关 + 人还在这台机器前」；③ Web Push 要求 server 主动出网到 Google / Apple / Mozilla，与本地无凭据定位不符。
+- **保留的替代**：前端**页内**通知（`Notification` API，页面存在时有效）+ 完成提示音，均属前端体验项（`docs/01` §6 清单保留）。
+- **将来重做的路径**：上位实现 pi-web 已有完整且带测试的版本（`lib/web-push.ts` / `lib/push-client.ts` / `components/PwaRegistration.tsx` / `public/sw.js` / `lib/browser-notifications.ts`），从那卩搬运，**不要从零设计**；且必须同时补依赖 + SW，不能只恢复 core 侧（那就是本次删除的状态）。若需求是「浏览器完全退出也要通知」，属 Electron / 原生通知（§8-5 的 M4），不是 Web Push 的职责。
+
 ---
 
 ## 9. 下一步
 
-1. ✅ **B0～B7 全部完成**（2026-02）：定案 → SDK 对齐 → 命令通道 → 模型域 → 会话域 → 文件/Git/Worktree → 资源域 → 生命周期与通知
-2. 门槛：`pnpm turbo run lint build test` 全绿（protocol 33 / core 184 / server 66 用例）
+1. ✅ **B0～B7 全部完成**（2026-02）：定案 → SDK 对齐 → 命令通道 → 模型域 → 会话域 → 文件/Git/Worktree → 资源域 → 会话生命周期（B7 的推送投递侧于 2026-09-25 删除，ADR-0016）
+2. 门槛：`pnpm turbo run lint build test` 全绿（protocol 33 / core 180 / server 64 用例）
 3. 遗留（**已知、非阻塞**，见下「实现期发现的边界」）
 4. 下一步是前端三包：`packages/client` → `packages/ui` → `apps/web`（**目录尚未创建**，设计稿见 `docs/05` / `docs/06`）
 
@@ -379,7 +387,7 @@
 | **纯聊天的系统提示词精确覆写** | **已撤销**（ADR-0015，2026-09-24）：删除 `agent/exact-system-prompt.ts` 与 `systemPrompt: ' '` / `appendSystemPrompt: [' ']` 占位符，纯聊天按 pi 默认组装 | pi 默认即把上下文文件放进 `<project_context>`，扩展只买到「剥掉包装」；且它会靠 `_runSystemPromptOptions` 制造面板时序差异。需要「逐字」的真实用例（子代理 profile）见 §8-4，届时重新引入 |
 | `GET /api/files/*?type=watch` | 返回 400（未实现） | 文件监听要常驻 watcher 与跨平台差异处理；一期用轮询足够 |
 | 上传的 Range / DOCX / 分块 | 未实现（单请求多文件已实现，25MB/文件、100MB/请求）；`read` / `preview` 也是整文件字节 | 分块与 Range 只在超大文件场景需要 |
-| 推送**投递** | 需要可选包 `web-push`（未装则 `GET /api/push/config` 回 `enabled:false` + 原因） | AES128GCM 载荷加密不宜自研；订阅侧已完整落盘 |
+| 后台推送（Web Push） | **已删除**（ADR-0016，2026-09-25）：`push-service.ts`、`routes/push.ts`、两个端点、protocol 三个 schema、core 的 `onSettled` 钩子 | 未接线前是死码（`web-push` 不在依赖、无 SW）；本地绑定 + 桌面端浏览器退出后收不到推送，增量场景窄；重做时从上位实现搬运 |
 | 子代理运行时 | 延后（见 §8-4） | 可由 pi 扩展提供，后端零改动 |
 | `deferThinking` | 不做（历史 thinking 全文直发，按块惰性取原文另走 `/thinking`） | 2026-09-20 已定案 |
 | **启动偏好落盘（G2-11）** | **未实现**：显式选择的 model / thinking 只作用于会话，不写 settings.json `defaultModel`（旧版本本文档曾误记为“已并入模型域实现”） | 无独立端点需求，但“下次新建继承上次选择”目前不成立；要做得在 core 显式调 `setDefaultModelAndProvider()` |
