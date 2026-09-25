@@ -1,10 +1,43 @@
 import type {
   GitStatusResponse,
+  ModelsConfigTestRequest,
+  ModelsEnabledUpdate,
+  ModelsRefreshRequest,
+  PluginActionRequest,
   ProjectInfo,
+  ProviderDraft,
   SessionInfo,
+  SkillPatchRequest,
   WorktreesResponse,
 } from '@ice-ai/protocol';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  discoverModels,
+  getEnabledModels,
+  getModelCatalog,
+  getModels,
+  getModelsConfig,
+  putModelsConfig,
+  refreshModels,
+  testModel,
+  updateEnabledModels,
+} from '../endpoints/models';
+import {
+  checkPluginUpdates,
+  checkSkillUpdates,
+  getPlugins,
+  getProjectTrust,
+  getSkills,
+  getToolsSettings,
+  installSkill,
+  patchSkill,
+  pluginAction,
+  putProjectTrust,
+  putToolsSettings,
+  searchSkills,
+  updateSkills,
+} from '../endpoints/resources';
+import { browseCwd, getHome } from '../endpoints/system';
 import {
   createWorktree,
   deleteSession,
@@ -134,3 +167,207 @@ export function useRemoveWorktreeMutation() {
 }
 
 export type { GitStatusResponse, ProjectInfo, WorktreesResponse };
+
+// ---------------------------------------------------------------------------
+// 设置域（F4）：模型 / skills / plugins / 工具设置 / 信任 / 目录选择
+// ---------------------------------------------------------------------------
+
+export const settingsKeys = {
+  models: (cwd?: string) => ['models', { cwd: cwd ?? null }] as const,
+  modelsConfig: () => ['modelsConfig'] as const,
+  enabledModels: (cwd?: string) => ['modelsEnabled', { cwd: cwd ?? null }] as const,
+  catalog: (q: string) => ['modelCatalog', q] as const,
+  skills: (cwd: string) => ['skills', cwd] as const,
+  plugins: (cwd: string) => ['plugins', cwd] as const,
+  toolsSettings: () => ['toolsSettings'] as const,
+  projectTrust: (cwd: string) => ['projectTrust', cwd] as const,
+  cwdBrowse: (path?: string) => ['cwdBrowse', path ?? '~'] as const,
+  home: () => ['home'] as const,
+};
+
+/** GET /api/models（离线）；cwd 决定项目级资源解析 */
+export function useModelsQuery(cwd?: string) {
+  return useQuery({
+    queryKey: settingsKeys.models(cwd),
+    queryFn: () => getModels(cwd),
+    staleTime: 30_000,
+  });
+}
+
+export function useModelsConfigQuery() {
+  return useQuery({
+    queryKey: settingsKeys.modelsConfig(),
+    queryFn: () => getModelsConfig(),
+  });
+}
+
+export function useUpdateModelsConfigMutation() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (config: Record<string, unknown>) => putModelsConfig(config),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: settingsKeys.modelsConfig() });
+      void client.invalidateQueries({ queryKey: ['models'] });
+      void client.invalidateQueries({ queryKey: ['modelsEnabled'] });
+    },
+  });
+}
+
+export function useEnabledModelsQuery(cwd?: string) {
+  return useQuery({
+    queryKey: settingsKeys.enabledModels(cwd),
+    queryFn: () => getEnabledModels(cwd),
+  });
+}
+
+/**
+ * 可见范围编辑：toggle（最小编辑）/ prune / resync。
+ * 409 的两种 reason（last-model / project-shadow）由调用方按 ApiError 处理。
+ */
+export function useUpdateEnabledModelsMutation(cwd?: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (update: ModelsEnabledUpdate) =>
+      updateEnabledModels(cwd === undefined ? update : { ...update, cwd }),
+    onSuccess: (data) => {
+      client.setQueryData(settingsKeys.enabledModels(cwd), data);
+      void client.invalidateQueries({ queryKey: ['models'] });
+    },
+  });
+}
+
+export function useModelCatalogMutation() {
+  return useMutation({ mutationFn: (q: string) => getModelCatalog(q) });
+}
+
+export function useDiscoverModelsMutation() {
+  return useMutation({
+    mutationFn: ({ providerName, provider }: { providerName: string; provider: ProviderDraft }) =>
+      discoverModels(providerName, provider),
+  });
+}
+
+export function useTestModelMutation() {
+  return useMutation({ mutationFn: (input: ModelsConfigTestRequest) => testModel(input) });
+}
+
+export function useRefreshModelsMutation() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (request: ModelsRefreshRequest) => refreshModels(request),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ['models'] });
+      void client.invalidateQueries({ queryKey: ['modelsEnabled'] });
+    },
+  });
+}
+
+export function useSkillsQuery(cwd: string | null) {
+  return useQuery({
+    queryKey: settingsKeys.skills(cwd ?? ''),
+    queryFn: () => getSkills(cwd as string),
+    enabled: cwd !== null,
+  });
+}
+
+export function usePatchSkillMutation(cwd: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (request: SkillPatchRequest) => patchSkill(request),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: settingsKeys.skills(cwd ?? '') });
+    },
+  });
+}
+
+export function useSearchSkillsMutation() {
+  return useMutation({ mutationFn: (query: string) => searchSkills(query) });
+}
+
+export function useInstallSkillMutation(cwd: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (request: { package: string; scope: 'global' | 'project' }) =>
+      installSkill(cwd === null ? request : { ...request, cwd }),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: settingsKeys.skills(cwd ?? '') });
+    },
+  });
+}
+
+export function useCheckSkillUpdatesMutation() {
+  return useMutation({ mutationFn: () => checkSkillUpdates() });
+}
+
+export function useUpdateSkillsMutation(cwd: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (pkg?: string) => updateSkills(pkg),
+    onSuccess: () => void client.invalidateQueries({ queryKey: settingsKeys.skills(cwd ?? '') }),
+  });
+}
+
+export function usePluginsQuery(cwd: string | null) {
+  return useQuery({
+    queryKey: settingsKeys.plugins(cwd ?? ''),
+    queryFn: () => getPlugins(cwd as string),
+    enabled: cwd !== null,
+  });
+}
+
+export function usePluginActionMutation(cwd: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (request: Omit<PluginActionRequest, 'cwd'>) =>
+      pluginAction({ ...request, cwd: cwd ?? '' }),
+    onSuccess: () => void client.invalidateQueries({ queryKey: settingsKeys.plugins(cwd ?? '') }),
+  });
+}
+
+export function useCheckPluginUpdatesMutation(cwd: string | null) {
+  return useMutation({ mutationFn: () => checkPluginUpdates(cwd ?? '') });
+}
+
+export function useToolsSettingsQuery() {
+  return useQuery({ queryKey: settingsKeys.toolsSettings(), queryFn: () => getToolsSettings() });
+}
+
+export function useUpdateToolsSettingsMutation() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (powerShellEnabled: boolean) => putToolsSettings(powerShellEnabled),
+    onSuccess: (data) => client.setQueryData(settingsKeys.toolsSettings(), data),
+  });
+}
+
+export function useProjectTrustQuery(cwd: string | null) {
+  return useQuery({
+    queryKey: settingsKeys.projectTrust(cwd ?? ''),
+    queryFn: () => getProjectTrust(cwd as string),
+    enabled: cwd !== null,
+  });
+}
+
+export function useUpdateProjectTrustMutation(cwd: string | null) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (trusted: boolean) => putProjectTrust(cwd as string, trusted),
+    onSuccess: (data) => {
+      client.setQueryData(settingsKeys.projectTrust(cwd ?? ''), data);
+      void client.invalidateQueries({ queryKey: settingsKeys.skills(cwd ?? '') });
+      void client.invalidateQueries({ queryKey: settingsKeys.plugins(cwd ?? '') });
+    },
+  });
+}
+
+export function useCwdBrowseQuery(path?: string) {
+  return useQuery({
+    queryKey: settingsKeys.cwdBrowse(path),
+    queryFn: () => browseCwd(path),
+    staleTime: 5_000,
+  });
+}
+
+export function useHomeQuery() {
+  return useQuery({ queryKey: settingsKeys.home(), queryFn: () => getHome(), staleTime: Infinity });
+}

@@ -1,6 +1,5 @@
 import { Check, Copy } from 'lucide-react';
 import { useState } from 'react';
-import { cn } from '../utils/cn';
 
 /** CodeBlock（docs/06 §4.2）：banner + 语言标 + 复制 + pre。高亮随 F5 接 shiki（ADR-0009）。 */
 export function CodeBlock({ code, lang }: { code: string; lang?: string }) {

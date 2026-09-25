@@ -1,5 +1,5 @@
 import { ArrowUp, Square } from 'lucide-react';
-import { type KeyboardEvent, useCallback, useRef, useState } from 'react';
+import { type KeyboardEvent, useCallback, useRef } from 'react';
 import { Textarea } from '../primitives/textarea';
 import { cn } from '../utils/cn';
 

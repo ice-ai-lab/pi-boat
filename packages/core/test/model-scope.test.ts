@@ -203,3 +203,76 @@ describe('model-scope：显式修复操作', () => {
     expect(resyncPatterns(['ok/a'], [], [{ provider: 'ok', id: 'b' }])).toEqual(['ok/a']);
   });
 });
+
+describe('model-scope：patterns 为空（隐含「全部可见」）下的 toggle', () => {
+  const visible = [
+    scoped('anthropic', 'claude-a'),
+    scoped('anthropic', 'claude-b'),
+    scoped('openai', 'gpt-5'),
+  ];
+
+  it('关掉一家中的一个：**所有** provider 都被显式化，别家不会整体消失', () => {
+    const next = toggleModelInPatterns({
+      patterns: [],
+      providerId: 'anthropic',
+      modelId: 'claude-b',
+      enabled: false,
+      providerModelIds: ['claude-a', 'claude-b'],
+      visible,
+    });
+    // anthropic 只剩 claude-a（逐条列出）；openai 只有 1 个模型 → 不收敛成 glob
+    // （收敛要求 ≥2 个且全选：`provider/*` 遇 `/` 停止，覆盖不到嵌套模型 id）
+    expect(next).toEqual(['anthropic/claude-a', 'openai/gpt-5']);
+  });
+
+  it('打开一个已经可见的模型（幂等）：列表保持为空', () => {
+    expect(
+      toggleModelInPatterns({
+        patterns: [],
+        providerId: 'anthropic',
+        modelId: 'claude-a',
+        enabled: true,
+        providerModelIds: ['claude-a', 'claude-b'],
+        visible,
+      }),
+    ).toEqual([]);
+  });
+
+  it('关掉某家最后一个模型：别家还有可见模型时**允许**（只有全局归零才拒绝）', () => {
+    const next = toggleModelInPatterns({
+      patterns: [],
+      providerId: 'openai',
+      modelId: 'gpt-5',
+      enabled: false,
+      providerModelIds: ['gpt-5'],
+      visible,
+    });
+    expect(next).toEqual(['anthropic/**']);
+  });
+
+  it('全局只剩一个模型时关掉它 → LastModelRejectionError', () => {
+    expect(() =>
+      toggleModelInPatterns({
+        patterns: [],
+        providerId: 'openai',
+        modelId: 'gpt-5',
+        enabled: false,
+        providerModelIds: ['gpt-5'],
+        visible: [scoped('openai', 'gpt-5')],
+      }),
+    ).toThrow(LastModelRejectionError);
+  });
+
+  it('patterns 非空时仍走最小编辑（不把别家隐式状态materialize 进来）', () => {
+    const next = toggleModelInPatterns({
+      patterns: ['anthropic/claude-a', 'openai/gpt-5'],
+      providerId: 'anthropic',
+      modelId: 'claude-b',
+      enabled: true,
+      providerModelIds: ['claude-a', 'claude-b'],
+      visible: [scoped('anthropic', 'claude-a'), scoped('openai', 'gpt-5')],
+    });
+    // 该 provider 已被列全 → 收敛成一条 glob（不逐条改写用户已有条目之外的形状）
+    expect(next).toEqual(['anthropic/**', 'openai/gpt-5']);
+  });
+});
