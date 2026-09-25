@@ -1,0 +1,39 @@
+{
+  "name": "@ice-ai/web",
+  "description": "PiBoat Web 前端 SPA（Vite + React 19，ADR-0002；一期实施规划 docs/08）",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run --passWithNoTests",
+    "test:e2e": "playwright test",
+    "lint": "biome check .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ice-ai/client": "workspace:*",
+    "@ice-ai/protocol": "workspace:*",
+    "@ice-ai/ui": "workspace:*",
+    "@tanstack/react-query": "^5.0.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-router": "^7.0.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.14",
+    "@ice-ai/typescript-config": "workspace:*",
+    "@playwright/test": "^1.50.0",
+    "@tailwindcss/vite": "^4.0.0",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^4.0.0",
+    "babel-plugin-react-compiler": "^1.0.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "~7.0.2",
+    "vite": "^7.0.0",
+    "vitest": "^5.0.1"
+  }
+}

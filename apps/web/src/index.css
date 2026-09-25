@@ -1,0 +1,26 @@
+@import "tailwindcss";
+@import "@ice-ai/ui/theme.css";
+@import "@ice-ai/ui/utilities.css";
+
+/* Tailwind v4 需显式扫包外源码，否则 ui 的类名会被摇掉（docs/06 §2） */
+@source "../../../packages/ui/src";
+
+body {
+  background: var(--bg-base);
+  color: var(--t1);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* MobileGate（docs/06 §9.1）：一期只保大屏；<880px 停止适配（不做重排），给出门禁提示 */
+.mobile-gate {
+  display: none;
+}
+@media (width < 880px) {
+  .app-shell {
+    display: none;
+  }
+  .mobile-gate {
+    display: flex;
+  }
+}
