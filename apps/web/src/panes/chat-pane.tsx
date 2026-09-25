@@ -1,3 +1,10 @@
+import {
+  applyAtInsertion,
+  buildEntriesFromFiles,
+  extractAtQuery,
+  filterFileEntries,
+  getFileIndex,
+} from '@ice-ai/client';
 import { useAgentSession } from '@ice-ai/client/react';
 import {
   Composer,
@@ -29,6 +36,10 @@ export function ChatPane({ preferredCwd = null }: ChatPaneProps) {
   const [startError, setStartError] = useState<string | null>(null);
   const [toasts, dispatchToast] = useReducer(toastQueueReducer, [] as ToastItem[]);
   const [searchParams, setSearchParams] = useSearchParams();
+  /** `@` 文件提及：索引缓存 + 选中下标（光标前的 token 决定菜单） */
+  const [fileIndex, setFileIndex] = useState<string[] | null>(null);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const [caret, setCaret] = useState(0);
   /** 由本组件写进 URL 的会话 id（区分「自己同步」与「用户点选」） */
   const selfNavigationRef = useRef<string | null>(null);
   const urlSessionId = searchParams.get('s');
@@ -74,6 +85,33 @@ export function ChatPane({ preferredCwd = null }: ChatPaneProps) {
       setLastCwd(cwd);
     },
     [session],
+  );
+
+  // 提及候选：从 draft 光标前的 `@token` 推；首次触发时拉一次 file-index
+  const caretRef = caret > draft.length ? draft.length : caret;
+  const mentionMatch = extractAtQuery(draft.slice(0, caretRef));
+  useEffect(() => {
+    if (mentionMatch === null || fileIndex !== null || session.cwd === null) return;
+    void getFileIndex(session.cwd)
+      .then((index) => setFileIndex(index.files))
+      .catch(() => setFileIndex([]));
+  }, [mentionMatch, fileIndex, session.cwd]);
+
+  const mentionEntries =
+    mentionMatch === null || fileIndex === null
+      ? []
+      : filterFileEntries(buildEntriesFromFiles(fileIndex), mentionMatch.query);
+
+  const pickMention = useCallback(
+    (index: number) => {
+      const entry = mentionEntries[index];
+      if (entry === undefined || mentionMatch === null) return;
+      const inserted = applyAtInsertion(draft, mentionMatch, entry);
+      setDraft(inserted.text);
+      setCaret(inserted.caret);
+      setMentionIndex(0);
+    },
+    [mentionEntries, mentionMatch, draft],
   );
 
   const handleSubmit = useCallback(
@@ -124,6 +162,14 @@ export function ChatPane({ preferredCwd = null }: ChatPaneProps) {
           onAbort={() => void session.abort()}
           streaming={chat.streaming}
           disabled={chat.terminated}
+          mentions={mentionEntries.map((entry) => ({
+            label: entry.path,
+            hint: entry.isDir ? '目录' : undefined,
+          }))}
+          onPickMention={pickMention}
+          mentionActiveIndex={mentionIndex}
+          onMentionActiveIndexChange={setMentionIndex}
+          onCaretChange={setCaret}
         />
       </div>
       <ToastHost items={toasts} />

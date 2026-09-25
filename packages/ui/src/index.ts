@@ -14,6 +14,14 @@ export { MessageList, type MessageListProps } from './chat/message-list';
 export { ProcessGroup } from './chat/process-group';
 export { SystemRowView, ThinkingRowView } from './chat/thinking-row';
 export { ToolRowView, ToolTag, toolTagClass } from './chat/tool-row';
+// files 册（docs/06 §4.3）
+export { CodeViewer, type CodeViewerProps } from './files/code-viewer';
+export { DiffView, type DiffViewProps } from './files/diff-view';
+export { FileIcon, type FileIconProps } from './files/file-icon';
+export { FileTabs, type FileTabsProps } from './files/file-tabs';
+export { FileTree, type FileTreeProps, sortEntries } from './files/file-tree';
+export { FileViewer, type FileViewerProps } from './files/file-viewer';
+export { ImagePreview, type ImagePreviewProps, nextZoom } from './files/image-preview';
 export { Button, type ButtonProps, buttonStyles } from './primitives/button';
 export { IconButton, type IconButtonProps } from './primitives/icon-button';
 export { Input } from './primitives/input';

@@ -12,12 +12,25 @@ export {
   sendAgentCommand,
 } from './endpoints/agent';
 export {
+  checkUploadConflicts,
+  type FileByteType,
+  fileByteUrl,
+  getFileIndex,
+  getFileMeta,
+  listDirectory,
+  readFileText,
+  type UploadResult,
+  uploadFiles,
+  validateCwd,
+} from './endpoints/files';
+export {
   getSessionContext,
   getSessionDetail,
 } from './endpoints/sessions';
 export {
   createWorktree,
   deleteSession,
+  getGitDiff,
   getGitStatus,
   listProjects,
   listSessions,
@@ -26,6 +39,60 @@ export {
   renameSession,
   searchSessions,
 } from './endpoints/workspace';
+export {
+  AT_RESULT_LIMIT,
+  type AtInsertion,
+  type AtQueryMatch,
+  applyAtInsertion,
+  buildAtInsertText,
+  buildEntriesFromFiles,
+  extractAtQuery,
+  type FileIndexEntry,
+  filterFileEntries,
+  scoreEntry,
+} from './files/file-fuzzy';
+export {
+  encodeFilePathForApi,
+  getFileDirectory,
+  getFileName,
+  getRelativeFilePath,
+  joinFilePath,
+  normalizeFilePathSlashes,
+  pathBreadcrumbs,
+} from './files/file-paths';
+export {
+  type DocumentPreviewKind,
+  documentPreviewKind,
+  formatFileSize,
+  getFileExt,
+  getImageMime,
+  getLanguageFromPath,
+  IMAGE_PREVIEW_MAX_BYTES,
+  isDocxPath,
+  isImagePath,
+  isProbablyTextPath,
+  TEXT_PREVIEW_MAX_BYTES,
+} from './files/file-types';
+export {
+  activateFileTab,
+  activeFileTab,
+  closeFileTab,
+  EMPTY_FILE_TABS,
+  type FileDisplayMode,
+  type FileTab,
+  type FileTabsState,
+  openFileTab,
+  resolveInitialDisplayMode,
+  setTabDisplayMode,
+  toggleTabWrap,
+} from './files/file-viewer-state';
+export {
+  type DiffRow,
+  hasChanges,
+  type ParsedDiff,
+  parseToolDiff,
+  parseUnifiedDiff,
+} from './files/unified-diff';
 export { ApiError, getJson, http, postCommand } from './http';
 export { AgentEventConnection, parseWireEvent } from './stream/agent-event-connection';
 export { AgentStream, disposeAgentStream, getAgentStream } from './stream/agent-stream';

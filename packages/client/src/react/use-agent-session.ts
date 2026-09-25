@@ -6,6 +6,7 @@ import {
   resumeAgentSession,
   sendAgentCommand,
 } from '../endpoints/agent';
+import { validateCwd } from '../endpoints/files';
 import { getSessionContext, getSessionDetail } from '../endpoints/sessions';
 import { ApiError } from '../http';
 import { disposeAgentStream, getAgentStream } from '../stream/agent-stream';
@@ -19,6 +20,8 @@ import { type ChatState, emptyChatState } from '../stream/view-model';
  */
 export interface UseAgentSessionResult {
   sessionId: string | null;
+  /** 会话工作目录（建会话时的 cwd / 打开时的 info.cwd）；提及索引与文件域基准用 */
+  cwd: string | null;
   /** 视图模型快照（未建会话时为空态） */
   chat: ChatState;
   /** 建会话 / 历史加载进行中 */
@@ -42,6 +45,7 @@ const LEASE_RENEW_INTERVAL_MS = 30_000;
 
 export function useAgentSession(): UseAgentSessionResult {
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [cwd, setCwd] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [sending, setSending] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
@@ -92,8 +96,13 @@ export function useAgentSession(): UseAgentSessionResult {
   const start = useCallback(async (cwd: string): Promise<string | null> => {
     setStarting(true);
     try {
+      // 先授权：allowed-roots 只由 cwd/validate 写入，文件域（文件树/查看器/上传）依赖它
+      const validated = await validateCwd(cwd);
+      if (!validated.success) return '目录不存在或不可访问';
+      if (validated.projectRoot !== cwd) await validateCwd(validated.projectRoot);
       const { sessionId: id } = await newAgentSession({ cwd, type: 'ensure_session' });
       setHistoryCursor({ hasMore: false });
+      setCwd(cwd);
       setSessionId(id);
       return null;
     } catch (error) {
@@ -106,7 +115,23 @@ export function useAgentSession(): UseAgentSessionResult {
   const open = useCallback(async (id: string): Promise<string | null> => {
     setStarting(true);
     try {
-      const detail = await getSessionDetail(id);
+      const detail = await getSessionDetail(id).catch(async (error: unknown) => {
+        // 刚建还没落盘的会话（ensure_session 后无条目 → 无 .jsonl）：磁盘侧查不到，
+        // 但运行时注册表里有。此时没有历史可重建，直接连流即可（docs/02 §6.1 双通道）。
+        if (!(error instanceof ApiError) || error.status !== 404) throw error;
+        const running = await getAgentRunningState(id);
+        if (!running.running) throw error;
+        getAgentStream(id).restore(emptyChatState(), running.state.lastSeq);
+        setCwd(null);
+        setSessionId(id);
+        return null;
+      });
+      if (detail === null) return null;
+      // 打开即授权该会话的工作目录与项目根（用户点开这个会话 = 显式选择该项目）
+      await validateCwd(detail.info.cwd).catch(() => null);
+      if (detail.info.projectRoot !== undefined && detail.info.projectRoot !== detail.info.cwd) {
+        await validateCwd(detail.info.projectRoot).catch(() => null);
+      }
       const state = rebuildChatState(
         detail.context.messages,
         detail.context.entryIds,
@@ -123,6 +148,7 @@ export function useAgentSession(): UseAgentSessionResult {
       });
       const stream = getAgentStream(id);
       stream.restore(state, watermark);
+      setCwd(detail.info.cwd);
       setSessionId(id);
       return null;
     } catch (error) {
@@ -178,11 +204,13 @@ export function useAgentSession(): UseAgentSessionResult {
     initializedRef.current = null;
     if (previous !== null) disposeAgentStream(previous);
     setSessionId(null);
+    setCwd(null);
     setHistoryCursor({ hasMore: false });
   }, []);
 
   return {
     sessionId,
+    cwd,
     chat: storeChat,
     starting,
     sending,
