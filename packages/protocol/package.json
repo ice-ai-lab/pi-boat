@@ -1,6 +1,6 @@
 {
   "name": "@ice-ai/protocol",
-  "description": "PiBoat 前后端唯一契约：API 类型 + 事件 wire 格式（纯类型 + Zod，零业务逻辑）",
+  "description": "PiBoat 前后端唯一契约：API 类型 + 事件 wire 格式（复用 SDK 类型 + 入参 Zod，零业务逻辑）",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -23,6 +23,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@earendil-works/pi-ai": "~0.87.1",
+    "@earendil-works/pi-coding-agent": "~0.87.1",
     "zod": "^4.6.5"
   },
   "devDependencies": {

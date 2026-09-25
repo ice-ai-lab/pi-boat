@@ -20,6 +20,7 @@ import type {
   SessionStatsInfo,
   SessionTreeNode,
   ThinkingLevel,
+  Usage,
 } from '@ice-ai/protocol';
 import { UserInputError } from '../agent/agent-session-service';
 import { type SdkAgentMessage, toWireAgentMessage } from '../events/wire-message';
@@ -724,7 +725,22 @@ function userMessageText(message: SdkAgentMessage): string {
     .join(' ');
 }
 
-/** 冷会话统计（对齐 SDK AgentSession.getSessionStats 聚合口径） */
+/**
+ * 冷会话统计——**逐条对齐 SDK `AgentSession.getSessionStats()` 的口径**（ADR-0017）：
+ * SDK 没有导出独立的聚合函数（`usage-totals.js` 未转出，`getSessionStats` 是实例方法，
+ * 冷会话没有实例），所以这份实现必须手工跟随，且下面每条都对着 SDK 源码抄：
+ *
+ * | 计入项 | SDK 行为 |
+ * |---|---|
+ * | `entry.type === 'usage'` | 计入 token/cost（后缀 `cache_warm` 等） |
+ * | `branch_summary` / `compaction` 条目的 `usage` | 计入 |
+ * | `message` 条目 | `totalMessages++`（含 system 等一切角色） |
+ * | `toolResult` 的 `usage` | 计入（工具侧计费） |
+ * | `assistant` 的 usage + toolCall 计数 | 计入 |
+ *
+ * 关键实现细节：`assistant` 分支必须循环累加，不能整块展开——它是历史上唯一会
+ * 在两处被计数的角色（`usage` 累加 + toolCalls 计数），语义不同。
+ */
 export function computeStats(
   entries: SessionEntry[],
   sessionId: string,
@@ -734,33 +750,38 @@ export function computeStats(
   let assistantMessages = 0;
   let toolCalls = 0;
   let toolResults = 0;
+  let totalMessages = 0;
   const tokens = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 };
   let cost = 0;
 
+  /** 累加一份 usage（与 SDK `addUsageToTotals` 同口径） */
+  const addUsage = (usage: Usage) => {
+    tokens.input += usage.input;
+    tokens.output += usage.output;
+    tokens.cacheRead += usage.cacheRead;
+    tokens.cacheWrite += usage.cacheWrite;
+    cost += usage.cost.total;
+  };
+
   for (const entry of entries) {
-    // 用量条目（SDK ≥ 0.86）：不进上下文但计费，必须计入 token / cost，
-    // 否则与 SDK `/session` 的口径不一致（prompt 缓存预热是典型例子）
     if (entry.type === 'usage') {
-      tokens.input += entry.usage.input;
-      tokens.output += entry.usage.output;
-      tokens.cacheRead += entry.usage.cacheRead;
-      tokens.cacheWrite += entry.usage.cacheWrite;
-      cost += entry.usage.cost.total;
-      continue;
+      addUsage(entry.usage);
+    } else if ((entry.type === 'branch_summary' || entry.type === 'compaction') && entry.usage) {
+      // 摘要本身也是一次 LLM 调用：漏掉它就与 SDK `/session` 对不上
+      addUsage(entry.usage);
     }
     if (entry.type !== 'message') continue;
+    totalMessages += 1;
     const message = entry.message;
-    if (message.role === 'user') userMessages += 1;
-    else if (message.role === 'assistant') {
-      assistantMessages += 1;
-      toolCalls += message.content.filter((b) => b.type === 'toolCall').length;
-      tokens.input += message.usage.input;
-      tokens.output += message.usage.output;
-      tokens.cacheRead += message.usage.cacheRead;
-      tokens.cacheWrite += message.usage.cacheWrite;
-      cost += message.usage.cost.total;
+    if (message.role === 'user') {
+      userMessages += 1;
     } else if (message.role === 'toolResult') {
       toolResults += 1;
+      if (message.usage) addUsage(message.usage);
+    } else if (message.role === 'assistant') {
+      assistantMessages += 1;
+      toolCalls += message.content.filter((block) => block.type === 'toolCall').length;
+      addUsage(message.usage);
     }
   }
   tokens.total = tokens.input + tokens.output + tokens.cacheRead + tokens.cacheWrite;
@@ -772,7 +793,7 @@ export function computeStats(
     assistantMessages,
     toolCalls,
     toolResults,
-    totalMessages: userMessages + assistantMessages + toolResults,
+    totalMessages,
     tokens,
     cost,
   };

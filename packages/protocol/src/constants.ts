@@ -1,3 +1,4 @@
+import type { ModelThinkingLevel } from '@earendil-works/pi-ai';
 import { z } from 'zod';
 
 /**
@@ -20,10 +21,21 @@ export const PORTS = {
 } as const;
 
 /**
- * 思考档位枚举。
- * 须与 pi-coding-agent 0.85.x 的 ThinkingLevel 保持一致；SDK 升级时核对（AGENTS.md）。
+ * 思考档位全序（7 档）。
+ *
+ * zod 的 `z.enum` 需要字面量元组，所以这里必须是一个 const 数组，不能从 pi-ai 取
+ * （pi-ai 的 `EXTENDED_THINKING_LEVELS` 是模块私有，只导出了函数）。
+ * `satisfies` 把「不许漂移」变成编译期约束：SDK 增删档位时这里立刻报错（ADR-0017）。
  */
-export const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
+export const THINKING_LEVELS = [
+  'off',
+  'minimal',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max',
+] as const satisfies readonly ModelThinkingLevel[];
 export const ThinkingLevelSchema = z.enum(THINKING_LEVELS);
 export type ThinkingLevel = z.infer<typeof ThinkingLevelSchema>;
 
@@ -32,5 +44,4 @@ export type ThinkingLevel = z.infer<typeof ThinkingLevelSchema>;
  * prompt_rejected：prompt 输入被拒（区别于运行失败），随 accepted:false 一并下发。
  */
 export const ERROR_CODES = ['prompt_rejected'] as const;
-export const ErrorCodeSchema = z.enum(ERROR_CODES);
-export type ErrorCode = z.infer<typeof ErrorCodeSchema>;
+export type ErrorCode = (typeof ERROR_CODES)[number];

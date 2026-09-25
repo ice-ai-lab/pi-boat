@@ -1,13 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import {
-  AgentMessageSchema,
-  type AssistantMessage,
-  type SessionEntry,
-  SessionEntrySchema,
-  SessionTreeNodeSchema,
-  type Usage,
-  UsageSchema,
+import type {
+  AgentMessage,
+  AssistantMessage,
+  SessionEntry,
+  SessionInfo,
+  SessionTreeNode,
+  Usage,
 } from '../src/index';
+
+/**
+ * 域类型的漂移防线（ADR-0017）。
+ *
+ * 这些类型现在是 pi-ai / pi-coding-agent 的**再导出与派生**，没有 zod 可 parse——
+ * 因此防线从「运行时 parse」变成「编译期赋值」：下面每个样例都是 SDK 形状，
+ * 能被 protocol 类型接受才算通过；`@ts-expect-error` 反向证明没放宽。
+ * 这是比 schema 更强的约束：SDK 改字段时是编译错误，而不是测试里少一条断言。
+ */
 
 const usage: Usage = {
   input: 100,
@@ -23,12 +31,7 @@ const assistant: AssistantMessage = {
   content: [
     { type: 'thinking', thinking: 'let me think' },
     { type: 'text', text: 'hello' },
-    {
-      type: 'toolCall',
-      id: 'tc_1',
-      name: 'read',
-      arguments: { path: '/tmp/a.ts' },
-    },
+    { type: 'toolCall', id: 'tc_1', name: 'read', arguments: { path: '/tmp/a.ts' } },
   ],
   api: 'anthropic-messages',
   provider: 'anthropic',
@@ -38,9 +41,11 @@ const assistant: AssistantMessage = {
   timestamp: 1_700_000_000_000,
 };
 
+const base = { id: 'e1', parentId: null, timestamp: '2026-01-01T00:00:00Z' };
+
 describe('domain/message', () => {
-  it('parses all six agent message roles', () => {
-    const samples = [
+  it('accepts all eight agent message roles', () => {
+    const samples: AgentMessage[] = [
       { role: 'user', content: 'hi', timestamp: 1 },
       assistant,
       {
@@ -55,37 +60,49 @@ describe('domain/message', () => {
         role: 'bashExecution',
         command: 'ls',
         output: 'a\nb',
+        exitCode: undefined,
         cancelled: false,
         truncated: false,
         timestamp: 1,
       },
       { role: 'custom', customType: 'todo', content: 'injected', display: true, timestamp: 1 },
+      { role: 'branchSummary', summary: 's', fromId: null, timestamp: 1 },
+      { role: 'compactionSummary', summary: 's', tokensBefore: 10, timestamp: 1 },
       // 转录 system 消息（SDK ≥ 0.86）：载体可达但不进 UI
       {
         role: 'system',
         content: 'base prompt',
-        sections: { tools: 'named section', removed: null },
-        toolsAdded: [{ name: 'read' }],
+        sections: { tools: 'x', removed: null },
         timestamp: 1,
       },
     ];
-    for (const message of samples) {
-      expect(AgentMessageSchema.parse(message)).toEqual(message);
-    }
+    expect(samples.map((m) => m.role)).toHaveLength(8);
   });
 
   it('rejects unknown roles', () => {
-    expect(() => AgentMessageSchema.parse({ role: 'notice', timestamp: 1 })).toThrow();
+    // @ts-expect-error 未声明的角色不得进入 AgentMessage
+    const bad: AgentMessage = { role: 'notice', timestamp: 1 };
+    expect(bad).toBeDefined();
   });
 
-  it('parses usage with cost breakdown', () => {
-    expect(UsageSchema.parse(usage)).toEqual(usage);
+  it('derives custom roles by role, not by hand', () => {
+    type Roles = AgentMessage['role'];
+    const roles: Roles[] = [
+      'system',
+      'user',
+      'assistant',
+      'toolResult',
+      'bashExecution',
+      'custom',
+      'branchSummary',
+      'compactionSummary',
+    ];
+    expect(new Set(roles).size).toBe(8);
   });
 });
 
 describe('domain/session-entry', () => {
-  it('parses all eleven entry types plus header', () => {
-    const base = { id: 'e1', parentId: null, timestamp: '2026-01-01T00:00:00Z' };
+  it('accepts all eleven entry types plus header', () => {
     const entries: SessionEntry[] = [
       { type: 'message', ...base, message: { role: 'user', content: 'hi', timestamp: 1 } },
       { type: 'thinking_level_change', ...base, thinkingLevel: 'high' },
@@ -122,29 +139,45 @@ describe('domain/session-entry', () => {
       { type: 'label', ...base, targetId: 'e0', label: 'v1' },
       { type: 'session_info', ...base, name: 'my session' },
     ];
-    for (const entry of entries) {
-      expect(SessionEntrySchema.parse(entry)).toEqual(entry);
-    }
+    expect(new Set(entries.map((e) => e.type)).size).toBe(11);
   });
 
   it('rejects unknown entry types', () => {
-    expect(() =>
-      SessionEntrySchema.parse({ type: 'mystery', id: 'e1', parentId: null, timestamp: 't' }),
-    ).toThrow();
+    // @ts-expect-error 未声明的条目类型不得进入 SessionEntry
+    const bad: SessionEntry = { type: 'mystery', ...base };
+    expect(bad).toBeDefined();
   });
 });
 
 describe('domain/session-info', () => {
-  it('parses a recursive session tree', () => {
+  it('accepts a recursive session tree', () => {
     const leaf = {
       entry: { type: 'session_info', id: 'e2', parentId: 'e1', timestamp: 't2' },
       children: [],
-    };
-    const tree = {
+    } satisfies SessionTreeNode;
+    const tree: SessionTreeNode = {
       entry: { type: 'session_info', id: 'e1', parentId: null, timestamp: 't1' },
       children: [leaf],
       label: 'root branch',
     };
-    expect(SessionTreeNodeSchema.parse(tree)).toEqual(tree);
+    expect(tree.children).toHaveLength(1);
+  });
+
+  it('keeps wire timestamps as ISO strings over SDK Date', () => {
+    const info: SessionInfo = {
+      path: '/tmp/s.jsonl',
+      id: 's1',
+      cwd: '/tmp',
+      created: '2026-01-01T00:00:00Z',
+      modified: '2026-01-02T00:00:00Z',
+      messageCount: 1,
+      firstMessage: 'hi',
+      revision: '10:1',
+    };
+    expect(typeof info.created).toBe('string');
+    // eslint 风格注：allMessagesText（SDK 供搜索用的全文拼接）刻意不在 wire 上
+    // @ts-expect-error wire 上不接受 Date（SDK 形状在协议层被覆盖）
+    const bad: SessionInfo = { ...info, created: new Date() };
+    expect(bad).toBeDefined();
   });
 });

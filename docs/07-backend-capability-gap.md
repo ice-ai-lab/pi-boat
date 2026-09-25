@@ -216,7 +216,7 @@
 | 注册表版本 vs 列表指纹 | `registryVersion`（注册表结构性变动）+ `listFingerprint`（磁盘指纹）分离 | **保留**（语义更清晰） |
 | 轻查不进 FIFO | `GET /api/agent/:id` 直读注册表 | **保留** |
 | wire `seq` | 会话级单调 seq + 快照去重 | **保留** |
-| protocol 独立包 | 零依赖契约包 + Zod schema 单一真相源（ADR-0005/0006） | **保留** |
+| protocol 独立包 | 契约包（包边界与"唯一契约"不变）；类型真相源改为 SDK 公开导出、Zod 只留入参（ADR-0017 部分取代 0006、修订 0005） | **保留（形态修订）** |
 | 本机访问三闸 | Host / Origin / Sec-Fetch-Site 常开；**GET 不得有副作用**（ADR-0007） | **保留**（§8-1 排除的是凭据与 LAN，不是这三闸） |
 | 冷会话不自动拉起 | SSE 连接对冷会话 404；恢复走显式 `POST /api/agent/:id/resume` | ✅ **已定案并落地**（ADR-0013a）；`docs/04 §5.3` 关闭条件 3 保留 |
 | 扩展 UI 状态字段 | `AgentState.extensionStatuses/Widgets` 由 `ExtensionUiBridge` 按 key 代际维护 | ✅ 已补齐（G2-4 / ADR-0012） |

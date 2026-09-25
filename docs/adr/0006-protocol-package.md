@@ -1,7 +1,7 @@
 # ADR-0006：独立 protocol 契约包——前后端唯一契约层
 
 - 日期：2026-09-20
-- 状态：已接受（Accepted）
+- 状态：已接受（Accepted）· **包边界与「独立契约包」结论仍有效；「契约类型手写」部分被 [ADR-0017](0017-sdk-types-as-protocol.md) 取代**（2026-01：类型真相源改为 SDK 公开导出）
 - 关联文档：`docs/01-overview.md` §3.1 / §5.5；`docs/02-protocol-inventory.md` §1.1；ADR-0005（Zod 单一真相源）；AGENTS.md「Monorepo 结构与依赖铁律」
 
 ## 背景

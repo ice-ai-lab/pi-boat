@@ -1,5 +1,4 @@
 import type { AgentSession, AgentSessionEvent } from '@earendil-works/pi-coding-agent';
-import { WireAgentEventSchema } from '@ice-ai/protocol';
 import { describe, expect, it } from 'vitest';
 import { toWireAgentEvent } from '../src/events/wire-event';
 
@@ -257,10 +256,11 @@ describe('toWireAgentEvent：透传与 seq', () => {
     expect(wire).toEqual({ type: 'queue_update', seq: 1, steering: ['a'], followUp: [] });
   });
 
-  it('session_info_changed：name=undefined 时字段缺省（清除命名语义）', () => {
+  it('session_info_changed：name=undefined = 清除命名（上线的 JSON 里没有该键）', () => {
     const wire = toWireAgentEvent(e({ type: 'session_info_changed', name: undefined }), 1);
-    expect(wire).toEqual({ type: 'session_info_changed', seq: 1 });
-    expect('name' in (wire as object)).toBe(false);
+    // wire 类型现在派生自 SDK（`name: string | undefined` 是必填键），
+    // 真正跨线的字节以 JSON 序列化结果为准：undefined 的键不会出现
+    expect(JSON.parse(JSON.stringify(wire))).toEqual({ type: 'session_info_changed', seq: 1 });
     expect(toWireAgentEvent(e({ type: 'session_info_changed', name: '新名字' }), 2)).toEqual({
       type: 'session_info_changed',
       seq: 2,
@@ -361,12 +361,15 @@ describe('toWireAgentEvent：wire schema 兼容性', () => {
     { type: 'thinking_level_changed', level: 'high' },
   ];
 
-  it('每个样本投影后均通过 WireAgentEventSchema.parse', () => {
+  it('每个样本投影后都是可 JSON 序列化的纯对象（无 partial、无函数、无循环）', () => {
     for (const event of samples) {
       const wire = toWireAgentEvent(e(event), 1);
       expect(wire, `event type: ${event.type}`).not.toBeNull();
-      const parsed = WireAgentEventSchema.safeParse(wire);
-      expect(parsed.success, `schema parse failed for ${event.type}`).toBe(true);
+      const json = JSON.parse(JSON.stringify(wire)) as Record<string, unknown>;
+      expect(json.type, `事件类型漂移: ${event.type}`).toBe(event.type);
+      expect(json.seq).toBe(1);
+      // 投影的核心约束：累积快照 partial 永不上 wire
+      expect(JSON.stringify(json)).not.toContain('"partial"');
     }
   });
 });

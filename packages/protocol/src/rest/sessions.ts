@@ -1,11 +1,6 @@
 import { z } from 'zod';
-import {
-  SessionContextSchema,
-  SessionInfoSchema,
-  SessionTreeNodeSchema,
-} from '../domain/session-info';
-import { SessionStatsInfoSchema } from '../domain/state';
-import { type AgentRunningState, AgentRunningStateSchema } from './agent';
+import type { SessionContext, SessionInfo, SessionTreeNode } from '../domain/session-info';
+import type { SessionStatsInfo } from '../domain/state';
 
 /**
  * ⑤ REST 资源——会话域（docs/02 §6.1 列表/搜索 / §6.2 详情与生命周期 / §6.3 分页与惰性加载）。
@@ -46,28 +41,25 @@ export const SessionListQuerySchema = z.object({
 });
 export type SessionListQuery = z.infer<typeof SessionListQuerySchema>;
 
-export const SessionListResponseSchema = z.object({
-  sessions: z.array(SessionInfoSchema),
+export type SessionListResponse = {
+  sessions: SessionInfo[];
   /** 运行时注册表版本号：每次 create/dispose +1 */
-  registryVersion: z.number(),
+  registryVersion: number;
   /** 会话目录指纹：磁盘侧内容（会话增删/改名/写入）变化时改变，客户端据此重建列表。
    *  不透明字符串，无单调性（**只比较相等**，不要拿它排序/做差）。 */
-  listFingerprint: z.string(),
-  runningSessionIds: z.array(z.string()),
+  listFingerprint: string;
+  runningSessionIds: string[];
   /** 已抑制完成通知的会话（避免轮询刷新期间重复弹通知） */
-  completionNotificationSuppressedSessionIds: z.array(z.string()),
-});
-export type SessionListResponse = z.infer<typeof SessionListResponseSchema>;
+  completionNotificationSuppressedSessionIds: string[];
+};
 
 /** GET /api/sessions/search?q —— q ≤ 200 字符，结果复用列表项渲染 */
 export const SessionSearchRequestSchema = z.object({
   q: z.string().max(200),
 });
-export type SessionSearchRequest = z.infer<typeof SessionSearchRequestSchema>;
-export const SessionSearchResponseSchema = z.object({
-  sessions: z.array(SessionInfoSchema),
-});
-export type SessionSearchResponse = z.infer<typeof SessionSearchResponseSchema>;
+export type SessionSearchResponse = {
+  sessions: SessionInfo[];
+};
 
 // ---------------------------------------------------------------------------
 // §6.2 会话详情与生命周期
@@ -77,46 +69,32 @@ export type SessionSearchResponse = z.infer<typeof SessionSearchResponseSchema>;
 export const SessionDetailQuerySchema = z.object({
   force: z.literal('1').optional(),
 });
-export type SessionDetailQuery = z.infer<typeof SessionDetailQuerySchema>;
 
 /** GET /api/sessions/:id（tail 默认 50，上限 1000） */
-export const SessionDetailResponseSchema = z.object({
-  sessionId: z.string(),
-  filePath: z.string(),
-  info: SessionInfoSchema,
-  leafId: z.string().nullable(),
-  tree: z.array(SessionTreeNodeSchema),
-  context: SessionContextSchema,
-  stats: SessionStatsInfoSchema,
-  totalActiveMs: z.number(),
-  toolNames: z.array(z.string()).optional(),
+export type SessionDetailResponse = {
+  sessionId: string;
+  filePath: string;
+  info: SessionInfo;
+  leafId: string | null;
+  tree: SessionTreeNode[];
+  context: SessionContext;
+  stats: SessionStatsInfo;
+  totalActiveMs: number;
+  toolNames?: string[];
   /**
    * 外部写入探测结果（ADR-0013b，仅 `force=1` 时做）：为 true 时本进程的 runtime
    * 是用磁盘最新内容重建过的，客户端应重新拉历史（内存态已丢：半截消息、队列）。
    * 非强制读一律缺省（**不在 run 期间换 runtime**，否则会丢流）。
    */
-  wrapperRebuilt: z.boolean().optional(),
-});
-export type SessionDetailResponse = z.infer<typeof SessionDetailResponseSchema>;
+  wrapperRebuilt?: boolean;
+};
 
 /** PATCH /api/sessions/:id —— 改名（历史未运行会话直接追加 session_info 行） */
 export const SessionRenameRequestSchema = z.object({
   name: z.string(),
 });
-export type SessionRenameRequest = z.infer<typeof SessionRenameRequestSchema>;
 
 /** DELETE /api/sessions/:id —— 级联删除全部 subagent 子会话，返回受影响 id */
-export const SessionDeleteResponseSchema = z.object({
-  deletedIds: z.array(z.string()),
-});
-export type SessionDeleteResponse = z.infer<typeof SessionDeleteResponseSchema>;
-
-/**
- * GET /api/sessions/:id/state —— 形状同 AgentRunningState，
- * 但会话文件不存在时 404（而非 {running:false}；语义差异需保留）。
- */
-export type SessionStateResponse = AgentRunningState;
-export const SessionStateResponseSchema = AgentRunningStateSchema;
 
 /** POST /api/sessions/:id/auto-name —— LLM 生成会话名 */
 export const SessionAutoNameRequestSchema = z.object({
@@ -125,13 +103,11 @@ export const SessionAutoNameRequestSchema = z.object({
   /** 只回名字，不落盘（前端先预览） */
   dryRun: z.boolean().optional(),
 });
-export type SessionAutoNameRequest = z.infer<typeof SessionAutoNameRequestSchema>;
 
-export const SessionAutoNameResponseSchema = z.object({
-  title: z.string(),
-  usage: z.unknown().optional(),
-});
-export type SessionAutoNameResponse = z.infer<typeof SessionAutoNameResponseSchema>;
+export type SessionAutoNameResponse = {
+  title: string;
+  usage?: unknown;
+};
 
 // ---------------------------------------------------------------------------
 // §6.3 历史分页与惰性加载
@@ -163,28 +139,15 @@ export const SessionExportQuerySchema = z.object({
 });
 export type SessionExportQuery = z.infer<typeof SessionExportQuerySchema>;
 
-/**
- * GET /api/sessions/:id/revision —— 会话文件指纹（G2-6）。
- * 与 `listFingerprint` 同构但**针对单个会话**：客户端拿它决定详情视图缓存能不能复用。
- * 不透明、无单调性（**只比较相等**），文件被回退时也会变回旧值。
- */
-export const SessionRevisionResponseSchema = z.object({
-  revision: z.string(),
-});
-export type SessionRevisionResponse = z.infer<typeof SessionRevisionResponseSchema>;
-
 /** GET /api/sessions/:id/entries/:entryId/thinking?blockIndex —— 全量推理文本 */
 export const EntryThinkingQuerySchema = z.object({
   blockIndex: z.number().int().min(0),
 });
-export type EntryThinkingQuery = z.infer<typeof EntryThinkingQuerySchema>;
-export const EntryThinkingResponseSchema = z.object({
-  thinking: z.string(),
-});
-export type EntryThinkingResponse = z.infer<typeof EntryThinkingResponseSchema>;
+export type EntryThinkingResponse = {
+  thinking: string;
+};
 
 /** GET /api/sessions/:id/entries/:entryId/tool-result-image?blockIndex —— 二进制图片（无 JSON schema） */
 export const ToolResultImageQuerySchema = z.object({
   blockIndex: z.number().int().min(0),
 });
-export type ToolResultImageQuery = z.infer<typeof ToolResultImageQuerySchema>;

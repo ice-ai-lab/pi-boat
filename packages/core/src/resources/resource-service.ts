@@ -45,11 +45,6 @@ import { globalSettingsPath, updateSettingsObject } from './settings-file';
 const REGISTRY_TIMEOUT_MS = 20_000;
 const REGISTRY_SEARCH_URL = 'https://registry.npmjs.org/-/v1/search';
 
-export interface ResourceServiceOptions {
-  /** `~/.pi/agent` 覆盖（测试） */
-  agentDir?: string;
-}
-
 interface Ctx {
   settingsManager: SettingsManager;
   agentDir: string;
@@ -59,13 +54,8 @@ interface Ctx {
 }
 
 export class ResourceService {
-  private readonly agentDir: string;
-  private readonly trustStore: ProjectTrustStore;
-
-  constructor(options: ResourceServiceOptions = {}) {
-    this.agentDir = options.agentDir ?? getAgentDir();
-    this.trustStore = new ProjectTrustStore(this.agentDir);
-  }
+  private readonly agentDir = getAgentDir();
+  private readonly trustStore = new ProjectTrustStore(this.agentDir);
 
   // ------------------------------------------------------------------
   // 项目信任

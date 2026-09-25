@@ -1,15 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { HealthResponseSchema, PROTOCOL_VERSION } from '../src/index';
+import { type HealthResponse, PROTOCOL_VERSION } from '../src/index';
 
 describe('@ice-ai/protocol', () => {
   it('exposes a stable protocol version', () => {
     expect(PROTOCOL_VERSION).toBe(1);
   });
 
-  it('parses a valid health response', () => {
-    expect(HealthResponseSchema.parse({ ok: true, name: 'piboat-server' })).toEqual({
-      ok: true,
-      name: 'piboat-server',
-    });
+  it('健康响应的形状是类型（ADR-0017：出参不写 zod）', () => {
+    const body = { ok: true, name: 'piboat-server' } satisfies HealthResponse;
+    expect(body.ok).toBe(true);
+    // @ts-expect-error 缺 name 不算健康响应
+    const bad: HealthResponse = { ok: true };
+    expect(bad).toBeDefined();
   });
 });

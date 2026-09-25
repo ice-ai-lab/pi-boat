@@ -22,14 +22,14 @@
 | REST 路由 | **一期范围内全部落地**（55 个端点：`packages/server/src/routes/` 54 + `server.ts` 的 `/api/health`） | 九大功能域（§6）；§6.5 认证与用量、§6.8 终端按 ADR-0014 排除；后台推送（§7 的 `/api/push/*`）按 ADR-0016 删除 |
 | SSE 事件流 | 1（agent 事件流；auth 登录流一期排除） | `agent/[id]/events`；~~`auth/login/[provider]`~~（2026-01 排除，见 §6.5） |
 | RPC 命令 | **24 已全部实现**（命令通道 24 个；2026-09-22 删 Shell 直连组，2026-01 删不存在的 `extension_ui_input`） | `POST /api/agent/:id` 请求体判别联合（§4） |
-| 领域类型 | ~40 个 | domain/ 七文件（§3、§10） |
+| 领域类型 | ~40 个（其中消息/条目/工具/状态为 SDK 导出或派生，ADR-0017） | domain/ 六文件（§3、§10） |
 | 事件 wire 类型 | **27 种**顶层类型（SDK 透传 22 + 服务层自加 5；2026-09-22 删 `bash_execution_update`，随 ADR-0012 加回 `extension_ui_request` / `extension_ui_closed`） | SDK `JsonAgentSessionEvent` 投影 + 服务层事件（§5.1） |
 
 ### 1.3 铁律（源自 AGENTS.md / 概要设计，本文档所有条目受其约束）
 
-1. 纯类型 + Zod schema，**零业务逻辑、零运行时依赖**（zod 除外）
-2. wire 类型（`WireAgentEvent`）只在 protocol 定义；SDK 事件→wire 的投影函数 `toWireAgentEvent()` 在 **core**（SDK 字段变动不许泄漏出 core）
-3. 每个领域类型同时给 TS type 与 Zod schema（服务端入参校验 + 将来 zod-openapi 导出移动端客户端，见概要设计 §5.5）
+1. 纯类型 + 入参 Zod，**零业务逻辑**；运行时依赖 = zod，对 pi SDK **只允许 `import type` / `export type`**（构建产物零引用，ADR-0017）
+2. wire 类型（`WireAgentEvent`）只在 protocol 定义；SDK 事件→wire 的投影函数 `toWireAgentEvent()` 在 **core**（SDK 字段变动不许泄漏出 core）。事件形状本身取自 SDK `JsonAgentSessionEvent`，本仓只加 `seq` 与 5 个服务层自加事件
+3. **SDK 已导出的类型不手写第二份**（ADR-0017）：领域类型用 `export type` 转出或 `Extract`/`Omit` 派生；Zod 只留给 HTTP 入参；出参没有运行时 schema（需要时从类型生成，而不是手抄）
 4. REST 路由形状一旦定稿即是对前端的承诺，变更需 bump `PROTOCOL_VERSION`
 
 ---
@@ -48,7 +48,9 @@
 
 ## 3. ② 领域类型（domain）—— protocol 最大的一块资产
 
-**按需定义，不养期货**：schema 随所属里程碑开工再定（§1.1 切片原则）；已定义而无人消费的类型视同期货，删除待消费方出现再加回（加字段是非破坏性的；2026-09-20 定案，取代此前"M1 一次定完惰性资产"）。基础形状须与 SDK 0.87.1 对应类型保持同步，升级时核对。
+**按需定义，不养期货**：类型随所属里程碑开工再定（§1.1 切片原则）；已定义而无人消费的类型视同期货，删除待消费方出现再加回（加字段是非破坏性的；2026-09-20 定案，取代此前"M1 一次定完惰性资产"）。
+
+> **形状来源（ADR-0017，2026-01）**：下面 §3.1–§3.5 的字段表仍然是对外承诺的**内容清单**，但其中大部分已不再由本仓手写——SDK 公开导出的类型（`SessionEntry` / pi-ai 的消息与 Usage / `ToolInfo` / `SessionStats` / `ContextUsage` / `RpcSessionState` / `RpcExtensionUIRequest` 等）在 protocol 里是 `export type` 或 `Extract`/`Omit` 派生，SDK 升级时**编译期**自动暴露差异，不再需要"升级时核对"。文中标注的字段差异为真实分歧（如 wire 上 `created/modified` 是 ISO 字符串而非 `Date`、`allMessagesText` 不上 wire）。
 
 ### 3.1 会话文件条目（对应 `.jsonl` 每行，`SessionEntry` 判别联合）
 
@@ -67,6 +69,8 @@
 | `SessionInfoEntry` | `name?`（改名历史行） |
 
 ### 3.2 消息与内容块
+
+> 本组类型全部来自 pi-ai（`Message` / 内容块 / `Usage` / `StopReason` / `AssistantMessageEvent`）；`AgentMessage` 与 `BashExecutionMessage`/`CustomMessage`/`BranchSummaryMessage`/`CompactionSummaryMessage` 由 `SessionMessageEntry['message']` 提取（SDK 未从包根导出八角色联合）。
 
 - `AgentMessage = UserMessage | AssistantMessage | ToolResultMessage | CustomMessage | BashExecutionMessage | BranchSummaryMessage | CompactionSummaryMessage | SystemMessage`（与 SDK AgentMessage 完全一致；bashExecution 含 `command/output/exitCode/cancelled/truncated/fullOutputPath`；branch/compactionSummary 为注入 LLM 上下文的合成消息，无 display 字段）
   - ⚠️ `SystemMessage`（`role:"system"`，SDK ≥ 0.86）**载体可达但不进 UI**：携带完整 prompt 与全部工具 schema。两条路径同口径丢弃——实时由 `toWireAgentEvent()` 整条丢（含 `agent_end.messages` 里的），历史由 `context.messages` 投影跳过；原始条目仍留在 `tree` 里（树要的是「发生过什么」）

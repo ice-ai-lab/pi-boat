@@ -126,10 +126,6 @@ export type CreateRuntimeFn = (input: CreateRuntimeInput) => Promise<AgentSessio
 export interface AgentSessionServiceOptions {
   /** runtime 工厂（缺省走真实 SDK；测试注入 fake runtime） */
   createRuntime?: CreateRuntimeFn;
-  /** `` ~/.pi/agent `` 覆盖（测试用） */
-  agentDir?: string;
-  /** 扩展 UI 宿主兜底超时（毫秒） */
-  uiTimeoutMs?: number;
   /**
    * 按 id 定位会话文件（恢复冷会话用）。缺省实现遍历 `SessionManager.listAll()`；
    * server 可注入 `SessionReadService` 的索引以避免重复扫描。
@@ -150,7 +146,6 @@ export class AgentSessionService {
   private readonly findSessionFile: (
     sessionId: string,
   ) => Promise<{ path: string; cwd: string } | null>;
-  private readonly uiTimeoutMs: number | undefined;
   private readonly openSessionManager: (path: string, sessionDir?: string) => SessionManager;
   /**
    * 会话文件在**上次确认时**的 `size:mtime`（外部写入探测基线，ADR-0013b）。
@@ -162,15 +157,13 @@ export class AgentSessionService {
    * 运行时注册表版本号：每次结构性变动（create/disposeSession/re-key）+1。
    * ⚠️ 只含注册表变动；磁盘扫描侧的变化（其他进程写入会话、会话首条 assistant 消息
    * 落盘、改名/fork）不在此列，客户端不能只靠它决定要不要全量刷新列表
-   * （详见 protocol rest/sessions.ts 的 SessionListResponseSchema 注释）。
+   * （详见 protocol rest/sessions.ts 的 SessionListResponse 注释）。
    */
   #registryVersion = 0;
 
   constructor(options: AgentSessionServiceOptions = {}) {
-    this.createRuntime = options.createRuntime ?? defaultCreateRuntime(options.agentDir);
-    this.findSessionFile =
-      options.findSessionFile ?? ((id) => findSessionFileViaSessionManager(id, options.agentDir));
-    this.uiTimeoutMs = options.uiTimeoutMs;
+    this.createRuntime = options.createRuntime ?? defaultCreateRuntime();
+    this.findSessionFile = options.findSessionFile ?? findSessionFileViaSessionManager;
     this.openSessionManager =
       options.openSessionManager ?? ((path, dir) => SessionManagerClass.open(path, dir));
   }
@@ -198,7 +191,7 @@ export class AgentSessionService {
       chatOnly: toolNames !== undefined && toolNames.length === 0,
     });
 
-    const entry = await this.register(makeEntry(runtime, this.uiTimeoutMs));
+    const entry = await this.register(makeEntry(runtime));
     const { session } = entry;
 
     if (provider !== undefined && modelId !== undefined) {
@@ -253,7 +246,7 @@ export class AgentSessionService {
       tools,
       chatOnly: pinned !== undefined && pinned.length === 0,
     });
-    const entry = await this.register(makeEntry(runtime, this.uiTimeoutMs));
+    const entry = await this.register(makeEntry(runtime));
     return this.okEnvelope(entry);
   }
 
@@ -745,7 +738,7 @@ export class AgentSessionService {
       cwd: forkedManager.getCwd(),
       sessionFile: forkedPath,
     });
-    const forkedEntry = await this.register(makeEntry(runtime, this.uiTimeoutMs));
+    const forkedEntry = await this.register(makeEntry(runtime));
     if (forkedEntry.sessionId !== forkedId) {
       // 理论不可达（同一文件里读出的 id 必须一致）；真出现说明 SDK 语义变了
       this.disposeSession(forkedEntry.sessionId, 'error');
@@ -898,12 +891,8 @@ async function statFingerprint(path: string): Promise<string | null> {
   }
 }
 
-function makeEntry(
-  runtime: AgentSessionRuntime,
-  uiTimeoutMs: number | undefined,
-): SessionRegistryEntry {
-  const entry = new SessionRegistryEntry(runtime, { uiTimeoutMs });
-  return entry;
+function makeEntry(runtime: AgentSessionRuntime): SessionRegistryEntry {
+  return new SessionRegistryEntry(runtime);
 }
 
 async function isDirectory(path: string): Promise<boolean> {
@@ -917,10 +906,7 @@ async function isDirectory(path: string): Promise<boolean> {
 /** 按 id 定位会话文件（缺省实现：遍历 SDK 的全量列表） */
 async function findSessionFileViaSessionManager(
   sessionId: string,
-  agentDir: string | undefined,
 ): Promise<{ path: string; cwd: string } | null> {
-  // agentDir 只影响配置目录；会话目录由 SDK 默认规则解析
-  void agentDir;
   const all = await SessionManagerClass.listAll();
   const hit = all.find((info) => info.id === sessionId);
   return hit === undefined ? null : { path: hit.path, cwd: hit.cwd };
@@ -931,9 +917,9 @@ async function findSessionFileViaSessionManager(
  * 只有 runtime 才有 `fork`/`switchSession`/`newSession`，那正是 fork/clone/恢复的
  * 原语（docs/01 §8-1）。
  */
-export function defaultCreateRuntime(agentDir: string | undefined): CreateRuntimeFn {
+export function defaultCreateRuntime(): CreateRuntimeFn {
   return async (input: CreateRuntimeInput): Promise<AgentSessionRuntime> => {
-    const dir = agentDir ?? getAgentDir();
+    const dir = getAgentDir();
 
     const sessionManager =
       input.sessionFile !== undefined

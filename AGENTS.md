@@ -30,7 +30,7 @@ server 验收：单测 `packages/server/test/server.test.ts`（64 用例：安�
 ```
 apps/web          前端 SPA —— Vite + React 19 静态产物（未建，目录尚未创建，决策见 ADR-0002）
 apps/desktop      Electron（二期，未建）
-packages/protocol 纯类型 + Zod schema，零业务逻辑 —— 前后端唯一契约
+packages/protocol 纯类型（复用 SDK 导出）+ 入参 Zod，零业务逻辑 —— 前后端唯一契约
 packages/core     Agent 业务核心 —— 全仓唯一允许依赖 pi SDK 的包
 packages/server   Hono HTTP/SSE 服务，组装 core，原生模块收敛于此
 packages/client   类型安全 client SDK + React hooks
@@ -41,7 +41,7 @@ packages/config/  typescript-config（Biome 配置在根 biome.json，见 ADR-00
 依赖方向**自上而下单向**，违反即 bug：
 
 - `apps/*` → client → protocol；`apps/server` → core → protocol
-- **任何包不得绕过 core 直接 import pi-coding-agent**
+- **任何包不得绕过 core 直接 import pi-coding-agent**；例外：`protocol` 可用 `import type` / `export type` 复用 pi-ai / pi-coding-agent 的**类型**（ADR-0017）——它不许出现 SDK 的运行时调用，构建产物对 SDK 必须零引用
 - `core` 传输无关：不得引入任何 HTTP 概念（为 Electron 进程内直连留路）
 - `ui` 不得依赖任何宿主框架（Next.js / Electron 等）
 - SDK 版本锁 `0.87.x`（ADR-0010）；升级必须单独 PR + 新 ADR + 全量回归
@@ -49,6 +49,8 @@ packages/config/  typescript-config（Biome 配置在根 biome.json，见 ADR-00
 ## 代码规范（只列 lint 管不了的，按需增长）
 
 - 简单优先：默认写最朴素的可行实现；“简洁”指最少概念与间接层，不是最短代码。抽象/别名/包装层须有第二个真实用例或已记录的分叉需求；条件/递归类型等高级语法仅在简单方案确实不够时使用，就近注释一句为什么（出处：NewSessionInput 无变化轴别名教训，2026-09-18）
+- 不加“以后可能需要”的期权：构造参数/可选字段必须当下就有调用方（测试注入点算调用方）；零调用方的直接删（出处：`ConfigServiceOptions.agentDir`/`projectConfigDirName` 等零调用方期权，ADR-0017，2026-01）
+- **SDK 已导出的类型/方法一律复用，不手写第二份**（ADR-0017）：protocol 里 SDK 已有的形状用 `export type` 转出或用 `Extract`/`Omit` 派生，出参不写 Zod（Zod 只留在 HTTP 入参）；core 能调 SDK 就调（`getSupportedThinkingLevels()` 不再自持）。SDK 未导出的少数场景（`computeStats` 对齐 `getSessionStats`、`toJsonEvent()` 未导出）自持时须在实现处写清对照 SDK 的哪几条，并用测试锁口径
 - 事件对外投影统一走 `toWireAgentEvent()`（core），wire 类型只在 protocol 定义；SDK 事件字段变动不许泄漏出 core（流式 toolcall 增量的 id/toolName 补齐即在此层完成）
 - 新增路由必须过检查清单（细则 docs/04 §6；server 拥有宿主机文件系统全部权限）：①触碰文件系统 → allowed-roots？②错误响应是否泄漏内部路径/堆栈？③新增 Origin / Sec-Fetch-* 例外？④是否为有副作用的 GET（禁止，ADR-0007：鉴权无凭据，GET 不再有兜底）
 - 提交消息用 Conventional Commits：`<type>(<scope>): <描述>`；type 限定 feat/fix/docs/style/refactor/perf/test/build/ci/chore/revert；scope 用包名或目录（core/server/protocol/client/ui/web/docs）；破坏性变更用 `!` 或 `BREAKING CHANGE:` 脚注（采纳 Conventional Commits 1.0.0，2026-09-18）

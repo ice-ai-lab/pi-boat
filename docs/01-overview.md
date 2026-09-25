@@ -90,12 +90,12 @@ pi-boat/
 
 ### 3.1 各包职责
 
-#### `packages/protocol`（零运行时依赖，纯类型 + Zod schema）
+#### `packages/protocol`（零运行时 SDK 依赖，类型复自 SDK + 入参 Zod）
 
 - REST API 请求/响应类型（`/api/sessions`、`/api/agent/:id`、`/api/models`…）
-- **事件 wire 格式**：`WireAgentEvent` —— 对 SDK 原生事件做投影/裁剪（补齐 toolcall 的 `id/toolName`、剔除 `turn_start/turn_end`、历史快照过滤）。这是前后端解耦的"防腐层"，SDK 事件字段变动被隔离在 core 内。
-- 会话/消息/工具调用的领域类型（含 §8.3 的 toolCall 字段归一化规则）
-- Zod schema 用于服务端入参校验与运行时兼容检查
+- **事件 wire 格式**：`WireAgentEvent` = SDK `JsonAgentSessionEvent`（去掉不转发的 `bash_execution_update`）+ 服务层自加 5 事件 + `seq`；对 SDK 原生事件的投影/裁剪（补齐 toolcall 的 `id/toolName`、剥离 partial、转录 system 消息过滤）在 core 的 `toWireAgentEvent()`，SDK 事件字段变动被隔离在 core 内。
+- 会话/消息/工具调用的领域类型：**SDK 已导出的形状一律 `export type` 转出或派生**（ADR-0017），只有 PiBoat 自有概念（relation/revision/工具预设/资源与文件/ git 域等）才在此定义
+- Zod 只用于**服务端入参**校验；出参与域形状是类型（SDK 改字段 = 编译错误）
 
 #### `packages/core`（业务核心，**唯一**依赖 pi-coding-agent 的包）
 
@@ -343,7 +343,7 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 | React Native 壳 | protocol + client；server 零改动 | ui 层（React DOM ≠ RN 组件） | ~40% |
 | 原生 App（Swift/Kotlin） | server + protocol 生成的 API 客户端 | 全部前端 | ~20%，但后端零改动 |
 
-为保持此路径畅通，现在只需三件低成本约定：① `packages/ui` 遵守「禁写死桌面假设」（不把三栏/固定宽度当硬前提）——但**响应式实现与移动端适配位在 M1 冻结**（2026-09-22 决策：M1 只保大屏、<880px 显示过窄提示，`useIsMobile`/drawer 随移动端路径一并排期；见 `docs/06` §9.1）；② protocol 保持 Zod schema → 将来用 zod-openapi 导出 OpenAPI 规范供原生客户端代码生成；③ ~~LAN 开关 + 扫码配对在协议层预留~~——**一期排除**（§9-4：不引入访问凭据 ⇒ 无 LAN 暴露方案）。弱网断线重连（Last-Event-ID）已内建；后台推送（web-push）完成通知已排除（ADR-0016），通知只做前端页内。
+为保持此路径畅通，现在只需三件低成本约定：① `packages/ui` 遵守「禁写死桌面假设」（不把三栏/固定宽度当硬前提）——但**响应式实现与移动端适配位在 M1 冻结**（2026-09-22 决策：M1 只保大屏、<880px 显示过窄提示，`useIsMobile`/drawer 随移动端路径一并排期；见 `docs/06` §9.1）；② protocol 的**入参**保持 Zod schema（出参/域形状改为 SDK 类型派生，ADR-0017）→ 将来导出 OpenAPI 需为出参补一层生成器（从类型生成，而非手写第二份 schema）；③ ~~LAN 开关 + 扫码配对在协议层预留~~——**一期排除**（§9-4：不引入访问凭据 ⇒ 无 LAN 暴露方案）。弱网断线重连（Last-Event-ID）已内建；后台推送（web-push）完成通知已排除（ADR-0016），通知只做前端页内。
 
 ### 5.6 安全设计
 

@@ -1,6 +1,7 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { getSupportedThinkingLevels } from '@earendil-works/pi-ai';
 import {
   CONFIG_DIR_NAME,
   createAgentSessionServices,
@@ -21,7 +22,6 @@ import type {
   ModelsResponse,
   ProviderDraft,
 } from '@ice-ai/protocol';
-import type { SdkModel } from '../agent/sdk-types';
 import {
   LastModelRejectionError,
   modelKey,
@@ -44,38 +44,10 @@ import { modelsConfigPath, readModelsConfig, writeModelsConfig } from './models-
  * 四个方法会联网，其余全是本地读取。
  */
 
-/** 上下文窗口未知时给目录项的占位（前端只用来排序/显示） */
+/** models.dev 目录缓存时长（1h；离线或抓取失败时退化为旧缓存 + error 标记） */
 const CATALOG_TTL_MS = 60 * 60_000;
 const MODELS_DEV_URL = 'https://models.dev/api.json';
 const NETWORK_TIMEOUT_MS = 20_000;
-
-/** 思考档位全序（与 pi-ai 的 EXTENDED_THINKING_LEVELS 一致） */
-const THINKING_LEVELS = ['off', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'] as const;
-
-/**
- * 某模型支持的思考档位。
- *
- * 与 pi-ai 的 `getSupportedThinkingLevels()` 同一算法（那份在 pi-ai 里，
- * pi-coding-agent 未转出；这里重写一份而不是为此新增一个依赖）：
- * - 不推理的模型只有 `off`
- * - 其余档位看 `thinkingLevelMap`：`null` = 显式不支持；`xhigh`/`max` 必须显式映射才可用
- */
-function supportedThinkingLevels(model: SdkModel): string[] {
-  if (!model.reasoning) return ['off'];
-  return THINKING_LEVELS.filter((level) => {
-    const mapped = model.thinkingLevelMap?.[level];
-    if (mapped === null) return false;
-    if (level === 'xhigh' || level === 'max') return mapped !== undefined;
-    return true;
-  });
-}
-
-export interface ConfigServiceOptions {
-  /** `~/.pi/agent` 覆盖（测试） */
-  agentDir?: string;
-  /** 项目资源目录名（默认取 SDK 的 CONFIG_DIR_NAME，通常是 `.pi`） */
-  projectConfigDirName?: string;
-}
 
 interface RuntimeHandle {
   modelRuntime: ModelRuntime;
@@ -84,16 +56,9 @@ interface RuntimeHandle {
 }
 
 export class ConfigService {
-  private readonly agentDir: string;
-  private readonly projectConfigDirName: string;
   private catalogCache: { at: number; models: CatalogModel[] } | null = null;
   /** 并发刷新合并：同一 provider 的两个标签页不该同时拉同一份目录（ADR-0011③） */
   private refreshInFlight: Promise<ModelsRefreshResponse> | null = null;
-
-  constructor(options: ConfigServiceOptions = {}) {
-    this.agentDir = options.agentDir ?? getAgentDir();
-    this.projectConfigDirName = options.projectConfigDirName ?? CONFIG_DIR_NAME;
-  }
 
   // ------------------------------------------------------------------
   // GET /api/models
@@ -113,7 +78,7 @@ export class ConfigService {
         const model = scoped.model;
         const key = modelKey(model);
         nameMap[key] = model.name;
-        thinkingLevels[key] = supportedThinkingLevels(model);
+        thinkingLevels[key] = getSupportedThinkingLevels(model);
         const map = model.thinkingLevelMap;
         if (map !== undefined) {
           thinkingLevelMaps[key] = Object.fromEntries(
@@ -175,12 +140,12 @@ export class ConfigService {
   // ------------------------------------------------------------------
 
   readConfig(): { modelsPath: string; config: Record<string, unknown> } {
-    const path = modelsConfigPath(this.agentDir);
+    const path = modelsConfigPath(getAgentDir());
     return { modelsPath: path, config: readModelsConfig(path) };
   }
 
   writeConfig(config: Record<string, unknown>): { modelsPath: string } {
-    const path = modelsConfigPath(this.agentDir);
+    const path = modelsConfigPath(getAgentDir());
     writeModelsConfig(config, path);
     return { modelsPath: path };
   }
@@ -212,8 +177,8 @@ export class ConfigService {
       })),
       scope: shadowed ? 'project' : 'global',
       settingsPath: shadowed
-        ? join(cwd, this.projectConfigDirName, 'settings.json')
-        : join(this.agentDir, 'settings.json'),
+        ? join(cwd, CONFIG_DIR_NAME, 'settings.json')
+        : join(getAgentDir(), 'settings.json'),
       canWrite: !shadowed,
       warnings: scope.warnings,
     };
@@ -485,7 +450,7 @@ export class ConfigService {
   // ------------------------------------------------------------------
 
   private async createHandle(cwd: string): Promise<RuntimeHandle> {
-    const services = await createAgentSessionServices({ cwd, agentDir: this.agentDir });
+    const services = await createAgentSessionServices({ cwd, agentDir: getAgentDir() });
     return {
       modelRuntime: services.modelRuntime,
       settingsManager: services.settingsManager,

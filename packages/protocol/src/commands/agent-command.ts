@@ -1,22 +1,16 @@
 import { z } from 'zod';
 import { ThinkingLevelSchema } from '../constants';
-import { ImageContentSchema } from '../domain/message';
-import { type ModelRef, ModelRefSchema } from '../domain/session-info';
-import {
-  type AgentState,
-  AgentStateSchema,
-  type SessionStatsInfo,
-  SessionStatsInfoSchema,
-} from '../domain/state';
-import {
-  type SlashCommandInfo,
-  SlashCommandInfoSchema,
-  type ToolInfo,
-  ToolInfoSchema,
-  ToolPresetSchema,
-} from '../domain/tool';
-import { CommandErrorSchema } from '../envelope';
-import { CompactionResultSchema } from '../events/wire-agent-event';
+import type { ImageContent } from '../domain/message';
+import type { ModelRef } from '../domain/session-info';
+import type { AgentState, SessionStatsInfo } from '../domain/state';
+import { type SlashCommandInfo, type ToolInfo, ToolPresetSchema } from '../domain/tool';
+import type { CompactionResult } from '../events/wire-agent-event';
+
+/**
+ * 请求体里的图片：形状由 pi-ai 的 `ImageContent` 定义（ADR-0017），
+ * 这里不做第二份字段校验，只挡「不是数组」。
+ */
+const ImagesSchema = z.array(z.custom<ImageContent>());
 
 /**
  * ③ Agent 命令通道（docs/02 §4）：`POST /api/agent/:id` 请求体判别联合。
@@ -26,24 +20,23 @@ import { CompactionResultSchema } from '../events/wire-agent-event';
 
 export const STREAMING_BEHAVIORS = ['steer', 'followUp'] as const;
 export const StreamingBehaviorSchema = z.enum(STREAMING_BEHAVIORS);
-export type StreamingBehavior = z.infer<typeof StreamingBehaviorSchema>;
 
 export const AgentCommandSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('prompt'),
     message: z.string().min(1),
-    images: z.array(ImageContentSchema).optional(),
+    images: ImagesSchema.optional(),
     streamingBehavior: StreamingBehaviorSchema.optional(),
   }),
   z.object({
     type: z.literal('steer'),
     message: z.string().min(1),
-    images: z.array(ImageContentSchema).optional(),
+    images: ImagesSchema.optional(),
   }),
   z.object({
     type: z.literal('follow_up'),
     message: z.string().min(1),
-    images: z.array(ImageContentSchema).optional(),
+    images: ImagesSchema.optional(),
   }),
   z.object({ type: z.literal('abort') }),
   z.object({ type: z.literal('clear_queue') }),
@@ -121,20 +114,14 @@ export interface ClearQueueResult {
   steering: string[];
   followUp: string[];
 }
-export const ClearQueueResultSchema = z.object({
-  steering: z.array(z.string()),
-  followUp: z.array(z.string()),
-});
 
 export interface LastAssistantTextResult {
   text: string | null;
 }
-export const LastAssistantTextResultSchema = z.object({ text: z.string().nullable() });
 
 export interface CommandListResult {
   commands: SlashCommandInfo[];
 }
-export const CommandListResultSchema = z.object({ commands: z.array(SlashCommandInfoSchema) });
 
 /**
  * set_tools 双路径返回（docs/02 §4 工具组）：
@@ -142,10 +129,6 @@ export const CommandListResultSchema = z.object({ commands: z.array(SlashCommand
  * - 冷会话：route 层重建 runtime，data 为 `{sessionId, recreated}`
  */
 export type SetToolsResult = null | { sessionId: string; recreated: boolean };
-export const SetToolsRecreatedSchema = z.object({
-  sessionId: z.string(),
-  recreated: z.boolean(),
-});
 
 /**
  * 分支命令返回：`cancelled` 为 true 时 `newSessionId` 缺省
@@ -155,20 +138,12 @@ export interface BranchResult {
   cancelled: boolean;
   newSessionId?: string;
 }
-export const BranchResultSchema = z.object({
-  cancelled: z.boolean(),
-  newSessionId: z.string().optional(),
-});
 
 /** navigate_tree 返回：切到 user 消息时回填该消息文本供编辑器续写 */
 export interface NavigateTreeResult {
   cancelled: boolean;
   editorText?: string;
 }
-export const NavigateTreeResultSchema = z.object({
-  cancelled: z.boolean(),
-  editorText: z.string().optional(),
-});
 
 /** 命令 → 返回值映射（信封 CommandOk<T> 的 T 取此处） */
 export interface AgentCommandResults {
@@ -185,7 +160,7 @@ export interface AgentCommandResults {
   set_tools: SetToolsResult;
   set_model: ModelRef;
   set_thinking_level: null;
-  compact: z.infer<typeof CompactionResultSchema>;
+  compact: CompactionResult;
   abort_compaction: null;
   set_auto_compaction: null;
   set_auto_retry: null;
@@ -201,34 +176,6 @@ export interface AgentCommandResults {
 /** 按命令字面量取返回值类型：`CommandData<'get_state'>` → AgentState */
 export type CommandData<T extends keyof AgentCommandResults> = AgentCommandResults[T];
 
-/** 各命令返回值的运行时校验（null 型命令无 body，用 null schema 占位） */
-export const CommandResultSchemas = {
-  prompt: z.null(),
-  steer: z.null(),
-  follow_up: z.null(),
-  abort: z.null(),
-  clear_queue: ClearQueueResultSchema,
-  get_state: AgentStateSchema,
-  get_session_stats: SessionStatsInfoSchema,
-  get_last_assistant_text: LastAssistantTextResultSchema,
-  get_commands: CommandListResultSchema,
-  get_tools: z.array(ToolInfoSchema),
-  set_tools: z.union([z.null(), SetToolsRecreatedSchema]),
-  set_model: ModelRefSchema,
-  set_thinking_level: z.null(),
-  compact: CompactionResultSchema,
-  abort_compaction: z.null(),
-  set_auto_compaction: z.null(),
-  set_auto_retry: z.null(),
-  fork: BranchResultSchema,
-  fork_branch: BranchResultSchema,
-  clone: BranchResultSchema,
-  navigate_tree: NavigateTreeResultSchema,
-  set_session_name: z.null(),
-  reload: z.null(),
-  extension_ui_response: z.null(),
-} as const;
-
 // ---------------------------------------------------------------------------
 // 新建会话（POST /api/agent/new，docs/02 §4.1）
 // ---------------------------------------------------------------------------
@@ -243,7 +190,7 @@ export const NewSessionRequestSchema = z
     cwd: z.string().min(1),
     type: z.literal('ensure_session').optional(),
     message: z.string().min(1).optional(),
-    images: z.array(ImageContentSchema).optional(),
+    images: ImagesSchema.optional(),
     provider: z.string().optional(),
     modelId: z.string().optional(),
     toolNames: z.array(z.string()).optional(),
@@ -255,28 +202,15 @@ export const NewSessionRequestSchema = z
 export type NewSessionRequest = z.infer<typeof NewSessionRequestSchema>;
 
 /** agent/new 成功响应：CommandOk 的扩展信封（docs/02 §2、§4.1） */
-export const NewSessionOkSchema = z.object({
-  success: z.literal(true),
+export type NewSessionOk = {
+  success: true;
   /** 首条 prompt 即时结果（prompt 返回 null），ensure_session 亦为 null */
-  data: z.null(),
-  sessionId: z.string(),
-  model: ModelRefSchema.nullable(),
-  thinkingLevel: ThinkingLevelSchema,
-});
-export type NewSessionOk = z.infer<typeof NewSessionOkSchema>;
-
-export const NewSessionEnvelopeSchema = z.union([NewSessionOkSchema, CommandErrorSchema]);
-export type NewSessionEnvelope = NewSessionOk | z.infer<typeof CommandErrorSchema>;
+  data: null;
+  sessionId: string;
+  model: ModelRef | null;
+  thinkingLevel: import('../constants').ThinkingLevel;
+};
 
 // ---------------------------------------------------------------------------
 // 恢复冷会话（POST /api/agent/:id/resume，ADR-0013）
 // ---------------------------------------------------------------------------
-
-export const ResumeSessionOkSchema = z.object({
-  success: z.literal(true),
-  data: z.null(),
-  sessionId: z.string(),
-  model: ModelRefSchema.nullable(),
-  thinkingLevel: ThinkingLevelSchema,
-});
-export type ResumeSessionOk = z.infer<typeof ResumeSessionOkSchema>;
