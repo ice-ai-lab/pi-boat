@@ -319,10 +319,16 @@ export function fold(state: ChatState, event: WireAgentEvent): ChatState {
       }
       return next;
 
-    case 'session_replaced':
     case 'extension_ui_request':
+      // 只留最近一条待应答请求（对话框一次只显示一个）
+      next.extensionRequest = event.request;
+      return next;
     case 'extension_ui_closed':
-      // F1 不消费：替换（fork 等）随 F5 分支导航、扩展 UI 随 F5 扩展面板
+      if (next.extensionRequest?.id === event.id) next.extensionRequest = null;
+      return next;
+
+    case 'session_replaced':
+      // 会话 id 已被替换（fork/clone/resume）：旧流随即 shutdown；切换由上层 open 新 id 完成
       return next;
 
     case 'connected':

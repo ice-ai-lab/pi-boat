@@ -5,7 +5,7 @@ import {
   restoreScrollTop,
   shouldShowScrollToLatest,
 } from '@ice-ai/client';
-import { useCallback, useEffect, useRef } from 'react';
+import { type RefObject, useCallback, useEffect, useRef } from 'react';
 import { cn } from '../utils/cn';
 import { AssistantTurn, UserBubble } from './assistant-turn';
 
@@ -15,11 +15,18 @@ import { AssistantTurn, UserBubble } from './assistant-turn';
  * - 贴底/重吸/上滚脱离 → getLiveFollowAttached
  * - 向上翻页前后按「距底部距离」还原视口 → capture/restoreScrollDistance（防跳动）
  */
+/** 命令式滚动接口（minimap 点击跳转用；React 不适合把滚动位置放进 props） */
+export interface MessageListHandle {
+  scrollToTurn(index: number): void;
+}
+
 export interface MessageListProps {
   chat: ChatState;
   hasOlder?: boolean;
   loadingOlder?: boolean;
   onLoadOlder?(): void;
+  /** 宿主持有它以驱动滚动（可选） */
+  controllerRef?: RefObject<MessageListHandle | null>;
 }
 
 /** 距顶部多少像素内触发自动翻页 */
@@ -30,6 +37,7 @@ export function MessageList({
   hasOlder = false,
   loadingOlder = false,
   onLoadOlder,
+  controllerRef,
 }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const attachedRef = useRef(true);
@@ -37,6 +45,26 @@ export function MessageList({
   const turnCountRef = useRef(0);
   /** 向上翻页前记下的「距底部距离」，内容前插后还原 */
   const pendingAnchorRef = useRef<number | null>(null);
+
+  // 控制器：按轮下标定位（turn 元素的 offsetTop 即目标，比按比例估算准）
+  useEffect(() => {
+    if (controllerRef === undefined) return;
+    controllerRef.current = {
+      scrollToTurn(index: number) {
+        const scroller = scrollRef.current;
+        if (scroller === null) return;
+        const turns = scroller.querySelectorAll('[data-turn-index]');
+        const target = turns[index];
+        if (target instanceof HTMLElement) {
+          scroller.scrollTo({ top: target.offsetTop - 12, behavior: 'smooth' });
+          attachedRef.current = false;
+        }
+      },
+    };
+    return () => {
+      controllerRef.current = null;
+    };
+  }, [controllerRef]);
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
     const el = scrollRef.current;
@@ -133,8 +161,8 @@ export function MessageList({
               </button>
             </div>
           )}
-          {chat.turns.map((turn) => (
-            <div key={turn.id} className="flex flex-col gap-2.5">
+          {chat.turns.map((turn, index) => (
+            <div key={turn.id} data-turn-index={index} className="flex flex-col gap-2.5">
               {turn.orphan !== true && <UserBubble turn={turn} />}
               <AssistantTurn turn={turn} streaming={chat.streaming} />
             </div>

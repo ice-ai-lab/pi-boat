@@ -1,13 +1,35 @@
+import type {
+  AgentState,
+  SessionStatsInfo,
+  SlashCommandInfo,
+  ThinkingLevel,
+  ToolInfo,
+  ToolPreset,
+} from '@ice-ai/protocol';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
+  abortAgentCompaction,
+  clearAgentQueue,
+  compactAgent,
+  followUpAgent,
+  forkAgentSession,
+  getAgentCommands,
   getAgentRunningState,
+  getAgentStateLight,
+  getAgentStats,
+  getAgentTools,
+  navigateAgentTree,
   newAgentSession,
   renewAgentLease,
+  respondAgentExtensionUi,
   resumeAgentSession,
   sendAgentCommand,
+  setAgentSessionName,
+  setAgentTools,
+  steerAgent,
 } from '../endpoints/agent';
 import { validateCwd } from '../endpoints/files';
-import { getSessionContext, getSessionDetail } from '../endpoints/sessions';
+import { autoNameSession, getSessionContext, getSessionDetail } from '../endpoints/sessions';
 import { ApiError } from '../http';
 import { disposeAgentStream, getAgentStream } from '../stream/agent-stream';
 import { rebuildChatState, rebuildTurns } from '../stream/rebuild';
@@ -19,6 +41,37 @@ import { type ChatState, emptyChatState } from '../stream/view-model';
  * 事件流经 AgentStream（useSyncExternalStore），不入 Query（ADR-0009）。
  */
 export interface UseAgentSessionResult {
+  /** 斜杠命令清单（打开会话后按需拉取；失败为空数组） */
+  commands: SlashCommandInfo[];
+  /** 工具清单（含 `active` 标记） */
+  tools: ToolInfo[];
+  /** 统计（打开会话后按需拉取） */
+  stats: SessionStatsInfo | null;
+  /** 轻查拿到的完整运行时状态（含 systemPrompt；冷会话为 null） */
+  liveState: AgentState | null;
+  loadCommands(): Promise<void>;
+  loadTools(): Promise<void>;
+  refreshStats(): Promise<void>;
+  refreshLiveState(): Promise<void>;
+  compact(customInstructions?: string): Promise<string | null>;
+  setThinkingLevel(level: ThinkingLevel): Promise<string | null>;
+  abortCompaction(): Promise<void>;
+  setTools(preset: ToolPreset): Promise<string | null>;
+  /** 用 LLM 生成会话名并落盘（dryRun 只回名字） */
+  autoName(dryRun?: boolean): Promise<{ title?: string; error?: string }>;
+  setSessionName(name: string): Promise<string | null>;
+  steer(text: string): Promise<string | null>;
+  followUp(text: string): Promise<string | null>;
+  clearQueue(): Promise<void>;
+  fork(entryId: string): Promise<string | null>;
+  navigateTree(
+    targetId: string,
+    options?: { summarize?: boolean; label?: string },
+  ): Promise<{ error?: string; editorText?: string }>;
+  respondExtensionUi(
+    id: string,
+    response: { value?: string; confirmed?: boolean; cancelled?: true },
+  ): Promise<void>;
   sessionId: string | null;
   /** 会话工作目录（建会话时的 cwd / 打开时的 info.cwd）；提及索引与文件域基准用 */
   cwd: string | null;
@@ -52,6 +105,10 @@ export function useAgentSession(): UseAgentSessionResult {
   const [historyCursor, setHistoryCursor] = useState<{ oldest?: string; hasMore: boolean }>({
     hasMore: false,
   });
+  const [commands, setCommands] = useState<SlashCommandInfo[]>([]);
+  const [tools, setToolsState] = useState<ToolInfo[]>([]);
+  const [stats, setStats] = useState<SessionStatsInfo | null>(null);
+  const [liveState, setLiveState] = useState<AgentState | null>(null);
   const initializedRef = useRef<string | null>(null);
 
   const store = useMemo(() => {
@@ -208,9 +265,229 @@ export function useAgentSession(): UseAgentSessionResult {
     setHistoryCursor({ hasMore: false });
   }, []);
 
+  const requireSession = useCallback((): string | null => sessionId, [sessionId]);
+
+  const loadCommands = useCallback(async (): Promise<void> => {
+    const id = requireSession();
+    if (id === null) return;
+    setCommands(await getAgentCommands(id).catch(() => []));
+  }, [requireSession]);
+
+  const loadTools = useCallback(async (): Promise<void> => {
+    const id = requireSession();
+    if (id === null) return;
+    setToolsState(await getAgentTools(id).catch(() => []));
+  }, [requireSession]);
+
+  const refreshStats = useCallback(async (): Promise<void> => {
+    const id = requireSession();
+    if (id === null) return;
+    setStats(await getAgentStats(id).catch(() => null));
+  }, [requireSession]);
+
+  const refreshLiveState = useCallback(async (): Promise<void> => {
+    const id = requireSession();
+    if (id === null) return;
+    setLiveState(await getAgentStateLight(id).catch(() => null));
+  }, [requireSession]);
+
+  const setThinkingLevel = useCallback(
+    async (level: ThinkingLevel): Promise<string | null> => {
+      const id = requireSession();
+      if (id === null) return '没有活动会话';
+      try {
+        await sendAgentCommand(id, { type: 'set_thinking_level', level });
+        await refreshLiveState();
+        return null;
+      } catch (error) {
+        return errorMessage(error);
+      }
+    },
+    [requireSession, refreshLiveState],
+  );
+
+  const compact = useCallback(
+    async (customInstructions?: string): Promise<string | null> => {
+      const id = requireSession();
+      if (id === null) return '没有活动会话';
+      try {
+        await compactAgent(id, customInstructions);
+        return null;
+      } catch (error) {
+        return errorMessage(error);
+      }
+    },
+    [requireSession],
+  );
+
+  const abortCompaction = useCallback(async (): Promise<void> => {
+    const id = requireSession();
+    if (id === null) return;
+    await abortAgentCompaction(id).catch(() => null);
+  }, [requireSession]);
+
+  const setTools = useCallback(
+    async (preset: ToolPreset): Promise<string | null> => {
+      const id = requireSession();
+      if (id === null) return '没有活动会话';
+      try {
+        const result = await setAgentTools(id, preset);
+        // 冷会话路径会换 runtime（可能换 sessionId）：交给上层重新 open
+        if (result !== null && result.sessionId !== id) return `会话已重建（${result.sessionId}）`;
+        await loadTools();
+        return null;
+      } catch (error) {
+        return errorMessage(error);
+      }
+    },
+    [requireSession, loadTools],
+  );
+
+  const autoName = useCallback(
+    async (dryRun = false): Promise<{ title?: string; error?: string }> => {
+      const id = requireSession();
+      if (id === null) return { error: '没有活动会话' };
+      try {
+        const { title } = await autoNameSession(id, dryRun ? { dryRun: true } : {});
+        if (!dryRun) await setAgentSessionName(id, title).catch(() => null);
+        return { title };
+      } catch (error) {
+        return { error: errorMessage(error) };
+      }
+    },
+    [requireSession],
+  );
+
+  const setSessionName = useCallback(
+    async (name: string): Promise<string | null> => {
+      const id = requireSession();
+      if (id === null) return '没有活动会话';
+      try {
+        await setAgentSessionName(id, name);
+        return null;
+      } catch (error) {
+        return errorMessage(error);
+      }
+    },
+    [requireSession],
+  );
+
+  const steer = useCallback(
+    async (text: string): Promise<string | null> => {
+      const id = requireSession();
+      if (id === null) return '没有活动会话';
+      try {
+        await steerAgent(id, text);
+        return null;
+      } catch (error) {
+        return errorMessage(error);
+      }
+    },
+    [requireSession],
+  );
+
+  const followUp = useCallback(
+    async (text: string): Promise<string | null> => {
+      const id = requireSession();
+      if (id === null) return '没有活动会话';
+      try {
+        await followUpAgent(id, text);
+        return null;
+      } catch (error) {
+        return errorMessage(error);
+      }
+    },
+    [requireSession],
+  );
+
+  const clearQueue = useCallback(async (): Promise<void> => {
+    const id = requireSession();
+    if (id === null) return;
+    await clearAgentQueue(id).catch(() => null);
+  }, [requireSession]);
+
+  /**
+   * fork：**破坏性原地替换**——返回新 sessionId，旧 id 立即失效（docs/01 §8-1），
+   * 所以这里要主动清理旧流并把当前会话切到新 id（调用方据此更新 URL）。
+   */
+  const fork = useCallback(
+    async (entryId: string): Promise<string | null> => {
+      const id = requireSession();
+      if (id === null) return '没有活动会话';
+      try {
+        const result = await forkAgentSession(id, entryId);
+        if (result.cancelled || result.newSessionId === undefined) return '分叉被取消';
+        disposeAgentStream(id);
+        initializedRef.current = result.newSessionId;
+        setSessionId(result.newSessionId);
+        setHistoryCursor({ hasMore: false });
+        return null;
+      } catch (error) {
+        return errorMessage(error);
+      }
+    },
+    [requireSession],
+  );
+
+  const navigateTree = useCallback(
+    async (
+      targetId: string,
+      options: { summarize?: boolean; label?: string } = {},
+    ): Promise<{ error?: string; editorText?: string }> => {
+      const id = requireSession();
+      if (id === null) return { error: '没有活动会话' };
+      try {
+        const result = await navigateAgentTree(id, targetId, options);
+        if (result.cancelled) return { error: '切换被取消' };
+        return result.editorText === undefined ? {} : { editorText: result.editorText };
+      } catch (error) {
+        return { error: errorMessage(error) };
+      }
+    },
+    [requireSession],
+  );
+
+  const respondExtensionUi = useCallback(
+    async (
+      id: string,
+      response: { value?: string; confirmed?: boolean; cancelled?: true },
+    ): Promise<void> => {
+      const session = requireSession();
+      if (session === null) return;
+      await respondAgentExtensionUi(session, id, response).catch(() => null);
+      // 本地立即收起对话框（服务端不再重发；extension_ui_closed 只是兜底）
+      const stream = getAgentStream(session);
+      const current = stream.getSnapshot();
+      if (current.extensionRequest?.id === id) {
+        stream.restore({ ...current, extensionRequest: null }, Number.MAX_SAFE_INTEGER);
+      }
+    },
+    [requireSession],
+  );
+
   return {
     sessionId,
     cwd,
+    commands,
+    tools,
+    stats,
+    liveState,
+    loadCommands,
+    loadTools,
+    refreshStats,
+    refreshLiveState,
+    compact,
+    setThinkingLevel,
+    abortCompaction,
+    setTools,
+    autoName,
+    setSessionName,
+    steer,
+    followUp,
+    clearQueue,
+    fork,
+    navigateTree,
+    respondExtensionUi,
     chat: storeChat,
     starting,
     sending,

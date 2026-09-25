@@ -133,6 +133,7 @@ export function rebuildChatState(
 ): ChatState {
   return {
     turns: rebuildTurns(messages, entryIds),
+    extensionRequest: null,
     streaming: false,
     queued: { steering: [], followUp: [] },
     sessionName,

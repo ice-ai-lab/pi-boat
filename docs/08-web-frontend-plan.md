@@ -177,7 +177,7 @@ src/
 | **F2 会话与项目** ✅ 已完成（2026-09-27） | client：sessions/projects/git/worktrees 端点 + view-models（session-list 分组/窗口化、chat-lazy-load）+ queries（TanStack Query）；ui：sidebar 册（Sidebar/SessionList 窗口化/SessionRow/ProjectPicker/SessionSearch）+ MessageList 懒加载；web：SidebarPane + URL 单一真相（`?s=`）+ workspace-memory + lease 续期 | 侧栏全功能、项目/worktree 切换、服务端正文搜索、历史分页（视口不跳）；**FileTree 移至 F3**（与文件域同批，避免半套文件端点） | 2 周 |
 | **F3 文件域** ✅ 已完成（2026-09-27） | client：files/file-index/validateCwd 端点 + files 模块（路径编码/类型判定/fuzzy/统一 diff 解析/页签 reducer）；ui：files 册（FileTree 窗口外懒加载/FileTabs/FileViewer 分发/CodeViewer 行号/DiffView/ImagePreview）；web：FileExplorerPane（+上传）+ FilesPane + Composer `@` 提及 | 侧栏文件树、右栏多标签查看器、git diff、图片、上传；**代码高亮（shiki）仍在 F5** | 1.5 周 |
 | **F4 设置中心** | client：models/models-config/resources/resources 端点 + models/ 模块；ui：settings/ 全册 + ProjectTrustDialog + DirectoryPicker 接线；web：SettingsHost + settings-navigation | models 配置/发现/测试/可见范围、skills、plugins、信任 | 1.5 周 |
-| **F5 对话增强与高级面板** | 斜杠命令、输入历史、引用回复、steer/followUp 队列条、compact、自动命名、导出、`TurnWrittenFiles`、MessageMinimap、panels/ 全册（BranchNavigator/ToolDefinitions/SessionInfoPanel+统计）、extension/ 全册、快捷键、页内通知+声音、深色主题（ADR-0019-2）、shiki 代码高亮、模型 provider 向导（discover/test） | **一期验收线：§1 清单 − §5 排除项全部可用** | 2–2.5 周 |
+| **F5 对话增强与高级面板** ✅ 已完成（2026-09-27） | client：命令族端点 + minimap/统计/主题/本轮改动文件/输入历史/斜杠的纯逻辑；ui：候选菜单（`@` 与 `/` 共壳）/排队条/控制条/minimap/本轮改动文件/四面板（分支·系统·工具·统计）/扩展状态·widgets·阻塞对话框/shiki 高亮；web：主题三态、快捷键、提示音+页内通知、面板与工具栏接线 | **一期验收线达成**：docs/08 §1 清单 − §5 排除项全部可用（manual-panels 11 项绿） | 2–2.5 周 |
 
 依赖关系：F1 依赖 F0；F2/F3 依赖 F1（消息渲染与流）；F4 依赖 F0（可与 F2/F3 并行）；F5 依赖 F1–F4。
 总量级 **9–10.5 周**（单人；A 类测试先行可显著降风险）。
