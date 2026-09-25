@@ -9,6 +9,11 @@ import type { ModelRef, Usage } from '@ice-ai/protocol';
 export interface Turn {
   id: string;
   user: { text: string; images?: string[]; at: number };
+  /**
+   * 孤儿轮：历史窗口从轮中间开始时（分页/尾部窗口），前导 assistant/toolResult
+   * 没有 user 锚点。仍建轮以**不丢数据**，渲染时跳过用户气泡。
+   */
+  orphan?: boolean;
   /** 平铺轨迹（thinking/tool/system 行）；成组是渲染前的派生步骤（groupTrail） */
   trail: TrailItem[];
   /** 最终回答（流式期间为 draft，随 text_delta 增长） */

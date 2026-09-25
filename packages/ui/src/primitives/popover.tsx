@@ -7,6 +7,8 @@ import { cn } from '../utils/cn';
  */
 export interface PopoverProps {
   trigger: ReactNode;
+  /** 触发器无障碍名（icon/复合触发器必传；纯文本触发器可省） */
+  triggerLabel?: string;
   children: ReactNode;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -24,6 +26,7 @@ export function isDismissTarget(target: Element | null, container: HTMLElement |
 
 export function Popover({
   trigger,
+  triggerLabel,
   children,
   open,
   onOpenChange,
@@ -53,6 +56,7 @@ export function Popover({
       <button
         type="button"
         aria-expanded={open}
+        aria-label={triggerLabel}
         className="inline-flex cursor-pointer items-center"
         onClick={() => onOpenChange(!open)}
       >

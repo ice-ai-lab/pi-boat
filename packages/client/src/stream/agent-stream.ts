@@ -1,7 +1,7 @@
 import type { WireAgentEvent } from '@ice-ai/protocol';
 import { AgentEventConnection } from './agent-event-connection';
 import { fold } from './fold';
-import { type ChatState, emptyChatState } from './view-model';
+import { type ChatState, emptyChatState, type Turn } from './view-model';
 
 /**
  * AgentStream（docs/05 §5/§7）：会话级事件流 store——持 fold 状态、做 seq 对账、
@@ -33,6 +33,16 @@ export class AgentStream {
     this.state = state;
     this.watermark = watermark;
     this.restored = true;
+    this.emit();
+  }
+
+  /**
+   * 向上翻页：把更早的轮次**前插**（docs/02 §6.3）。不动水位线——
+   * 历史是 REST 事实，与实时 seq 无关。
+   */
+  prependTurns(turns: Turn[]): void {
+    if (turns.length === 0) return;
+    this.state = { ...this.state, turns: [...turns, ...this.state.turns] };
     this.emit();
   }
 

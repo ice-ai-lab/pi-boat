@@ -382,12 +382,12 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 | `packages/protocol` | ✅ 一期全量落地 | 24 命令 / 27 类 wire 事件 / rest 七域；见 `docs/02` |
 | `packages/core` | ✅ 一期全量落地 | 8 个服务，20 源文件 / 12 测试文件（180 用例）；见 `docs/03` |
 | `packages/server` | ✅ 一期全量落地 | 55 端点（含 health），6 路由文件 / 64 用例；见 `docs/04` |
-| `packages/client` | 🚧 F1 对话核心就位 | 双入口（`.` + `./react`）；endpoints（agent/会话域）+ stream（event-source/fold/rebuild/group-trail/AgentStream，14 用例）+ `useAgentSession`；F2 补列表/搜索/生命周期端点与 Query hooks |
-| `packages/ui` | 🚧 F1 对话界面就位 | token/utilities + primitives 6 件（9 用例）+ chat 册（MessageList/Composer/AssistantTurn/ToolRow/ThinkingRow/ProcessGroup/MarkdownView/EmptyState）；F2+ 补 sidebar/files/settings/panels |
-| `apps/web` | 🚧 F1 对话 MVP 可用（2026-09-27） | 三栏布局 + `?s=` 会话恢复 + 实时对话（真机验收：两轮带工具调用）；F2 侧栏、F3 文件、F4 设置、F5 增强 |
+| `packages/client` | 🚧 F2 侧栏域就位 | 双入口（`.` + `./react`）；endpoints（agent/会话/项目/git/worktree）+ stream 五件套 + view-models（分组/窗口化/懒加载）+ Query hooks（31 用例） |
+| `packages/ui` | 🚧 F2 侧栏就位 | token/utilities + primitives 7 件 + chat 册 11 件 + sidebar 册 5 件（9 用例）；F3+ 补 files/settings/panels |
+| `apps/web` | 🚧 F2 会话与项目可用（2026-09-27） | 三栏 + `?s=` 唯一真相 + 侧栏（项目/worktree/搜索/分页/重命名删除）+ 实时对话；F3 文件、F4 设置、F5 增强 |
 | `apps/desktop` | ⬜ 二期 | Electron（M4） |
 
-**下一步**：前端一期按 `docs/08`（已定案，ADR-0019）的 F0–F5 批次推进——✅ F0 骨架（2026-09-27）；✅ F1 对话 MVP（2026-09-27：**M1 验收线达成**——浏览器完成两轮带工具调用的编程任务，含历史重建与冷会话恢复）；接下来 F2 会话与项目（侧栏全功能）→ F3 文件域 → F4 设置中心 → F5 对话增强与高级面板。
+**下一步**：前端一期按 `docs/08`（已定案，ADR-0019）的 F0–F5 批次推进——✅ F0 骨架（2026-09-27）；✅ F1 对话 MVP（2026-09-27：**M1 验收线达成**）；✅ F2 会话与项目（2026-09-27：侧栏全功能、项目/worktree 切换、服务端正文搜索、历史分页不跳视口、重命名删除；FileTree 随 F3 一并交付）；接下来 F3 文件域 → F4 设置中心 → F5 对话增强与高级面板。
 
 ### 7.2 里程碑
 

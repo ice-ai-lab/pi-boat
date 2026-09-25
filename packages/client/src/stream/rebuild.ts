@@ -38,8 +38,9 @@ export function rebuildTurns(messages: AgentMessage[], entryIds: string[]): Turn
         return;
       }
       case 'assistant': {
-        const turn = turns[turns.length - 1];
-        if (turn === undefined) return; // 无锚点的 assistant（异常历史）：丢弃
+        // 窗口从轮中间开始（分页/尾部窗口）：建孤儿轮承接，绝不丢数据
+        const turn =
+          turns[turns.length - 1] ?? pushOrphanTurn(turns, message.timestamp, entryIdOf(index));
         const trail: TrailItem[] = [];
         for (const block of message.content) {
           if (block.type === 'thinking') {
@@ -76,6 +77,7 @@ export function rebuildTurns(messages: AgentMessage[], entryIds: string[]): Turn
             ),
           );
         if (owner !== undefined) applyToolResult([owner], message);
+        else pushOrphanTurn(turns, message.timestamp, entryIdOf(index));
         return;
       }
       case 'compactionSummary': {
@@ -105,6 +107,22 @@ export function rebuildTurns(messages: AgentMessage[], entryIds: string[]): Turn
   });
 
   return turns;
+}
+
+/** 新建孤儿轮（无用户锚点的前导片段）并返回它 */
+function pushOrphanTurn(turns: Turn[], at: number, id: string): Turn {
+  const orphan: Turn = {
+    id,
+    user: { text: '', at },
+    trail: [],
+    final: null,
+    usage: null,
+    model: null,
+    status: 'done',
+    orphan: true,
+  };
+  turns.push(orphan);
+  return orphan;
 }
 
 /** 重建整体 ChatState（历史态：streaming=false、无队列） */

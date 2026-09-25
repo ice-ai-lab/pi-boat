@@ -10,28 +10,28 @@ import {
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useServerHealth } from '../layout/health';
-
-const LAST_CWD_KEY = 'piboat:last-cwd';
-
-function readLastCwd(): string {
-  try {
-    return localStorage.getItem(LAST_CWD_KEY) ?? '';
-  } catch {
-    return '';
-  }
-}
+import { getLastCwd, setLastCwd } from '../services/workspace-memory';
 
 /**
- * 对话面板（F1）：EmptyState cwd 输入 → 会话建立 → 消息流 + Composer。
- * URL `?s=` 持久当前会话（ADR-0019-5）：刷新后走 open() 历史重建 + 冷会话 resume。
+ * ChatPane（F1+F2）：URL `?s=` 是会话的**唯一真相**（ADR-0019-5）——
+ * 侧栏点选 / 新建都只改 URL；本组件据此 open() 既有会话（历史重建 + 冷会话 resume）
+ * 或展示 EmptyState 建新会话。刷新后同一条路径即恢复。
  */
-export function ChatPane() {
+export interface ChatPaneProps {
+  /** 侧栏切换项目/新建会话时带上的预填 cwd */
+  preferredCwd?: string | null;
+}
+
+export function ChatPane({ preferredCwd = null }: ChatPaneProps) {
   const session = useAgentSession();
   const { chat, sessionId } = session;
   const [draft, setDraft] = useState('');
   const [startError, setStartError] = useState<string | null>(null);
   const [toasts, dispatchToast] = useReducer(toastQueueReducer, [] as ToastItem[]);
   const [searchParams, setSearchParams] = useSearchParams();
+  /** 由本组件写进 URL 的会话 id（区分「自己同步」与「用户点选」） */
+  const selfNavigationRef = useRef<string | null>(null);
+  const urlSessionId = searchParams.get('s');
 
   const pushToast = useCallback((message: string, tone: ToastItem['tone'] = 'info') => {
     const toast: ToastItem = { id: crypto.randomUUID(), message, tone };
@@ -39,27 +39,31 @@ export function ChatPane() {
     setTimeout(() => dispatchToast({ type: 'dismiss', id: toast.id }), 4000);
   }, []);
 
-  // 刷新恢复：**仅首次挂载**按 URL 的 ?s= 打开会话（历史重建 + 冷会话 resume，ADR-0013）。
-  // 不能跟着 searchParams 跑——建完会话后同步 URL 会立即再触发一次 open，对
-  // 刚建好、尚未落盘的会话发 GET /sessions/:id 会 404。
-  const initialSessionIdRef = useRef(searchParams.get('s'));
-  // biome-ignore lint/correctness/useExhaustiveDependencies: 只跑一次的挂载恢复，见上行说明
+  // ① URL → 会话（打开既有会话 / 清空回 EmptyState）
+  // biome-ignore lint/correctness/useExhaustiveDependencies: session.open/reset 身份随 sessionId 变化，只在 URL 变化时触发
   useEffect(() => {
-    const id = initialSessionIdRef.current;
-    if (id === null || id.length === 0) return;
-    void session.open(id).then((error) => {
-      if (error !== null) pushToast(`会话恢复失败：${error}`, 'error');
+    if (urlSessionId === session.sessionId) return;
+    if (urlSessionId === null) {
+      if (session.sessionId !== null) session.reset();
+      return;
+    }
+    if (selfNavigationRef.current === urlSessionId) {
+      selfNavigationRef.current = null;
+      return;
+    }
+    void session.open(urlSessionId).then((error) => {
+      if (error !== null) pushToast(`打开会话失败：${error}`, 'error');
     });
-  }, []);
+  }, [urlSessionId, session.sessionId, pushToast]);
 
-  // 会话变化同步 URL（?s=，ADR-0019-5）
+  // ② 会话 id → URL（新建 / open 成功后落定）
   useEffect(() => {
-    if (sessionId === null) return;
-    const current = searchParams.get('s');
-    if (current !== sessionId) setSearchParams({ s: sessionId }, { replace: true });
-  }, [sessionId, searchParams, setSearchParams]);
+    if (sessionId === null || urlSessionId === sessionId) return;
+    selfNavigationRef.current = sessionId;
+    setSearchParams({ s: sessionId }, { replace: true });
+  }, [sessionId, urlSessionId, setSearchParams]);
 
-  const handleStart = useCallback(
+  const startSession = useCallback(
     async (cwd: string) => {
       setStartError(null);
       const error = await session.start(cwd);
@@ -67,11 +71,7 @@ export function ChatPane() {
         setStartError(error);
         return;
       }
-      try {
-        localStorage.setItem(LAST_CWD_KEY, cwd);
-      } catch {
-        // 存储不可用：不阻塞
-      }
+      setLastCwd(cwd);
     },
     [session],
   );
@@ -85,20 +85,19 @@ export function ChatPane() {
     [session, pushToast],
   );
 
-  const handleAbort = useCallback(() => {
-    void session.abort();
-  }, [session]);
-
   const health = useServerHealth();
 
   if (sessionId === null) {
     return (
-      <EmptyState
-        onStart={handleStart}
-        starting={session.starting}
-        initialCwd={readLastCwd()}
-        error={startError}
-      />
+      <>
+        <EmptyState
+          onStart={(cwd) => void startSession(cwd)}
+          starting={session.starting}
+          initialCwd={preferredCwd ?? getLastCwd()}
+          error={startError}
+        />
+        <ToastHost items={toasts} />
+      </>
     );
   }
 
@@ -111,13 +110,18 @@ export function ChatPane() {
         {health === 'down' && <span className="text-[11px] text-danger">· 服务连接中断</span>}
         {chat.streaming && <span className="ml-auto text-[11px] text-accent">运行中</span>}
       </div>
-      <MessageList chat={chat} />
+      <MessageList
+        chat={chat}
+        hasOlder={session.hasOlder}
+        loadingOlder={session.loadingOlder}
+        onLoadOlder={() => void session.loadOlder()}
+      />
       <div className="shrink-0 pb-4">
         <Composer
           value={draft}
           onChange={setDraft}
           onSubmit={handleSubmit}
-          onAbort={handleAbort}
+          onAbort={() => void session.abort()}
           streaming={chat.streaming}
           disabled={chat.terminated}
         />

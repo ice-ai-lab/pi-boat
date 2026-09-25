@@ -336,10 +336,21 @@ describe('rebuild：历史消息 → 与 fold 终态同形', () => {
     expect(normalize(rebuilt)).toEqual(normalize(liveState.turns));
   });
 
-  it('无锚点的 assistant / toolResult 不崩溃（防御路径）', () => {
-    expect(
-      rebuildTurns([messages[1] as AgentMessage, messages[2] as AgentMessage], ['a', 'b']).length,
-    ).toBe(0);
+  it('窗口从轮中间开始：前导 assistant/toolResult 建孤儿轮（不丢数据、标记 orphan）', () => {
+    const orphanTurns = rebuildTurns(
+      [messages[1] as AgentMessage, messages[2] as AgentMessage],
+      ['a', 'b'],
+    );
+    expect(orphanTurns.length).toBe(1);
+    expect(orphanTurns[0]?.orphan).toBe(true);
+    // 内容仍在：thinking + toolCall 两行，toolResult 输出已回填
+    expect(orphanTurns[0]?.trail.length).toBe(2);
+    const tool = orphanTurns[0]?.trail.find((item) => item.kind === 'tool');
+    expect(tool).toMatchObject({
+      kind: 'tool',
+      toolCallId: 'call-1',
+      output: 'total 0\ndrwxr-xr-x src',
+    });
   });
 });
 

@@ -1,4 +1,4 @@
-import type { SessionContextResponse, SessionDetailResponse } from '@ice-ai/protocol';
+import type { SessionContext, SessionDetailResponse } from '@ice-ai/protocol';
 import { getJson } from '../http';
 
 /**
@@ -14,10 +14,10 @@ export function getSessionDetail(sessionId: string): Promise<SessionDetailRespon
 export function getSessionContext(
   sessionId: string,
   query: { before?: string; tail?: number } = {},
-): Promise<SessionContextResponse> {
+): Promise<SessionContext> {
   const params = new URLSearchParams();
   if (query.before !== undefined) params.set('before', query.before);
   if (query.tail !== undefined) params.set('tail', String(query.tail));
   const qs = params.size > 0 ? `?${params.toString()}` : '';
-  return getJson<SessionContextResponse>(`/sessions/${encodeURIComponent(sessionId)}/context${qs}`);
+  return getJson<SessionContext>(`/sessions/${encodeURIComponent(sessionId)}/context${qs}`);
 }

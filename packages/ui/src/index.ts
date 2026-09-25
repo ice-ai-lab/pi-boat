@@ -10,16 +10,13 @@ export { CodeBlock } from './chat/code-block';
 export { Composer, type ComposerProps } from './chat/composer';
 export { EmptyState, type EmptyStateProps } from './chat/empty-state';
 export { MarkdownBody, MarkdownView } from './chat/markdown-view';
-export {
-  isAtTail,
-  MessageList,
-  nextFollowAttached,
-} from './chat/message-list';
+export { MessageList, type MessageListProps } from './chat/message-list';
 export { ProcessGroup } from './chat/process-group';
 export { SystemRowView, ThinkingRowView } from './chat/thinking-row';
 export { ToolRowView, ToolTag, toolTagClass } from './chat/tool-row';
 export { Button, type ButtonProps, buttonStyles } from './primitives/button';
 export { IconButton, type IconButtonProps } from './primitives/icon-button';
+export { Input } from './primitives/input';
 export { isDismissTarget, Popover, type PopoverProps } from './primitives/popover';
 export { ScrollArea, type ScrollAreaProps } from './primitives/scroll-area';
 export {
@@ -34,4 +31,18 @@ export {
   type ToastItem,
   toastQueueReducer,
 } from './primitives/toast';
+// sidebar 册（docs/06 §4.3）
+export {
+  ProjectPicker,
+  type ProjectPickerProps,
+  shortenProjectPath,
+} from './sidebar/project-picker';
+export { SessionList, type SessionListProps } from './sidebar/session-list';
+export { SESSION_ROW_HEIGHT, SessionRow, type SessionRowProps } from './sidebar/session-row';
+export {
+  SessionSearch,
+  type SessionSearchProps,
+  useDebouncedValue,
+} from './sidebar/session-search';
+export { Sidebar, type SidebarProps } from './sidebar/sidebar';
 export { cn } from './utils/cn';
