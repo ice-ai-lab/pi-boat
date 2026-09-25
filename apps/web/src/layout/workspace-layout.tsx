@@ -1,3 +1,4 @@
+import { ChatPane } from '../panes/chat-pane';
 import { useServerHealth } from './health';
 
 const HEALTH_LABEL = { checking: '检测中', up: '连接正常', down: '连接中断' } as const;
@@ -33,16 +34,8 @@ export function WorkspaceLayout() {
         <aside className="hairline-r w-(--sb-w) shrink-0 border-line-2 bg-surface-side p-3">
           <p className="text-xs text-fg-faint">侧栏（F2：项目 / 会话 / 文件树）</p>
         </aside>
-        <main className="flex min-w-0 flex-1 flex-col items-center justify-center">
-          <div className="text-center">
-            <p aria-hidden className="mb-3 text-4xl">
-              🚢
-            </p>
-            <h1 className="text-base font-semibold text-fg">PiBoat</h1>
-            <p className="mt-1 text-sm text-fg-subtle">
-              对话区（F1：EmptyState cwd 输入 → 消息流）
-            </p>
-          </div>
+        <main className="flex min-w-0 flex-1 flex-col">
+          <ChatPane />
         </main>
         <aside className="hairline-l w-(--rb-w) shrink-0 border-line-2 bg-surface-side p-3">
           <p className="text-xs text-fg-faint">右栏（F3：文件页签 / 查看器）</p>

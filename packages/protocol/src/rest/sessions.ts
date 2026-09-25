@@ -1,6 +1,27 @@
 import { z } from 'zod';
-import type { SessionContext, SessionInfo, SessionTreeNode } from '../domain/session-info';
+import type { ThinkingLevel } from '../constants';
+import type { AgentMessage } from '../domain/message';
+import type { ModelRef, SessionInfo, SessionTreeNode } from '../domain/session-info';
 import type { SessionStatsInfo } from '../domain/state';
+
+/**
+ * 会话上下文窗口（`GET /api/sessions/:id` 的 `context` 与 `.../context` 的响应）。
+ *
+ * ⚠️ **不是** SDK 的 `SessionContext`（它只有 messages/thinkingLevel/model）：
+ * 本仓额外下发分页三件（平行数组 `entryIds` + `oldestEntryId` + `hasMore`），
+ * 客户端靠它做历史渲染与向上翻页（docs/02 §6.3）。消息已由 core 逐条投影
+ * 展开（compaction → 分隔条）并跳过转录 system 消息（与实时路径同口径）。
+ */
+export interface SessionContextResponse {
+  /** 与 entryIds 平行：候选消息中第 i 条属于哪个条目 */
+  messages: AgentMessage[];
+  entryIds: string[];
+  thinkingLevel: ThinkingLevel;
+  model: ModelRef | null;
+  /** 本页最老条目 id（向上翻页游标 `before`） */
+  oldestEntryId?: string;
+  hasMore: boolean;
+}
 
 /**
  * ⑤ REST 资源——会话域（docs/02 §6.1 列表/搜索 / §6.2 详情与生命周期 / §6.3 分页与惰性加载）。
@@ -77,7 +98,7 @@ export type SessionDetailResponse = {
   info: SessionInfo;
   leafId: string | null;
   tree: SessionTreeNode[];
-  context: SessionContext;
+  context: SessionContextResponse;
   stats: SessionStatsInfo;
   totalActiveMs: number;
   toolNames?: string[];

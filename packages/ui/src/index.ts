@@ -3,6 +3,21 @@
  * 三册目录（docs/06 §4）：primitives / chat / inspect；容器组件例外登记见 docs/06 §1（ADR-0019）。
  * 视觉 token 单一来源：./theme.css（Tailwind 消费方式见 docs/06 §2）。
  */
+
+// chat 册（docs/06 §4.2）
+export { AssistantTurn, UsageLine, UserBubble } from './chat/assistant-turn';
+export { CodeBlock } from './chat/code-block';
+export { Composer, type ComposerProps } from './chat/composer';
+export { EmptyState, type EmptyStateProps } from './chat/empty-state';
+export { MarkdownBody, MarkdownView } from './chat/markdown-view';
+export {
+  isAtTail,
+  MessageList,
+  nextFollowAttached,
+} from './chat/message-list';
+export { ProcessGroup } from './chat/process-group';
+export { SystemRowView, ThinkingRowView } from './chat/thinking-row';
+export { ToolRowView, ToolTag, toolTagClass } from './chat/tool-row';
 export { Button, type ButtonProps, buttonStyles } from './primitives/button';
 export { IconButton, type IconButtonProps } from './primitives/icon-button';
 export { isDismissTarget, Popover, type PopoverProps } from './primitives/popover';
