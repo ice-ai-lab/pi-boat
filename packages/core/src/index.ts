@@ -17,7 +17,7 @@
  *   - events/wire-event + wire-message   SDK 事件/消息 → wire 投影（防腐层）
  *   - agent/AgentSessionService + SessionRegistryEntry  注册表 / 命令分发 / runtime 替换
  *   - agent/ExtensionUiBridge            扩展 UI 双向通道（ADR-0012）
- *   - agent/LivenessRegistry + PushService  lease + idle 回收 + 完成通知投递
+ *   - agent/LivenessRegistry            lease + idle 回收（G2-12）
  *   - agent/session-tool-selection       工具预设持久化（custom 条目）
  *   - read/SessionReadService            .jsonl 只读浏览：列表/搜索/详情/分页/导出/改名/删除/指纹
  *   - read/ProjectResolver + ProjectReadService  项目归一与清单（ADR-0008）
@@ -44,13 +44,10 @@ export {
   ExtensionUiBridge,
 } from './agent/extension-ui-bridge';
 export {
-  buildCompletionNotification,
   DEFAULT_LEASE_TTL_MS,
   DEFAULT_REAP_INTERVAL_MS,
   type LivenessOptions,
   LivenessRegistry,
-  PushService,
-  type PushServiceOptions,
 } from './agent/liveness';
 export {
   SessionRegistryEntry,

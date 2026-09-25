@@ -21,15 +21,15 @@
 - 端口单一来源 protocol `PORTS`，`PORT` 环境变量覆盖（main.ts 已落地）
 - **仅绑定 127.0.0.1**（已落地）；stdout 就绪行供 Electron 健康检查（已落地）
 - 启动序列：读配置 → 实例化 core 服务 → 组装路由 → listen
-- 组装方式：`createAgentServer({ agentService, readService, projectService, configService, systemService, resourceService, pushService, liveness?, staticRoot? })`
+- 组装方式：`createAgentServer({ agentService, readService, projectService, configService, systemService, resourceService, liveness?, staticRoot? })`
   ——core 服务由 main 构造传入（read/project 与 SystemService 共享同一 `ProjectResolver` 实例，ADR-0008），
   路由层不直接 new（测试可注入 fake）；`liveness` 与 `staticRoot` 可选
 - **优雅退出**：SIGINT/SIGTERM → `disposeAll('server_shutdown')`（core 广播
   `session_shutdown`，尽力冲刷）→ 硬断全部 SSE（§5.4 关停坑）→ 进程退出
-- **后台任务**：`LivenessRegistry.start()`（lease 过期后回收无人看的空闲会话）与
-  `agentService.onSettled` → `PushService.deliver()`（只在无观看者时发完成通知）均在 main 装配
+- **后台任务**：`LivenessRegistry.start()`（lease 过期后回收无人看的空闲会话）在 main 装配。
+  （原 `onSettled` → `PushService.deliver()` 的完成推送已删除，ADR-0016）
 
-## 3. 路由总表（57 条，按域）
+## 3. 路由总表（55 条，按域）
 
 形状以 `docs/02` §6 为准（本表只记 core 方法调用与传输层语义要点）。**新增路由必须过
 §6 的四条检查清单**。
@@ -63,7 +63,7 @@
 | `PATCH /api/sessions/:id` | `readService.rename()` | 运行中会话 → **409**（提示改走 `set_session_name` 命令，避免与 SDK 写盘竞争）；空白名 → 400 |
 | `DELETE /api/sessions/:id` | `readService.delete()` | 级联删除 subagent 子会话（§8-2）；运行中 → 409 |
 
-### 3.3 项目与模型域（11）——`routes/projects.ts` + `routes/models.ts`
+### 3.3 项目与模型域（10）——`routes/projects.ts` + `routes/models.ts`
 
 | 端点 | core 方法 | 语义要点 |
 |---|---|---|
@@ -100,13 +100,14 @@
 
 子代理域（`/api/subagents/*`）按 ADR-0014 延后，不在本服务（docs/07 §8-4）。
 
-### 3.6 辅助通道（3）——`routes/push.ts` + `server.ts`
+### 3.6 辅助通道（1）——`server.ts`
 
 | 端点 | core 方法 | 语义要点 |
 |---|---|---|
 | `GET /api/health` | — | `{ok, name}`（注册在 `server.ts`，不在路由文件里） |
-| `GET /api/push/config` | `PushService.config()` | VAPID 公钥；未装可选包 `web-push` → `{enabled:false, reason:'web-push-not-installed'}` |
-| `POST /api/push/subscribe` | `PushService.subscribe()` | 按 endpoint upsert；投递只在“没有观看者”时发（main.ts 接 `onSettled`） |
+
+`GET /api/agent/:id/lease` 属 §3.1 agent 域（注册在 `routes/agent.ts`），但它与 idle 回收同属一坑，故在 §5.6 展开。
+`/api/push/*` 两个端点（VAPID 配置与订阅）已于 2026-09-25 删除（ADR-0016）。
 
 bash-output 端点已随 Shell 直连命令组移除（2026-09-22，docs/02 §4 决策注）。
 
@@ -182,13 +183,20 @@ graceful close 可能被 Node 响应管道吞掉——socket 保持 ESTABLISHED�
 
 ### 5.6 liveness lease 与 idle 回收 ✅ 已实现
 
-每个 SSE 连接持有会话 lease（`LivenessRegistry`，`DEFAULT_LEASE_TTL_MS = 180s`，回收扫描周期 60s），
-观看中的空闲会话不被 idle 回收；判据 = **没有观看者**（lease 过期**且**无 SSE 订阅）**且不在跑**
-（`isStreaming` / `isPromptRunning` 任一为真就留——回收正在跑的会话会丢流，与 ADR-0013b 同一取舍）。
-`main.ts` 装配：`subscriberCount` 读本模块的活跃流注册表，`onReap` 走
-`agentService.disposeSession(id, 'idle')`。SSE 长连接本身不算观看证据（断网标签页会留
-ESTABLISHED 很久），因此前端靠 `POST /api/agent/:id/lease` 心跳续期（建议 60s 续一次）；
+`LivenessRegistry` 判定「没有观看者」，由**两个信号并联**（任一为真即视为有人看）：lease 未过期
+（`DEFAULT_LEASE_TTL_MS = 180s`）**或**该会话存在活跃 SSE 订阅（`subscriberCount` 读本模块的活跃流注册表，
+按会话计数以支持多标签页）。整体判据 = **没有观看者** **且不在跑**
+（`isStreaming` / `isPromptRunning` 任一为真就留——回收正在跑的会话会丢流，与 ADR-0013b 同一取舍）；
+回收扫描周期 60s，`main.ts` 装配 `onReap` 走 `agentService.disposeSession(id, 'idle')`。
+
+两个信号都不能省：只看订阅时，断网标签页会留 ESTABLISHED 很久（中间层要等 TCP keepalive 超时），
+会话永远收不掉；只看 lease 时，刚建流还没开始续租的窗口会被误杀。因此前端应
+`POST /api/agent/:id/lease` 心跳续期（建议 60s 一次，TTL 180s）；
 `renewed:false` 表示会话已不在注册表，前端据此显式 resume（ADR-0013）。
+
+> ⚠️ **前端未接**：`POST /api/agent/:id/lease` 目前没有调用方，lease 恒过期 ⇒ 实际退化为
+> 「只看 SSE 订阅」。后果：关掉标签页后 60s 内即被回收（而非设计中的 180s），重连窗口无人兜底
+> （重连期间可能被扫掉，客户端拿到 `renewed:false` 或 SSE 404 后走 resume 重建，功能可恢复、丢内存态）。
 
 ## 6. 安全（docs/01 §5.6 落地，鉴权模型见 ADR-0007）
 
@@ -255,23 +263,24 @@ ESTABLISHED 很久），因此前端靠 `POST /api/agent/:id/lease` 心跳续期
 ### 9.2 补齐批次 B3–B7（2026-02）
 
 模型域（B3）· 会话域增强 export/auto-name/thinking/revision/summary/正文搜索/外部写入探测/transient（B4）·
-文件与 git/worktree（B5）· 资源域（B6）· lease+idle 回收+推送（B7）。批次切分与验收见表 `docs/07` §6。
+文件与 git/worktree（B5）· 资源域（B6）· lease + idle 回收（B7）。批次切分与验收见表 `docs/07` §6。
+</br>（原「推送投递侧」已随 B7 删除，ADR-0016）
 
 ### 9.3 验收命令
 
-- `packages/server/test/server.test.ts`（**66 用例**：安全层三闸 / 信封映射 / 浏览 / 项目 / SSE / 模型 / 资源 / 系统均覆盖）；
+- `packages/server/test/server.test.ts`（**64 用例**：安全层三闸 / 信封映射 / 浏览 / 项目 / SSE / 模型 / 资源 / 系统均覆盖）；
   手工验证用 `curl -N` 对 SSE 端点即可（序列与时序见 §5.1）
-- `pnpm turbo run lint build test` 全绿（protocol 33 / core 184 / server 66 用例）
+- `pnpm turbo run lint build test` 全绿（protocol 33 / core 180 / server 64 用例）
 
 ### 9.4 代码地图
 
 `src/server.ts`（DI 装配 + `/api/health`）、`src/security.ts`（三道闸，ADR-0007）、
 `src/sse.ts`（SSE 传输层与关停注册表）、`src/envelope.ts`（信封映射）、
-`src/routes/{agent,sessions,projects,models,system,resources,push}.ts`（七域路由）、
-`src/main.ts`（启动、core 服务装配、push 投递、优雅退出）、`test/server.test.ts`（66 用例）；
+`src/routes/{agent,sessions,projects,models,system,resources}.ts`（六域路由）、
+`src/main.ts`（启动、core 服务装配、优雅退出）、`test/server.test.ts`（64 用例）；
 core 侧 `read/session-read-service.ts`（列表/详情/导出/auto-name/指纹缓存）、`read/project-resolver.ts`
 （git 归一，ADR-0008）、`system/`（PathGuard + 文件/git/worktree）、`config/`（模型域）、
-`resources/`（技能与插件）、`agent/liveness.ts`（lease + push）、`agent/extension-ui-bridge.ts`（ADR-0012）。
+`resources/`（技能与插件）、`agent/liveness.ts`（lease + idle 回收）、`agent/extension-ui-bridge.ts`（ADR-0012）。
 
 > **前端未开工**：`apps/web` 目录尚未创建（ADR-0002），因此生产静态托管目前实际不挂目录；
 > 验收线仍是 docs/01 §7「浏览器完成一轮带工具调用的编程任务」，待 client/ui/web 落地。

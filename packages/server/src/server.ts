@@ -6,7 +6,6 @@ import type {
   ConfigService,
   LivenessRegistry,
   ProjectReadService,
-  PushService,
   ResourceService,
   SessionReadService,
   SystemService,
@@ -17,7 +16,6 @@ import { cors } from 'hono/cors';
 import { registerAgentRoutes } from './routes/agent';
 import { registerModelRoutes } from './routes/models';
 import { registerProjectRoutes } from './routes/projects';
-import { registerPushRoutes } from './routes/push';
 import { registerResourceRoutes } from './routes/resources';
 import { registerSessionRoutes } from './routes/sessions';
 import { registerSystemRoutes } from './routes/system';
@@ -33,7 +31,6 @@ export interface AgentServerDeps {
   projectService: ProjectReadService;
   configService: ConfigService;
   systemService: SystemService;
-  pushService: PushService;
   resourceService: ResourceService;
   /** liveness lease 注册表（缺省不接线：测试可省） */
   liveness?: LivenessRegistry;
@@ -59,7 +56,6 @@ export function createAgentServer(deps: AgentServerDeps): Hono {
   registerProjectRoutes(app, { projectService: deps.projectService });
   registerModelRoutes(app, { configService: deps.configService });
   registerSystemRoutes(app, { systemService: deps.systemService, readService: deps.readService });
-  registerPushRoutes(app, { pushService: deps.pushService });
   registerResourceRoutes(app, {
     resourceService: deps.resourceService,
     agentService: deps.agentService,

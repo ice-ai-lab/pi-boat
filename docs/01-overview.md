@@ -109,13 +109,13 @@ pi-boat/
 - `SystemService`：allowed-roots 安全校验（`PathGuard`）、文件树/文件内容/上传、git status/diff、worktree 增删查
 - `ConfigService` / `ModelsConfigStore` / `model-scope`：models.json 原文读写、provider 发现/测试、模型可见范围编辑引擎（ADR-0011）
 - `ResourceService`：skills / plugins / 工具设置 / 项目信任（`~/.pi/agent` 与项目 `.pi/` 两类资源源；身份认证入口一期不做，见 §9-4a）
-- `LivenessRegistry` / `PushService`：lease + idle 回收、VAPID 订阅与完成通知投递（投递依赖可选包 `web-push`）
+- `LivenessRegistry`：lease + idle 回收（观看中的空闲会话不被误杀；判据 = 无观看者且不在跑）
 - `ExtensionUiBridge`：扩展 UI 双向通道（ADR-0012，9 个 method）
 - 不依赖任何 HTTP 概念 —— **传输无关**，为 Electron 进程内直连留路（§5.5）
 
 #### `packages/server`
 
-- Hono（Node 适配器）实现的 HTTP 服务，路由即 protocol 的实现层（七个域文件：agent / sessions / projects / models / files+git（system）/ resources / push）
+- Hono（Node 适配器）实现的 HTTP 服务，路由即 protocol 的实现层（六个域文件：agent / sessions / projects / models / files+git（system）/ resources）
 - SSE 事件流：30s 心跳、快照先行（先建流再回放快照）、断线重连 `Last-Event-ID` 支持
 - 本机访问防护：仅绑定 127.0.0.1 + Host / Origin / Sec-Fetch-Site 三道闸（常开、无凭据；防恶意网页对本机发起 CSRF / DNS 重绑定，详见 §5.6 与 ADR-0007）
 - 会话列表与项目分组（ADR-0008）：`GET /api/projects` 按 git 仓库根归一 `projectKey`（子目录/worktree 合并为一项，不分页）；`GET /api/sessions?projectKey&force` 支持按项目拉取；列表缓存以**会话目录指纹**为键（磁盘变动自动失效），响应带 `listFingerprint`
@@ -312,7 +312,7 @@ interface SessionEntry {
 - **任意时刻可接入（late join）**：Agent 流式输出中途连接 SSE 完全支持。时序保证：①建流 → ②先订阅事件总线 → ③再抓快照（当前完整状态，含进行中的半截消息/工具执行状态）+ `lastSeq` → ④后续增量续播。"②③之间"重叠窗口的少量事件用每会话单调递增 `seq` 去重（客户端丢弃 `seq ≤ lastSeq`）
 - 同一机制支撑三个场景：**新客户端中途接入**（新 Tab / Electron 窗口）/ **断线重连与刷新**（`Last-Event-ID` 携带 seq 重放差量；分阶段兑现——M1 降级为忽略 Last-Event-ID、重连即 connected+快照+增量整体重建，客户端靠 seq 单调去重保证幂等，见 docs/04 §5.5）/ **关掉浏览器再打开**（Agent 在服务端继续运行，与是否有人观看无关；重开时从内存状态或 `.jsonl` 重建历史，任务仍在进行则继续直播）
 - 多端同时观看：core 事件总线多播，每个接入者独立拿快照 + 增量
-- 服务端为每个 SSE 连接持有 liveness lease：观看连接存在时推迟 idle 回收（空闲但被打开看的会话不被误杀）
+- 服务端按会话维护 liveness（`LivenessRegistry`）：**SSE 订阅存在** 或 **客户端 lease 未过期**（`POST /api/agent/:id/lease` 心跳，60s 续 / 180s 过期）即视为「有人看」，推迟 idle 回收（空闲但被打开看的会话不被误杀）；正在跑的会话一律不回收
 - 命令通道与事件通道分离：`POST /api/agent/:id`（命令）+ SSE（事件）
 
 ### 5.5 传输无关的核心 → 三种接入形态
@@ -343,7 +343,7 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 | React Native 壳 | protocol + client；server 零改动 | ui 层（React DOM ≠ RN 组件） | ~40% |
 | 原生 App（Swift/Kotlin） | server + protocol 生成的 API 客户端 | 全部前端 | ~20%，但后端零改动 |
 
-为保持此路径畅通，现在只需三件低成本约定：① `packages/ui` 遵守「禁写死桌面假设」（不把三栏/固定宽度当硬前提）——但**响应式实现与移动端适配位在 M1 冻结**（2026-09-22 决策：M1 只保大屏、<880px 显示过窄提示，`useIsMobile`/drawer 随移动端路径一并排期；见 `docs/06` §9.1）；② protocol 保持 Zod schema → 将来用 zod-openapi 导出 OpenAPI 规范供原生客户端代码生成；③ ~~LAN 开关 + 扫码配对在协议层预留~~——**一期排除**（§9-4：不引入访问凭据 ⇒ 无 LAN 暴露方案）。弱网断线重连（Last-Event-ID）已内建，web-push 完成通知已在 §6 范围内。
+为保持此路径畅通，现在只需三件低成本约定：① `packages/ui` 遵守「禁写死桌面假设」（不把三栏/固定宽度当硬前提）——但**响应式实现与移动端适配位在 M1 冻结**（2026-09-22 决策：M1 只保大屏、<880px 显示过窄提示，`useIsMobile`/drawer 随移动端路径一并排期；见 `docs/06` §9.1）；② protocol 保持 Zod schema → 将来用 zod-openapi 导出 OpenAPI 规范供原生客户端代码生成；③ ~~LAN 开关 + 扫码配对在协议层预留~~——**一期排除**（§9-4：不引入访问凭据 ⇒ 无 LAN 暴露方案）。弱网断线重连（Last-Event-ID）已内建；后台推送（web-push）完成通知已排除（ADR-0016），通知只做前端页内。
 
 ### 5.6 安全设计
 
@@ -356,7 +356,7 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 
 ## 6. 功能范围（一期）
 
-会话：列表/恢复/fork/树内分支/导出 HTML · 对话：流式输出、思考、工具调用展示、中断、steer/queue、压缩 · 输入：图片附件、prompt 模板、工具预设(只读/默认/全部/纯聊天) · 模型：models.json 可视化配置、provider 连通测试 · 上下文：文件浏览器、文件查看器(Tab)、git worktree · 资源：Skills 搜索/安装/开关、插件管理（子代理配置延后，见 §9-4a） · 体验：多 Tab、主题、快捷键、完成提示音、浏览器通知/web-push、i18n、PWA。
+会话：列表/恢复/fork/树内分支/导出 HTML · 对话：流式输出、思考、工具调用展示、中断、steer/queue、压缩 · 输入：图片附件、prompt 模板、工具预设(只读/默认/全部/纯聊天) · 模型：models.json 可视化配置、provider 连通测试 · 上下文：文件浏览器、文件查看器(Tab)、git worktree · 资源：Skills 搜索/安装/开关、插件管理（子代理配置延后，见 §9-4a） · 体验：多 Tab、主题、快捷键、完成提示音、页内通知、i18n、PWA（后台推送已排除，ADR-0016）。
 
 **原型（v3）补充登记**（2026-09-22，交互形态已给出，组件已收录 docs/06 §4）：
 
@@ -380,8 +380,8 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 | 层 | 状态 | 说明 |
 |---|---|---|
 | `packages/protocol` | ✅ 一期全量落地 | 24 命令 / 27 类 wire 事件 / rest 七域；见 `docs/02` |
-| `packages/core` | ✅ 一期全量落地 | 9 个服务，21 源文件 / 13 测试文件（184 用例）；见 `docs/03` |
-| `packages/server` | ✅ 一期全量落地 | 57 端点（含 health），7 路由文件 / 66 用例；见 `docs/04` |
+| `packages/core` | ✅ 一期全量落地 | 8 个服务，20 源文件 / 12 测试文件（180 用例）；见 `docs/03` |
+| `packages/server` | ✅ 一期全量落地 | 55 端点（含 health），6 路由文件 / 64 用例；见 `docs/04` |
 | `packages/client` | ⬜ 未开工 | 仅占位导出；设计稿已就位（`docs/05`） |
 | `packages/ui` | ⬜ 未开工 | 仅占位组件；设计稿已就位（`docs/06`） |
 | `apps/web` | ⬜ 未开工 | 目录尚未创建（Vite + React 19 SPA，ADR-0002） |
@@ -400,7 +400,7 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 | **M0 工程骨架**（~0.5 周） | ✅ 完成（2026-09-18）：pnpm+turbo、包脚手架、biome/tsconfig | — | turbo build 全绿 |
 | **M1 对话 MVP**（~1.5 周） | ✅ 完成（protocol/core/server，2026-09-22） | ⬜ 未开工（client / ui / web） | 浏览器完成一轮带工具调用的编程任务 |
 | **M2 会话与模型**（~2 周） | ✅ 完成（B2/B3/B4，含命令通道 24 条、fork/branch、模型域） | ⬜ 未开工 | 日常可替代 TUI 完成编码工作 |
-| **M3 完整体验**（~2 周） | ✅ 完成（B5/B6/B7，文件 / git / worktree / 资源 / 通知 lease+push） | ⬜ 未开工 | 功能对齐 §6 一期清单 |
+| **M3 完整体验**（~2 周） | ✅ 完成（B5/B6/B7，文件 / git / worktree / 资源 / 会话生命周期 lease） | ⬜ 未开工 | 功能对齐 §6 一期清单 |
 | **M4 桌面端**（~2 周） | 复用（无新增端点），打包问题遗留（docs/04 §8-7） | ⬜ 未开工 | macOS 安装包可用 |
 
 后端侧唯一有意不做/未做项见 `docs/07` §9「实现期发现的边界」（`type=watch`、上传 Range/分块/DOCX、
@@ -441,9 +441,9 @@ Last-Event-ID 环形缓冲与 gzip/埋点等 B8 可选项）。
    ③ 系统提示词 ✅ **展示**（无需协议改动，删掉无来源的“版本 r42”与 token 估算；面板形态见 `docs/06` §11.2）；
    ④ “最近提交”已排入 M3 git 域。存量细节见 `docs/02-protocol-inventory.md` §11.1
 
-### 9-4a 一期排除 / 延后：鉴权、登录、终端、内建子代理运行时（2026-01 定案）
+### 9-4a 一期排除 / 延后：鉴权、登录、终端、内建子代理运行时、后台推送（2026-01 / 2026-09 定案）
 
-前三项**不实现**，第四项**延后**；且已同步清除本文件与 `docs/02` 中的残留描述（细则与理由见 `docs/07-backend-capability-gap.md` §8）：
+前四项（终端、鉴权、登录、后台推送）**不实现**，第五项（内建子代理）**延后**；且已同步清除本文件与 `docs/02` 中的残留描述（细则与理由见 `docs/07-backend-capability-gap.md` §8）：
 
 | 项 | 内容 | 连带结果 |
 |---|---|---|
@@ -451,6 +451,7 @@ Last-Event-ID 环形缓冲与 gzip/埋点等 B8 可选项）。
 | **登录**（provider 身份认证入口） | `/api/auth/providers`、`/api/auth/login/:provider`、`/api/auth/logout/:provider`、`/api/auth/api-key/:provider` | 模型凭据一期只经 `GET/PUT /api/models-config`（models.json 原文），或由本机 `pi` CLI/TUI 配置后读取 |
 | **终端**（PTY） | `/api/terminal` 全组、`TerminalEvent`、`node-pty`、xterm，以及 Shell 直连命令组（`bash` / `abort_bash`）与 `bash-output` 端点 | 维持 `docs/02` §5.3/§6.8 的移除决策；`BashExecutionMessage` 的历史渲染与 worktree 能力不受影响 |
 | **内建子代理运行时**（延后，非排除） | 内联 extension 与保留工具、profiles / settings / `:id` 端点、家族聚簇 | 子代理不是 SDK 内建能力，将来可以 pi 扩展形式引入（协议侧只加不改）；阶段代价见 `docs/07` §8-4 |
+| **后台推送**（Web Push，2026-09 定案） | `core/src/agent/push-service.ts`、`routes/push.ts`、两个 `/api/push/*` 端点、protocol 三个 schema、core 的 `onSettled` 钩子 | 只做**页内**通知（前端体验项，保留在 §6 清单）；重做路径见 ADR-0016 |
 
 ---
 
@@ -486,4 +487,4 @@ type WireAgentEvent =
 
 *详细设计按包推进：《core 详细设计》见 `docs/03-core-design.md`（✅ 一期已落地）、《server 详细设计》见 `docs/04-server-design.md`（✅ 一期已落地）、《client 详细设计》见 `docs/05-client-design.md`、《ui 详细设计》见 `docs/06-ui-design.md`（后两篇为开工前设计稿，随 Web 原型 v3 定稿，代码未开工）；视觉/交互基准为 `docs/design/piboat-web-v3.html`。协议契约以 `docs/02-protocol-inventory.md` 为准（覆盖产品全量 API 面）。**一期后端能力全集的审查与补齐批次见 `docs/07-backend-capability-gap.md`**（它包含已完成的 B0–B7 记录、仍存边界与排除项；排除项见 ADR-0014）。*
 
-**当前唯一待办：前端三包（client / ui / web）。** 后端不需要任何等项：57 个端点 / 24 条命令 / 27 类 wire 事件均已实现并有测试。
+**当前唯一待办：前端三包（client / ui / web）。** 后端不需要任何等项：55 个端点 / 24 条命令 / 27 类 wire 事件均已实现并有测试。

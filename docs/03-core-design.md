@@ -22,7 +22,7 @@ core 是 pi SDK 之上的**传输无关**业务层，补齐 SDK 没有的三件�
 
 ## 2. 模块地图
 
-21 个源文件 / 13 个测试文件（184 用例）。按目录分四组：**agent**（运行时）、**read**（磁盘只读）、
+20 个源文件 / 12 个 `.test.ts`（+`test/helpers/`，共 180 用例）。按目录分四组：**agent**（运行时）、**read**（磁盘只读）、
 **config**（模型与配置）、**resources + system**（资源与宿主能力）。
 
 ### 2.1 agent（会话运行时）
@@ -32,7 +32,7 @@ core 是 pi SDK 之上的**传输无关**业务层，补齐 SDK 没有的三件�
 | `agent/agent-session-service.ts` | 注册表 + 命令分发（FIFO，均 24 条命令）+ 新建/reload + fork·clone·navigate_tree 的 runtime 替换 + late-join 订阅入口 | `agent-session-service.test.ts` |
 | `agent/session-entry.ts` | 注册表单元：委托订阅 / seq 计数 / 流内状态跟踪（queue、半截消息、扩展 UI、perf 累加）/ dispose | `session-entry.test.ts` |
 | `agent/extension-ui-bridge.ts` | 扩展 UI 宿主：阻塞型请求的兜底超时、未决请求结清、widgets/status 代际管理（ADR-0012） | `extension-ui-bridge.test.ts` |
-| `agent/liveness.ts` | `LivenessRegistry`（lease + idle 回收）+ `PushService`（VAPID、订阅落盘、完成通知投递） | `liveness.test.ts` |
+| `agent/liveness.ts` | `LivenessRegistry`：lease + idle 回收（G2-12，判据 = 无观看者且不在跑） | `liveness.test.ts` |
 | `agent/session-tool-selection.ts` | 工具预设的会话内持久化（custom 条目读写，`TOOL_SELECTION_CUSTOM_TYPE`） | —（随 service 测） |
 | `agent/sdk-types.ts` | SDK 类型的最小再导出（隔离 SDK 依赖面） | — |
 
@@ -224,10 +224,10 @@ agent-session.js:776/784/949）②`agent_settled` 事件幂等兜底（steer/fol
 
 ## 9. 测试与事件快照回归
 
-- **13 个测试文件 / 184 用例（约 3400 行）**：service（FIFO/create/late-join/fork/命令全集）、
+- **12 个测试文件 / 180 用例（约 3300 行）**：service（FIFO/create/late-join/fork/命令全集）、
   entry（seq/dispose/销账）、wire-event（**事件快照回归**）、read（分页/压缩边界/正文搜索/指纹）、
   project-resolver（归一/缓存）、project-read（项目聚合）、extension-ui-bridge（超时/结清/代际）、
-  liveness（lease/idle 回收/push 投递）、model-scope（编辑引擎/最后模型拒绝）、
+  liveness（lease/idle 回收）、model-scope（编辑引擎/最后模型拒绝）、
   models-config-store、resource-service、system-service（PathGuard/上传/worktree）
 - `test/helpers/fake-runtime.ts`：不启真 SDK 的 runtime 替身（大多数服务测试的基座）
 - **事件快照回归**（`wire-event.test.ts`）：SDK 事件样例 → wire 输出断言。SDK 升级

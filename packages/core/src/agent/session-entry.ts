@@ -48,12 +48,6 @@ export interface SessionRegistryEntryOptions {
    * 由 `runtime.setRebindSession` 触发，也由构造时调用一次。
    */
   onRebind?: () => Promise<void>;
-  /**
-   * agent 跑完一轮（`agent_settled`）时的回调。
-   * 推送投递侧（G2-13）挂在这里：**agent_settled 是"这一轮真的结束了"的唯一
-   * 权威信号**（`message_end` 之后还可能有工具轮，`agent_end` 还会重试）。
-   */
-  onSettled?: () => void;
 }
 
 export class SessionRegistryEntry {
@@ -229,12 +223,6 @@ export class SessionRegistryEntry {
       // steer/follow_up 的销账依据（它们入队即返回，没有可等的 prompt() 调用）；
       // prompt 命令的主销账在 AgentSessionService，此处是幂等兜底
       this.promptPending = false;
-      // 回调只在服务端注册过时触发；异常不得影响事件流
-      try {
-        this.options.onSettled?.();
-      } catch (error) {
-        console.error('[core] onSettled listener failed:', error);
-      }
     }
     this.trackPerf(event);
 
