@@ -1,4 +1,7 @@
+import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { ChatPane } from '../panes/chat-pane';
+import { SidebarPane } from '../panes/sidebar-pane';
 import { useServerHealth } from './health';
 
 const HEALTH_LABEL = { checking: '检测中', up: '连接正常', down: '连接中断' } as const;
@@ -9,11 +12,15 @@ const HEALTH_DOT_CLASS = {
 } as const;
 
 /**
- * F0 骨架：三栏空壳（docs/08 §4 F0 验收线）。
- * 侧栏内容 F2（项目/会话/文件树）、对话区 F1（EmptyState → 消息流）、右栏 F3（文件页签）填充。
+ * 三栏工作区（docs/08 §3.3）：左栏会话/项目（F2）、中栏对话（F1）、右栏文件（F3）。
+ * URL `?s=` 是当前会话的唯一真相——侧栏与对话面板都只改它（ADR-0019-5）。
  */
 export function WorkspaceLayout() {
   const health = useServerHealth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeSessionId = searchParams.get('s');
+  const [preferredCwd, setPreferredCwd] = useState<string | null>(null);
+
   return (
     <div className="app-shell flex h-dvh flex-col bg-surface">
       <header className="hairline-b flex h-12 shrink-0 items-center gap-2 border-line-2 px-3">
@@ -21,7 +28,6 @@ export function WorkspaceLayout() {
           🚢
         </span>
         <span className="text-sm font-semibold text-fg">PiBoat</span>
-        <span className="ml-1 text-xs text-fg-faint">Web · 一期骨架</span>
         <div className="ml-auto flex items-center gap-1.5 text-xs">
           <span
             aria-hidden
@@ -31,11 +37,18 @@ export function WorkspaceLayout() {
         </div>
       </header>
       <div className="flex min-h-0 flex-1">
-        <aside className="hairline-r w-(--sb-w) shrink-0 border-line-2 bg-surface-side p-3">
-          <p className="text-xs text-fg-faint">侧栏（F2：项目 / 会话 / 文件树）</p>
+        <aside className="hairline-r w-(--sb-w) shrink-0 border-line-2 bg-surface-side">
+          <SidebarPane
+            activeSessionId={activeSessionId}
+            onSelectSession={(id) => setSearchParams({ s: id })}
+            onNewSession={(cwd) => {
+              setPreferredCwd(cwd);
+              setSearchParams({});
+            }}
+          />
         </aside>
         <main className="flex min-w-0 flex-1 flex-col">
-          <ChatPane />
+          <ChatPane preferredCwd={preferredCwd} />
         </main>
         <aside className="hairline-l w-(--rb-w) shrink-0 border-line-2 bg-surface-side p-3">
           <p className="text-xs text-fg-faint">右栏（F3：文件页签 / 查看器）</p>

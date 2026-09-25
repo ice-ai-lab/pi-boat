@@ -2,41 +2,52 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import {
   getAgentRunningState,
   newAgentSession,
+  renewAgentLease,
   resumeAgentSession,
   sendAgentCommand,
 } from '../endpoints/agent';
-import { getSessionDetail } from '../endpoints/sessions';
+import { getSessionContext, getSessionDetail } from '../endpoints/sessions';
 import { ApiError } from '../http';
-import { getAgentStream } from '../stream/agent-stream';
-import { rebuildChatState } from '../stream/rebuild';
+import { disposeAgentStream, getAgentStream } from '../stream/agent-stream';
+import { rebuildChatState, rebuildTurns } from '../stream/rebuild';
 import { type ChatState, emptyChatState } from '../stream/view-model';
 
 /**
  * useAgentSession（docs/05 §7）：单会话编排——建会话 / 打开既有会话（历史重建 +
- * 冷会话 resume，ADR-0013）/ 发送 / 中止。事件流经 AgentStream（useSyncExternalStore），
- * 不入 Query（ADR-0009）。
+ * 冷会话 resume，ADR-0013）/ 发送 / 中止 / 向上翻页 / lease 续期。
+ * 事件流经 AgentStream（useSyncExternalStore），不入 Query（ADR-0009）。
  */
 export interface UseAgentSessionResult {
   sessionId: string | null;
   /** 视图模型快照（未建会话时为空态） */
   chat: ChatState;
-  /** 首条 prompt / 历史加载进行中 */
+  /** 建会话 / 历史加载进行中 */
   starting: boolean;
   sending: boolean;
-  /** 建会话/发送失败的可展示错误（调用方决定 toast） */
+  /** 向上还有历史可取 */
+  hasOlder: boolean;
+  loadingOlder: boolean;
   start(cwd: string): Promise<string | null>;
   /** 打开既有会话：历史重建 → 冷会话 resume → 连流 */
   open(sessionId: string): Promise<string | null>;
+  /** 向上翻页：取更早一页并前插（调用方负责滚动保持） */
+  loadOlder(): Promise<void>;
   send(text: string): Promise<string | null>;
   abort(): Promise<void>;
   reset(): void;
 }
 
+/** lease 续期间隔（服务端 TTL 180s，30s 续一次留足余量；G2-12） */
+const LEASE_RENEW_INTERVAL_MS = 30_000;
+
 export function useAgentSession(): UseAgentSessionResult {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [sending, setSending] = useState(false);
-  /** 本 hook 实例已初始化过的流（防 effect 重跑重复 restore） */
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [historyCursor, setHistoryCursor] = useState<{ oldest?: string; hasMore: boolean }>({
+    hasMore: false,
+  });
   const initializedRef = useRef<string | null>(null);
 
   const store = useMemo(() => {
@@ -53,20 +64,36 @@ export function useAgentSession(): UseAgentSessionResult {
     store?.getSnapshot ?? getEmptyChatState,
   );
 
-  // 会话切换：连接事件流（restore 已由 start/open 完成；全新流补空态）
+  // 会话切换：连接事件流（restore 已由 start/open 完成；全新流补空态）；
+  // 并释放上一个会话的流（否则每访问一个会话就多留一条 SSE = 多一个观看者）
   useEffect(() => {
-    if (sessionId === null || initializedRef.current === sessionId) return;
+    if (sessionId === null) return;
+    if (initializedRef.current === sessionId) return;
+    const previous = initializedRef.current;
     initializedRef.current = sessionId;
+    if (previous !== null) disposeAgentStream(previous);
     const stream = getAgentStream(sessionId);
     if (!stream.isRestored) stream.restore(emptyChatState(), 0);
     stream.connect();
     // 断开交由注册表生命周期（多组件共享；页面卸载时 EventSource 随页销毁）
   }, [sessionId]);
 
+  // lease 续期：会话开着就不断续，防 idle 回收把观看中的会话收回（G2-12）
+  useEffect(() => {
+    if (sessionId === null) return;
+    const timer = setInterval(() => {
+      void renewAgentLease(sessionId).catch(() => {
+        // 会话已不在注册表：忽略（重连/恢复由 open 负责）
+      });
+    }, LEASE_RENEW_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [sessionId]);
+
   const start = useCallback(async (cwd: string): Promise<string | null> => {
     setStarting(true);
     try {
       const { sessionId: id } = await newAgentSession({ cwd, type: 'ensure_session' });
+      setHistoryCursor({ hasMore: false });
       setSessionId(id);
       return null;
     } catch (error) {
@@ -90,8 +117,12 @@ export function useAgentSession(): UseAgentSessionResult {
       let watermark = 0;
       if (running.running) watermark = running.state.lastSeq;
       else await resumeAgentSession(id);
-      const streamFor = getAgentStream(id);
-      streamFor.restore(state, watermark);
+      setHistoryCursor({
+        oldest: detail.context.oldestEntryId,
+        hasMore: detail.context.hasMore,
+      });
+      const stream = getAgentStream(id);
+      stream.restore(state, watermark);
       setSessionId(id);
       return null;
     } catch (error) {
@@ -100,6 +131,20 @@ export function useAgentSession(): UseAgentSessionResult {
       setStarting(false);
     }
   }, []);
+
+  const loadOlder = useCallback(async (): Promise<void> => {
+    const id = sessionId;
+    const before = historyCursor.oldest;
+    if (id === null || before === undefined) return;
+    setLoadingOlder(true);
+    try {
+      const page = await getSessionContext(id, { before, tail: 50 });
+      getAgentStream(id).prependTurns(rebuildTurns(page.messages, page.entryIds));
+      setHistoryCursor({ oldest: page.oldestEntryId, hasMore: page.hasMore });
+    } finally {
+      setLoadingOlder(false);
+    }
+  }, [sessionId, historyCursor.oldest]);
 
   const send = useCallback(
     async (text: string): Promise<string | null> => {
@@ -129,8 +174,11 @@ export function useAgentSession(): UseAgentSessionResult {
   }, [sessionId]);
 
   const reset = useCallback((): void => {
-    setSessionId(null);
+    const previous = initializedRef.current;
     initializedRef.current = null;
+    if (previous !== null) disposeAgentStream(previous);
+    setSessionId(null);
+    setHistoryCursor({ hasMore: false });
   }, []);
 
   return {
@@ -138,8 +186,11 @@ export function useAgentSession(): UseAgentSessionResult {
     chat: storeChat,
     starting,
     sending,
+    hasOlder: historyCursor.hasMore,
+    loadingOlder,
     start,
     open,
+    loadOlder,
     send,
     abort,
     reset,

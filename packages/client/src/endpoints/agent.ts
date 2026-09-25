@@ -43,6 +43,11 @@ export async function resumeAgentSession(sessionId: string): Promise<void> {
   await postCommand<null>(`/agent/${encodeURIComponent(sessionId)}/resume`);
 }
 
+/** POST /api/agent/:id/lease —— 续 lease（推迟 idle 回收，G2-12）；renewed=false 表示会话已不在注册表 */
+export async function renewAgentLease(sessionId: string): Promise<{ renewed: boolean }> {
+  return postCommand<{ renewed: boolean }>(`/agent/${encodeURIComponent(sessionId)}/lease`);
+}
+
 /** GET /api/agent/:id —— 状态轻查（不进命令 FIFO；run 期间轮询用它，docs/02 §6.1） */
 export function getAgentRunningState(sessionId: string): Promise<AgentRunningState> {
   return getJson<AgentRunningState>(`/agent/${encodeURIComponent(sessionId)}`);
