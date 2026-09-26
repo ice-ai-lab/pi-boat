@@ -58,7 +58,7 @@ TanStack Query 管服务端状态、禁止裸 fetch/CSS-in-JS/Redux/lodash/momen
 
 **6. dev 走 Vite proxy（而不用浏览器直连 + CORS）。** 直连方案有一个难以察觉的陷阱：server 的 ③ 闸判的是
 site（scheme + registrable domain，**端口不参与**），而 ② 闸的白名单是精确字符串——于是
-`localhost:9528 → 127.0.0.1:9527` 会被判 cross-site 直接 403。要求“页面与 API 主机名逐字一致”
+`localhost:9528 → 127.0.0.1:9527` 会被判 cross-site 直接 403。要求“页面与 API 主机名完全一致”
 在浏览器地址栏补全、`vite --host`、复制粘贴面前很脆弱，且症状（403）看起来像权限问题。
 走代理后浏览器视角同源：`AgentClient` 的 baseURL 就是相对路径 `/api`，**dev 与 prod 是同一份代码、同一拓扑**。
 安全上不亏：恶意网页是直接打 9527，不经过本机的 Vite dev server，②③ 仍在那里拦；

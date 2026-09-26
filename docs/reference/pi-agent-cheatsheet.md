@@ -49,7 +49,7 @@ pi-coding-agent（产品层：CLI/SDK、会话管理、扩展机制、内置工�
 
 ## 2. 事件系统全景
 ### 表 1：`AssistantMessageEvent` —— pi-ai，LLM token 流（12 种）
-> 描述“一条 assistant 消息是怎么逐字长出来的”。除 `done/error` 外，每个事件都携带 `partial`（累积到当前时刻的半成品消息快照，UI 可直接渲染）。
+> 描述“一条 assistant 消息是怎么完全长出来的”。除 `done/error` 外，每个事件都携带 `partial`（累积到当前时刻的半成品消息快照，UI 可直接渲染）。
 >
 
 | 事件 | 语义（何时触发） | 载荷字段含义 | 示例 |
@@ -171,7 +171,7 @@ pi-coding-agent（产品层：CLI/SDK、会话管理、扩展机制、内置工�
 
 
 ## 3. pi.on 全部 36 个事件
-> 定义：`packages/coding-agent/src/core/extensions/types.ts:1252-1301`（`ExtensionAPI.on` 重载）。  
+> 定义：`packages/coding-agent/src/core/extensions/types.ts`（`ExtensionAPI.on` 重载）。
 Handler 签名统一为 `(event, ctx: ExtensionContext) => Result | void`。★ = Agent 等待返回值并能改变行为。
 >
 
@@ -370,7 +370,7 @@ agent.abort(); await agent.waitForIdle(); agent.reset();
 agent.state;  // { systemPrompt, model, thinkingLevel, tools, messages, isStreaming, pendingToolCalls... }
 ```
 
-### 6.2 `AgentSession`（pi-coding-agent，`agent-session.ts:310`）
+### 6.2 `AgentSession`（pi-coding-agent，`agent-session.ts`）
 | 分类 | 方法 |
 | --- | --- |
 | 驱动 | `prompt(text, options?: PromptOptions)`、`steer(text, images?)`、`followUp(text, images?)`、`sendUserMessage(content, options?)` |
@@ -479,7 +479,7 @@ export const timeExtension: ExtensionFactory = (pi) => {
 + **watch 快照**：`lane.watch(ctx)` 返回 `WatchHandle<LaneSnapshot>`（transcript + operation + queues 的严格 JSON 快照），支持 `resnapshot()`。
 
 ### 8.2 HarnessEvent（28 种 payload）
-> 定义：`packages/agent/src/harness/agent-harness.ts:255-373`。lane 事件携带 `lane` 字段。
+> 定义：`packages/agent/src/harness/agent-harness.ts`。lane 事件携带 `lane` 字段。
 >
 
 | 分类 | 事件 |
@@ -600,5 +600,4 @@ CLI 常用：`pi`（交互）、`pi -p "prompt"`（print）、`pi --model provid
 | 内置工具（8 个，产品版） | `coding-agent/src/core/tools/index.ts` |
 | 会话管理（树/fork） | `coding-agent/src/core/session-manager.ts` |
 | 设置 | `coding-agent/src/core/settings-manager.ts` |
-
 
