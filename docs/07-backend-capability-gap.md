@@ -59,11 +59,11 @@
 | G2-7 | **会话内容搜索** | 先轻量字段（名字/首条消息）筛，再对**有界候选**扫正文（候选数与单文件字节数均封顶），否则几万会话全读 | `SessionReadService.search()` + `fileContains()` |
 | G2-8 | **列表 `summary=1` 快路径** | 侧栏先画壳不等全量解析 | `SessionListQuerySchema.summary` + `list({summary:true})` |
 | G2-9 | **工具预设持久化 + 纯聊天边界** | 预设归 core 解析（`default` 集只有 core 知道）；选择**持久化到会话内 custom 条目**；纯聊天（chat-only）不加载扩展/技能/prompt，跨越该边界**重建 runtime** | `core/src/agent/session-tool-selection.ts` + `set_tools {preset}` |
-| G2-10 | **精确系统提示词覆写**（已撤销） | 原为内联 extension 的 `before_agent_start` 返回 `{systemPrompt}`。**2026-09-24 撤销：删除该扩展**——pi 默认就会把上下文文件放进 `<project_context>`（与工具集无关），扩展只买到「剥掉包装」；且上游方案的另两个部件（占位符 override、状态读取优先 exact）未移植，留着只会造成面板内容随时机变化（ADR-0015） | 已删除（原 `core/src/agent/exact-system-prompt.ts`） |
+| G2-10 | **精确系统提示词覆写**（已撤销） | 原为内联 extension 的 `before_agent_start` 返回 `{systemPrompt}`。**2026-09-24 撤销：删除该扩展**——pi 默认就会把上下文文件放进 `<project_context>`（与工具集无关），扩展只买到「剥掉包装」；且上游方案的另两个部件（占位符 override、状态读取优先 exact）未落地，留着只会造成面板内容随时机变化（ADR-0015） | 已删除（原 `core/src/agent/exact-system-prompt.ts`） |
 | G2-11 | **启动偏好持久化** | ⚠️ 缺口仍实存（与 §9 旧结论相反，本轮审查发现）：新建会话/`set_model` 的显式选择只作用于会话（链内 `model_change` 条目），**不落 settings.json 的 `defaultModel`**（SDK 的 `setModel` 只在 `persist:true` 时写，本仓未传）。要落盘需 core 显式调 `settingsManager.setDefaultModelAndProvider()` 或在命令里加 `persist` 选项。**2026-09-27 定案（ADR-0019）：一期以前端 localStorage（startup-preferences）绕过，core 落盘不做** | 不做（非阻塞） |
 | G2-12 | **liveness lease + idle 回收** | 形状已落地：lease TTL **180s**（审查时猜的 90s 作废）、扫描周期 60s、判据 =「无观看者（lease 过期且无 SSE 订阅）且不在跑」；不需要 provider 注册表/`globalThis` 键（单进程 + server 侧 SSE 注册表就够） | `core/src/agent/liveness.ts` + `server/src/main.ts` |
 | G2-13 | **推送投递侧**（已撤销） | 原为 VAPID 密钥生成/持久化 + 订阅存储 + 完成时投递（只在无观看者时发），依赖可选包 `web-push`。**2026-09-25 撤销：整体删除订阅与投递侧**——`web-push` 从未进依赖、前端无 SW ⇒ 全链路是死码；且服务端绑 `127.0.0.1` + 桌面端浏览器退出后收不到推送，增量场景只剩「浏览器在后台运行但标签页全关」。通知只留前端页内（ADR-0016） | 已删除（原 `core/src/agent/push-service.ts` + `server/src/routes/push.ts`） |
-| G2-15 | **磁盘格式常量归属** | 会话文件里的 `customType` 已从字面量改为 core 具名常量：`TOOL_SELECTION_CUSTOM_TYPE`（`piboat:tool-selection`）与 `SUBAGENT_CUSTOM_TYPE`（`pi-web:subagent`） | `core/src/agent/session-tool-selection.ts` / `read/session-read-service.ts` |
+| G2-15 | **磁盘格式常量归属** | 会话文件里的 `customType` 已从字面量改为 core 具名常量：`TOOL_SELECTION_CUSTOM_TYPE`（`piboat:tool-selection`）与 `SUBAGENT_CUSTOM_TYPE`（历史磁盘格式字面量，为兼容既有会话文件保留，勿改） | `core/src/agent/session-tool-selection.ts` / `read/session-read-service.ts` |
 
 ---
 
@@ -179,7 +179,7 @@
 | `GET/PUT /api/tools/settings` | ✅ | `{isWindows, powerShellEnabled}` |
 | `GET/PUT /api/project-trust` | ✅ | 两种拒绝 → **409 + `reason`**：`no-trusted-resources`（无需要信任的资源）、`session-active`（该 cwd 有活跃会话时不许改信任——已加载的项目资源不能中途撤下） |
 | `GET/PUT /api/subagents/settings` | ⏸ | 延后（§8-4）：内建开关默认 **fail-closed**，原子写保留未知字段 |
-| `GET/PUT/PATCH/DELETE /api/subagents/profiles` | ⏸ | 延后（§8-4）：内置 profile 只允许 `PATCH` 开关、不许 PUT/DELETE 拷贝；profile 文件与其他运行时共享，保存须回环外部 frontmatter 键 |
+| `GET/PUT/PATCH/DELETE /api/subagents/profiles` | ⏸ | 延后（§8-4）：内置 profile 只允许 `PATCH` 开关、不许 PUT/DELETE 沿用；profile 文件与其他运行时共享，保存须回环外部 frontmatter 键 |
 | `GET/POST /api/subagents/:id` | ⏸ | 延后（§8-4）：运行信息 / steer / abort |
 | **子代理运行时本体** | ⏸ | 延后（§8-4）：内联 extension、三保留工具、后台运行、通知去重、worktree 隔离；将来以 pi 扩展形式引入 |
 
@@ -374,7 +374,7 @@
 - **删除的内容**：`core/src/agent/push-service.ts`（VAPID 密钥持久化、订阅表落盘、`deliver()`）、`server/src/routes/push.ts`、protocol 三个 schema、core 的 `AgentSessionService.onSettled` 钩子与 `SessionRegistryEntryOptions.onSettled`。
 - **为什么删**：① `web-push` 从未进依赖、前端无 service worker ⇒ 整条链路四步缺三步，代码是**死码**（对外零效果，对内让人以为功能存在）；② 服务端绑 `127.0.0.1`，通知只会出现在本机，而桌面端浏览器进程退出后收不到推送——增量场景只剩「浏览器在后台运行 + 标签页全关 + 人还在这台机器前」；③ Web Push 要求 server 主动出网到 Google / Apple / Mozilla，与本地无凭据定位不符。
 - **保留的替代**：前端**页内**通知（`Notification` API，页面存在时有效）+ 完成提示音，均属前端体验项（`docs/01` §6 清单保留）。
-- **将来重做的路径**：上位实现 pi-web 已有完整且带测试的版本（`lib/web-push.ts` / `lib/push-client.ts` / `components/PwaRegistration.tsx` / `public/sw.js` / `lib/browser-notifications.ts`），从那卩搬运，**不要从零设计**；且必须同时补依赖 + SW，不能只恢复 core 侧（那就是本次删除的状态）。若需求是「浏览器完全退出也要通知」，属 Electron / 原生通知（§8-5 的 M4），不是 Web Push 的职责。
+- **将来重做的路径**：上位实现设计规范已有完整且带测试的版本（/ / / /），从那卩收录，**不要从零设计**；且必须同时补依赖 + SW，不能只恢复 core 侧（那就是本次删除的状态）。若需求是「浏览器完全退出也要通知」，属 Electron / 原生通知（§8-5 的 M4），不是 Web Push 的职责。
 
 ---
 
@@ -389,10 +389,10 @@
 
 | 项 | 现状 | 理由 |
 |---|---|---|
-| **纯聊天的系统提示词精确覆写** | **已撤销**（ADR-0015，2026-09-24）：删除 `agent/exact-system-prompt.ts` 与 `systemPrompt: ' '` / `appendSystemPrompt: [' ']` 占位符，纯聊天按 pi 默认组装 | pi 默认即把上下文文件放进 `<project_context>`，扩展只买到「剥掉包装」；且它会靠 `_runSystemPromptOptions` 制造面板时序差异。需要「逐字」的真实用例（子代理 profile）见 §8-4，届时重新引入 |
+| **纯聊天的系统提示词精确覆写** | **已撤销**（ADR-0015，2026-09-24）：删除 `agent/exact-system-prompt.ts` 与 `systemPrompt: ' '` / `appendSystemPrompt: [' ']` 占位符，纯聊天按 pi 默认组装 | pi 默认即把上下文文件放进 `<project_context>`，扩展只买到「剥掉包装」；且它会靠 `_runSystemPromptOptions` 制造面板时序差异。需要「完全」的真实用例（子代理 profile）见 §8-4，届时重新引入 |
 | `GET /api/files/*?type=watch` | 返回 400（未实现） | 文件监听要常驻 watcher 与跨平台差异处理；一期用轮询足够 |
 | 上传的 Range / DOCX / 分块 | 未实现（单请求多文件已实现，25MB/文件、100MB/请求）；`read` / `preview` 也是整文件字节 | 分块与 Range 只在超大文件场景需要 |
-| 后台推送（Web Push） | **已删除**（ADR-0016，2026-09-25）：`push-service.ts`、`routes/push.ts`、两个端点、protocol 三个 schema、core 的 `onSettled` 钩子 | 未接线前是死码（`web-push` 不在依赖、无 SW）；本地绑定 + 桌面端浏览器退出后收不到推送，增量场景窄；重做时从上位实现搬运 |
+| 后台推送（Web Push） | **已删除**（ADR-0016，2026-09-25）：`push-service.ts`、`routes/push.ts`、两个端点、protocol 三个 schema、core 的 `onSettled` 钩子 | 未接线前是死码（`web-push` 不在依赖、无 SW）；本地绑定 + 桌面端浏览器退出后收不到推送，增量场景窄；重做时从上位实现收录 |
 | 子代理运行时 | 延后（见 §8-4） | 可由 pi 扩展提供，后端零改动 |
 | `deferThinking` | 不做（历史 thinking 全文直发，按块惰性取原文另走 `/thinking`） | 2026-09-20 已定案 |
 | **启动偏好落盘（G2-11）** | **未实现**：显式选择的 model / thinking 只作用于会话，不写 settings.json `defaultModel`（旧版本本文档曾误记为“已并入模型域实现”） | **已定案（ADR-0019，2026-09-27）：「下次新建继承上次选择」由前端 localStorage 承担（startup-preferences）；core 落盘不做，若将来要做须按本行方案 + 新 ADR |

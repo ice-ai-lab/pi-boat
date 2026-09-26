@@ -12,7 +12,7 @@
 | protocol 里的手写定义 | 行数 | SDK 里已有的等价物 | SDK 是否导出 |
 |---|---|---|---|
 | `domain/message.ts`（内容块 / Usage / StopReason / 八角色消息 / 12 种子事件） | 210 | pi-ai `TextContent`/`ThinkingContent`/`ImageContent`/`ToolCall`/`Usage`/`StopReason`/`UserMessage`/`AssistantMessage`/`ToolResultMessage`/`SystemMessage`/`Message`/`AssistantMessageEvent`；四自定义角色在 `SessionEntry` 联合里 | ✅（`AgentMessage` 需从 `SessionMessageEntry` 提取，见下） |
-| `domain/session-entry.ts`（11 个条目的 zod） | 172 | pi-coding-agent `SessionEntry` 联合——成员与本仓**逐字相同**（含 `context_edit`/`label`/`usage`） | ✅ |
+| `domain/session-entry.ts`（11 个条目的 zod） | 172 | pi-coding-agent `SessionEntry` 联合——成员与本仓**完全相同**（含 `context_edit`/`label`/`usage`） | ✅ |
 | `domain/tool.ts`（ToolInfo / SourceInfo / SlashCommandInfo） | 106 | pi-coding-agent 同名类型 | ✅ |
 | `events/wire-agent-event.ts`（27 事件 + 12 子事件的 zod，317 行） | 317 | pi-coding-agent `JsonAgentSessionEvent`（**SDK 自家 JSON/RPC 协议的同一套投影**：剥 partial、toolcall 增量补 id/toolName） | ✅（类型导出；`toJsonEvent()` 函数未导出） |
 | `domain/state.ts` / `session-info.ts` / `extension-ui.ts` | 363 | pi-coding-agent `SessionStats` / `ContextUsage` / `RpcSessionState` / `SessionInfo` / `SessionContext` / `SessionTreeNode` / `RpcExtensionUIRequest` / `RpcExtensionUIResponse` | ✅ |
@@ -22,7 +22,7 @@
 
 - **已经漂移**：`session-read-service.computeStats()` 声称"对齐 SDK `getSessionStats` 口径"，但漏了 `toolResult` 的 usage、`branch_summary`/`compaction` 的 usage，`totalMessages` 也少算了 system 消息。同一会话在冷读（`GET /api/sessions/:id`）与热读（`get_session_stats` 命令）上给出不同 tokens/cost。
 - **已经过时**：protocol 注释里的"对齐 SDK 0.85.1"在 SDK 升到 0.87.1 后没跟（ADR-0010 之后残留两处）。
-- **上游做法相反**：参考实现 pi-web 直接声明 `@earendil-works/pi-ai` 依赖并调用 `getSupportedThinkingLevels()`，不重写。
+- **上游做法相反**：参考实现设计规范直接声明 `@earendil-works/pi-ai` 依赖并调用 `getSupportedThinkingLevels()`，不重写。
 
 同时，此前多处 `*Options` 是"以后可能需要"的期权，实际零调用方（如 `ConfigServiceOptions.agentDir`/`projectConfigDirName`、`AgentSessionServiceOptions.agentDir`/`uiTimeoutMs`、`ResourceServiceOptions.agentDir`）。
 
@@ -46,7 +46,7 @@
 
 依赖与打包约束（本次实测）：
 
-- protocol 依赖 `@earendil-works/pi-ai` / `@earendil-works/pi-coding-agent`，**只用 `import type` / `export type`**：构建产物 `packages/protocol/dist/**/*.js` 里对 SDK 的引用为 0，web/desktop 的 bundle 不会被拖入 pi（保住 ADR-0006 立此包的首要动机）
+- protocol 依赖 `@earendil-works/pi-ai` / `@earendil-works/pi-coding-agent`，**只用 `import type` / `export type`**：构建产物 `packages/protocol/dist/*/*.js` 里对 SDK 的引用为 0，web/desktop 的 bundle 不会被拖入 pi（保住 ADR-0006 立此包的首要动机）
 - 版本锁步：三者都写 `~0.87.1`，与 pi-coding-agent 自身对 pi-ai 的 `^0.87.1` 解析到同一实例；SDK 升级须整体 bump（ADR-0010 的纪律延伸到 pi-ai）
 - AGENTS.md 的依赖铁律修订为：**只有 core 与 protocol 可以依赖 pi SDK；protocol 仅限类型（`import type`/`export type`），core 才可以调用其运行时**
 

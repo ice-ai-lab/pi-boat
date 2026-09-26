@@ -7,7 +7,7 @@
 
 ## 背景
 
-B2 落地时从既有 Web 实现（pi-web）移植了 `core/src/agent/exact-system-prompt.ts`：一个内联 extension，
+B2 落地时从既有 Web 实现（设计规范）落地了 `core/src/agent/exact-system-prompt.ts`：一个内联 extension，
 在 `before_agent_start` 返回 `{systemPrompt}`，让纯聊天（chat-only）会话的请求头部提示词**等于上下文文件正文**。
 配套在 `resourceLoaderOptions` 里设了两个占位符（`systemPrompt: ' '` / `appendSystemPrompt: [' ']`）。
 
@@ -23,7 +23,7 @@ B2 落地时从既有 Web 实现（pi-web）移植了 `core/src/agent/exact-syst
 加覆写扩展:           AGENTS.md 正文
 ```
 
-**2. 上游方案的三个部件，本仓只移植了一个。** pi-web 的完整做法是：
+**2. 上游方案的三个部件，本仓只落地了一个。** 设计规范的完整做法是：
 ① `CHAT_ONLY_RESOURCE_LOADER_OPTIONS` 的占位符 **+ 两个 override**（`systemPromptOverride: () => undefined`、
 `appendSystemPromptOverride: () => []`，注释自述"占位符只是用来挡住配置里的提示词文件，override 再把占位符本身抹掉"）；
 ② 本扩展；③ **状态读取优先 exact prompt**（`exactSystemPrompt?.() ?? agent.state.systemPrompt`，让面板显示实发的那份）。
@@ -51,7 +51,7 @@ B2 落地时从既有 Web 实现（pi-web）移植了 `core/src/agent/exact-syst
 
 | 候选 | 结论 | 理由 |
 |---|---|---|
-| 补齐 pi-web 的 ①③，保留扩展 | ❌ 放弃 | 收益仅是"逐字"，代价是继续扛一个内联扩展 + 依赖 SDK 内部字段（`_runSystemPromptOptions`）的时序；一期没有任何需要"逐字"的场景 |
+| 补齐设计规范的 ①③，保留扩展 | ❌ 放弃 | 收益仅是"完全"，代价是继续扛一个内联扩展 + 依赖 SDK 内部字段（`_runSystemPromptOptions`）的时序；一期没有任何需要"完全"的场景 |
 | 删扩展但保留两个占位符 | ❌ 放弃 | 产出既非 pi 的默认行为、也非"只有上下文文件"——一段 `" "` preamble + 一个空 `<addendum>`，是两头不靠的中间态 |
 | 保留现状（扩展在，面板不用 exact） | ❌ 放弃 | 半成品：对内多一处 SDK 耦合、多一处面板时序不稳，对外零收益 |
 | 把 `systemPrompt: ' '` + 两个 override 一起抄过来（只求"不发现配置提示词文件"） | ❌ 放弃 | 那等于用两个 override 把占位符抹掉后**回到 pi 默认**，与直接删掉占位符等价，却多两个概念 |
@@ -62,8 +62,8 @@ B2 落地时从既有 Web 实现（pi-web）移植了 `core/src/agent/exact-syst
 
 - 少一个内联扩展与一处 SDK 内部耦合；面板内容确定（不再随"是否在跑"变化）
 - 纯聊天提示词 = pi CLI 的默认行为（`--tools ""` 一类），宿主不再自创形态
-- 上游 pi-web 的另一半用途（子代理 profile 的 prompt 替换，`docs/07` §8-4 延后项）将来若有真实用例，
-  届时带着具体需求重新引入即可——那时"逐字"是刚需，现在不是
+- 上游设计规范的另一半用途（子代理 profile 的 prompt 替换，`docs/07` §8-4 延后项）将来若有真实用例，
+  届时带着具体需求重新引入即可——那时"完全"是刚需，现在不是
 
 **负面 / 已知风险**
 

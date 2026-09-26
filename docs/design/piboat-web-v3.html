@@ -7,8 +7,8 @@
 <style>
 /* ============================================================
    PiBoat Web 原型 v0.1
-   功能范围见 docs/01 §6 · 视觉参照 deepseek-harness (dsh)
-   dsh 签名细节：0.5px hairline / superellipse 圆角 / #4176E6 业务蓝
+   功能范围见 docs/01 §6 · 视觉参照内部参照稿
+   参照稿签名细节：0.5px hairline / superellipse 圆角 / #4176E6 业务蓝
                 毛玻璃浮层 / sticky 输入卡 + 渐变淡入 / 细滚动条
    ============================================================ */
 :root{
@@ -116,7 +116,7 @@ body{
 }
 button{font-family:inherit;color:inherit;background:none;border:0;cursor:pointer;font-size:inherit}
 input,textarea{font-family:inherit;color:inherit}
-/* 滚动条：与 dsh 完全一致（ui-theme/styles/scrollbar.css）
+/* 滚动条：与参照稿一致
    thumb l1 = 基础表面，l2 = 抬升表面（弹窗）；track 透明；5px；content-box 裁剪 */
 :root{
   --sb-thumb:rgb(229,229,229);
@@ -152,7 +152,7 @@ input,textarea{font-family:inherit;color:inherit}
 
 /* ================= 布局骨架 ================= */
 .app{display:flex;height:100dvh;width:100vw;position:relative}
-/* 侧栏拖拽 handle（dsh：指针跟随光条） */
+/* 侧栏拖拽 handle（参照稿：指针跟随光条） */
 .drag-handle{position:absolute;top:0;bottom:0;width:9px;z-index:45;cursor:col-resize}
 .drag-handle::after{
   content:"";position:absolute;top:0;bottom:0;left:50%;width:2px;transform:translateX(-50%);
@@ -466,7 +466,7 @@ body.resizing iframe,body.resizing textarea{pointer-events:none}
 /* ---- 已停止标签 ---- */
 .stopped-tag{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:6px;background:var(--hover);color:var(--t3);font-size:11px}
 
-/* ---- 中间内容区宽度把手（照搬 dsh ConversationWidthControls 规格） ----
+/* ---- 中间内容区宽度把手（按参照稿 ConversationWidthControls 规格） ----
    双侧 / 整列高热区 / 位于内容列边缘外 24px / hover 与拖动时显示
    2px 光条，光条跟随指针 Y（--mh-y，默认 50%），±36px 渐隐 -------------- */
 .chat-handle{
@@ -489,7 +489,7 @@ body.resizing iframe,body.resizing textarea{pointer-events:none}
 .chat-handle:hover::after,.chat-handle[data-dragging]::after{opacity:1}
 .chat-handle[data-dragging]{z-index:30}
 
-/* ---- 右缘消息 minimap（图2：dsh 快速导航） ---- */
+/* ---- 右缘消息 minimap（图2：参照稿快速导航） ---- */
 .minimap{position:absolute;top:10px;bottom:16px;right:5px;width:36px;z-index:10}
 .mm-bar{
   position:absolute;right:11px;width:14px;height:3px;border-radius:2px;background:var(--l3);
@@ -570,7 +570,7 @@ body.resizing iframe,body.resizing textarea{pointer-events:none}
 .send-btn:disabled{opacity:.4;cursor:default;transform:none}
 .send-btn.stop{background:var(--t1)}
 
-/* ---- footer 统计 pills（dsh StatsPills 风格） ---- */
+/* ---- footer 统计 pills（参照稿 StatsPills 风格） ---- */
 .stats-row{max-width:var(--chat-w);margin:5px auto 0;display:flex;justify-content:center;align-items:center;gap:0;position:relative;min-height:26px}
 .stats-group{display:flex;align-items:center;gap:0}
 .stats-group + .stats-group::before{content:"";width:1px;height:11px;background:var(--l2);margin:0 5px}
@@ -829,7 +829,7 @@ button.spill:hover{background:var(--hover);color:var(--t1)}
               <div class="sysprompt">You are PiBoat, a coding agent running inside the pi SDK (v0.85.1).
 
 # 环境
-- 工作目录: /Users/gatesma/project/WebstormProjects/pi-boat
+- 工作目录: ~/project/pi-boat
 - 平台: darwin · Node 22.22.2 · pnpm 10 · git(main, clean)
 
 # 通用规则
@@ -1128,7 +1128,7 @@ web:dev: ➜  Local:   http://localhost:5173/
 
               <div class="model-tag"><span class="dot"></span>GLM-5.3</div>
               <div class="md">
-                <p>完成。<code>PiWebTitle</code> 已重命名为 <code>PiBoatShell</code>，<code>apps/web</code> 的 Vite + React 19 骨架已建好并接入 <code>turbo dev</code>，渲染验证通过。下一步可以做切片 1 的 <code>useAgentSession</code> hooks。</p>
+                <p>完成。<code>BrandTitle</code> 已重命名为 <code>PiBoatShell</code>，<code>apps/web</code> 的 Vite + React 19 骨架已建好并接入 <code>turbo dev</code>，渲染验证通过。下一步可以做切片 1 的 <code>useAgentSession</code> hooks。</p>
               </div>
               <div class="usage-line num"><span>512 in</span><span>·</span><span>96 out</span><span>·</span><span>21,440 cache R</span><span>·</span><span>$0.0031</span><span class="sp"></span><span>16:47</span></div>
             </div>
@@ -1162,7 +1162,7 @@ web:dev: ➜  Local:   http://localhost:5173/
           </div>
         </div>
 
-        <!-- 会话指标（点击任一指标打开统计弹窗）：顶栏统计迁至 dsh StatsPills 位 -->
+        <!-- 会话指标（点击任一指标打开统计弹窗）：顶栏统计迁至 参照稿 StatsPills 位 -->
         <div class="stats-row" id="statsRow">
           <div class="stats-group">
           <button class="spill sq" id="pillIn" title="输入 token">
@@ -1288,7 +1288,7 @@ web:dev: ➜  Local:   http://localhost:5173/
   <button class="wi on" data-ws="~/project/WebstormProjects/pi-boat"><svg class="ico s14"><use href="#i-folder"/></svg><span class="p">~/project/WebstormProjects/pi-boat</span><span class="live" title="有运行中的会话"></span><span class="chk"><svg class="ico s14"><use href="#i-check"/></svg></span></button>
   <button class="wi" data-ws="~/project/WebstormProjects/pi"><svg class="ico s14"><use href="#i-folder"/></svg><span class="p">~/project/WebstormProjects/pi</span><span class="chk"><svg class="ico s14"><use href="#i-check"/></svg></span></button>
   <button class="wi" data-ws="~/project/WebstormProjects/demo-app"><svg class="ico s14"><use href="#i-folder"/></svg><span class="p">~/project/WebstormProjects/demo-app</span><span class="chk"><svg class="ico s14"><use href="#i-check"/></svg></span></button>
-  <button class="wi" data-ws="~/project/WebstormProjects/deepseek-harness"><svg class="ico s14"><use href="#i-folder"/></svg><span class="p">~/project/WebstormProjects/deepseek-harness</span><span class="chk"><svg class="ico s14"><use href="#i-check"/></svg></span></button>
+  <button class="wi" data-ws="~/project/example-app"><svg class="ico s14"><use href="#i-folder"/></svg><span class="p">~/project/example-app</span><span class="chk"><svg class="ico s14"><use href="#i-check"/></svg></span></button>
   <div class="rule"></div>
   <button class="wi" id="wsCustom"><svg class="ico s14 add-ico"><use href="#i-plus"/></svg><span class="p" style="font-family:var(--font);color:var(--t2)">自定义路径…</span></button>
 </div>
@@ -1608,7 +1608,7 @@ $("#sessionSearch").addEventListener("input", (e) => {
   });
 });
 
-/* ---------- 右缘消息 minimap（dsh 快速导航） ---------- */
+/* ---------- 右缘消息 minimap（参照稿快速导航） ---------- */
 function buildMinimap(){
   const mm = $("#minimap"), tip = $("#mmTip");
   mm.querySelectorAll(".mm-bar").forEach(b => b.remove());
@@ -1641,15 +1641,15 @@ function updateMinimapAt(){
 }
 chatScroll.addEventListener("scroll", updateMinimapAt);
 
-/* ---------- 中间内容区宽度把手（dsh 规格：双侧 / 指针跟随光条 / 持久化） ---------- */
-const CHAT_MIN = 640;          // dsh CONTENT_MIN
-const CHAT_EDGE = 116;         // 两侧各留 58px（24px 偏移 + 把手 + 余量），保证把手可用；dsh 为 176
+/* ---------- 中间内容区宽度把手（参照稿规格：双侧 / 指针跟随光条 / 持久化） ---------- */
+const CHAT_MIN = 640;          // 参照稿 CONTENT_MIN
+const CHAT_EDGE = 116;         // 两侧各留 58px（24px 偏移 + 把手 + 余量），保证把手可用；参照稿为 176
 const CHAT_W_KEY = "piboat.conversation.contentWidth";
 function readChatWPref(){
   const v = Number(localStorage.getItem(CHAT_W_KEY));
   return Number.isFinite(v) && v > 0 ? v : null;
 }
-/* 默认宽度：按列宽比例（dsh 为 64% / 上限 920；此处放宽到 90% / 上限 1180，更宽松），
+/* 默认宽度：按列宽比例（参照稿为 64% / 上限 920；此处放宽到 90% / 上限 1180，更宽松），
    同时不超出"列宽 - CHAT_EDGE"以保证两侧把手可用。
    拖拽与持久化值 clamp 到 [640, 列宽 - CHAT_EDGE]。 */
 function resolveChatW(col, pref){
@@ -1705,7 +1705,7 @@ $$(".chat-handle").forEach(h => {
   h.addEventListener("pointerup", endDrag);
   h.addEventListener("pointercancel", endDrag);
   h.addEventListener("lostpointercapture", endDrag);
-  /* 滚轮落在把手条上时转发给会话滚动区（dsh 同款） */
+  /* 滚轮落在把手条上时转发给会话滚动区（参照稿同款） */
   h.addEventListener("wheel", (e) => {
     if (e.ctrlKey || e.deltaY === 0) return;
     const px = e.deltaMode === 1 ? e.deltaY * 16

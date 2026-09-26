@@ -1,7 +1,7 @@
 # PiBoat —— ui 详细设计
 
 > `@ice-ai/ui`：纯展示组件库。本文是 `docs/01-overview.md` §3.1 的实现细化，
-> **视觉与交互基准是 pi-web `app/globals.css` + 其组件结构（ADR-0020，2026-01 推翻原型 v3）**；
+> **视觉与交互基准是设计规范 + 其组件结构（ADR-0020，2026-01 推翻原型 v3）**；
 > 旧原型 `docs/design/piboat-web-v3.html` 已退役（仅作历史参照）。数据形状来自
 > `docs/05-client-design.md` §6 的视图模型，类型来自 `@ice-ai/protocol`。
 > 状态：**开工前设计稿**（2026-09-22，随 Web 原型 v3 定稿）。技术栈基准已由 ADR-0009 收口（见 §11.1）。
@@ -30,11 +30,11 @@
 
 ## 2. 视觉基准与 token 单一来源
 
-- **唯一基准（ADR-0020，2026-01 修订）**：**pi-web 自身** —— `~/project/WebstormProjects/pi-web/app/globals.css` 的运行变量
-  + 组件内联样式/类名。组件层结构与样式逐条照抄（pi-web 是 MIT，可移植）。
+- **唯一基准（ADR-0020，2026-01 修订）**：**统一 Web 设计规范** —— 的运行变量
+  + 组件内联样式/类名。组件层结构与样式逐条对齐（规范以 MIT 发布，可安全落地，声明见 `THIRD_PARTY_NOTICES.md`）。
   旧原型 `docs/design/piboat-web-v3.html` 退役：其 0.5px hairline、superellipse、`#4176E6`、毛玻璃浮层**不再保留**。
-- **token 单一来源**：`packages/ui/src/theme.css`（pi-web 变量 `:root` + `[data-theme="dark"]` 两套）
-  + `packages/ui/src/styles/pi-web.css`（从 pi-web `globals.css` 搬来的组件级类）
+- **token 单一来源**：`packages/ui/src/theme.css`（规范变量 `:root` + `[data-theme="dark"]` 两套）
+  + `packages/ui/src/styles/web-ui.css`（组件级类，口径见 ADR-0020）
   - 形状：`@import 'tailwindcss'` 之前用 `:root` / `[data-theme="dark"]` 定义变量，再用
     `@theme inline { --color-surface: var(--surface); … }` 暴露给 Tailwind
   - **暗色不能写死在 `@theme` 里**（`@theme` 是编译期常量，写死则切主题失效）
@@ -58,10 +58,10 @@
 | `--pw-panel/-border/-subtle/-accent` | `--md-panel` `--md-border` `--md-subtle` `--md-accent` | **markdown 排版专用**，与业务 token 隔离 |
 | `--code-bg` `--code-banner` | `--color-code-bg` `--color-code-banner` | 代码块/折叠体底 |
 | `--elev-panel/-soft/-soft-sm` | `--shadow-panel/-soft/-soft-sm` | 三档阴影（均以 0.5px 环起始） |
-| `--font` `--mono` | `--font-sans` `--font-mono` | ⚠️ 原型 `--font-noto-mono` **未定义**，移植时补或删 |
+| `--font` `--mono` | `--font-sans` `--font-mono` | ⚠️ 原型 `--font-noto-mono` **未定义**，落地时补或删 |
 
 > **深色主题**（2026-09-22 定「M1 不支持」→ **2026-09-27 修订〔ADR-0019〕：随前端 F5 交付** →
-> **2026-01 再修订〔ADR-0020 §5〕：不做自有三态，直接照抄 pi-web 的调色板模型**）：
+> **2026-01 再修订〔ADR-0020 §5〕：不做自有三态，直接按设计规范的调色板模型**）：
 > `light` / `dark` / `mist` / `rose` / `pine` / `auto`（`auto` 跟随系统，`pine` 算暗色）六档，
 > 落地写 `data-theme` + `dark` class；`theme.css` 的 `[data-theme="dark"]` 只是其中一档；
 > 实现走 `[data-theme]` 属性 + localStorage（§8.6），「跟随系统」用 `prefers-color-scheme` + `matchMedia`。
@@ -214,7 +214,7 @@ AppShell 三栏布局 + 拖拽/折叠（`makeDrag`）、主题切换、路由、
 
 ### 8.4 内容宽度把手（`ContentWidthControls`）
 
-照搬 dsh `ConversationWidthControls` 规格：双侧整列高热区、位于内容列边缘外 24px、
+按参照稿 `ConversationWidthControls` 规格：双侧整列高热区、位于内容列边缘外 24px、
 hover/拖动显示 2px 光条、光条跟随指针 Y（`--mh-y`）、±36px 渐隐、滚轮落在把手条上转发给滚动区、
 持久化 key `CHAT_W_KEY`（`localStorage`）。默认宽度按列宽比例（原型：90%，上限 1180）。
 
@@ -240,7 +240,7 @@ hover/拖动显示 2px 光条、光条跟随指针 Y（`--mh-y`）、±36px 渐�
 - 窄屏（<880px）照常渲染同一个桌面壳，不重排、不提示、不门禁。
   原 `MobileGate` 组件 + `.mobile-gate` / `.app-shell` 媒体查询已按对齐审查 T0-2 **删除**
   （原因：`.app-shell` 类从未出现在 DOM，媒体查询是死代码，实际见到的是“半坏的桌面壳”）。
-  证据与定案见 `docs/09-frontend-alignment-audit.md` §1 BUG-2 / §3.1 #1。
+  证据与定案见 `docs/09-frontend-design-checklist.md`（§1 硬 bug、§3 范围边界）。
 - **不做**：drawer / 单栏重排 / `useIsMobile` / `matchMedia` 结构判断 / `useViewportHeight` / 底部导航。
 - **仍保留「禁写死桌面假设」这条低成本约定**（docs/01 §5.5 ①）：组件不把三栏/固定宽度当硬前提，
   布局尺寸走 props/CSS 变量，以免将来要适配时得重写。
@@ -248,12 +248,12 @@ hover/拖动显示 2px 光条、光条跟随指针 Y（`--mh-y`）、±36px 渐�
 
 ### 9.2 无障碍（原型现状：几乎为零）
 
-原型全文除 `aria-hidden` 外**无任何 aria 属性**。移植时补齐：浮层用 `role="dialog"` + 焦点陷阱 +
+原型全文除 `aria-hidden` 外**无任何 aria 属性**。落地时补齐：浮层用 `role="dialog"` + 焦点陷阱 +
 `aria-expanded`（触发器）、折叠行 `aria-expanded` + `aria-controls`、minimap 改 `button` 并给 `aria-label`、
 `FileTree` 用 `role="tree"/"treeitem"` 且节点改 `button`、流式区域 `aria-live="polite"`（避免整段重读）、
 图标按钮一律有 `title`/`aria-label`、颜色不得作为唯一状态载体（工具错误同时给图标）。
 
-## 10. 原型自身待修（移植前顺手清）
+## 10. 原型自身待修（落地前顺手清）
 
 | # | 问题 | 处理 |
 |---|---|---|
@@ -311,7 +311,7 @@ Lucide、`cva` + `clsx` + `tailwind-merge`（`cn()`）、markdown 走 `react-mar
 | 1b | （连带）**不存在的 cwd 会静默建会话** | 实证（2026-09-22）：SDK `createAgentSession({ cwd: '/不存在' })` **不报错照样建会话**，之后每次 read/bash/edit 都在会话里失败——用户看到的是“agent 莫名一直报错” | ✅ **已定且已落地：core 在 `create()` 前置校验**（存在且为目录 → 否则 `UserInputError` → 400）。**不拖到** `/api/cwd/validate`；也不可选“什么都不做” | **高** |
 | 2 | 自动滚底 vs “用户上滚后脱离” | 原型只有无条件 `scrollBottom()` | ✅ **已定（2026-09-22）：吸附模型**（贴底 8px / 重吸 96px / 上滚即脱离 / 新增 `ScrollToBottomButton`），见 §8.2 | 中 |
 | 3 | <880px 的响应式形态 | 原型只有 1180/880 两条覆盖式断点 | ✅ **已定（2026-09-26 修订）：桌面单形态**——窄屏照常渲染桌面壳，不重排、不提示（原 MobileGate 已删）；保留“禁写死桌面假设”，见 §9.1 | 低 |
-| 4 | 深色主题是否进 M1 | 原型的 `[data-theme="dark"]` token 已完整 | ✅ 已定（2026-09-22）：F1–F4 **不支持**——不接切换、不做验证（保留 dark 变量块的决策不变）；🔄 **修订（2026-09-27，ADR-0019）：随 F5 交付**；🔄 **再修订（2026-01，ADR-0020 §5）：不自有三态，改为照抄 pi-web 的 `light/dark/mist/rose/pine/auto` 六档** | 低 |
+| 4 | 深色主题是否进 M1 | 原型的 `[data-theme="dark"]` token 已完整 | ✅ 已定（2026-09-22）：F1–F4 **不支持**——不接切换、不做验证（保留 dark 变量块的决策不变）；🔄 **修订（2026-09-27，ADR-0019）：随 F5 交付**；🔄 **再修订（2026-01，ADR-0020 §5）：不自有三态，改为按设计规范的 `light/dark/mist/rose/pine/auto` 六档** | 低 |
 
 ---
 

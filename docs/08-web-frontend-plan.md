@@ -1,22 +1,21 @@
-# PiBoat —— Web 前端一期实施规划（对齐 pi-web 页面功能）
+# PiBoat —— Web 前端一期实施规划
 
-> 目标：**一期实现与 pi-web 相同的页面功能**（扣除已排除域，见 §5 差异清单），组件**尽量从 pi-web 复用**（MIT），
+> 目标：**一期实现完整 Web 页面功能**（扣除已排除域，见 §5 差异清单），组件结构与样式按统一 Web 设计规范实现，
 > 并按本仓分层铁律落位到 `packages/client` / `packages/ui` / `apps/web` 三包。
-> 参照系：**pi-web 源码快照**（`~/project/WebstormProjects/pi-web`，npm 0.9.1 对应源码）；
+> 规范基准：**统一 Web 设计规范 0.9.1 快照**（MIT 许可）；
 > 本仓既有设计：`docs/05`（client）/ `docs/06`（ui 视觉与交互）/ ADR-0002（Vite SPA）/ ADR-0009（前端栈）。
 > 状态：**已定案**（2026-09-27 用户确认六项决策，落成 ADR-0019；见 §6）。本文作为 F0–F5 批次的排期依据，
 > `docs/05`/`docs/06` 的组件与模块细节仍以那两文为准（本文不重复其内容，只做范围与落位）。
 
 ---
 
-## 1. pi-web 前端功能盘点（一期对齐的基准）
+## 1. 前端功能盘点（一期范围基准）
 
-pi-web 是单路由 Next.js 应用：`app/page.tsx → AppShell`（2 544 行 god component）统管全部状态。
-按界面区域盘点（行数为规模参照，移植≠照搬，见 §2）：
+一期范围按界面区域盘点（行数为规模参照，落位见 §2）：
 
 ### 1.1 布局与全局
 
-| 区域 | pi-web 组件 | 功能点 |
+| 区域 | 组件 | 功能点 |
 |---|---|---|
 | 应用骨架 | `AppShell` | 三栏布局（侧栏/对话/右栏）、左右栏拖拽调宽与持久化（`panel-layout`）、全局键盘快捷键（`useKeyboardShortcuts`）、主题 light/dark/system（`useTheme`）、i18n（en/zh-CN/zh-TW，`useI18n`）、视口高度（`useViewportHeight`）、声音开关（`useAudio`）、页内 Notice 队列 + 浏览器 Notification、PWA 注册（`PwaRegistration`）、移动端布局（`MobilePwaLayout`）、多页签会话记忆（`tab-session` / `initial-navigation` / `workspace-memory`）、草稿箱（`draft-store` + `rekeyDraft`）、`/login` 登录页 |
 | 左侧栏 | `SessionSidebar`（2 478 行） | 项目分组与最近项目（`project-groups`）、worktree 切换器与创建（`/api/worktrees`）、会话家族聚簇（`session-family`，**pi-boat 延后**）、会话列表窗口化（54px 定高行）、会话搜索（`SessionSearch` + `session-search`）、行内重命名/删除/导出/复制会话信息（右键菜单）、文件树（`FileExplorer` + `FileIcons` + `file-dirent`）、新建会话（`DirectoryPicker` + `directory-browser` + `cwd/validate`）、git 状态徽标 |
@@ -32,73 +31,58 @@ pi-web 是单路由 Next.js 应用：`app/page.tsx → AppShell`（2 544 行 god
 
 **ChatInput**：多行自动增高、图片附件（`image-attachments`，base64 进 `prompt.images`）、输入历史 ↑↓、`@` 文件提及（`file-fuzzy` + `/api/file-index`）、`/` 斜杠命令（`get_commands` + `slash-display`，含技能扩展）、`!` bash 直连（**pi-boat 排除**）、引用回复、steer / followUp 两种排队发送、compact context 与 stop compaction、模型选择器（`ModelSelector` + `ProviderIcon`）、思考档位菜单、工具预设（`tool-presets` + `tool-preset-preference`）、发送↔停止、更多控制浮层。
 
-### 1.3 状态与数据层（`useAgentSession` 2 463 行 + `lib/agent-client`）
+### 1.3 状态与数据层（`useAgentSession` 2 463 行 +）
 
 SSE 连接管理（`agent-event-connection` / `agent-event-stream` / `agent-event-wire`：seq 对账、重连、idle 宽限）、命令发送、事件→UI 状态折叠、分支树维护、lease 续期（30s）、notices、模型列表加载与重试、系统提示词/工具懒加载、会话统计轮询、prompt 提交恢复（`prompt-recovery`）、`!bash` 执行（排除）。
 
 > **就绪度**：以上除 §5 排除项外，后端 55 端点 / 24 命令 / 27 类 wire 事件**全部就绪**（`docs/07` §1）。
-> 唯一后端缺口 G2-11（启动偏好落盘）用前端 localStorage 绕过（同 pi-web 的 `startup-preferences`，见 §6-4）。
+> 唯一后端缺口 G2-11（启动偏好落盘）用前端 localStorage 绕过（本仓自持，见 §6-4）。
 
 ---
 
-## 2. 复用策略：三分法
+## 2. 模块落位：三分法
 
-pi-web 前端 ≈ 28 700 行（components + hooks + app）。不能整包搬：它是 Next.js + 手写 CSS 变量体系 +
-`fetch` 直连 + 自有 `lib/types.ts`；本仓是 Vite SPA + Tailwind v4/shadcn + `@ice-ai/protocol` 契约 +
-client 统一 HTTP 层。复用按三类处理，**每个移植文件头部注明 `// Ported from pi-web (MIT): <相对路径>`**（MIT 保留版权声明）。
+前端按三类落位，依赖方向遵守 AGENTS.md 铁律（`apps/*` → client → protocol；`apps/server` → core → protocol），
+`ui` 不依赖任何宿主框架。许可与来源声明统一记入 `THIRD_PARTY_NOTICES.md`，不在每个文件重复。
 
-### 2.1 A 类：纯逻辑直接移植（约 40 个 lib 模块 → client / ui，测试一并转 Vitest）
+### 2.1 A 类：框架无关逻辑 → `packages/client`（纯函数，测试先行）
 
-与框架无关、与视觉无关的算法/状态模块，改 import（`lib/types` → `@ice-ai/protocol`）后即可用；
-pi-web 的 `.test.mjs`（node:test 风格）改写为 Vitest 用例，**先移植测试再移植实现**（锁行为）。
+| 域 | 落位 | 备注 |
+|---|---|---|
+| 事件折叠与重建 | `client/src/stream/`（fold / rebuild / group-trail + seq 水位线） | 形状以 `docs/05` §6 为准 |
+| 分支树派生 | `client/src/view-models/`（分支页签数据源） | 会话家族聚簇不做（§5） |
+| 会话列表与统计 | `client/src/view-models/session-list.ts` / `session-stats.ts` / `session-list-window.ts` | 54px 定高窗口化；stats 口径对齐 core `computeStats`（ADR-0010） |
+| 滚动 / 懒加载 / minimap | `client/src/view-models/chat-lazy-load.ts` / `minimap.ts` | 吸附模型见 `docs/06` §8.2 |
+| 输入辅助 | `client/src/input/`（`slash-commands.ts` / `input-history.ts`）+ `files/file-fuzzy.ts` | `@` / `/` 候选与游标行为 |
+| 主题与对话外观 | `client/src/view-models/theme.ts` / `chat-appearance.ts` | 调色板 id + `data-theme` 落地 |
+| 文件域纯逻辑 | `client/src/files/`（路径编码 / 类型判定 / 页签 state / 统一 diff） | Range / DOCX 不做（`docs/07` §9） |
+| 模型域纯逻辑 | `client/src/view-models/models.ts` | 前端镜像须对齐 ADR-0011（glob 陷阱、最小编辑、最后模型 409） |
+| 布局与记忆 | `client/src/layout/panel-layout.ts` + `apps/web/src/services/` | 偏好持久化统一 `usePersistentPref`（`docs/06` §8.5） |
 
-| 域 | pi-web 模块 | 落位 | 备注 |
-|---|---|---|---|
-| 事件折叠 | `agent-event-wire` / `agent-event-stream` | `client/src/stream/`（docs/05 §6 已定 fold/rebuild 形状） | **以 docs/05 规格为准**，pi-web 作参照对照物 |
-| 分支树 | `session-tree` / `search-tree` | `client/src/view-models/` | BranchNavigator 数据源；`session-family` **不移植**（聚簇延后） |
-| 会话元数据 | `session-title` / `session-stats` / `session-timing` / `session-view-cache` / `session-revision` | `client/src/view-models/` | stats 口径对齐 core `computeStats`（ADR-0010） |
-| 项目分组 | `project-groups` / `project-identity` | `client/src/view-models/` | 对齐本仓 `projectKey`/`listFingerprint`（ADR-0008） |
-| 滚动/懒加载 | `chat-scroll-position` / `chat-lazy-load` | `client/src/view-models/`（纯函数） | 吸附模型已定（docs/06 §8.2），pi-web 版作参照 |
-| 输入辅助 | `file-fuzzy` / `quoted-selection` / `prompt-recovery` / `draft-store` / `image-attachments` / `slash-display` / `tool-presets` / `tool-preset-preference` / `tool-call-expansion` / `thinking-expansion-preference` | `client/src/input/` | `tool-presets` 的 `default` 集以 core 解析结果为准（G2-9） |
-| 渲染辅助 | `message-display` / `streaming-message` / `compaction-summary` / `turn-written-files` / `session-file-references` / `tool-names` / `ansi` | `ui/src/chat/` 同级 `helpers/` | 纯展示派生，不进 client |
-| Markdown | `markdown` / `apply-patch` / `patch` | `ui/src/chat/helpers/` | 渲染走 react-markdown + shiki + rehype-sanitize（ADR-0009） |
-| 布局/记忆 | `panel-layout` / `workspace-memory` / `tab-session` / `initial-navigation` / `settings-navigation` | `apps/web/src/services/` | 偏好持久化统一 `usePersistentPref`（docs/06 §8.5） |
-| 文件域 | `file-types` / `file-dirent` / `file-paths` / `file-viewer-state` / `file-explorer-state` / `text-preview` / `directory-browser` / `file-links` | `client/src/files/`（类型/路径）+ `ui/src/files/`（视图态） | Range/DOCX/分块不做（docs/07 §9） |
-| 模型域 | `model-catalog` / `enabled-models` / `model-scope` / `models-cache` | `client/src/models/` | 前端镜像须对齐 ADR-0011（glob 陷阱、最小编辑、最后模型 409） |
+### 2.2 B 类：组件层 → `packages/ui`
 
-**不移植**（服务端域，pi-boat 已在 core 实现）：`session-reader*`、`session-list-scanner`、`session-path`、
-`terminal-manager` / `terminal-client` / `terminal-input`、`rpc-manager*`、`web-push` / `push-client`、
-`web-auth*` / `auth-throttle` / `login-destination`、`provider-credential-store` / `provider-usage*`、
-`subagent-*` 全组、`app-update`、`bash-output`、`exact-system-prompt`、`models-config-store`、
-`enabled-models-runtime`（后端已有）、`git-status` / `worktree`（后端已有）、其余 `*.route` / server 侧工具。
+组件只依赖 `protocol` 类型与 `client` hooks。JSX 结构、状态机、键盘/焦点行为、aria 属性按统一设计规范实现；
+类名与 token 走 `packages/ui/src/theme.css` 与 `styles/{web-ui,settings,utilities}.css`。
+改造组件时顺手完成 `docs/06` §9.2 的无障碍补齐与 §10 的原型待修项。
 
-### 2.2 B 类：行为参照、视觉照抄（组件层）— 口径由 ADR-0020 修订
+### 2.3 C 类：不做（排除域，见 §5）
 
-pi-web 的 CSS（`globals.css` 手写类 + CSS 变量）与本仓体系（Tailwind v4 + shadcn + 原型 token）不兼容，
-原定基准是 `docs/design/piboat-web-v3.html` 原型（hairline/superellipse/#4176E6）——**ADR-0020 已推翻**：
-视觉基准改为 pi-web 自身（`app/globals.css` 的变量 + 组件内联样式），组件层结构与样式逐条照抄。
-因此组件层**移植交互与结构、不移植样式**：JSX 结构、状态机、键盘/焦点行为、aria 属性参照 pi-web；
-类名与视觉按 docs/06 token 重写。重写时顺手完成 docs/06 §9.2 的无障碍补齐与 §10 的原型待修项。
-
-### 2.3 C 类：不移植（排除域，见 §5）
-
-终端组（`TerminalPanel` / `terminal-tab-state` / xterm 依赖）、登录（`/login`）、PWA 组
-（`PwaRegistration` / `MobilePwaLayout` / `manifest` / `push-client`）、`ProviderUsageSummary`、
-`AgentsConfig`（子代理延后，§8-4）、app-update 提示、`custom` 扩展 UI method（ADR-0012 只做 9 个 method）。
+终端（PTY / xterm / `TerminalPanel`）、登录与鉴权（`/login`、`web-login-*`）、PWA 与推送、Provider 用量面板、
+子代理（含会话家族聚簇）、移动端布局；扩展 UI 的 `custom` method 也不做（ADR-0012 只做 9 个 method）。
 
 ### 2.4 状态架构改造（AppShell 反模式的教训）
 
-pi-web 把 ~30 个 `useState` 全塞在 AppShell + 一个 2 463 行 hook 里。本仓按既定架构拆解
+「单组件承载全部状态」的写法（~30 个 `useState` + 2 000+ 行 hook）不可移植。本仓按既定架构拆解
 （docs/05 §7 已定骨架，这里补完整映射）：
 
-| pi-web 状态 | pi-boat 落位 | 说明 |
+| 状态域 | 本仓落位 | 说明 |
 |---|---|---|
 | 当前会话 / 页签 / 初始导航 | React Router v7（库模式）+ `apps/web` 路由 context + `tab-session` | URL 形态见 §6-5 |
 | SSE 事件流 → UI 状态 | `client/stream/AgentStream`（`useSyncExternalStore`） | docs/05 §5–6 已定，`useAgentSession` 的流部分收敛于此 |
 | REST（列表/详情/模型/文件/git） | TanStack Query（`client/react/queries.ts`） | 只管 REST，事件流不入 Query（ADR-0009） |
 | 命令发送（prompt/set_model/fork…） | `client/react/use-session-commands.ts` | 命令面 = protocol 24 条 |
 | lease 续期 / 重连 / notices | `client/react/use-agent-session.ts`（编排层） | 薄编排，不再折叠事件 |
-| 布局宽度 / 面板开关 / 偏好 | `apps/web` context + `usePersistentPref` | `panel-layout` 移植后归 web |
+| 布局宽度 / 面板开关 / 偏好 | `apps/web` context + `usePersistentPref` | `panel-layout` 落地后归 web |
 | 主题 / 声音 / 快捷键 / 通知 | `apps/web/src/services/` | ui 只出受控组件 |
 | 会话内 UI 态（折叠/展开/宽度） | 组件局部 state + 偏好 hook | 不上全局 store |
 
@@ -185,11 +169,11 @@ src/
 
 ---
 
-## 5. 与 pi-web 的有意差异（防反复重建清单）
+## 5. 有意差异与排除域（防反复创建清单）
 
 > 与 `docs/07` §8 的排除域一一对应；**不是缺口**，前端不得自行补回（补回须先推翻对应 ADR）。
 
-| # | pi-web 功能 | pi-boat 一期 | 依据 |
+| # | 功能 | 本仓一期 | 依据 |
 |---|---|---|---|
 | 1 | 终端页签（PTY / xterm） | ❌ 不做；右栏只有文件页签 | §8-3 |
 | 2 | `!`/`!!` bash 直连输入 | ❌ 不做（后端无 `bash`/`abort_bash` 命令）；输入框对 `!` 前缀按普通文本处理 | §8-3 |
@@ -202,33 +186,33 @@ src/
 | 9 | 设置 agents 节（`AgentsConfig`） | ⏸ 延后（子代理整体延后，可由扩展提供） | §8-4 |
 | 10 | 会话家族聚簇（`session-family`） | ⏸ 延后；子代理会话以普通会话呈现（带 `parentSession` 元数据） | §8-4 |
 | 11 | DOCX 预览 | ❌ 后端不做转换；FileViewer 走文本回退 | docs/07 §9 |
-| 12 | 扩展 UI `custom` method（自绘终端 UI） | ❌ 只做 9 个 method（ADR-0012）；`ExtensionWidgets` 的 custom 分支不移植 | ADR-0012 |
+| 12 | 扩展 UI `custom` method（自绘终端 UI） | ❌ 只做 9 个 method（ADR-0012）；`ExtensionWidgets` 的 custom 分支不落地 | ADR-0012 |
 | 13 | 桌面目录选择（`piDesktop.selectDirectory`） | ❌ 二期；DirectoryPicker 走 `/api/cwd/browse` | M4 |
-| 14 | i18n 三语 | ✅ **已定案（2026-09-26 推翻原「zh-CN 单语」）**：做 en / zh-CN / ja 三语，走 pi-web 的 registry 架构（§6-1） | — |
+| 14 | i18n 三语 | ✅ **已定案（2026-09-26 推翻原「zh-CN 单语」）**：做 en / zh-CN / ja 三语，走设计规范的 registry 架构（§6-1） | — |
 | 15 | 启动偏好（`defaultModel` 落盘） | 前端 localStorage 绕过（§6-4） | G2-11 |
 
 ---
 
-## 5.1 ADR-0020 视觉复刻的剩余清单（按此表推进，完成项删行）
+## 5.1 视觉规范落地剩余清单（按此表推进，完成项删行）
 
-> 基准 = pi-web 本机快照（0.9.x）。CSS 层已逐字搬运完毕（`styles/pi-web.css` / `styles/settings.css`），
+> 基准 = 统一 Web 设计规范（0.9.x 快照）。CSS 层已完全收录（`styles/web-ui.css` / `styles/settings.css`），
 > 下面剩的是**组件 DOM + 类名**要换成同一批类；类已存在但组件未用，所以视觉还未到位。
 
-| # | 域 | 要做的事（pi-web 对照） | 状态 |
+| # | 域 | 要做的事 | 状态 |
 |---|---|---|---|
-| 1 | 设置壳 | ✅ 已做：顶部横向 tab（`settings-section-tabs/-tab`）+ `settings-dialog-*` 外壳 + `×` 关闭键 + 节常驻挂载（`settings-section-host`）；`SettingsUi` 全族（`config-*`）已移植（`settings-ui.tsx`） | ✅ 完成 |
-| 2 | 通用节 | ✅ 已做：外观 + 对话（思考默认展开 / 内容宽 / 字号 range）+ 语言节（三语 radiogroup）；「工具 / 关于 / 项目信任」三节按 pi-web 移出（信任改 `ProjectTrustDialog`） | ✅ 完成 |
+| 1 | 设置壳 | ✅ 已做：顶部横向 tab（`settings-section-tabs/-tab`）+ `settings-dialog-*` 外壳 + `×` 关闭键 + 节常驻挂载（`settings-section-host`）；`SettingsUi` 全族（`config-*`）已落地（`settings-ui.tsx`） | ✅ 完成 |
+| 2 | 通用节 | ✅ 已做：外观 + 对话（思考默认展开 / 内容宽 / 字号 range）+ 语言节（三语 radiogroup）；「工具 / 关于 / 项目信任」三节按设计规范移出（信任改 `ProjectTrustDialog`） | ✅ 完成 |
 | 3 | 模型节 | `models-sidebar-*` / `enabled-models-*` / `config-list-action-button` 结构 | ⬜ 未做 |
 | 4 | Skills / 扩展包节 | `skill-*` / `config-detail-*` / `config-button-*` 结构 | ⬜ 未做 |
 | 5 | 目录选择器 | `directory-picker-*` 类（组件已存在，类名待换） | ⬜ 未做 |
-| 6 | 代码块 / 文件查看器 | pi-web 用 `react-syntax-highlighter`（Prism、`vs`/`vscDarkPlus`）+ `showLineNumbers`；本仓现用 shiki 且无行号——颜色与行号都不一样 | ⬜ 未做（需换依赖） |
+| 6 | 代码块 / 文件查看器 | 设计规范用 `react-syntax-highlighter`（Prism、`vs`/`vscDarkPlus`）+ `showLineNumbers`；本仓现用 shiki 且无行号——颜色与行号都不一样 | ⬜ 未做（需换依赖） |
 | 7 | Markdown | `markdown-frontmatter*`（frontmatter 卡片）、`markdown-custom-message`、`markdown-compaction-message` + `compaction-file-*`、`markdown-file-preview`、`markdown-table-wrap`、`.markdown-user-message` | ⬜ 未做 |
 | 8 | 对话流 | 🟡 部分：`chat-scroll-to-bottom.is-visible` 已归位（BUG-1）、工具条补「完整历史 / 生成标题」+ 右侧 tokens/cost/context 统计按钮（T1-3/S4）；`chat-stats-center` / `chat-input-textarea` 归位、面板改 `position:fixed` 下拉（T1-6）未做 | 🟡 部分 |
 | 9 | 文件域 | 🟡 部分：`file-panel-expand-button` + 隐藏按钮已归位（BUG-3，桌面可关右栏）；`file-viewer-mode-switch` / `-load-more` / `-live-indicator`、`image-preview-dialog` 灯箱、`catppuccin-file-icon`（需图标资源）未做 | 🟡 部分 |
-| 10 | 布局容器 | `sidebar-container`（现为 `<aside>` + `border-r`：内容宽 259 vs pi-web 260）/ `right-panel-container` / `panel-resize-handle`（pi-web 用它画分隔线，不在容器上描边）/ `sidebar-section-resize-handle` / `*-overlay-backdrop` + `scrollbar-subtle` | ⬜ 未做（已实测差异） |
+| 10 | 布局容器 | `sidebar-container`（现为 `<aside>` + `border-r`：内容宽 259 vs 设计规范 260）/ `right-panel-container` / `panel-resize-handle`（设计规范用它画分隔线，不在容器上描边）/ `sidebar-section-resize-handle` / `*-overlay-backdrop` + `scrollbar-subtle` | ⬜ 未做（已实测差异） |
 | 11 | 扩展货架 | `extension-widget-placement(-icon)` / `extension-widget-update-pulse` / `is-updating` | ⬜ 未做 |
 | 12 | 字体 | ✅ 已做：`@fontsource-variable/noto-sans-mono` 提供 `--font-noto-mono`，实测同串同宽（134.41px @14px）。**坑**：`var(--font-noto-mono)` 未定义会让整条 `font-family` 声明在计算期失效（等宽静默回落成 sans），不是回落到下一个字体 | ✅ 完成 |
-| 13 | 侧栏底栏 | 三按钮已对齐（✅）；health 指示器仍在 `chat-pane`（pi-web 无此件，待确认去留） | 🟡 部分 |
+| 13 | 侧栏底栏 | 三按钮已对齐（✅）；health 指示器仍在 `chat-pane`（设计规范无此件，待确认去留） | 🟡 部分 |
 
 ---
 
@@ -236,16 +220,16 @@ src/
 
 | # | 议题 | 结论 | 否决的备选 |
 |---|---|---|---|
-| 1 | **i18n 范围** | ✅ **en / zh-CN / ja 三语**（2026-09-26 推翻原「zh-CN 单语」决策）：基建照抄 pi-web `lib/i18n/{types,registry,format}` + `useI18n`，落位 `packages/ui/src/i18n/`；语言包 `messages/{en,zh-CN,ja}.ts`（en/zh-CN 自 pi-web 拷贝并扣除排除域 89 key，ja 独立撰写）；`localStorage` key = `pi-locale`；语言选择器在「设置 → 通用 → 语言」；新增 Vitest 断言三语 key 集合与占位符一致 | 原：zh-CN 单语、文案集中 `ui/src/locales/zh-cn.ts`、不引框架 |
+| 1 | **i18n 范围** | ✅ **en / zh-CN / ja 三语**（2026-09-26 推翻原「zh-CN 单语」决策）：基建为 `i18n/{types,registry,format}` + `useI18n`，落位 `packages/ui/src/i18n/`；语言包 `messages/{en,zh-CN,ja}.ts`（en/zh-CN 按既有文案整理并扣除排除域 89 key，ja 独立撰写）；`localStorage` key = `pi-locale`；语言选择器在「设置 → 通用 → 语言」；新增 Vitest 断言三语 key 集合与占位符一致 | 原：zh-CN 单语、文案集中 `ui/src/locales/zh-cn.ts`、不引框架 |
 | 2 | **深色主题时点** | ✅ 随 F5 交付（修订 docs/06「M1 不支持」的时点）：light/dark/system 三态，原型 dark token 即预留 | 维持「M2」，一期只亮色 |
 | 3 | **ui 容器例外登记** | ✅ 登记 5 处（SessionSidebar/SettingsPanel/FileViewer/ExtensionWidgets/**I18n**）：`I18nProvider`/`useI18n` 必须放 `packages/ui`（约 60 个 ui 组件直接调 `t()`，走 props 下传不现实；与 `theme.css` 放 ui 同源） | 全部哑组件、props 由 web 装配；i18n 放 packages/client |
 | 4 | **G2-11 绕过** | ✅ 前端 `startup-preferences.ts`（localStorage 记住上次 model/thinking/cwd）；core 落盘**不做**（G2-11 保持非阻塞缺口） | 一并补 core（`setDefaultModelAndProvider()`） |
-| 5 | **URL 形态** | ✅ 单路由 `/` + `?s=<sessionId>`（对齐 pi-web searchParams 模式；设置/面板浮层不占路由） | `/session/:id` 路由化（与 tab-session 冗余） |
-| 6 | **视觉基准** | ✅ 功能对齐 pi-web、视觉走本仓原型 v3（docs/06 既定）——「一样的页面功能」不含像素对齐 → **已被 ADR-0020 推翻**：视觉基准改为 pi-web 自身 | 视觉也对齐 pi-web（须推翻原型 v3）→ 已采纳 |
+| 5 | **URL 形态** | ✅ 单路由 `/` + `?s=<sessionId>`（按设计规范 searchParams 模式；设置/面板浮层不占路由） | `/session/:id` 路由化（与 tab-session 冗余） |
+| 6 | **视觉基准** | ✅ 功能按设计规范、视觉走本仓原型 v3（docs/06 既定）——「一样的页面功能」不含像素对齐 → **已被 ADR-0020 推翻**：视觉基准为统一设计规范 | 视觉也按设计规范（须推翻原型 v3）→ 已采纳 |
 
 ---
 
-## 7. 风险与坑（移植前必读）
+## 7. 风险与坑（落地前必读）
 
 - **React StrictMode 双挂载**：SSE effect 会先清理再重跑，「组件已挂载」ref 约束（docs/07 §7 事件/流 ★1）
 - **不在第一个 `agent_end` 关流**：重试/压缩/扩展排队都可能延续同一逻辑轮次（docs/07 §7 ★2）
@@ -253,10 +237,10 @@ src/
 - **HTTP/1.1 同域 6 连接上限**：一页多会话多页签并发 SSE 会吃紧（docs/01 §8-7；一期 F2 后实测）
 - **窗口化列表**：会话列表 54px 定高窗口化（`getSessionListIndices`），文件树同理；不窗口化几千会话会卡
 - **模型域前端镜像**：`provider/*` 不覆盖嵌套 id、禁用最后模型 409、最小编辑不整表重写（ADR-0011 坑清单）
-- **图片附件上限**：base64 进 `prompt.images`，与 `/api/files` 上传 25MB 是两条通道；移植 `image-attachments` 时核对其体积约束与本仓 protocol `ImagesSchema` 一致
+- **图片附件上限**：base64 进 `prompt.images`，与 `/api/files` 上传 25MB 是两条通道；做图片附件时，其体积约束须与本仓 protocol `ImagesSchema` 一致
 - **Markdown 安全**：禁止裸 `dangerouslySetInnerHTML`，统一 react-markdown + rehype-sanitize（ADR-0009）；Mermaid/KaTeX 按需懒加载防首屏膨胀
 - **折叠展开规则**：`userToggled` 标记不得被自动收起覆盖；分组只认消息序列不认 turn 事件（docs/05 §6.5 硬约束）
-- **pi-web 快照漂移**：pi-web 0.9.x 仍在演进，移植期以本机快照为准，不追上游；后续想同步须逐模块 diff
+- **设计规范快照漂移**：设计规范 0.9.x 仍在演进，落地期以本机快照为准，不追上游；后续想同步须逐模块 diff
 - **导出长会话**：`exportFromFile` 疑似递归，5000+ 条目可能爆栈（docs/07 §9 未实测项）——前端下载侧无解，碰到再报
 
 ---

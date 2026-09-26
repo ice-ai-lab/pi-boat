@@ -7,7 +7,7 @@
 
 ## 背景
 
-B7 从上游实现（pi-web）移植了 Web Push 的**投递侧**：`core/src/agent/push-service.ts`（266 行，VAPID 密钥
+B7 从上游实现（设计规范）落地了 Web Push 的**投递侧**：`core/src/agent/push-service.ts`（266 行，VAPID 密钥
 生成与持久化、订阅表落盘、`deliver()` 投递、`web-push` 可选依赖降级）、`server/src/routes/push.ts`
 （两个端点）、protocol 的三个 schema，以及 core 的 `AgentSessionService.onSettled` 钩子。当时登记为
 G2-13「✅ 已落地」。
@@ -37,7 +37,7 @@ G2-13「✅ 已落地」。
 
 另外两点与定位冲突：Web Push 要求 **server 主动出网** POST 到 Google / Mozilla / Apple 的推送服务，
 而本仓的定位是纯本地、无凭据、不出网；且现状代码若被直接接线会踩上游已踩过的坑——
-默认 VAPID subject `mailto:piboat@localhost` 被 Apple 以 `403 BadJwtToken` 拒绝（pi-web 的注释记录了该故障，
+默认 VAPID subject `mailto:piboat@localhost` 被 Apple 以 `403 BadJwtToken` 拒绝（设计规范的注释记录了该故障，
 故其默认值改为项目主页 URL）。
 
 ## 决策
@@ -63,7 +63,7 @@ G2-13「✅ 已落地」。
 | 保留代码，等前端接线 | ❌ 放弃 | 现状是**死码**：对外零效果，对内让人以为功能存在（比没有更糟）。接线前还得先修 VAPID subject 与 payload |
 | 保留并补齐（`web-push` 依赖 + SW + `url`/会话名） | ❌ 放弃 | 前提是「这个功能重要」；实际收益场景窄（见背景 3），代价是重新引入出网依赖与 service worker 生命周期 |
 | 只删投递侧、保留两个订阅端点 | ❌ 放弃 | 订阅收得下、发不出去 = 留一个陷阱端点，且仍要维护订阅表落盘 |
-| 用 pi-web 的实现重写（`lib/web-push.ts` 200 行 + 18 条测试，质量更高） | ❌ 放弃 | 问题不在实现质量而在价值判断，重写不改变结论 |
+| 用设计规范的实现重写（200 行 + 18 条测试，质量更高） | ❌ 放弃 | 问题不在实现质量而在价值判断，重写不改变结论 |
 | 用前端页内通知 + 提示音替代（不做后台投递） | ⚠️ 部分采纳 | 这是**前端**体验项（`docs/01` §6 保留「浏览器通知」与「完成提示音」），不需要服务端参与；仅覆盖页面存在时 |
 
 ## 后果
@@ -72,16 +72,16 @@ G2-13「✅ 已落地」。
 
 - 少 266 + 73 行与两族端点、3 个 schema、1 个 core 钩子；不再有死码
 - **网络边界更干净**：本地产品不再保留一个「必须出网到第三方推送服务」的能力，与 ADR-0007 / ADR-0014 的定位一致
-- 删掉了一份会踩 Apple `403 BadJwtToken` 的实现（若将来重做，从上游搬运比从这份改更省事）
+- 删掉了一份会踩 Apple `403 BadJwtToken` 的实现（若将来重做，从上游收录比从这份改更省事）
 
 **负面 / 已知风险**
 
 - 用户离开屏幕时不会被告知任务完成，唯一替代是**页面存在时的**页内通知 + 提示音
 - 「浏览器在后台运行但标签页全关」这一场景**明确放弃**（若不接受这一点，就不该采纳本决策）
 - 将来重做的成本不是零：VAPID 私钥必须持久化（换了私钥旧订阅全部失效）、订阅表 `0600`、410 清理、
-  可选依赖降级——这些是 Web Push 的固有成本，与实现无关。**重做时从上位实现搬运**
-  （pi-web：`lib/web-push.ts`、`lib/push-client.ts`、`components/PwaRegistration.tsx`、`public/sw.js`、
-  `lib/browser-notifications.ts` 及各自测试），不要从零设计
+  可选依赖降级——这些是 Web Push 的固有成本，与实现无关。**重做时从上位实现收录**
+  （设计规范：、、、、
+  及各自测试），不要从零设计
 - 若将来的真实需求是「**浏览器完全退出**也要通知」，注意 Web Push 在桌面端到不了——那是 Electron / 原生
   通知（`apps/desktop`，M4）的职责，不要用 Web Push 去凑
 

@@ -136,8 +136,8 @@ pi-boat/
 - 只依赖 `protocol` 类型与 `client` hooks，不依赖任何宿主框架（Next.js / Electron 等）→ Web 与桌面端直接复用
 - Tailwind 4 + token 单一来源 `ui/theme.css`（`:root` / `[data-theme="dark"]` 两套变量，经 `@theme inline`
   暴露给 Tailwind；暗色不得写死在 `@theme` 里）
-- **视觉与交互基准 = pi-web 自身（ADR-0020，2026-01）**：`packages/ui/src/theme.css` 照抄 pi-web 的运行变量，
-  组件层结构与样式照抄 pi-web 源码；旧原型 `docs/design/piboat-web-v3.html`（0.5px hairline / superellipse / #4176E6）已退役（docs/06 §2）
+- **视觉与交互基准 = 统一 Web 设计规范（ADR-0020，2026-01）**：`packages/ui/src/theme.css` 采用规范的运行变量，
+  组件层结构与样式逐条对齐；旧原型 `docs/design/piboat-web-v3.html`（0.5px hairline / superellipse / #4176E6）已退役（docs/06 §2）
 
 ### 3.2 拆包策略：先粗后细
 
@@ -484,6 +484,6 @@ type WireAgentEvent =
 
 ---
 
-*详细设计按包推进：《core 详细设计》见 `docs/03-core-design.md`（✅ 一期已落地）、《server 详细设计》见 `docs/04-server-design.md`（✅ 一期已落地）、《client 详细设计》见 `docs/05-client-design.md`、《ui 详细设计》见 `docs/06-ui-design.md`（后两篇为开工前设计稿，随 Web 原型 v3 定稿，代码未开工）；**前端一期实施规划（对齐 pi-web 页面功能、复用策略与 F0–F5 批次）见 `docs/08-web-frontend-plan.md`**（2026-09-27 提案，§6 待决策项确认后生效）；视觉/交互基准为 `docs/design/piboat-web-v3.html`。协议契约以 `docs/02-protocol-inventory.md` 为准（覆盖产品全量 API 面）。**一期后端能力全集的审查与补齐批次见 `docs/07-backend-capability-gap.md`**（它包含已完成的 B0–B7 记录、仍存边界与排除项；排除项见 ADR-0014）。*
+*详细设计按包推进：《core 详细设计》见 `docs/03-core-design.md`（✅ 一期已落地）、《server 详细设计》见 `docs/04-server-design.md`（✅ 一期已落地）、《client 详细设计》见 `docs/05-client-design.md`、《ui 详细设计》见 `docs/06-ui-design.md`（后两篇为开工前设计稿，随 Web 原型 v3 定稿，代码未开工）；**前端一期实施规划（页面功能范围、复用策略与 F0–F5 批次）见 `docs/08-web-frontend-plan.md`**（2026-09-27 提案，§6 待决策项确认后生效）；视觉/交互基准为 `docs/design/piboat-web-v3.html`。协议契约以 `docs/02-protocol-inventory.md` 为准（覆盖产品全量 API 面）。**一期后端能力全集的审查与补齐批次见 `docs/07-backend-capability-gap.md`**（它包含已完成的 B0–B7 记录、仍存边界与排除项；排除项见 ADR-0014）。*
 
 **当前唯一待办：前端三包（client / ui / web）。** 后端不需要任何等项：55 个端点 / 24 条命令 / 27 类 wire 事件均已实现并有测试。

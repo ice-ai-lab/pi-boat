@@ -67,7 +67,7 @@ packages/config/  typescript-config（Biome 配置在根 biome.json，见 ADR-00
 
 - 架构级变更（进程模型、传输协议、依赖规则、包结构）→ 先读相关 ADR，定案后新增 `docs/adr/NNNN-*.md`（编号递增，格式见 0001），并同步更新 `docs/adr/README.md` 索引
 - 概要设计与代码不一致时：以代码为准，并当天更新文档
-- 文档文件名一律英文 kebab-case：`docs/NN-slug.md`、`docs/adr/NNNN-slug.md`；内容中文，不做双语维护（评估过 deepseek-harness 的双语 + 门禁体系后定案暂不引入，2026-09-18）
+- 文档文件名一律英文 kebab-case：`docs/NN-slug.md`、`docs/adr/NNNN-slug.md`；内容中文，不做双语维护（评估过其他同类项目的双语 + 门禁体系后定案暂不引入，2026-09-18）
 
 ## 维护
 

@@ -344,7 +344,7 @@
   <h2 id="s2">2. 事件系统全景</h2>
 
   <h3>表 1：<code>AssistantMessageEvent</code> —— pi-ai，LLM token 流（12 种）</h3>
-  <div class="note">描述"一条 assistant 消息是怎么逐字长出来的"。除 <code>done/error</code> 外，每个事件都携带 <code>partial</code>（累积到当前时刻的半成品消息快照，UI 可直接渲染）。</div>
+  <div class="note">描述"一条 assistant 消息是怎么完全长出来的"。除 <code>done/error</code> 外，每个事件都携带 <code>partial</code>（累积到当前时刻的半成品消息快照，UI 可直接渲染）。</div>
   <div class="tbl-wrap">
   <table class="t4a">
     <thead>
@@ -481,7 +481,7 @@
   <!-- ============ 3 ============ -->
   <h2 id="s3">3. pi.on 全部 36 个事件</h2>
   <div class="note">
-    <p>定义：<code>packages/coding-agent/src/core/extensions/types.ts:1252-1301</code>（<code>ExtensionAPI.on</code> 重载）。</p>
+    <p>定义：<code>packages/coding-agent/src/core/extensions/types.ts</code>（<code>ExtensionAPI.on</code> 重载）。</p>
     <p>Handler 签名统一为 <code>(event, ctx: ExtensionContext) =&gt; Result | void</code>。<span class="star">★</span> = Agent 等待返回值并能改变行为。</p>
   </div>
 
@@ -699,7 +699,7 @@ agent.clearAllQueues(); agent.hasQueuedMessages();
 agent.abort(); await agent.waitForIdle(); agent.reset();
 agent.state;  // { systemPrompt, model, thinkingLevel, tools, messages, isStreaming, pendingToolCalls... }</code></pre>
 
-  <h3>6.2 <code>AgentSession</code>（pi-coding-agent，<code>agent-session.ts:310</code>）</h3>
+  <h3>6.2 <code>AgentSession</code>（pi-coding-agent，<code>agent-session.ts</code>）</h3>
   <div class="tbl-wrap">
   <table class="t2b">
     <thead>
@@ -820,7 +820,7 @@ export const timeExtension: ExtensionFactory = (pi) =&gt; {
   </ul>
 
   <h3>8.2 HarnessEvent（28 种 payload）</h3>
-  <div class="note">定义：<code>packages/agent/src/harness/agent-harness.ts:255-373</code>。lane 事件携带 <code>lane</code> 字段。</div>
+  <div class="note">定义：<code>packages/agent/src/harness/agent-harness.ts</code>。lane 事件携带 <code>lane</code> 字段。</div>
   <div class="tbl-wrap">
   <table class="t2b">
     <thead>
