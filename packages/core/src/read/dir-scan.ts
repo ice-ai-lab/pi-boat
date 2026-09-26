@@ -38,6 +38,37 @@ export interface SessionsDirScan {
   fingerprint: string;
 }
 
+/**
+ * 按会话 id 在扫描结果里定位文件——**不解析任何正文**。
+ *
+ * 依据：SDK 建会话文件时把 id 写进文件名（`<ISO 时间戳>_<id>.jsonl`，session-manager
+ * 的 newSession / forkFrom 都这么命名）；因此「按 id 找文件」不需要读懂每个文件。
+ * 对照：SDK 的 `SessionManager.listAll()` 会解析每个 .jsonl 的头尾，本机 45 个会话
+ * 实测 ~87 ms（ADR-0008），而扫描目录元数据是 ~0.15 ms——按 id 取每个会话详情都
+ * 走 listAll 是切会话卡顿的根因（2026-09-26）。
+ *
+ * 注意：文件名只是**线索**，调用方拿到的 manager 必须再用文件头里的 id 校验
+ * （手工改名/复制过的文件可能名不符实）。真的找不到时调用方回退全量解析。
+ */
+export function findScannedSessionFile(scan: SessionsDirScan, id: string): SessionFileMeta | null {
+  for (const project of scan.projects) {
+    for (const file of project.files) {
+      if (sessionIdFromFileName(file.name) === id) return file;
+    }
+  }
+  return null;
+}
+
+/**
+ * 文件名里的会话 id：`2026-09-19T10-24-48-259Z_<id>.jsonl` 取最后一个 `_` 之后的部分；
+ * 注入的自定义布局（测试 / 单项目目录）常直接叫 `<id>.jsonl`，此时全名就是 id。
+ */
+function sessionIdFromFileName(name: string): string {
+  const stem = name.endsWith('.jsonl') ? name.slice(0, -'.jsonl'.length) : name;
+  const at = stem.lastIndexOf('_');
+  return at < 0 ? stem : stem.slice(at + 1);
+}
+
 /** 会话根目录缺省值：sessionsRoot ?? sessionDir ?? SDK 默认 ~/.pi/agent/sessions */
 export function resolveSessionsRoot(options: {
   sessionDir?: string;
@@ -78,22 +109,27 @@ export async function scanSessionsDir(sessionsRoot: string): Promise<SessionsDir
 const HEADER_READ_BYTES = 8192;
 
 /**
- * 只读会话文件首行头取 cwd（首行即 SessionHeader）——比 listAll 读全文便宜两个
- * 数量级；项目清单用（每目录一次）。头部损坏 / 无 cwd（极旧会话）→ 空串，交给
- * 上层跳过。
+ * 只读会话文件首行头（SessionHeader）——比 listAll 读全文便宜两个数量级。两个用途：
+ * 项目清单取 cwd（每目录一次）；按 id 定位会话时校验「文件名里的 id」是否名符其实
+ * （手工改名/复制的文件只能靠文件头认人）。头部损坏 / 无对应字段（极旧会话）→ 空串。
  */
-export async function readSessionCwd(path: string): Promise<string> {
+export async function readSessionHeader(path: string): Promise<{ id: string; cwd: string }> {
   let handle: Awaited<ReturnType<typeof open>> | undefined;
   try {
     handle = await open(path, 'r');
     const buffer = Buffer.allocUnsafe(HEADER_READ_BYTES);
     const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
     const firstLine = buffer.subarray(0, bytesRead).toString('utf8').split('\n', 1)[0] ?? '';
-    const parsed: unknown = JSON.parse(firstLine);
-    const cwd = (parsed as { cwd?: unknown }).cwd;
-    return typeof cwd === 'string' ? cwd : '';
+    const parsed = JSON.parse(firstLine) as { id?: unknown; cwd?: unknown };
+    return {
+      id: typeof parsed.id === 'string' ? parsed.id : '',
+      cwd: typeof parsed.cwd === 'string' ? parsed.cwd : '',
+    };
   } catch {
-    return '';
+    return { id: '', cwd: '' };
+  } finally {
+    // 不关的话每个请求漏一个 fd（原来只靠 GC 兜底）
+    await handle?.close();
   }
 }
 

@@ -188,6 +188,19 @@ agent-session.js:776/784/949）②`agent_settled` 事件幂等兜底（steer/fol
   同一 resolver 实例 ⇒ 两处 projectKey 按构造一致，server main.ts 装配）
 - `SessionReadService` —— 会话域其余全部（见下）
 
+### 7.0 按 id 定位会话文件（2026-09-26）
+
+「打开某个会话」是所有读路径的入口（详情/分页/推理/改名/删除）。定位方式是**文件名里的
+id**：SDK 建会话时命名 `<ISO 时间戳>_<id>.jsonl`（`newSession`/`forkFrom` 同款），
+所以拿到 id 只需 `readdir` + 文件名比对（`findScannedSessionFile`，~0.15 ms），
+**不必解析任何会话正文**。
+
+之前这里是 `SessionManager.listAll()`——它要读每个 .jsonl 的头尾，45 会话实测 ~87 ms。
+于是本机每一次会话详情/分页请求都付这 87 ms（与目标会话大小无关），表现为「切会话卡顿」。
+
+两道兜底（文件名只是线索，不能当权威）：① 打开后比对**文件头里的 id**，不一致则不认；
+② 文件名不带 id 的文件（手工改名/复制）回退全量解析——它读文件头，权威但贵。
+
 ### 7.1 历史分页算法（`sliceBranchWindow`）
 
 - **沿原始 parentId 父链**迭代（非递归，防爆栈）回溯，**不做压缩过滤**：历史浏览要
@@ -204,7 +217,8 @@ agent-session.js:776/784/949）②`agent_settled` 事件幂等兜底（steer/fol
 ### 7.2 其余方法
 
 - `list/search`：`SessionManager.listAll` 扫描（目录指纹缓存，ADR-0008）+ 轻量字段过滤，再对有限候选扫正文（G2-7；候选数与单文件字节数均有上限）
-- `detail`：tree/stats/context 装配；`totalActiveMs` 冷会话置 0（需运行时埋点）
+- `detail`：tree/stats/context 装配；`totalActiveMs` 冷会话置 0（需运行时埋点）。
+  入口是 §7.0 的文件名定位（不再是全量解析）
 - `rename`：`appendSessionInfo` 追加行（空白名抛 UserInputError）；运行中会话 `PATCH` 仍返 **409**（server 提示改走 `set_session_name` 命令，避免与 SDK 写盘竞争）
 - `computeStats`：对齐 SDK `getSessionStats` 聚合口径（导出的纯函数）。⚠️ **必须计入 `usage` 条目**（如 `kind: "cache_warm"` 的 prompt 缓存预热，SDK ≥ 0.86）：它不进模型上下文但计费，漏掉它 token / cost 就与 SDK `/session` 不一致；`context_edit` 条目对统计无影响（不改原始消息）
 - `delete`（docs/04 §8-2）：删除目标会话文件，返回受影响 id（**只含目标自身**，不级联

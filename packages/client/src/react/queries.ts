@@ -6,10 +6,12 @@ import type {
   PluginActionRequest,
   ProjectInfo,
   ProviderDraft,
+  SessionDetailResponse,
   SessionInfo,
   SkillPatchRequest,
   WorktreesResponse,
 } from '@ice-ai/protocol';
+import type { QueryClient } from '@tanstack/react-query';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   discoverModels,
@@ -58,6 +60,9 @@ import {
 export const queryKeys = {
   sessions: (projectKey?: string) => ['sessions', { projectKey: projectKey ?? null }] as const,
   sessionSearch: (q: string) => ['sessions', 'search', q] as const,
+  /** 会话详情：`useAgentSession.open()` 与 `useSessionDetailQuery` **共用同一个 key**，
+   *  一次切换只拉一份（见 useSessionDetailQuery 注释） */
+  sessionDetail: (sessionId: string) => ['sessionDetail', sessionId] as const,
   projects: () => ['projects'] as const,
   gitStatus: (cwd: string) => ['gitStatus', cwd] as const,
   worktrees: (cwd: string) => ['worktrees', cwd] as const,
@@ -373,12 +378,55 @@ export function useHomeQuery() {
   return useQuery({ queryKey: settingsKeys.home(), queryFn: () => getHome(), staleTime: Infinity });
 }
 
+/**
+ * 详情缓存的**新鲜窗口**。存在的唯一原因是「同一份详情的两个消费方」：
+ * `useAgentSession.open()` 重建历史要用它，`useSessionDetailQuery` 渲染分支树/统计也
+ * 要用它。两边共用同一个 query（见 `fetchSessionDetail`）后，后到的那一方会读到刚落地
+ * 的数据而不再重发一次请求。
+ *
+ * 窗口取 5 s：只需覆盖「open() 完成 → 组件挂载」这几百毫秒；轮次结束后 chat-pane
+ * 会显式 `refetch()`，改名/分支导航等写路径自带重取，不依赖窗口长短。
+ */
+export const SESSION_DETAIL_STALE_MS = 5_000;
+
+/** 会话详情的 query 定义（key + fetcher）——`useSessionDetailQuery` 与 `fetchSessionDetail` 的唯一来源 */
+function sessionDetailQuery(sessionId: string | null) {
+  return {
+    queryKey: queryKeys.sessionDetail(sessionId ?? ''),
+    queryFn: () => getSessionDetail(sessionId as string),
+  };
+}
+
+/**
+ * 命令式取会话详情——**与 `useSessionDetailQuery` 共用同一个 query**，
+ * `useAgentSession.open()` 走这里而不是裸调 `getSessionDetail`。
+ *
+ * 为什么要统一：同一次会话切换里两边都要这份数据（open() 重建历史与事件流水位线，
+ * chat-pane 渲染分支树/统计/条目数）。各调各的就是两份 payload + 两次服务端全量解析：
+ * 2026-09-26 实测切到 2.2 MB 的会话时，一次切换发了 **2–3 份 2.43 MB** 的详情
+ * （开发期 StrictMode 还会把导航 effect 再跑一遍）。共用 query 后：
+ * - open() 先到 → 写缓存，`useSessionDetailQuery` 挂载时直接读（1 次请求）
+ * - 同时到 → react-query 合并 in-flight（`Query.fetch` 返回同一个 retryer promise）
+ * - hook 先到（组件重挂载）→ open() 仍按 `staleTime: 0` 重新取，语义不变
+ *
+ * `staleTime: 0`——open() 拿到的必须是磁盘最新的一份：它要用来重建历史并取 `lastSeq`
+ * 水位线，旧快照会让这段空白里的消息被当成重复事件丢掉。
+ * `retry: false`（fetchQuery 默认）与原来的裸调用一致：404 在这里是**语义**
+ * （会话还没落盘），要立刻交给调用方的兜底分支。
+ */
+export function fetchSessionDetail(
+  queryClient: QueryClient,
+  sessionId: string,
+): Promise<SessionDetailResponse> {
+  return queryClient.fetchQuery({ ...sessionDetailQuery(sessionId), staleTime: 0 });
+}
+
 /** GET /api/sessions/:id —— 详情（含 tree/leafId/stats/info；分支导航与会话信息面板用） */
 export function useSessionDetailQuery(sessionId: string | null) {
   return useQuery({
-    queryKey: ['sessionDetail', sessionId ?? ''],
-    queryFn: () => getSessionDetail(sessionId as string),
+    ...sessionDetailQuery(sessionId),
     enabled: sessionId !== null,
     retry: false,
+    staleTime: SESSION_DETAIL_STALE_MS,
   });
 }

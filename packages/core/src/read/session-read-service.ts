@@ -28,7 +28,7 @@ import type {
 import { UserInputError } from '../agent/agent-session-service';
 import { type SdkAgentMessage, toWireAgentMessage } from '../events/wire-message';
 import type { SessionsDirScan } from './dir-scan';
-import { resolveSessionsRoot, scanSessionsDir } from './dir-scan';
+import { findScannedSessionFile, resolveSessionsRoot, scanSessionsDir } from './dir-scan';
 import type { ProjectResolverLike } from './project-resolver';
 import { ProjectResolver } from './project-resolver';
 
@@ -595,12 +595,27 @@ export class SessionReadService {
     return perDir.flat().sort((a, b) => b.modified.getTime() - a.modified.getTime());
   }
 
-  /** 按 id 定位会话文件（复用同一次扫描；M1 无索引，量大后加缓存） */
+  /**
+   * 按 id 定位会话文件并打开（详情的唯一读入口）。
+   *
+   * 快路径 = 目录扫描（~0.15 ms）+ 文件名里的 id（`findScannedSessionFile`），**不再
+   * 全量解析所有会话文件**——之前每个详情/分页/推理读取都跑一次 `listAll()`（45 会话
+   * ~87 ms），是「切会话要等半秒」的固定成本（2026-09-26 实测）。
+   *
+   * 两道兜底，只为不把「名字不老实」的文件变成 404 或错读：
+   * ① 文件头里的 id 必须与请求一致（手工改名/复制的文件可能名不符实）；
+   * ② 文件名不带 id 的（完全自定的命名）直接回退全量解析——它读文件头，权威但贵。
+   */
   private async openById(id: string): Promise<SessionManager | null> {
-    const infos = await this.listAllSessions(await scanSessionsDir(this.sessionsRoot));
-    const hit = infos.find((info) => info.id === id);
-    if (hit === undefined) return null;
-    return SessionManager.open(hit.path, this.sessionDir);
+    const scan = await scanSessionsDir(this.sessionsRoot);
+    const hit = findScannedSessionFile(scan, id);
+    if (hit !== null) {
+      const manager = SessionManager.open(hit.path, this.sessionDir);
+      if (manager.getSessionId() === id) return manager;
+    }
+    const infos = await this.listAllSessions(scan);
+    const fallback = infos.find((info) => info.id === id);
+    return fallback === undefined ? null : SessionManager.open(fallback.path, this.sessionDir);
   }
 
   private toWireInfo(info: SdkSessionInfo): SessionInfo {

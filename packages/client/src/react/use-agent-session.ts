@@ -7,6 +7,7 @@ import type {
   ToolInfo,
   ToolPreset,
 } from '@ice-ai/protocol';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
   abortAgentCompaction,
@@ -31,11 +32,12 @@ import {
   steerAgent,
 } from '../endpoints/agent';
 import { validateCwd } from '../endpoints/files';
-import { autoNameSession, getSessionContext, getSessionDetail } from '../endpoints/sessions';
+import { autoNameSession, getSessionContext } from '../endpoints/sessions';
 import { ApiError } from '../http';
 import { disposeAgentStream, getAgentStream } from '../stream/agent-stream';
 import { rebuildChatState, rebuildTurns } from '../stream/rebuild';
 import { type ChatState, emptyChatState } from '../stream/view-model';
+import { fetchSessionDetail } from './queries';
 
 /**
  * useAgentSession（docs/05 §7）：单会话编排——建会话 / 打开既有会话（历史重建 +
@@ -125,6 +127,8 @@ export function useAgentSession(): UseAgentSessionResult {
   const sessionIdRef = useRef<string | null>(null);
   /** 自愈去重：同一时刻只跑一次 revive（lease 心跳与用户动作可能同时发现会话已回收） */
   const reviveRef = useRef<Promise<void> | null>(null);
+  /** 详情走 Query 缓存：与 `useSessionDetailQuery` 共用同一份（见 fetchSessionDetail） */
+  const queryClient = useQueryClient();
   /**
    * 空态（尚未建会话）下选中的模型：`setModel` 在没有活动会话时先记在这里，
    * `start()` 建会话时经 `agent/new` 的 provider/modelId 一并生效。
@@ -202,7 +206,7 @@ export function useAgentSession(): UseAgentSessionResult {
     async (id: string): Promise<string | null> => {
       setStarting(true);
       try {
-        const detail = await getSessionDetail(id).catch(async (error: unknown) => {
+        const detail = await fetchSessionDetail(queryClient, id).catch(async (error: unknown) => {
           // 刚建还没落盘的会话（ensure_session 后无条目 → 无 .jsonl）：磁盘侧查不到，
           // 但运行时注册表里有。此时没有历史可重建，直接连流即可（docs/02 §6.1 双通道）。
           if (!(error instanceof ApiError) || error.status !== 404) throw error;
@@ -244,7 +248,7 @@ export function useAgentSession(): UseAgentSessionResult {
         setStarting(false);
       }
     },
-    [switchSession],
+    [switchSession, queryClient],
   );
 
   /**

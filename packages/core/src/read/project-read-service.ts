@@ -1,5 +1,5 @@
 import type { ProjectInfo, ProjectsResponse } from '@ice-ai/protocol';
-import { readSessionCwd, resolveSessionsRoot, scanSessionsDir } from './dir-scan';
+import { readSessionHeader, resolveSessionsRoot, scanSessionsDir } from './dir-scan';
 import type { ProjectResolution, ProjectResolverLike } from './project-resolver';
 import { ProjectResolver } from './project-resolver';
 
@@ -49,7 +49,7 @@ export class ProjectReadService {
     for (const project of scan.projects) {
       const newest = project.files[0]; // scan 已按文件名（ISO 时间戳前缀）降序
       if (newest === undefined) continue;
-      const cwd = await readSessionCwd(newest.path);
+      const cwd = (await readSessionHeader(newest.path)).cwd;
       if (cwd === '') continue;
       const resolution = await this.resolver.resolve(cwd);
       const dir: ProjectDirSummary = {

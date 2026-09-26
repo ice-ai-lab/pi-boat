@@ -33,6 +33,12 @@ import type {
 } from '@ice-ai/protocol';
 import { toolNamesForPreset } from '@ice-ai/protocol';
 import { toWireAgentMessage } from '../events/wire-message';
+import {
+  findScannedSessionFile,
+  readSessionHeader,
+  resolveSessionsRoot,
+  scanSessionsDir,
+} from '../read/dir-scan';
 import { SessionRegistryEntry, type WireAgentEventListener } from './session-entry';
 import {
   clearedToolSelection,
@@ -163,7 +169,7 @@ export class AgentSessionService {
 
   constructor(options: AgentSessionServiceOptions = {}) {
     this.createRuntime = options.createRuntime ?? defaultCreateRuntime();
-    this.findSessionFile = options.findSessionFile ?? findSessionFileViaSessionManager;
+    this.findSessionFile = options.findSessionFile ?? defaultFindSessionFile;
     this.openSessionManager =
       options.openSessionManager ?? ((path, dir) => SessionManagerClass.open(path, dir));
   }
@@ -923,13 +929,27 @@ async function isDirectory(path: string): Promise<boolean> {
   }
 }
 
-/** 按 id 定位会话文件（缺省实现：遍历 SDK 的全量列表） */
-async function findSessionFileViaSessionManager(
+/**
+ * 按 id 定位会话文件（缺省实现）。
+ *
+ * 快路径 = 目录扫描 + 文件名里的 id（`findScannedSessionFile`）——SDK 建文件时把 id
+ * 写进文件名，所以定位不需要读正文；用文件头里的 id 校验它是同一份会话（手工改名/复制
+ * 过的文件可能名不符实）。
+ * 文件名不带 id 的（完全自定命名）回退 SDK 全量列表——它读文件头，权威但贵（45 会话
+ * ~87 ms），只在快路径落空时付这个价。
+ */
+async function defaultFindSessionFile(
   sessionId: string,
 ): Promise<{ path: string; cwd: string } | null> {
+  const scan = await scanSessionsDir(resolveSessionsRoot({}));
+  const hit = findScannedSessionFile(scan, sessionId);
+  if (hit !== null) {
+    const header = await readSessionHeader(hit.path);
+    if (header.id === sessionId) return { path: hit.path, cwd: header.cwd };
+  }
   const all = await SessionManagerClass.listAll();
-  const hit = all.find((info) => info.id === sessionId);
-  return hit === undefined ? null : { path: hit.path, cwd: hit.cwd };
+  const fallback = all.find((info) => info.id === sessionId);
+  return fallback === undefined ? null : { path: fallback.path, cwd: fallback.cwd };
 }
 
 /**

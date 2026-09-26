@@ -244,7 +244,7 @@ graceful close 可能被 Node 响应管道吞掉——socket 保持 ESTABLISHED�
 | 2 | `DELETE /api/sessions/:id` 删除方法 | core | ✅ `SessionReadService.delete()`（不级联子会话） |
 | 3 | `tool-result-image` 惰性读取（`deferMedia` 必需） | core | ✅ `toolResultImage()` 与 `/thinking` 端点均已就位；deferMedia 占位符形状待后续定 |
 | 4 | 优雅退出信号处理 | server | ✅ main.ts 接 SIGINT/SIGTERM（§2），含关停硬断（§5.4，SIGTERM 验收） |
-| 5 | 会话存在性轻量检查（state 端点 404 判定） | core | 仍用 `detail() !== null`（贵但正确）；量大后加 `exists(id)` |
+| 5 | 会话存在性轻量检查（state 端点 404 判定） | core | 仍用 `detail() !== null`（不再「贵」：2026-09-26 按 id 定位后 ~2 ms，tree/context 装配仍是浪费）；量大后加 `exists(id)` |
 | 6 | `POST /api/agent/:id/sse-ticket` 端点 | protocol + server | ✅ M1 落地后于同日按 ADR-0007 撤销（票据层随 token 一并删除） |
 | 7 | 生产 bin 直跑 dist（extensionless import × bundler 解析） | 构建 | 遗留到 M4 打包（dev/test 全走 tsx，不影响验收） |
 | 8 | 列表 transient 合并（ensure_session 未落盘会话不可见） | core/server | ✅ `mergeTransient()`：内存会话排在最前，同 id 以内存态为准 |

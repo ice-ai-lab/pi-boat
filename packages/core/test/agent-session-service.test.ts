@@ -130,7 +130,7 @@ function serviceWith(fake: ReturnType<typeof fakeAgentSession>) {
   const runtime = fakeRuntime(fake.session);
   const service = new AgentSessionService({
     createRuntime: async () => runtime,
-    // 缺省 findSessionFile 会走真实 SDK 的全量扫描；测试一律显式注入
+    // 缺省 findSessionFile 在真实 ~/.pi 会话目录里按 id 找文件；测试一律显式注入
     findSessionFile: async () => null,
   });
   return { service, fake, runtime };

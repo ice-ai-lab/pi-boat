@@ -281,6 +281,26 @@ queryKeys                    // 工厂：失效粒度与 domain 一一对应
 - TanStack Query 依赖放在 `/react` 子导出（`peerDependencies` + `peerDependenciesMeta.optional`），
   主入口保持零 React 依赖
 
+### 7.1 一份详情，两个消费方（2026-09-26）
+
+会话详情（`GET /api/sessions/:id`）有两个互不知情的需求方：`useAgentSession.open()` 要用它
+重建历史与取事件流水位线，`useSessionDetailQuery` 要用它渲染分支树/统计/条目数。它们曾经
+各拉一份，加上开发期 `<StrictMode>` 把导航 effect 再跑一遍，**一次切换发了 2–3 份 2.4 MB
+的详情**，服务端每份还要全量解析一次会话文件（本机实测切换要等 ~500 ms 量级）。
+
+现归一到内部函数 `fetchSessionDetail(queryClient, id)`（不在 `react/index.ts` 的公开导出里，
+只服务 `open()`）：与 `useSessionDetailQuery` 共用同一 query
+（key/fetcher 同源，同一个工厂函数），先到的那方真发请求，后到的那方直接读结果或合并
+in-flight。两者的 `staleTime` 不同是因为**语义不同**：
+
+| 消费方 | staleTime | 理由 |
+|---|---|---|
+| `open()`（`fetchSessionDetail`） | `0` | 打开会话必须磁盘最新：旧快照的 `lastSeq` 会把水位线之后重现的历史消息当重复事件丢掉 |
+| `useSessionDetailQuery` | 5 s | 只需覆盖「open() 写完 → 组件挂载」这几百毫秒；轮次结束/改名等写路径各自显式重取 |
+
+回归锁：`apps/web/e2e/session-switch.spec.ts`（真浏览器数请求次数——这是两个消费方共缓存的
+行为，client 的 react 层没有 renderHook 设施）。
+
 ---
 
 ## 8. 决策状态

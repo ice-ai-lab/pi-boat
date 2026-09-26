@@ -1,6 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   computeStats,
@@ -512,6 +513,65 @@ describe('SessionReadService（SDK ≥ 0.86 新条目）', () => {
     // 本函数逐条对齐它（ADR-0017）——此前这里漏掉 system 与 toolResult/摘要用量，
     // 导致同一会话在冷（本函数）/热（getSessionStats）两条路径上数字不一致。
     expect(detail.stats.totalMessages).toBe(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 按 id 定位会话文件（2026-09-26）：文件名里的 id 是快路径，全量解析只在文件「名不老实」
+// 或压根不带 id 时兜底。锁的是**性能契约**：详情/分页/推理读取都不得再跑
+// `SessionManager.listAll()`（45 会话 ~87 ms，是切会话卡顿的固定成本）。
+// ---------------------------------------------------------------------------
+
+describe('SessionReadService 按 id 定位（文件名快路径 + 全量回退）', () => {
+  let dir: string;
+  const id = 'aaaa1111-2222-3333-4444-555566667777';
+  const renamedId = 'aaaa8888-9999-0000-1111-222233334444';
+  const misnamedId = 'aaaa5555-6666-7777-8888-999900001111';
+
+  beforeAll(() => {
+    dir = mkdtempSync(join(tmpdir(), 'piboat-test-locate-'));
+    // ① SDK 默认布局：<ISO 时间戳>_<id>.jsonl
+    writeFileSync(
+      join(dir, `2026-01-15T10-00-00-000Z_${id}.jsonl`),
+      `${fixtureLines(id).join('\n')}\n`,
+    );
+    // ② 文件名不带 id（手工改名/复制过的会话文件）
+    writeFileSync(join(dir, 'renamed.jsonl'), `${fixtureLines(renamedId).join('\n')}\n`);
+    // ③ 名不符实：文件名指向 misnamedId，文件头却是 id（标签与内容不一致）
+    writeFileSync(
+      join(dir, `2026-01-15T11-00-00-000Z_${misnamedId}.jsonl`),
+      `${fixtureLines(id).join('\n')}\n`,
+    );
+  });
+  afterAll(() => rmSync(dir, { recursive: true, force: true }));
+
+  const service = () => new SessionReadService({ sessionDir: dir });
+
+  it('SDK 布局：detail 只靠文件名定位，不跑 SDK 全量解析', async () => {
+    const listAll = vi.spyOn(SessionManager, 'listAll');
+    try {
+      const detail = await service().detail(id);
+      expect(detail?.sessionId).toBe(id);
+      expect(listAll).not.toHaveBeenCalled();
+      expect(await service().context(id, {})).not.toBeNull();
+      expect(listAll).not.toHaveBeenCalled();
+    } finally {
+      listAll.mockRestore();
+    }
+  });
+
+  it('文件名不带 id：回退全量解析仍能找到（不得变成 404）', async () => {
+    const detail = await service().detail(renamedId);
+    expect(detail?.sessionId).toBe(renamedId);
+    expect(detail?.info.firstMessage).toBe('请读取 README');
+  });
+
+  it('名不符实：以文件头的 id 为准，不把另一份会话当成本会话', async () => {
+    // ③ 的文件名指向 misnamedId，但文件头是 id → 它只能是 id 的那份：
+    // 按文件名命中后经文件头校验对不上，全量解析也找不到 misnamedId → null
+    expect(await service().detail(misnamedId)).toBeNull();
+    // id 仍指向 ①（文件名与文件头一致的那份）
+    expect((await service().detail(id))?.filePath).toContain(`${id}.jsonl`);
   });
 });
 
