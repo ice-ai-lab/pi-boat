@@ -729,6 +729,26 @@ describe('SessionReadService（B4）', () => {
     expect(await service().search('绝不存在的词')).toEqual([]);
   });
 
+  it('searchDetailed：正文命中带 entryId 与 before/match/after 片段（T2-3）', async () => {
+    const detailed = await service().searchDetailed('expiring-map');
+    expect(detailed.truncated).toBe(false);
+    expect(detailed.results).toHaveLength(1);
+    const hit = detailed.results[0];
+    expect(hit?.session.id).toBe(sessionId);
+    // 正文命中落在具体条目上（轻量字段未命中）
+    expect(hit?.entryId).not.toBeNull();
+    expect(hit?.match.toLowerCase()).toBe('expiring-map');
+    expect(`${hit?.before}${hit?.match}${hit?.after}`).toContain('expiring-map');
+  });
+
+  it('searchDetailed：轻量字段命中 → entryId 为 null，片段来自首条消息', async () => {
+    const detailed = await service().searchDetailed('rate limiter');
+    expect(detailed.results).toHaveLength(1);
+    const hit = detailed.results[0];
+    expect(hit?.entryId).toBeNull();
+    expect(hit?.match.toLowerCase()).toBe('rate limiter');
+  });
+
   it('list：summary=1 跳过项目解析（不回 projectKey，也不污染缓存）', async () => {
     const full = await service().list();
     const fast = await service().list({ summary: true });

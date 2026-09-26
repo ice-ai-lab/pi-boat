@@ -103,6 +103,19 @@ function fakeReadService() {
     list: vi.fn(async (_options?: SessionListOptions) => [info]),
     listFingerprint: vi.fn(async () => 'fp-test'),
     search: vi.fn(async () => [info]),
+    searchDetailed: vi.fn(async () => ({
+      results: [
+        {
+          session: info,
+          entryId: null,
+          blockIndex: null,
+          before: '',
+          match: 'hello',
+          after: '',
+        },
+      ],
+      truncated: false,
+    })),
     detail: vi.fn(async (id: string) =>
       id === 'sess-disk'
         ? {
@@ -412,7 +425,11 @@ describe('安全层（docs/04 §6）', () => {
     const { app } = makeApp();
     const res = await request(app, '/api/health');
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true, name: 'piboat-server' });
+    // piVersion 是运行时读数（core 从 SDK VERSION 取），只断言形状
+    const body = (await res.json()) as { ok: boolean; name: string; piVersion: string };
+    expect(body.ok).toBe(true);
+    expect(body.name).toBe('piboat-server');
+    expect(body.piVersion).toMatch(/^\d+\.\d+\.\d+$/);
   });
 
   it('异常 Host（DNS 重绑定）→ 403', async () => {
