@@ -412,6 +412,7 @@ export function Composer({
               onPick={(index) => onPickSlashCommand?.(index)}
               onHover={(index) => onMentionActiveIndexChange?.(index)}
               emptyHint={t('chat.noCommands')}
+              variant="grid"
             />
           )}
 

@@ -209,8 +209,9 @@ server 新增「冷会话走 rename / resident 走命令通道」两条。
   （steer 带 accent 描边）+ 单行省略。
 - **T2-13** 删 `chat-pane` 的 `pb-4` 与双层 16px 包装 div；Composer 外层改 `fieldset`
   `padding: 0 16px 8px` + `paddingRight: 52`（避让 minimap），与设计规范逐字一致。
-- **T2-11（部分）** 候选浮层补头部（计数 + `Tab / Enter`）与 `@` 行图标；
-  尚缺 `/` 的按来源分组 + 网格布局。
+- **T2-11** 候选浮层补头部（计数 + `Tab / Enter`）与 `@` 行图标；`/` 改按来源分组 + 网格卡片
+  （`variant="grid"`：sticky 分组头带计数 + `repeat(auto-fit, minmax(220px, 1fr))`，卡片 58px 高、
+  active 换 accent 描边；`@` 仍走 `list` 形态）；结构由 `packages/ui/test/suggestion-menu.test.tsx` 锁住。
 
 **取证（非截图，文字断言）**：双实例同视口下实测——卡 `border-radius:14px` / `padding:10px 10px 10px 14px`；
 `fieldset` `padding: 0px 52px 8px 16px`；工具行结构为
