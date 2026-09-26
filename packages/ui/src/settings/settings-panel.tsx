@@ -15,8 +15,6 @@ export interface SettingsSectionItem {
   label: string;
   /** 无项目上下文时禁用（由宿主算好，本组件不自己判断） */
   disabled?: boolean;
-  /** 小节徽标（如更新数） */
-  badge?: string;
 }
 
 export interface SettingsPanelProps {
@@ -115,9 +113,6 @@ export function SettingsPanel({
                   >
                     <SettingsSectionIcon section={section.id} />
                     <span>{section.label}</span>
-                    {section.badge !== undefined && (
-                      <span className="config-badge">{section.badge}</span>
-                    )}
                   </button>
                 );
               })}

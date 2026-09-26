@@ -200,6 +200,7 @@ export const enLocale: LocalePlugin = {
     'sidebar.noSessions': 'No sessions found',
     'sidebar.newActivity': 'New activity',
     'sidebar.newSessionActivity': 'New session activity',
+    'sidebar.agentRunning': 'Agent running',
     'sidebar.deleteSession': 'Delete {title}?',
     'sidebar.rename': 'Rename',
     'sidebar.delete': 'Delete',

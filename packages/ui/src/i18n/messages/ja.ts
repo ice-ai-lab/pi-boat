@@ -201,6 +201,7 @@ export const jaLocale: LocalePlugin = {
     'sidebar.noSessions': 'セッションが見つかりません',
     'sidebar.newActivity': '新しいアクティビティ',
     'sidebar.newSessionActivity': '新しいセッションのアクティビティ',
+    'sidebar.agentRunning': 'エージェント実行中',
     'sidebar.deleteSession': '{title} を削除しますか？',
     'sidebar.rename': '名前を変更',
     'sidebar.delete': '削除',
