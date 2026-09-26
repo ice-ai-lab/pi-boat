@@ -393,7 +393,9 @@ export const SESSION_DETAIL_STALE_MS = 5_000;
 function sessionDetailQuery(sessionId: string | null) {
   return {
     queryKey: queryKeys.sessionDetail(sessionId ?? ''),
-    queryFn: () => getSessionDetail(sessionId as string),
+    // deferMedia=1：历史图片只发坐标（ADR-0024），渲染时再按 entryId+块下标取字节。
+    // 初始页（详情里的 context）往往是图片最大的那一页。
+    queryFn: () => getSessionDetail(sessionId as string, { deferMedia: true }),
   };
 }
 

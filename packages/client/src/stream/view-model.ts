@@ -8,6 +8,7 @@ import type { ExtensionUiRequest, ModelRef, Usage } from '@ice-ai/protocol';
 /** 一个 turn = 一条用户消息 + 它触发的全部轨迹 + 最终回答 */
 export interface Turn {
   id: string;
+  /** `images` 是**可渲染 src**（`data:` URL 或惰性端点 URL），不是 base64（见 image-src.ts） */
   user: { text: string; images?: string[]; at: number };
   /**
    * 孤儿轮：历史窗口从轮中间开始时（分页/尾部窗口），前导 assistant/toolResult
@@ -41,6 +42,8 @@ export interface ToolRow {
   argsText: string;
   status: 'preparing' | 'running' | 'ok' | 'error' | 'stopped';
   output: string | null;
+  /** 工具结果里的图片（同上：可渲染 src，可能是惰性端点 URL） */
+  images?: string[];
   isError: boolean;
   durationMs?: number;
 }

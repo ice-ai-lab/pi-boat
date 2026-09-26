@@ -584,6 +584,118 @@ describe('SessionReadService（SDK ≥ 0.86 新条目）', () => {
 });
 
 // ---------------------------------------------------------------------------
+// deferMedia（ADR-0024）：图片块擦成空 data，块与块下标原位保留，字节改走惰性端点。
+// ---------------------------------------------------------------------------
+
+describe('SessionReadService deferMedia（图片惰性化）', () => {
+  let dir: string;
+  const sessionId = 'aaaabbbb-dead-beef-0000-111122223333';
+  /** 1x1 PNG 的 base64（与 server 测试同一份最小合法位图） */
+  const png =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==';
+
+  beforeAll(() => {
+    dir = mkdtempSync(join(tmpdir(), 'piboat-test-defermedia-'));
+    const entries = [
+      { type: 'session', version: 3, id: sessionId, timestamp: now, cwd: '/proj' },
+      {
+        type: 'message',
+        id: 'u1',
+        parentId: null,
+        timestamp: ts(0),
+        message: {
+          role: 'user',
+          content: [
+            { type: 'text', text: '看这张图' },
+            { type: 'image', data: png, mimeType: 'image/png' },
+          ],
+          timestamp: Date.parse(ts(0)),
+        },
+      },
+      {
+        type: 'message',
+        id: 'e2',
+        parentId: 'u1',
+        timestamp: ts(1),
+        message: {
+          role: 'assistant',
+          content: [{ type: 'toolCall', id: 'tc1', name: 'screenshot', arguments: {} }],
+          api: 'anthropic-messages',
+          provider: 'anthropic',
+          model: 'claude-test',
+          usage,
+          stopReason: 'toolUse',
+          timestamp: Date.parse(ts(1)),
+        },
+      },
+      {
+        type: 'message',
+        id: 'e3',
+        parentId: 'e2',
+        timestamp: ts(2),
+        message: {
+          role: 'toolResult',
+          toolCallId: 'tc1',
+          toolName: 'screenshot',
+          content: [
+            { type: 'text', text: '截图如下' },
+            { type: 'image', data: png, mimeType: 'image/png' },
+          ],
+          isError: false,
+          timestamp: Date.parse(ts(2)),
+        },
+      },
+    ];
+    writeFileSync(
+      join(dir, `${sessionId}.jsonl`),
+      `${entries.map((e) => JSON.stringify(e)).join('\n')}\n`,
+    );
+  });
+  afterAll(() => rmSync(dir, { recursive: true, force: true }));
+
+  const service = () => new SessionReadService({ sessionDir: dir });
+
+  it('默认（不传 deferMedia）：图片字节原样内联，行为不变', async () => {
+    const detail = await service().detail(sessionId);
+    const userMessage = detail?.context.messages[0];
+    if (userMessage?.role !== 'user' || typeof userMessage.content === 'string') {
+      throw new Error('fixture mismatch');
+    }
+    expect(userMessage.content[1]).toEqual({ type: 'image', data: png, mimeType: 'image/png' });
+  });
+
+  it('deferMedia：用户附件与工具结果图一起擦成空 data，块位置与下标不变', async () => {
+    const detail = await service().detail(sessionId, { deferMedia: true });
+    if (detail === null) throw new Error('missing detail');
+    const userMessage = detail.context.messages[0];
+    const toolMessage = detail.context.messages[2];
+    if (userMessage?.role !== 'user' || typeof userMessage.content === 'string') {
+      throw new Error('fixture mismatch');
+    }
+    // 文本块不动，图片块留在原位（下标 1）但只剩 mimeType
+    expect(userMessage.content[0]).toEqual({ type: 'text', text: '看这张图' });
+    expect(userMessage.content[1]).toEqual({ type: 'image', data: '', mimeType: 'image/png' });
+    if (toolMessage?.role !== 'toolResult') throw new Error('fixture mismatch');
+    expect(toolMessage.content[1]).toEqual({ type: 'image', data: '', mimeType: 'image/png' });
+    // 整份 payload 里不得再出现 base64
+    expect(JSON.stringify(detail.context)).not.toContain(png);
+  });
+
+  it('entryImage：按（条目 + 消息内块下标）取回字节——不限角色（用户附件也能取）', async () => {
+    const bytes = await service().entryImage(sessionId, 'u1', 1);
+    expect(bytes?.mimeType).toBe('image/png');
+    expect(Buffer.from(bytes?.data ?? []).toString('base64')).toBe(png);
+    // 工具结果图同一条路径
+    expect((await service().entryImage(sessionId, 'e3', 1))?.mimeType).toBe('image/png');
+    // 非图片块 / 越界 / 未知条目 / 未知会话
+    expect(await service().entryImage(sessionId, 'u1', 0)).toBeNull();
+    expect(await service().entryImage(sessionId, 'u1', 9)).toBeNull();
+    expect(await service().entryImage(sessionId, 'nope', 0)).toBeNull();
+    expect(await service().entryImage('nope', 'u1', 1)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 按 id 定位会话文件（2026-09-26）：文件名里的 id 是快路径，全量解析只在文件「名不老实」
 // 或压根不带 id 时兜底。锁的是**性能契约**：详情/分页/推理读取都不得再跑
 // `SessionManager.listAll()`（45 会话 ~87 ms，是切会话卡顿的固定成本）。

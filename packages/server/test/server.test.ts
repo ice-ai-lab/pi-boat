@@ -181,7 +181,7 @@ function fakeReadService(listSessions?: SessionInfo[]) {
       return info;
     }),
     delete: vi.fn(async (id: string) => (id === 'sess-disk' ? [id] : null)),
-    toolResultImage: vi.fn(async (id: string, entryId: string, blockIndex: number) => {
+    entryImage: vi.fn(async (id: string, entryId: string, blockIndex: number) => {
       if (id !== 'sess-disk' || entryId !== 'e1' || blockIndex !== 0) return null;
       // 1x1 PNG（最小合法位图）
       return {
@@ -751,28 +751,26 @@ describe('轻查与浏览路由', () => {
     expect((await request(app, '/api/sessions/nope', { method: 'DELETE' })).status).toBe(404);
   });
 
-  it('GET .../tool-result-image：二进制直发 + nosniff；blockIndex 非法 400；无此块 404', async () => {
+  it('GET .../image：二进制直发 + nosniff；blockIndex 非法 400；无此块 404', async () => {
     const { app } = makeApp();
-    const ok = await request(
-      app,
-      '/api/sessions/sess-disk/entries/e1/tool-result-image?blockIndex=0',
-    );
+    const ok = await request(app, '/api/sessions/sess-disk/entries/e1/image?blockIndex=0');
     expect(ok.status).toBe(200);
     expect(ok.headers.get('content-type')).toBe('image/png');
     expect(ok.headers.get('x-content-type-options')).toBe('nosniff');
     expect((await ok.arrayBuffer()).byteLength).toBeGreaterThan(0);
 
-    const badIndex = await request(
-      app,
-      '/api/sessions/sess-disk/entries/e1/tool-result-image?blockIndex=-1',
-    );
+    const badIndex = await request(app, '/api/sessions/sess-disk/entries/e1/image?blockIndex=-1');
     expect(badIndex.status).toBe(400);
 
-    const missing = await request(
-      app,
-      '/api/sessions/sess-disk/entries/e1/tool-result-image?blockIndex=5',
-    );
+    const missing = await request(app, '/api/sessions/sess-disk/entries/e1/image?blockIndex=5');
     expect(missing.status).toBe(404);
+  });
+
+  it('GET /api/sessions/:id?deferMedia=1：透传给 core（详情里的 context 是第一页）', async () => {
+    const { app, readService } = makeApp();
+    const res = await request(app, '/api/sessions/sess-disk?deferMedia=1');
+    expect(res.status).toBe(200);
+    expect(readService.detail).toHaveBeenCalledWith('sess-disk', { deferMedia: true });
   });
 });
 

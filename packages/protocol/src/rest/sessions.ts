@@ -78,9 +78,11 @@ export type SessionSearchHit = {
 // §6.2 会话详情与生命周期
 // ---------------------------------------------------------------------------
 
-/** GET /api/sessions/:id?force=1 —— 强制全量重读（并做外部写入探测，ADR-0013b） */
+/** GET /api/sessions/:id?force=1&deferMedia=1 —— 强制全量重读（并做外部写入探测，ADR-0013b） */
 export const SessionDetailQuerySchema = z.object({
   force: z.literal('1').optional(),
+  /** 同 /context 的 deferMedia：详情里的 context 是**第一页**，图片最大的那一块在这里 */
+  deferMedia: z.boolean().optional(),
 });
 
 /** GET /api/sessions/:id（tail 默认 50，上限 1000） */
@@ -131,7 +133,11 @@ export type SessionAutoNameResponse = {
  * - leafId：从该叶向根回溯（缺省 = 当前 leaf）
  * - before：客户端已有最老条目 id（excludeLeaf 向上翻页；不在会话中/即根 → 空页）
  * - tail：窗口大小（默认 50，上限 1000；只计 user/assistant/压缩分隔条，toolResult 不吃预算）
- * - deferMedia：工具结果图片以占位符下发
+ * - deferMedia：图片（工具结果与用户附件）以**空 data 占位**下发，客户端按需从
+ *   `GET /api/sessions/:id/entries/:entryId/image?blockIndex=N` 取字节（ADR-0024）：
+ *   块本身与块下标都不变（图片块会变成 `data: ""`），取数坐标 = `context.entryIds` 的
+ *   平行下标 + 块下标（`sessionEntryToContextMessages` 对 message 条目是原样透传，
+ *   所以两个下标与文件里的 `entry.message.content` 一致）
  *
  * 行为保证：历史分页不做压缩过滤——压缩前条目照常可翻（compaction 投影为
  * compactionSummary 分隔条，不是翻页终点）；LLM 上下文投影（SDK
@@ -160,7 +166,10 @@ export type EntryThinkingResponse = {
   thinking: string;
 };
 
-/** GET /api/sessions/:id/entries/:entryId/tool-result-image?blockIndex —— 二进制图片（无 JSON schema） */
-export const ToolResultImageQuerySchema = z.object({
+/** GET /api/sessions/:id/entries/:entryId/image?blockIndex —— 消息图片（二进制，无 JSON schema）
+ *
+ * 取数端点是**任意角色**带图片块的消息：工具结果（read 工具返回的截图）与用户附件
+ * 都在这里取值（原来的 `.../tool-result-image` 只服务前者，ADR-0024 改名收拢）。 */
+export const EntryImageQuerySchema = z.object({
   blockIndex: z.number().int().min(0),
 });

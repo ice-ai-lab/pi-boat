@@ -28,3 +28,4 @@
 | [0021](0021-i18n-three-locales.md) | i18n 三语（en / zh-CN / ja）——引入设计规范 registry 架构，Provider 放 ui（推翻 0019 决策 1「zh-CN 单语」） | 已接受 | 2026-09-26 |
 | [0022](0022-parity-protocol-increments-and-brand.md) |按设计规范所需的协议增量与品牌口径——搜索片段 `SessionSearchHit` / health `piVersion`（core 的 SDK `VERSION`）/ 品牌与页面标题统一 `PiBoat`（回答 10 §7 Q1） | 已接受 | 2026-09-26 |
 | [0023](0023-session-tree-wire-projection.md) | 会话树改为 wire 投影——分支导航只要 id/角色/预览，不要整条 entry（ADR-0017 的显式例外） | 已接受 | 2026-09-26 |
+| [0024](0024-defer-media-images.md) | 图片惰性化（`deferMedia`）——空 data 占位 + 按坐标取字节，端点收拢为 `/entries/:entryId/image` | 已接受 | 2026-09-26 |

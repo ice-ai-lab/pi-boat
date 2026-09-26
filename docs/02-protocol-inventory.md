@@ -213,7 +213,7 @@
 
 | 端点 | 形状 |
 |---|---|
-| `GET /api/sessions/:id` | → `{ sessionId, filePath, info, leafId, tree, context, stats, totalActiveMs, toolNames? }`（原 `?force=1` 外部写入探测） |
+| `GET /api/sessions/:id` | → `{ sessionId, filePath, info, leafId, tree, context, stats, totalActiveMs, toolNames? }`（`?force=1` 外部写入探测；`?deferMedia=1` 图片只发坐标，ADR-0024） |
 | `PATCH /api/sessions/:id` | `{name}` 改名（历史未运行会话直接追加 session_info 行） |
 | `DELETE /api/sessions/:id` | 删除会话文件（返回受影响 id，只含目标自身；不级联子会话） |
 | `GET /api/sessions/:id/state` | 同 `/api/agent/:id` 形状，但会话文件不存在时 **404**（而非 `{running:false}`；语义差异需保留） |
@@ -225,9 +225,9 @@
 
 | 端点 | 形状 |
 |---|---|
-| `GET /api/sessions/:id/context?leafId&before&tail≤1000&deferMedia` | → `SessionContext`；`before` = 客户端已有最老条目（excludeLeaf 向上翻页，不在会话中/即根 → 空页）；`tail` 只计 user/assistant/压缩分隔条；`deferMedia` = 工具结果图片以占位符下发（deferThinking 已删，历史 thinking 全文直发，2026-09-20）。**分页不做压缩过滤**：压缩前条目照常可翻，compaction 投影为 compactionSummary 分隔条而非翻页终点（2026-09-21） |
+| `GET /api/sessions/:id/context?leafId&before&tail≤1000&deferMedia` | → `SessionContext`；`before` = 客户端已有最老条目（excludeLeaf 向上翻页，不在会话中/即根 → 空页）；`tail` 只计 user/assistant/压缩分隔条；`deferMedia` = 图片块擦成空 data（工具结果与用户附件同办，取数走 `/entries/:entryId/image`，ADR-0024；deferThinking 已删，历史 thinking 全文直发，2026-09-20）。**分页不做压缩过滤**：压缩前条目照常可翻，compaction 投影为 compactionSummary 分隔条而非翻页终点（2026-09-21） |
 | `GET /api/sessions/:id/entries/:entryId/thinking?blockIndex` | → `{thinking}`（全量推理文本） |
-| `GET /api/sessions/:id/entries/:entryId/tool-result-image?blockIndex` | → 二进制图片 |
+| `GET /api/sessions/:id/entries/:entryId/image?blockIndex` | → 二进制图片（任意角色带图片块的消息：工具结果图与**用户附件**都走这里；ADR-0024） |
 
 > bash-output 端点（超长输出临时文件）已随 Shell 直连组移除（2026-09-22，见 §4 决策注）。
 

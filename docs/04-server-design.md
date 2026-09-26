@@ -59,7 +59,7 @@
 | `GET /api/sessions/:id/state` | 存在性 + `getRunningState()` | **文件不存在 → 404**（区别于轻查的 `{running:false}`） |
 | `GET /api/sessions/:id/context` | `readService.context()` | 分页语义见 docs/03 §7.1（`before`/`tail`/`deferMedia`） |
 | `GET .../entries/:entryId/thinking` | 条目读取 | 全量推理文本（`blockIndex`）；`deferThinking` 已按 2026-09-20 决策删除 |
-| `GET .../entries/:entryId/tool-result-image` | `readService.toolResultImage()` | 二进制图片（`blockIndex`）；deferMedia 占位符形状待后续定 |
+| `GET .../entries/:entryId/image` | `readService.entryImage()` | 二进制图片（`blockIndex`，任意角色）；`deferMedia` 的取数端点是它（ADR-0024） |
 | `PATCH /api/sessions/:id` | `readService.rename()` | 运行中会话 → **409**（提示改走 `set_session_name` 命令，避免与 SDK 写盘竞争）；空白名 → 400 |
 | `DELETE /api/sessions/:id` | `readService.delete()` | 删除会话文件（§8-2）；运行中 → 409 |
 
@@ -244,7 +244,7 @@ graceful close 可能被 Node 响应管道吞掉——socket 保持 ESTABLISHED�
 |---|---|---|---|
 | 1 | SSE 重放缓冲（core 只发不存） | core | ⏸ 降级方案在用（§5.5）；环形缓冲属 B8 可选（`docs/07` §6） |
 | 2 | `DELETE /api/sessions/:id` 删除方法 | core | ✅ `SessionReadService.delete()`（不级联子会话） |
-| 3 | `tool-result-image` 惰性读取（`deferMedia` 必需） | core | ✅ `toolResultImage()` 与 `/thinking` 端点均已就位；deferMedia 占位符形状待后续定 |
+| 3 | 图片惰性读取（`deferMedia` 必需） | core | ✅ 已收口（ADR-0024）：`deferMedia=1` 把图片块擦成空 data，`entryImage()` + `/entries/:entryId/image` 按坐标取字节；端点不限角色 |
 | 4 | 优雅退出信号处理 | server | ✅ main.ts 接 SIGINT/SIGTERM（§2），含关停硬断（§5.4，SIGTERM 验收） |
 | 5 | 会话存在性轻量检查（state 端点 404 判定） | core | 仍用 `detail() !== null`（不再「贵」：2026-09-26 按 id 定位后 ~2 ms，tree/context 装配仍是浪费）；量大后加 `exists(id)` |
 | 6 | `POST /api/agent/:id/sse-ticket` 端点 | protocol + server | ✅ M1 落地后于同日按 ADR-0007 撤销（票据层随 token 一并删除） |

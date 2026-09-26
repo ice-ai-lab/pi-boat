@@ -2,6 +2,7 @@ import type { AgentSessionService, SessionReadService } from '@ice-ai/core';
 import {
   type CommandError,
   type CommandOk,
+  EntryImageQuerySchema,
   EntryThinkingQuerySchema,
   type EntryThinkingResponse,
   SessionAutoNameRequestSchema,
@@ -17,7 +18,6 @@ import {
   SessionRenameRequestSchema,
   SessionSearchRequestSchema,
   type SessionSearchResponse,
-  ToolResultImageQuerySchema,
 } from '@ice-ai/protocol';
 import type { Hono } from 'hono';
 import { firstIssueMessage, mapCoreError } from '../envelope';
@@ -96,17 +96,20 @@ export function registerSessionRoutes(app: Hono, deps: SessionRouteDeps): void {
     return c.json(body);
   });
 
-  // GET /api/sessions/:id?force=1 —— 详情（null → 404）。
+  // GET /api/sessions/:id?force=1&deferMedia=1 —— 详情（null → 404）。
   // force=1 额外做**外部写入探测**（ADR-0013b）：detect → 若磁盘更新则重建 runtime
   // 并回 `wrapperRebuilt:true`，客户端据此重拉历史。非 force 路径不探测（省一次 stat
   // 是次要的，主要是避免在热路径上误判运行中的会话）。
   app.get('/api/sessions/:id', async (c) => {
-    const query = SessionDetailQuerySchema.safeParse({ force: c.req.query('force') });
+    const query = SessionDetailQuerySchema.safeParse({
+      force: c.req.query('force'),
+      deferMedia: c.req.query('deferMedia') === '1' ? true : undefined,
+    });
     if (!query.success) {
       return c.json<CommandError>({ error: firstIssueMessage(query.error.issues) }, 400);
     }
     const id = c.req.param('id');
-    const detail = await readService.detail(id);
+    const detail = await readService.detail(id, { deferMedia: query.data.deferMedia === true });
     if (detail === null) {
       return c.json<CommandError>({ error: 'Session not found' }, 404);
     }
@@ -232,22 +235,23 @@ export function registerSessionRoutes(app: Hono, deps: SessionRouteDeps): void {
     return c.json(context);
   });
 
-  // GET /api/sessions/:id/entries/:entryId/tool-result-image?blockIndex ——
-  // 历史工具结果图片惰性读取（docs/04 §8-3；deferMedia 的取数端点）
-  app.get('/api/sessions/:id/entries/:entryId/tool-result-image', async (c) => {
-    const parsed = ToolResultImageQuerySchema.safeParse({
+  // GET /api/sessions/:id/entries/:entryId/image?blockIndex ——
+  // 历史图片惰性读取（docs/04 §8-3；deferMedia 的取数端点，ADR-0024）。
+  // 不限角色：工具结果图与用户附件图都走这里。
+  app.get('/api/sessions/:id/entries/:entryId/image', async (c) => {
+    const parsed = EntryImageQuerySchema.safeParse({
       blockIndex: Number(c.req.query('blockIndex')),
     });
     if (!parsed.success) {
       return c.json<CommandError>({ error: firstIssueMessage(parsed.error.issues) }, 400);
     }
-    const image = await readService.toolResultImage(
+    const image = await readService.entryImage(
       c.req.param('id'),
       c.req.param('entryId'),
       parsed.data.blockIndex,
     );
     if (image === null || image.data.byteLength === 0) {
-      return c.json<CommandError>({ error: 'Tool result image not found' }, 404);
+      return c.json<CommandError>({ error: 'Entry image not found' }, 404);
     }
     if (!IMAGE_MIMES.has(image.mimeType)) {
       return c.json<CommandError>({ error: 'Unsupported image type' }, 415);

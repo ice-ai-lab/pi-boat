@@ -225,8 +225,8 @@ id**：SDK 建会话时命名 `<ISO 时间戳>_<id>.jsonl`（`newSession`/`forkF
 - `computeStats`：对齐 SDK `getSessionStats` 聚合口径（导出的纯函数）。⚠️ **必须计入 `usage` 条目**（如 `kind: "cache_warm"` 的 prompt 缓存预热，SDK ≥ 0.86）：它不进模型上下文但计费，漏掉它 token / cost 就与 SDK `/session` 不一致；`context_edit` 条目对统计无影响（不改原始消息）
 - `delete`（docs/04 §8-2）：删除目标会话文件，返回受影响 id（**只含目标自身**，不级联
   子会话——子代理能力不在本仓范围，见 docs/07 §8-4）；运行中拦截归 server（409）
-- `toolResultImage`（docs/04 §8-3）：按 entryId + blockIndex 读 toolResult 消息的图片块，
-  base64 解码为二进制；`deferMedia` 占位符形状待后续定（历史图片全文直发）
+- `entryImage`（docs/04 §8-3；名字与路由 2026-09-26 由 `toolResultImage` 改）：按 entryId + blockIndex 读**任意角色**消息的图片块（用户附件也要能惰性取回），
+  base64 解码为二进制。`deferMedia=1` 时历史里的图片就是靠它回填（见 §7.2 末条与 ADR-0024）
 
 ## 8. 错误类型
 
@@ -271,5 +271,7 @@ id**：SDK 建会话时命名 `<ISO 时间戳>_<id>.jsonl`（`newSession`/`forkF
   `buildSystemPrompt(_runSystemPromptOptions ?? _baseSystemPromptOptions)`，而 `_runSystemPromptOptions`
   只在 run 期间存在——注册了强制 prompt 的 handler 时会**随时机变**（run 中显示强制值、空闲显示结构化值），
   这正是删除它的直接原因之一（ADR-0015）
+- `deferMedia`（ADR-0024）：把图片块擦成 **`data: ""` 占位**（块与块下标原位保留），字节走 `entryImage`；
+  实测一页 1.32 MB → 189 KB（两张 3698×1852 的截图）。实时路径不擦（那份数据当场渲染）
 - **SSE 重放缓冲**（Last-Event-ID 差量重放）：core 仍只发不存，重连降级为整体重建（docs/04 §5.5，
   `docs/07` B8 可选）

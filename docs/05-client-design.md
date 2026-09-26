@@ -281,6 +281,16 @@ queryKeys                    // 工厂：失效粒度与 domain 一一对应
 - TanStack Query 依赖放在 `/react` 子导出（`peerDependencies` + `peerDependenciesMeta.optional`），
   主入口保持零 React 依赖
 
+### 7.0 图片一律换算成 src（ADR-0024）
+
+历史请求一律带 `deferMedia=1`，所以 `context.messages` 里的图片块只有 `mimeType`（`data` 为空）。
+`stream/image-src.ts` 的 `messageImageSrcs(content, coords)` 是唯一判别处：内联字节 → `data:` URL；
+空 data + 有坐标 → `/api/sessions/:id/entries/:entryId/image?blockIndex=N`；没坐标 → 跳过。
+坐标里的 `entryId` 由 `context.entryIds`（与 messages 平行的数组）给出，块下标就是消息内下标。
+
+因此视图模型的 `Turn.user.images` / `ToolRow.images` 装的是**可渲染 src**，不是 base64——ui 拿到就
+能直接 `<img src>`（`ChatImageList`）。URL 自带 `/api` 前缀：它不经过 axios 的 baseURL。
+
 ### 7.1 一份详情，两个消费方（2026-09-26）
 
 会话详情（`GET /api/sessions/:id`）有两个互不知情的需求方：`useAgentSession.open()` 要用它

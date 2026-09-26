@@ -223,11 +223,10 @@ export function useAgentSession(): UseAgentSessionResult {
         if (detail.info.projectRoot !== undefined && detail.info.projectRoot !== detail.info.cwd) {
           await validateCwd(detail.info.projectRoot).catch(() => null);
         }
-        const state = rebuildChatState(
-          detail.context.messages,
-          detail.context.entryIds,
-          detail.info.name,
-        );
+        const state = rebuildChatState(detail.context.messages, detail.context.entryIds, {
+          sessionName: detail.info.name,
+          sessionId: id,
+        });
         // 水位线：热会话取 lastSeq（双通道对账）；冷会话先 resume 再连流（ADR-0013）
         const running = await getAgentRunningState(id);
         let watermark = 0;
@@ -312,8 +311,8 @@ export function useAgentSession(): UseAgentSessionResult {
     if (id === null || before === undefined) return;
     setLoadingOlder(true);
     try {
-      const page = await getSessionContext(id, { before, tail: 50 });
-      getAgentStream(id).prependTurns(rebuildTurns(page.messages, page.entryIds));
+      const page = await getSessionContext(id, { before, tail: 50, deferMedia: true });
+      getAgentStream(id).prependTurns(rebuildTurns(page.messages, page.entryIds, id));
       setHistoryCursor({ oldest: page.oldestEntryId, hasMore: page.hasMore });
     } finally {
       setLoadingOlder(false);

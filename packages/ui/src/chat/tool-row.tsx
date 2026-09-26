@@ -1,6 +1,7 @@
 import type { ToolRow as ToolRowModel } from '@ice-ai/client';
 import { formatDuration } from '@ice-ai/client';
 import { useState } from 'react';
+import { ChatImageList } from './chat-image';
 
 /**
  * ToolRow：结构/样式按设计规范 的 `ToolCallBlock`
@@ -101,6 +102,19 @@ export function ToolRowView({ row }: { row: ToolRowModel }) {
           </svg>
         </button>
       </div>
+      {expanded && row.images !== undefined && row.images.length > 0 && (
+        <div
+          style={{
+            padding: '8px 10px',
+            background: 'var(--bg-subtle)',
+            borderTop: errored
+              ? '1px solid rgba(248,113,113,0.25)'
+              : '1px solid rgba(34,197,94,0.2)',
+          }}
+        >
+          <ChatImageList sources={row.images} />
+        </div>
+      )}
       {expanded && (
         <pre
           style={{

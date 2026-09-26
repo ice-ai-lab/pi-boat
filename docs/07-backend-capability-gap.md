@@ -121,7 +121,7 @@
 | `GET /api/sessions/:id/state` | ✅ | 一致（文件不存在 404） |
 | `GET /api/sessions/:id/context` | ✅ | `deferThinking` 已按 2026-09-20 决策**不做**（历史 thinking 全文直发），「缺 deferThinking」不再是缺口 |
 | `GET .../entries/:entryId/thinking` | ✅ | 已落地（全量推理文本，按 `blockIndex`） |
-| `GET .../entries/:entryId/tool-result-image` | ✅ | core + route 已就位 |
+| `GET .../entries/:entryId/image` | ✅ | core + route 已就位，且已按 ADR-0024 收拢为**任意角色**的图片取值 |
 | `GET /api/sessions/:id/export` | ✅ | 已落地（复用 SDK `exportFromFile`）；⚠️ 审查时担心的「递归树改迭代」属 SDK 内部实现，本仓**未实测**长会话（5000+ 条目）是否爆栈（见 §7 导出条目） |
 | `POST /api/sessions/:id/auto-name` | ✅ | 已落地（LLM 生成标题 + usage） |
 | 外部写入检测 / runtime 重建 | ✅ | G2-5（ADR-0013b） |

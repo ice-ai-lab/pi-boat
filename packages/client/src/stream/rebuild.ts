@@ -1,5 +1,6 @@
 import type { AgentMessage } from '@ice-ai/protocol';
 import { applyToolResult, assistantFinalText, userText } from './fold';
+import { type ImageCoords, messageImageSrcs } from './image-src';
 import { toolTitle } from './tool-display';
 import type { ChatState, TrailItem, Turn } from './view-model';
 
@@ -11,22 +12,27 @@ import type { ChatState, TrailItem, Turn } from './view-model';
  * 分组规则与 fold 一致（docs/05 §6.5：只依赖消息序列，不依赖 turn/agent 事件）；
  * 历史轮的 isLiveTail 恒为 false（成组态直出）。
  */
-export function rebuildTurns(messages: AgentMessage[], entryIds: string[]): Turn[] {
+export function rebuildTurns(
+  messages: AgentMessage[],
+  entryIds: string[],
+  sessionId?: string | null,
+): Turn[] {
   const turns: Turn[] = [];
   const entryIdOf = (index: number): string => entryIds[index] ?? `m${index}`;
+  /** 图片取数坐标：entryId 与 messages 平行（见 image-src.ts 的注释） */
+  const coordsOf = (index: number): ImageCoords => ({
+    sessionId: sessionId ?? null,
+    entryId: entryIdOf(index),
+  });
 
   messages.forEach((message, index) => {
     switch (message.role) {
       case 'user': {
-        const images =
-          typeof message.content === 'string'
-            ? undefined
-            : message.content.filter((block) => block.type === 'image').map((block) => block.data);
         turns.push({
           id: entryIdOf(index),
           user: {
             text: userText(message),
-            images: images !== undefined && images.length > 0 ? images : undefined,
+            images: messageImageSrcs(message.content, coordsOf(index)),
             at: message.timestamp,
           },
           trail: [],
@@ -76,7 +82,7 @@ export function rebuildTurns(messages: AgentMessage[], entryIds: string[]): Turn
               (item) => item.kind === 'tool' && item.toolCallId === message.toolCallId,
             ),
           );
-        if (owner !== undefined) applyToolResult([owner], message);
+        if (owner !== undefined) applyToolResult([owner], message, coordsOf(index));
         else pushOrphanTurn(turns, message.timestamp, entryIdOf(index));
         return;
       }
@@ -129,14 +135,14 @@ function pushOrphanTurn(turns: Turn[], at: number, id: string): Turn {
 export function rebuildChatState(
   messages: AgentMessage[],
   entryIds: string[],
-  sessionName?: string,
+  options: { sessionName?: string; sessionId?: string | null } = {},
 ): ChatState {
   return {
-    turns: rebuildTurns(messages, entryIds),
+    turns: rebuildTurns(messages, entryIds, options.sessionId),
     extensionRequest: null,
     streaming: false,
     queued: { steering: [], followUp: [] },
-    sessionName,
+    sessionName: options.sessionName,
     terminated: false,
   };
 }

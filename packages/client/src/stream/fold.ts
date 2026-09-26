@@ -5,6 +5,7 @@ import type {
   UserMessage,
   WireAgentEvent,
 } from '@ice-ai/protocol';
+import { type ImageCoords, messageImageSrcs } from './image-src';
 import { resultText, toolTitle } from './tool-display';
 import type { ChatState, SystemRow, ToolRow, TrailItem, Turn } from './view-model';
 
@@ -33,14 +34,6 @@ export function assistantFinalText(message: Extract<AgentMessage, { role: 'assis
     .filter((block) => block.type === 'text')
     .map((block) => block.text)
     .join('\n');
-}
-
-function userImages(message: UserMessage): string[] | undefined {
-  if (typeof message.content === 'string') return undefined;
-  const images = message.content
-    .filter((block) => block.type === 'image')
-    .map((block) => block.data);
-  return images.length > 0 ? images : undefined;
 }
 
 function appendTrail(turns: Turn[], item: TrailItem): void {
@@ -100,7 +93,12 @@ export function fold(state: ChatState, event: WireAgentEvent): ChatState {
           ...next.turns,
           {
             id: `u${next.turns.length}-${message.timestamp}`,
-            user: { text: userText(message), images: userImages(message), at: message.timestamp },
+            user: {
+              text: userText(message),
+              // 实时事件的图片是内联 base64（服务端只对历史 deferMedia）→ data URL
+              images: messageImageSrcs(message.content),
+              at: message.timestamp,
+            },
             trail: [],
             final: null,
             usage: null,
@@ -246,6 +244,7 @@ export function fold(state: ChatState, event: WireAgentEvent): ChatState {
         status: event.isError ? 'error' : 'ok',
         isError: event.isError,
         output: resultText(event.result) ?? '',
+        images: messageImageSrcs(event.result?.content),
       };
       if (startedAt !== undefined) patch.durationMs = Date.now() - startedAt;
       patchToolRow(next.turns, event.toolCallId, patch);
@@ -340,14 +339,23 @@ export function fold(state: ChatState, event: WireAgentEvent): ChatState {
   }
 }
 
-/** toolResult 消息：按 toolCallId 回填输出（历史与实时同构；turns 通常取末轮或重建的归属轮） */
-export function applyToolResult(turns: Turn[], message: ToolResultMessage): void {
+/**
+ * toolResult 消息：按 toolCallId 回填输出（历史与实时同构；turns 通常取末轮或重建的归属轮）。
+ * `coords` 只在历史重建时给（deferMedia 的图片要按会话/条目坐标换惰性 URL）；实时事件不给。
+ */
+export function applyToolResult(
+  turns: Turn[],
+  message: ToolResultMessage,
+  coords?: ImageCoords,
+): void {
   const output = resultText(message.content);
+  const images = messageImageSrcs(message.content, coords);
   const turn = lastTurn(turns);
   const row = findToolRow(turns, message.toolCallId);
   if (row !== undefined) {
     patchToolRow(turns, message.toolCallId, {
       output,
+      images,
       isError: message.isError,
       status: message.isError ? 'error' : 'ok',
     });
@@ -363,6 +371,7 @@ export function applyToolResult(turns: Turn[], message: ToolResultMessage): void
         argsText: '',
         status: message.isError ? 'error' : 'ok',
         output,
+        images,
         isError: message.isError,
       },
     ];

@@ -338,7 +338,10 @@ export class SessionReadService {
   // 详情（GET /api/sessions/:id，docs/02 §6.2）
   // ------------------------------------------------------------------
 
-  async detail(id: string): Promise<SessionDetailResponse | null> {
+  async detail(
+    id: string,
+    options: { deferMedia?: boolean } = {},
+  ): Promise<SessionDetailResponse | null> {
     const manager = await this.openById(id);
     if (manager === null) return null;
 
@@ -346,7 +349,9 @@ export class SessionReadService {
     const leafId = manager.getLeafId();
     const tree = toWireSessionTree(manager.getTree());
     const stats = computeStats(entries, manager.getSessionId(), manager.getSessionFile());
-    const context = this.buildContext(entries, leafId, {});
+    const context = this.buildContext(entries, leafId, {
+      ...(options.deferMedia === true ? { deferMedia: true } : {}),
+    });
 
     const filePath = manager.getSessionFile() ?? '';
     const info = this.infoFromManager(manager, entries);
@@ -543,12 +548,17 @@ export class SessionReadService {
   }
 
   // ------------------------------------------------------------------
-  // 工具结果图片惰性读取（GET /api/sessions/:id/entries/:entryId/tool-result-image，
-  // docs/02 §6.3；docs/04 §8-3 server 动工补齐）
+  // 消息图片惰性读取（GET /api/sessions/:id/entries/:entryId/image，
+  // docs/02 §6.3；docs/04 §8-3；ADR-0024）
   // ------------------------------------------------------------------
 
-  /** 二进制图片载荷（server 以 Content-Type: mimeType 直发） */
-  async toolResultImage(
+  /**
+   * 二进制图片载荷（server 以 Content-Type: mimeType 直发）。
+   *
+   * 不限角色：工具结果（read 工具回图）与**用户附件**都要能惰性取回——deferMedia 一视同仁
+   * 地把两者的 base64 换成空串（实测某会话一页 1.32 MB 里 1.13 MB 就是一张用户附件图）。
+   */
+  async entryImage(
     id: string,
     entryId: string,
     blockIndex: number,
@@ -556,9 +566,12 @@ export class SessionReadService {
     const manager = await this.openById(id);
     if (manager === null) return null;
     const entry = manager.getEntry(entryId);
-    if (entry?.type !== 'message' || entry.message.role !== 'toolResult') return null;
-    const block = entry.message.content[blockIndex];
-    if (block?.type !== 'image') return null;
+    if (entry?.type !== 'message') return null;
+    // 八角色联合里只有部分角色有 content（bashExecution / 摘要类都没有）
+    const content = (entry.message as { content?: unknown }).content;
+    if (!Array.isArray(content)) return null;
+    const block = content[blockIndex];
+    if (!isImageBlock(block)) return null;
     return { data: Buffer.from(block.data, 'base64'), mimeType: block.mimeType };
   }
 
@@ -661,7 +674,7 @@ export class SessionReadService {
   private buildContext(
     entries: SessionEntry[],
     leafId: string | null | undefined,
-    query: Pick<SessionContextQuery, 'before' | 'tail'>,
+    query: Pick<SessionContextQuery, 'before' | 'tail' | 'deferMedia'>,
   ): SessionContext {
     // thinkingLevel/model 沿整条活跃分支取最新值（与页窗口无关）；借 SDK 投影防字段漂移
     const ctx = buildSessionContext(entries, leafId ?? undefined);
@@ -678,10 +691,12 @@ export class SessionReadService {
     // 对话内容。原始条目仍在 tree 里（树要的是「发生过什么」）。
     const messages: AgentMessage[] = [];
     const entryIds: string[] = [];
+    const deferMedia = query.deferMedia === true;
     for (const entry of windowEntries) {
       for (const raw of sessionEntryToContextMessages(entry)) {
         if (raw.role === 'system') continue;
-        messages.push(toWireAgentMessage(raw));
+        const message = toWireAgentMessage(raw);
+        messages.push(deferMedia ? deferImageData(message) : message);
         entryIds.push(entry.id);
       }
     }
@@ -851,6 +866,36 @@ function treeLabelText(role: AgentMessage['role'], text: string): string {
   if (text.length > TREE_LABEL_MAX_CHARS) return `${text.slice(0, TREE_LABEL_MAX_CHARS)}…`;
   if (text.length > 0) return text;
   return role === 'assistant' ? '[assistant]' : 'message';
+}
+
+/**
+ * deferMedia：把消息里图片块的 base64 擦成空串（ADR-0024）。
+ *
+ * 为什么是「置空」而不是换一个占位块类型、也不丢块：
+ * - 块与块下标原样保留 ⇒ 取数坐标可推：`context.entryIds[i]`（平行数组）+ 块下标，
+ *   正好是 `GET .../entries/:entryId/image?blockIndex=N` 的参数
+ * - `sessionEntryToContextMessages()` 对 message 条目是**原样透传**，所以这里的块下标
+ *   与文件里 `entry.message.content` 的下标一致（否则服务端取图会错位）
+ * - 空串在 base64 里不是合法图片，与「有字节」不会混淆
+ *
+ * 实时路径（流式 wire 事件）不擦：那份数据当场就要渲染。
+ */
+function deferImageData(message: AgentMessage): AgentMessage {
+  const content = (message as { content?: unknown }).content;
+  if (!Array.isArray(content) || !content.some((b) => isImageBlock(b))) return message;
+  return {
+    ...message,
+    content: content.map((block) => (isImageBlock(block) ? { ...block, data: '' } : block)),
+  } as AgentMessage;
+}
+
+function isImageBlock(block: unknown): block is { type: 'image'; data: string; mimeType: string } {
+  return (
+    block !== null &&
+    typeof block === 'object' &&
+    (block as { type?: unknown }).type === 'image' &&
+    typeof (block as { data?: unknown }).data === 'string'
+  );
 }
 
 function userMessageText(message: SdkAgentMessage): string {
