@@ -55,7 +55,7 @@ packages/config/  typescript-config（Biome 配置在根 biome.json，见 ADR-00
 - 事件对外投影统一走 `toWireAgentEvent()`（core），wire 类型只在 protocol 定义；SDK 事件字段变动不许泄漏出 core（流式 toolcall 增量的 id/toolName 补齐即在此层完成）
 - 新增路由必须过检查清单（细则 docs/04 §6；server 拥有宿主机文件系统全部权限）：①触碰文件系统 → allowed-roots？②错误响应是否泄漏内部路径/堆栈？③新增 Origin / Sec-Fetch-* 例外？④是否为有副作用的 GET（禁止，ADR-0007：鉴权无凭据，GET 不再有兜底）
 - 提交消息用 Conventional Commits：`<type>(<scope>): <描述>`；type 限定 feat/fix/docs/style/refactor/perf/test/build/ci/chore/revert；scope 用包名或目录（core/server/protocol/client/ui/web/docs）；破坏性变更用 `!` 或 `BREAKING CHANGE:` 脚注（采纳 Conventional Commits 1.0.0，2026-09-18）
-- 提交纪律：AI 不主动 `git commit` / `git push`——完成改动后停在未提交状态，附建议的 commit 消息等用户明确指令（2026-09-18 定案）
+- 提交纪律：AI **不主动** `git commit` / `git push`——完成改动后默认停在未提交状态并附建议的 commit 消息；**用户明确要求提交时才可 `git commit`**，`git push` 一律不做（2026-09-18 定案「不主动提交」；2026-09-26 一度收紧为「禁止 commit 任何代码」，同日修订为「按用户指令提交」）
 - 命名不得暗示它做不到的事：非单调的值不叫 `version`（只能比相等的指纹叫 `fingerprint`）；已退役的名字不复用。前例：`sessionListVersion` → `registryVersion`（36720e9，2026-09-21，它只是注册表计数器）；本次把目录指纹定为 `listFingerprint` 而非 `listVersion`（ADR-0008，2026-09-22）
 
 ## 测试
