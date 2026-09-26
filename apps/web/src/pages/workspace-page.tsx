@@ -1,5 +1,5 @@
+import { I18nProvider } from '@ice-ai/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { MobileGate } from '../layout/mobile-gate';
 import { WorkspaceLayout } from '../layout/workspace-layout';
 
 /** REST 查询客户端（ADR-0009：Query 只管 REST，事件流走 client 的 AgentStream）。
@@ -9,8 +9,10 @@ const queryClient = new QueryClient();
 export function WorkspacePage() {
   return (
     <QueryClientProvider client={queryClient}>
-      <WorkspaceLayout />
-      <MobileGate />
+      {/* i18n 必须包住设置浮层与所有 ui 组件（§5.9.3） */}
+      <I18nProvider>
+        <WorkspaceLayout />
+      </I18nProvider>
     </QueryClientProvider>
   );
 }
