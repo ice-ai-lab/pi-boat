@@ -86,6 +86,7 @@ export {
   toWireAgentEventPayload,
   type WireAgentEventPayload,
 } from './events/wire-event';
+export { PI_VERSION } from './pi-version';
 export {
   type ProjectReadOptions,
   ProjectReadService,

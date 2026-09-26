@@ -17,6 +17,7 @@ import type {
   SessionContextQuery,
   SessionDetailResponse,
   SessionInfo,
+  SessionSearchHit,
   SessionStatsInfo,
   SessionTreeNode,
   ThinkingLevel,
@@ -85,6 +86,49 @@ const MAX_TAIL = 1000;
 const BODY_SEARCH_MAX_CANDIDATES = 300;
 /** 单文件正文扫描上限：超了说明这不是一条"会话"，读了也只是浪费 */
 const BODY_SEARCH_MAX_FILE_BYTES = 8 * 1024 * 1024;
+/** 搜索结果上限（超出部分丢弃并标 truncated） */
+const SEARCH_MAX_RESULTS = 50;
+/** 片段窗口：命中点前后各保留的字符数 */
+const SNIPPET_CONTEXT_CHARS = 60;
+
+function collapseWhitespace(text: string): string {
+  return text.replace(/\s+/g, ' ');
+}
+
+/** 提取消息 content 的可搜索文本（字符串直取；分块取 text 块拼接） */
+function searchTextOf(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .filter(
+        (block): block is { type: 'text'; text: string } =>
+          block !== null &&
+          typeof block === 'object' &&
+          (block as { type?: string }).type === 'text' &&
+          typeof (block as { text?: unknown }).text === 'string',
+      )
+      .map((block) => block.text)
+      .join(' ');
+  }
+  return '';
+}
+
+/** 命中点前后的展示片段（空白折叠；前后窗口各 SNIPPET_CONTEXT_CHARS 字符） */
+function buildSearchSnippet(
+  text: string,
+  needle: string,
+): { before: string; match: string; after: string } {
+  const flat = collapseWhitespace(text);
+  const at = flat.toLowerCase().indexOf(needle);
+  if (at < 0) return { before: '', match: '', after: '' };
+  const start = Math.max(0, at - SNIPPET_CONTEXT_CHARS);
+  const end = Math.min(flat.length, at + needle.length + SNIPPET_CONTEXT_CHARS);
+  return {
+    before: flat.slice(start, at),
+    match: flat.slice(at, at + needle.length),
+    after: flat.slice(at + needle.length, end),
+  };
+}
 const AUTO_NAME_TIMEOUT_MS = 30_000;
 const AUTO_NAME_MAX_LENGTH = 80;
 
@@ -145,6 +189,79 @@ export class SessionReadService {
   /** 会话目录指纹（GET /api/sessions 的 listFingerprint）：回答“磁盘侧列表内容变了吗” */
   async listFingerprint(): Promise<string> {
     return (await scanSessionsDir(this.sessionsRoot)).fingerprint;
+  }
+
+  /** 搜索：轻量字段优先 + 有界正文扫描，带片段（T2-3，对齐 pi-web 搜索结果的 before/match/after） */
+  async searchDetailed(q: string): Promise<{ results: SessionSearchHit[]; truncated: boolean }> {
+    const needle = q.toLowerCase();
+    const all = await this.list();
+    const byField = all.filter(
+      (s) =>
+        s.firstMessage.toLowerCase().includes(needle) ||
+        (s.name?.toLowerCase().includes(needle) ?? false),
+    );
+    const hits = new Map(
+      byField.map((session) => [
+        session.id,
+        {
+          session,
+          entryId: null as string | null,
+          blockIndex: null as number | null,
+          ...buildSearchSnippet(
+            session.firstMessage.toLowerCase().includes(needle)
+              ? session.firstMessage
+              : (session.name ?? ''),
+            needle,
+          ),
+        },
+      ]),
+    );
+
+    const candidates = all
+      .filter((session) => !hits.has(session.id))
+      .slice(0, BODY_SEARCH_MAX_CANDIDATES);
+    for (const candidate of candidates) {
+      const hit = await this.fileSearchHit(candidate, needle);
+      if (hit !== null) hits.set(candidate.id, hit);
+    }
+    // 有界返回：超过上限的丢弃并标记 truncated（pi-web 同语义）
+    const ordered = [...hits.values()];
+    const truncated = ordered.length > SEARCH_MAX_RESULTS;
+    return { results: ordered.slice(0, SEARCH_MAX_RESULTS), truncated };
+  }
+
+  /** 有界正文扫描：逐行找首个命中条目，产出片段（找不到返回 null） */
+  private async fileSearchHit(
+    session: SessionInfo,
+    needle: string,
+  ): Promise<SessionSearchHit | null> {
+    try {
+      const info = await stat(session.path);
+      if (info.size > BODY_SEARCH_MAX_FILE_BYTES) return null;
+      const content = await readFile(session.path, 'utf8');
+      for (const line of content.split('\n')) {
+        if (!line.toLowerCase().includes(needle)) continue;
+        let entry: unknown;
+        try {
+          entry = JSON.parse(line);
+        } catch {
+          continue;
+        }
+        const record = entry as { id?: unknown; message?: { content?: unknown } };
+        const text = searchTextOf(record.message?.content);
+        const at = text.toLowerCase().indexOf(needle);
+        if (at < 0) continue;
+        return {
+          session,
+          entryId: typeof record.id === 'string' ? record.id : null,
+          blockIndex: null,
+          ...buildSearchSnippet(text, needle),
+        };
+      }
+      return null;
+    } catch {
+      return null;
+    }
   }
 
   /**

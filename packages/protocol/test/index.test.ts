@@ -7,7 +7,7 @@ describe('@ice-ai/protocol', () => {
   });
 
   it('健康响应的形状是类型（ADR-0017：出参不写 zod）', () => {
-    const body = { ok: true, name: 'piboat-server' } satisfies HealthResponse;
+    const body = { ok: true, name: 'piboat-server', piVersion: '0.0.0' } satisfies HealthResponse;
     expect(body.ok).toBe(true);
     // @ts-expect-error 缺 name 不算健康响应
     const bad: HealthResponse = { ok: true };

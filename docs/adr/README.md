@@ -26,3 +26,4 @@
 | [0019](0019-frontend-phase-one-scope.md) | 前端一期范围与复用策略——对齐 pi-web 页面功能（i18n 单语 / 深色 F5 / ui 容器例外四处 / G2-11 前端绕过 / 单路由 ?s= / 视觉走原型；修订 docs/06 深色时点） | 已接受（决策 6 被 0020 取代；决策 1/3 被 0021 修订） | 2026-09-27 |
 | [0020](0020-visual-baseline-pi-web.md) | 前端视觉基准改为 pi-web——Token 与组件样式照抄 pi-web（推翻 0019 §6「视觉走原型 v3」） | 已接受（§4 的 mermaid 一句被 0021 修订） | 2026-01 |
 | [0021](0021-i18n-three-locales.md) | i18n 三语（en / zh-CN / ja）——引入 pi-web registry 架构，Provider 放 ui（推翻 0019 决策 1「zh-CN 单语」） | 已接受 | 2026-09-26 |
+| [0022](0022-parity-protocol-increments-and-brand.md) | 对齐 pi-web 所需的协议增量与品牌口径——搜索片段 `SessionSearchHit` / health `piVersion`（core 的 SDK `VERSION`）/ 品牌与页面标题统一 `Pi Web`（回答 10 §7 Q1） | 已接受 | 2026-09-26 |

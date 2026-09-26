@@ -92,7 +92,7 @@ export function registerSessionRoutes(app: Hono, deps: SessionRouteDeps): void {
     if (!parsed.success) {
       return c.json<CommandError>({ error: firstIssueMessage(parsed.error.issues) }, 400);
     }
-    const body: SessionSearchResponse = { sessions: await readService.search(parsed.data.q) };
+    const body: SessionSearchResponse = await readService.searchDetailed(parsed.data.q);
     return c.json(body);
   });
 

@@ -58,7 +58,20 @@ export const SessionSearchRequestSchema = z.object({
   q: z.string().max(200),
 });
 export type SessionSearchResponse = {
-  sessions: SessionInfo[];
+  results: SessionSearchHit[];
+  truncated: boolean;
+};
+
+/** 搜索命中：片段三段（before/match/after）+ 可选的定位锚点（T2-3） */
+export type SessionSearchHit = {
+  session: SessionInfo;
+  /** 命中条目 id（轻量字段命中时为 null） */
+  entryId: string | null;
+  /** 命中块下标（B 暂不用，保持 pi-web 形状） */
+  blockIndex: number | null;
+  before: string;
+  match: string;
+  after: string;
 };
 
 // ---------------------------------------------------------------------------

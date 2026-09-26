@@ -10,6 +10,7 @@ import type {
   SessionReadService,
   SystemService,
 } from '@ice-ai/core';
+import { PI_VERSION } from '@ice-ai/core';
 import type { HealthResponse } from '@ice-ai/protocol';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
@@ -47,7 +48,7 @@ export function createAgentServer(deps: AgentServerDeps): Hono {
   app.use('/api/*', securityMiddleware());
 
   app.get('/api/health', (c) => {
-    const body: HealthResponse = { ok: true, name: 'piboat-server' };
+    const body: HealthResponse = { ok: true, name: 'piboat-server', piVersion: PI_VERSION };
     return c.json(body);
   });
 
