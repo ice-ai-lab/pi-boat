@@ -1,4 +1,9 @@
-import { parseModelsConfigDraft } from '@ice-ai/client';
+import {
+  isThinkingExpandedByDefault,
+  parseModelsConfigDraft,
+  setThinkingExpandedByDefault,
+  THEME_OPTIONS,
+} from '@ice-ai/client';
 import {
   useCheckPluginUpdatesMutation,
   useCheckSkillUpdatesMutation,
@@ -11,16 +16,12 @@ import {
   usePatchSkillMutation,
   usePluginActionMutation,
   usePluginsQuery,
-  useProjectTrustQuery,
   useRefreshModelsMutation,
   useSearchSkillsMutation,
   useSkillsQuery,
-  useToolsSettingsQuery,
   useUpdateEnabledModelsMutation,
   useUpdateModelsConfigMutation,
-  useUpdateProjectTrustMutation,
   useUpdateSkillsMutation,
-  useUpdateToolsSettingsMutation,
 } from '@ice-ai/client/react';
 import {
   GeneralSection,
@@ -36,21 +37,28 @@ import {
   type SettingsSection as SectionId,
   setLastSettingsSection,
 } from '../services/settings-navigation';
+import { useTheme } from '../services/theme';
+import { useChatAppearance } from '../services/use-chat-appearance';
 
 /**
  * SettingsHost（F4）：设置浮层的数据装配——模型（可见范围/原文/目录刷新）、
- * skills、plugins、工具设置、项目信任。节导航记忆走 services/settings-navigation。
+ * skills、plugins。节导航记忆走 services/settings-navigation（项目信任改由 ProjectTrustDialog 承担）。
  */
 export interface SettingsHostProps {
   /** 当前项目根（决定项目级资源与信任范围） */
   projectRoot: string | null;
-  version: string;
   onClose(): void;
   onNotice(message: string, tone?: 'info' | 'error'): void;
 }
 
-export function SettingsHost({ projectRoot, version, onClose, onNotice }: SettingsHostProps) {
+export function SettingsHost({ projectRoot, onClose, onNotice }: SettingsHostProps) {
   const [section, setSection] = useState<SectionId>(() => getLastSettingsSection());
+  const theme = useTheme();
+  const chatAppearance = useChatAppearance();
+  const [thinkingExpanded, setThinkingExpanded] = useState(false);
+  useEffect(() => {
+    setThinkingExpanded(isThinkingExpandedByDefault());
+  }, []);
   useEffect(() => {
     setLastSettingsSection(section);
   }, [section]);
@@ -58,11 +66,6 @@ export function SettingsHost({ projectRoot, version, onClose, onNotice }: Settin
   const home = useHomeQuery();
   /** 项目级资源的 cwd：项目根 → 家目录（无项目时只用用户级资源） */
   const resourceCwd = projectRoot ?? home.data?.home ?? null;
-
-  const tools = useToolsSettingsQuery();
-  const updateTools = useUpdateToolsSettingsMutation();
-  const trust = useProjectTrustQuery(resourceCwd);
-  const updateTrust = useUpdateProjectTrustMutation(resourceCwd);
 
   // —— 模型 ——
   const models = useModelsQuery(projectRoot ?? undefined);
@@ -156,48 +159,37 @@ export function SettingsHost({ projectRoot, version, onClose, onNotice }: Settin
   );
 
   const sections: SettingsSectionItem[] = [
-    { id: 'general', label: '通用' },
-    { id: 'models', label: '模型' },
+    { id: 'general', label: 'General' },
+    { id: 'models', label: 'Models' },
     { id: 'skills', label: 'Skills', disabled: resourceCwd === null },
-    { id: 'plugins', label: '扩展包', disabled: resourceCwd === null },
+    { id: 'plugins', label: 'Plugins', disabled: resourceCwd === null },
   ];
 
-  return (
-    <SettingsPanel
-      sections={sections}
-      activeSection={section}
-      onSelectSection={(id) => setSection(id as SectionId)}
-      onClose={onClose}
-      title="设置"
-      projectHint="先在侧栏选择一个项目（或打开会话）"
-    >
-      {section === 'general' && (
+  const renderSection = (id: string) => {
+    if (id === 'general') {
+      return (
         <GeneralSection
-          version={version}
-          tools={{
-            isWindows: tools.data?.isWindows ?? false,
-            powerShellEnabled: tools.data?.powerShellEnabled ?? false,
-            busy: updateTools.isPending,
-            onTogglePowerShell: (next) =>
-              updateTools.mutate(next, {
-                onError: (error) => onNotice(`保存失败：${error.message}`, 'error'),
-              }),
+          theme={{
+            options: THEME_OPTIONS,
+            preference: theme.preference,
+            onSelect: theme.setPreference,
           }}
-          trust={{
-            cwd: resourceCwd,
-            requiresTrust: trust.data?.requiresTrust ?? false,
-            trusted: trust.data?.trusted ?? false,
-            busy: updateTrust.isPending,
-            onToggle: (next) =>
-              updateTrust.mutate(next, {
-                onSuccess: (data) => onNotice(data.trusted ? '已信任该项目' : '已撤销信任'),
-                onError: (error) => onNotice(`操作失败：${error.message}`, 'error'),
-              }),
+          chat={{
+            width: chatAppearance.width,
+            fontSize: chatAppearance.fontSize,
+            thinkingExpanded,
+            onThinkingExpandedChange: (enabled) => {
+              setThinkingExpandedByDefault(enabled);
+              setThinkingExpanded(enabled);
+            },
+            onWidthChange: chatAppearance.setWidth,
+            onFontSizeChange: chatAppearance.setFontSize,
           }}
         />
-      )}
-
-      {section === 'models' && (
+      );
+    }
+    if (id === 'models') {
+      return (
         <ModelsSection
           enabled={{
             models: modelItems,
@@ -279,9 +271,10 @@ export function SettingsHost({ projectRoot, version, onClose, onNotice }: Settin
             error: catalog.data?.error ?? null,
           }}
         />
-      )}
-
-      {section === 'skills' && (
+      );
+    }
+    if (id === 'skills') {
+      return (
         <SkillsSection
           cwd={resourceCwd}
           skills={(skills.data?.skills ?? []).map((skill) => ({
@@ -332,9 +325,10 @@ export function SettingsHost({ projectRoot, version, onClose, onNotice }: Settin
               }),
           }}
         />
-      )}
-
-      {section === 'plugins' && (
+      );
+    }
+    if (id === 'plugins') {
+      return (
         <PluginsSection
           cwd={resourceCwd}
           packages={(plugins.data?.packages ?? []).map((pkg) => ({
@@ -383,7 +377,20 @@ export function SettingsHost({ projectRoot, version, onClose, onNotice }: Settin
             onCheck: () => checkPlugins.mutate(undefined),
           }}
         />
-      )}
-    </SettingsPanel>
+      );
+    }
+    return null;
+  };
+
+  return (
+    <SettingsPanel
+      sections={sections}
+      activeSection={section}
+      onSelectSection={(id) => setSection(id as SectionId)}
+      onClose={onClose}
+      title="Settings"
+      projectHint="Open a project from the sidebar (or open a session)"
+      renderSection={renderSection}
+    />
   );
 }
