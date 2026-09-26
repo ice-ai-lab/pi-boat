@@ -13,6 +13,7 @@ import type {
 import { PI_VERSION } from '@ice-ai/core';
 import type { HealthResponse } from '@ice-ai/protocol';
 import { Hono } from 'hono';
+import { compress } from 'hono/compress';
 import { cors } from 'hono/cors';
 import { registerAgentRoutes } from './routes/agent';
 import { registerModelRoutes } from './routes/models';
@@ -45,6 +46,11 @@ export function createAgentServer(deps: AgentServerDeps): Hono {
   // cors 在前：被安全层拒绝的响应（403）也带白名单 CORS 头，dev 前端可读错误体。
   // 白名单与 security.ts 的 Origin 校验同源（单一来源，docs/01 §5.2.2）
   app.use('/api/*', cors({ origin: DEV_WEB_ORIGINS }));
+  // 响应压缩（docs/07 §6 B8）：会话详情/分页动辄数百 KB，JSON 文本再压 5–10×（局域网/
+  // 远程访问与 Electron 直连时是真带宽）。Hono 默认白名单**已排除 `text/event-stream`**
+  // （见 utils/compress.js 的负向断言），SSE 逐帧语义不受影响；阈值默认 1 KB，
+  // 并按 Cache-Control: no-transform 让位（我们不设该头）。
+  app.use('*', compress());
   app.use('/api/*', securityMiddleware());
 
   app.get('/api/health', (c) => {

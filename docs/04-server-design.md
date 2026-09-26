@@ -177,6 +177,8 @@ graceful close 可能被 Node 响应管道吞掉——socket 保持 ESTABLISHED�
 - **M1 降级（已采用）**：忽略 `Last-Event-ID`，重连 = `connected` + 快照 + 此后增量；
   客户端整体重建（seq 单调保证丢弃 `≤ lastSeq` 的重复事件，幂等成立）。
   断线窗口内已广播的事件丢失由快照覆盖（半截消息场景）或下轮全量状态查询覆盖
+- **响应压缩**：`app.use('*', compress())`（`hono/compress`，阈值 1 KB）。默认白名单已排除
+  `text/event-stream`，SSE 不受影响；压缩后 `Vary: Accept-Encoding` 由中间件补。实测详情 289 KB → 70 KB。
 - **待补（B8 可选）**：core `SessionRegistryEntry` 加有界环形缓冲（如最近 500 条），
   server 按游标重放后接增量（重放与订阅的重叠窗口靠客户端 seq 去重）。当前实现仍是
   整体重建（上一条降级方案）；单测已覆盖“忽略 Last-Event-ID 也幂等”

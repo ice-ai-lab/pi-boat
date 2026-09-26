@@ -14,7 +14,12 @@ import {
   type SystemService,
   UserInputError,
 } from '@ice-ai/core';
-import type { AgentCommand, SessionContextQuery, WireAgentEvent } from '@ice-ai/protocol';
+import type {
+  AgentCommand,
+  SessionContextQuery,
+  SessionInfo,
+  WireAgentEvent,
+} from '@ice-ai/protocol';
 import { describe, expect, it, vi } from 'vitest';
 import { createAgentServer } from '../src/server';
 import { closeAllAgentEventStreams } from '../src/sse';
@@ -89,9 +94,9 @@ function fakeAgentService() {
   return service as unknown as AgentSessionService & { emit: typeof service.emit };
 }
 
-function fakeReadService() {
+function fakeReadService(listSessions?: SessionInfo[]) {
   // B4 新增面（export / auto-name / thinking / revision）——路由层只验校验与错误映射
-  const info = {
+  const info: SessionInfo = {
     path: '/tmp/s1.jsonl',
     id: 'sess-disk',
     cwd: '/tmp',
@@ -101,7 +106,7 @@ function fakeReadService() {
     firstMessage: 'hello',
   };
   const service = {
-    list: vi.fn(async (_options?: SessionListOptions) => [info]),
+    list: vi.fn(async (_options?: SessionListOptions) => listSessions ?? [info]),
     listFingerprint: vi.fn(async () => 'fp-test'),
     search: vi.fn(async () => [info]),
     searchDetailed: vi.fn(async () => ({
@@ -391,9 +396,9 @@ function fakeResourceService() {
   };
 }
 
-function makeApp() {
+function makeApp(options: { sessions?: SessionInfo[] } = {}) {
   const agentService = fakeAgentService();
-  const readService = fakeReadService();
+  const readService = fakeReadService(options.sessions);
   const projectService = fakeProjectService();
   const configService = fakeConfigService();
   const systemService = fakeSystemService();
@@ -859,6 +864,52 @@ describe('会话域 B4 路由（docs/02 §6.2/§6.3、ADR-0013b）', () => {
     const forced = await request(app, '/api/sessions/sess-disk?force=1');
     expect(agentService.probeExternalWrite).toHaveBeenCalledWith('sess-disk');
     expect(await forced.json()).toMatchObject({ wrapperRebuilt: true });
+  });
+});
+
+describe('响应压缩（docs/07 §6 B8）', () => {
+  it('JSON 响应在客户端支持 gzip 时压缩，并补 Vary: Accept-Encoding', async () => {
+    // 大 body（> 阈值 1 KB）：列表项用一个长 firstMessage 撑起来
+    const { app } = makeApp({
+      sessions: [
+        {
+          path: '/tmp/s1.jsonl',
+          id: 'sess-big',
+          cwd: '/tmp',
+          created: '2026-01-01T00:00:00.000Z',
+          modified: '2026-01-01T00:00:00.000Z',
+          messageCount: 2,
+          firstMessage: 'x'.repeat(4096),
+        },
+      ],
+    });
+    const res = await request(app, '/api/sessions', {
+      headers: { 'accept-encoding': 'gzip' },
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-encoding')).toBe('gzip');
+    expect(res.headers.get('vary') ?? '').toContain('Accept-Encoding');
+    // 压过的 body 仍能还原成同一份 JSON
+    const raw = await new Response(res.body?.pipeThrough(new DecompressionStream('gzip'))).text();
+    expect(Array.isArray(JSON.parse(raw).sessions)).toBe(true);
+  });
+
+  it('不接受压缩时不设 Content-Encoding（不破坏老客户端）', async () => {
+    const { app } = makeApp();
+    const res = await request(app, '/api/sessions');
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-encoding')).toBeNull();
+  });
+
+  it('SSE 不压缩（逐帧语义优先；Hono 白名单排除 text/event-stream）', async () => {
+    const { app } = makeApp();
+    const res = await request(app, '/api/agent/sess-live/events', {
+      headers: { 'accept-encoding': 'gzip, deflate' },
+    });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/event-stream');
+    expect(res.headers.get('content-encoding')).toBeNull();
+    void res.body?.cancel();
   });
 });
 

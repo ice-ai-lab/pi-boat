@@ -191,7 +191,7 @@
 | ~~`GET /api/push/config`~~ / ~~`POST /api/push/subscribe`~~ | ⛔ | **已删除**（ADR-0016，2026-09-25）：后台推送整体不做，§8-6 |
 | `POST /api/agent/:id/lease` | ✅ | 见 G2-12 / §3.1 |
 | 服务端耗时埋点（env 开关） | ⏸ | B8 可选：`Server-Timing` + 结构化日志，慢路径诊断用（未做） |
-| 响应 gzip（≥1KB 才压） | ⏸ | B8 可选（未做） |
+| 响应 gzip（≥1KB 才压） | ✅ | 已落地（2026-09-26）：`createAgentServer` 挂 `hono/compress`——JSON 文本再压 4–10×（详情 289 KB → 70 KB）；Hono 白名单本就排除 `text/event-stream`，SSE 逐帧语义不受影响 |
 
 ### 3.9 排除域（一期不做）
 
@@ -255,7 +255,7 @@
 | **B5 文件 / Git / Worktree** ✅ 已完成 | files list/read/download/meta/preview + upload/upload-check（引用放行、文件名清洗、冲突策略）/ file-index（git ls-files + 模糊打分）/ home / default-cwd / cwd browse+validate / git status+diff / worktrees 全组（路径归一 + 409 dirty） | B0 ✅ | SystemService + PathGuard |
 | **B6 资源域** ✅ 已完成 | skills（list / PATCH frontmatter / search / install / check / update）/ plugins（list / 五种动作 / check）/ tools-settings / project-trust | B2 ✅ | ResourceService（子代理延后，见 §8-4） |
 | **B7 会话生命周期** ✅ 已完成 | liveness lease / idle 回收（G2-12）；原「推送订阅与投递侧」（G2-13）已删（ADR-0016） | B1 ✅ | LivenessRegistry |
-| **B8 可选** | 耗时埋点、gzip、SSE 环形缓冲差量重放 | — | 锦上添花 |
+| **B8 可选** | 耗时埋点、~~gzip~~（已落地）、SSE 环形缓冲差量重放 | — | 锦上添花 |
 
 **每批验收线**：
 - 新增路由必须过 `docs/04 §6` 四条检查清单（文件系统 → allowed-roots？错误响应泄漏路径/堆栈？新增 Origin/Sec-Fetch 例外？有副作用的 GET？）
@@ -396,7 +396,7 @@
 | 子代理运行时 | 延后（见 §8-4） | 可由 pi 扩展提供，后端零改动 |
 | `deferThinking` | 不做（历史 thinking 全文直发，按块惰性取原文另走 `/thinking`） | 2026-09-20 已定案 |
 | **启动偏好落盘（G2-11）** | **未实现**：显式选择的 model / thinking 只作用于会话，不写 settings.json `defaultModel`（旧版本本文档曾误记为“已并入模型域实现”） | **已定案（ADR-0019，2026-09-27）：「下次新建继承上次选择」由前端 localStorage 承担（startup-preferences）；core 落盘不做，若将来要做须按本行方案 + 新 ADR |
-| SSE 差量重放 / 埋点 / gzip | 未做（B8 可选） | 当前靠快照重建已够用；触发条件：实测到重连丢帧痛点或 payload 压力 |
+| SSE 差量重放 / 埋点 | 未做（B8 可选） | 当前靠快照重建已够用；触发条件：实测到重连丢帧痛点或 payload 压力。gzip 已于 2026-09-26 落地 |
 | UNC cwd 路径往返 | 未处理（`//host/share` 会被 308 归一掉） | Windows 网络路径场景少；真要做需把 `//` 折进首段（见 §7 文件/路径条） |
 | 导出 HTML 长会话爆栈 | 未实测（复用 SDK `exportFromFile`） | 如果 SDK 内部是递归遍历，5000+ 条目会话可能在客户端爆栈；真机碰到再补迭代版 |
 
