@@ -3,10 +3,12 @@ import {
   documentPreviewKind,
   formatFileSize,
   getFileName,
+  getLanguageFromPath,
   isDocxPath,
   isImagePath,
 } from '@ice-ai/client';
 import { AlertTriangle, Download, ExternalLink, Loader2 } from 'lucide-react';
+import { useI18n } from '../i18n/i18n-provider';
 import { CodeViewer } from './code-viewer';
 import { DiffView } from './diff-view';
 import { ImagePreview } from './image-preview';
@@ -18,6 +20,10 @@ import { ImagePreview } from './image-preview';
  * - PDF → iframe 原生渲染
  * - 有 git 改动且切到 diff → DiffView（unified patch 由宿主取）
  * - DOCX / 二进制 → 不假装能预览，给下载（后端不做 DOCX 转换，docs/07 §9）
+ *
+ * 抬头（`.file-viewer-toolbar`）按 参考实现 同形：路径 + `语言 · N lines · 体积` + 监听小圆点 +
+ * （有改动才出现）内容/diff 切换 + 图标动作（提及 / 折行 / 下载）。尺寸一律走
+ * `.file-viewer-icon-button` 的 24×24，别在组件里覆写 width，否则与 参考实现 并排看就会错位。
  */
 export interface FileViewerProps {
   tab: FileTab;
@@ -31,11 +37,57 @@ export interface FileViewerProps {
   size?: number;
   /** diff 模式的 patch */
   patch?: string | null;
+  /** 该文件在 git 里是否有可对比的改动（决定是否出「内容/diff」切换） */
+  diffAvailable?: boolean;
   /** 字节流 URL（图片/PDF/下载） */
   byteUrl(type: 'read' | 'preview' | 'download'): string;
   onToggleWrap(): void;
   onShowDiff(): void;
   onShowSource(): void;
+  /** 「提及」：把相对路径插入聊天输入框（F16 的查看器入口） */
+  onAtMention?(): void;
+}
+
+/** 折行图标（与 参考实现 同一枚；文本按钮 32×24 是样式跑偏的根源） */
+function WrapIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M3 6h18" />
+      <path d="M3 12h15a3 3 0 1 1 0 6h-4" />
+      <path d="m16 16-2 2 2 2" />
+      <path d="M3 18h7" />
+    </svg>
+  );
+}
+
+/** 提及图标（@） */
+function MentionIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="4" />
+      <path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8" />
+    </svg>
+  );
 }
 
 export function FileViewer({
@@ -46,107 +98,162 @@ export function FileViewer({
   text,
   size,
   patch,
+  diffAvailable = false,
   byteUrl,
   onToggleWrap,
   onShowDiff,
   onShowSource,
+  onAtMention,
 }: FileViewerProps) {
+  const { t } = useI18n();
   const name = getFileName(tab.path);
   const image = isImagePath(tab.path);
   const pdf = documentPreviewKind(tab.path) !== null;
   const docx = isDocxPath(tab.path);
+  const sourceMode = tab.displayMode !== 'diff';
+  const lines = text === undefined || text === null ? null : text.split('\n').length;
+  const meta =
+    size === undefined
+      ? null
+      : `${getLanguageFromPath(tab.path)}${lines === null ? '' : ` · ${lines} lines`} · ${formatFileSize(size)}`;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div
+      className="file-viewer-shell"
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        minWidth: 0,
+        minHeight: 0,
+        flex: 1,
+        overflow: 'hidden',
+        position: 'relative',
+      }}
+    >
       <div
-        className="file-viewer-toolbar hairline-b flex shrink-0 items-center gap-3 border-border px-3"
-        style={{ background: 'var(--bg-panel)' }}
+        className="file-viewer-toolbar"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '5px 12px',
+          borderBottom: '1px solid var(--border)',
+          fontSize: 11,
+          color: 'var(--text-dim)',
+          background: 'var(--bg)',
+          flexShrink: 0,
+        }}
       >
         <span
           className="file-viewer-path"
-          style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5, color: 'var(--text-muted)' }}
+          style={{ fontFamily: 'var(--font-mono)' }}
           title={tab.path}
         >
           {displayPath}
         </span>
-        {size !== undefined && (
-          <span className="file-viewer-meta" style={{ fontSize: 11, color: 'var(--text-dim)' }}>
-            {formatFileSize(size)}
+        {meta !== null && (
+          <span className="file-viewer-meta" title={meta}>
+            {meta}
           </span>
         )}
+        {/* 实时监听（docs/07 §9 的 type=watch 未实现）——恒灰，别假装已同步 */}
+        <span
+          role="img"
+          title={t('i18n.notWatching')}
+          aria-label={t('i18n.notWatching')}
+          className="file-viewer-live-indicator"
+          style={{ background: 'var(--border)' }}
+        />
         <div className="file-viewer-controls">
-          <div className="file-viewer-mode-switch">
-            <button
-              type="button"
-              onClick={onShowSource}
-              aria-pressed={tab.displayMode !== 'diff'}
-              title="查看文件内容"
-              className="file-viewer-mode-button"
-              style={{
-                background: tab.displayMode !== 'diff' ? 'var(--bg-selected)' : 'transparent',
-                color: tab.displayMode !== 'diff' ? 'var(--text)' : 'var(--text-muted)',
-              }}
+          {diffAvailable && (
+            /* biome-ignore lint/a11y/useSemanticElements: 与 参考实现 同形（外层已是 flex 容器，换 fieldset 会改版式） */
+            <div
+              role="group"
+              className="file-viewer-mode-switch"
+              aria-label={t('i18n.fileViewMode')}
             >
-              内容
-            </button>
-            <button
-              type="button"
-              onClick={onShowDiff}
-              aria-pressed={tab.displayMode === 'diff'}
-              title="查看 git 改动"
-              className="file-viewer-mode-button"
-              style={{
-                background: tab.displayMode === 'diff' ? 'var(--bg-selected)' : 'transparent',
-                color: tab.displayMode === 'diff' ? 'var(--text)' : 'var(--text-muted)',
-              }}
-            >
-              diff
-            </button>
-          </div>
-          <div className="file-viewer-actions">
-            {tab.displayMode === 'source' && !image && !pdf && (
               <button
                 type="button"
-                aria-pressed={tab.wrapLines}
-                onClick={onToggleWrap}
-                title="折行"
-                className="file-viewer-icon-button"
+                onClick={onShowSource}
+                aria-pressed={sourceMode}
+                className="file-viewer-mode-button"
                 style={{
-                  width: 'auto',
-                  padding: '0 8px',
-                  color: tab.wrapLines ? 'var(--accent)' : undefined,
+                  background: sourceMode ? 'var(--bg-selected)' : 'transparent',
+                  color: sourceMode ? 'var(--text)' : 'var(--text-muted)',
                 }}
               >
-                折行
+                {t('files.viewSource')}
+              </button>
+              <button
+                type="button"
+                onClick={onShowDiff}
+                title={t('i18n.compareHead')}
+                aria-pressed={!sourceMode}
+                className="file-viewer-mode-button"
+                style={{
+                  background: !sourceMode ? 'var(--bg-selected)' : 'transparent',
+                  color: !sourceMode ? 'var(--text)' : 'var(--text-muted)',
+                }}
+              >
+                {t('files.viewDiff')}
+              </button>
+            </div>
+          )}
+          <div className="file-viewer-actions">
+            {onAtMention !== undefined && (
+              <button
+                type="button"
+                onClick={onAtMention}
+                title={t('files.insertPath')}
+                aria-label={t('files.mention')}
+                className="file-viewer-icon-button"
+              >
+                <MentionIcon />
               </button>
             )}
-            <a
-              href={byteUrl('download')}
-              download={name}
-              title="下载"
-              aria-label="下载文件"
-              className="file-viewer-icon-button"
-            >
-              <Download size={13} />
-            </a>
-            <a
-              href={byteUrl('read')}
-              target="_blank"
-              rel="noreferrer"
-              title="在新标签页打开"
-              aria-label="在新标签页打开"
-              className="file-viewer-icon-button"
-            >
-              <ExternalLink size={13} />
-            </a>
+            {sourceMode && !image && !pdf && !docx && (
+              <button
+                type="button"
+                onClick={onToggleWrap}
+                title={t(tab.wrapLines ? 'i18n.disableWrap' : 'i18n.enableWrap')}
+                aria-label={t(tab.wrapLines ? 'i18n.disableWrap' : 'i18n.enableWrap')}
+                aria-pressed={tab.wrapLines}
+                className="file-viewer-icon-button"
+                style={{
+                  background: tab.wrapLines ? 'var(--bg-selected)' : 'transparent',
+                  color: tab.wrapLines ? 'var(--text)' : 'var(--text-muted)',
+                }}
+              >
+                <WrapIcon />
+              </button>
+            )}
           </div>
+          <a
+            href={byteUrl('download')}
+            download={name}
+            title={t('files.download')}
+            aria-label={t('files.download')}
+            className="file-viewer-icon-button"
+          >
+            <Download size={14} />
+          </a>
+          <a
+            href={byteUrl('read')}
+            target="_blank"
+            rel="noreferrer"
+            title={t('files.openInNewTab')}
+            aria-label={t('files.openInNewTab')}
+            className="file-viewer-icon-button"
+          >
+            <ExternalLink size={14} />
+          </a>
         </div>
       </div>
 
       {loading && (
         <div className="flex flex-1 items-center justify-center gap-2 text-[12px] text-fg-faint">
           <Loader2 size={14} className="animate-spin" />
-          加载中…
+          {t('files.loading')}
         </div>
       )}
 
@@ -159,14 +266,12 @@ export function FileViewer({
 
       {!loading && (error === undefined || error === null) && (
         <>
-          {tab.displayMode === 'diff' && <DiffView patch={patch ?? ''} />}
-          {tab.displayMode !== 'diff' && image && (
-            <ImagePreview src={byteUrl('preview')} alt={name} />
-          )}
-          {tab.displayMode !== 'diff' && !image && pdf && (
+          {!sourceMode && <DiffView patch={patch ?? ''} />}
+          {sourceMode && image && <ImagePreview src={byteUrl('preview')} alt={name} />}
+          {sourceMode && !image && pdf && (
             <iframe title={name} src={byteUrl('preview')} className="min-h-0 flex-1 border-0" />
           )}
-          {tab.displayMode !== 'diff' && !image && !pdf && docx && (
+          {sourceMode && !image && !pdf && docx && (
             <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
               <p className="text-[12.5px] text-fg-muted">DOCX 不支持在线预览</p>
               <p className="text-[11.5px] text-fg-faint">
@@ -181,28 +286,21 @@ export function FileViewer({
               </a>
             </div>
           )}
-          {tab.displayMode !== 'diff' &&
-            !image &&
-            !pdf &&
-            !docx &&
-            text !== undefined &&
-            text !== null && <CodeViewer code={text} wrapLines={tab.wrapLines} />}
-          {tab.displayMode !== 'diff' &&
-            !image &&
-            !pdf &&
-            !docx &&
-            (text === undefined || text === null) && (
-              <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
-                <p className="text-[12.5px] text-fg-muted">二进制文件不便内联展示</p>
-                <a
-                  href={byteUrl('download')}
-                  download={name}
-                  className="sq bg-accent-weak px-3 py-1.5 text-[12px] text-accent"
-                >
-                  下载 {name}
-                </a>
-              </div>
-            )}
+          {sourceMode && !image && !pdf && !docx && text !== undefined && text !== null && (
+            <CodeViewer code={text} wrapLines={tab.wrapLines} />
+          )}
+          {sourceMode && !image && !pdf && !docx && (text === undefined || text === null) && (
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
+              <p className="text-[12.5px] text-fg-muted">二进制文件不便内联展示</p>
+              <a
+                href={byteUrl('download')}
+                download={name}
+                className="sq bg-accent-weak px-3 py-1.5 text-[12px] text-accent"
+              >
+                下载 {name}
+              </a>
+            </div>
+          )}
         </>
       )}
     </div>

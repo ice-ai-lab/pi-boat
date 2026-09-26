@@ -147,7 +147,16 @@ describe('AgentSessionService.create', () => {
       model: { provider: 'anthropic', modelId: 'claude-test' },
       thinkingLevel: 'medium',
     });
-    expect(service.isRunning('sess-1')).toBe(true);
+    expect(service.isResident('sess-1')).toBe(true);
+    expect(service.residentSessionIds()).toEqual(['sess-1']);
+    // 常驻 ≠ 在跑：刚建的会话是 idle，侧栏不能给它显示「加载中」（2026-09-26）
+    expect(service.runningSessionIds()).toEqual([]);
+  });
+
+  it('runningSessionIds：只列真在跑的（流/提示/压缩），常驻 idle 不算', async () => {
+    const { service } = serviceWith(fakeAgentSession({ isStreaming: true }));
+    await service.create({ cwd: '/tmp', type: 'ensure_session' });
+    expect(service.residentSessionIds()).toEqual(['sess-1']);
     expect(service.runningSessionIds()).toEqual(['sess-1']);
   });
 
@@ -166,7 +175,7 @@ describe('AgentSessionService.create', () => {
     await expect(
       s2.create({ cwd: '/tmp', type: 'ensure_session', provider: 'nope', modelId: 'nope' }),
     ).rejects.toThrow(/not available/i);
-    expect(s2.runningSessionIds()).toEqual([]);
+    expect(s2.residentSessionIds()).toEqual([]);
   });
 
   it('带 message：create 内部派发 prompt', async () => {
@@ -461,7 +470,7 @@ describe('AgentSessionService 轻查与销毁', () => {
 
     service.disposeSession('sess-1', 'idle');
     expect(events.map((e) => e.type)).toEqual(['connected', 'session_shutdown']);
-    expect(service.isRunning('sess-1')).toBe(false);
+    expect(service.isResident('sess-1')).toBe(false);
     expect(service.registryVersion).toBe(v0 + 1);
     await expect(service.send('sess-1', { type: 'abort' })).rejects.toBeInstanceOf(
       SessionNotFoundError,
@@ -581,8 +590,8 @@ describe('AgentSessionService.send：B2 命令面', () => {
       reason: 'fork',
     });
     // 旧键立即销毁（docs/01 §8-1），新键可用
-    expect(service.isRunning('sess-1')).toBe(false);
-    expect(service.isRunning('sess-2')).toBe(true);
+    expect(service.isResident('sess-1')).toBe(false);
+    expect(service.isResident('sess-2')).toBe(true);
     await expect(service.send('sess-1', { type: 'abort' })).rejects.toBeInstanceOf(
       SessionNotFoundError,
     );
@@ -671,7 +680,7 @@ describe('AgentSessionService：工具预设与纯聊天边界（G2-9/G2-10）',
     const result = await service.send('sess-1', { type: 'set_tools', preset: 'none' });
     expect(result).toEqual({ sessionId: 'sess-1', recreated: true });
     expect(calls.at(-1)).toMatchObject({ sessionFile: '/tmp/sess-1.jsonl', chatOnly: true });
-    expect(service.isRunning('sess-1')).toBe(true);
+    expect(service.isResident('sess-1')).toBe(true);
   });
 
   it('preset=configured：未钉住时是 no-op；已钉住则重建回默认', async () => {
@@ -719,7 +728,7 @@ describe('AgentSessionService：恢复与 cwd 校验（ADR-0013 / docs02 §4.1�
     const ok = await service.resume('cold-1');
     expect(ok.sessionId).toBe('cold-1');
     expect(calls[0]).toMatchObject({ sessionFile: '/tmp/cold-1.jsonl', cwd: '/tmp' });
-    expect(service.isRunning('cold-1')).toBe(true);
+    expect(service.isResident('cold-1')).toBe(true);
 
     // 幂等：已在注册表内不再建 runtime
     const again = await service.resume('cold-1');

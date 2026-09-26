@@ -52,7 +52,7 @@ export function registerAgentRoutes(app: Hono, deps: AgentRouteDeps): void {
   // 前端据它决定要不要显式 resume（ADR-0013）。
   app.post('/api/agent/:id/lease', (c) => {
     const id = c.req.param('id');
-    const renewed = liveness?.renew(id) ?? agentService.isRunning(id);
+    const renewed = liveness?.renew(id) ?? agentService.isResident(id);
     return c.json({ success: true, renewed });
   });
 
@@ -115,7 +115,7 @@ export function registerAgentRoutes(app: Hono, deps: AgentRouteDeps): void {
     const id = c.req.param('id');
     // 关闭条件 3：冷会话不自动拉起——恢复走显式 `POST /api/agent/:id/resume`（ADR-0013）；
     // 建流时隐式创建 runtime 会让 GET 产生副作用，违反 ADR-0007
-    if (!agentService.isRunning(id)) {
+    if (!agentService.isResident(id)) {
       return c.json<CommandError>({ error: `Session not found: ${id}` }, 404);
     }
     // Last-Event-ID：M1 降级忽略（sse.ts 头注）——重连 = connected + 快照整体重建

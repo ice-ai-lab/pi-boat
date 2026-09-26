@@ -834,13 +834,33 @@ export class AgentSessionService {
     return { running: true, state: this.getState(entry) };
   }
 
-  isRunning(sessionId: string): boolean {
+  /**
+   * 会话是否**常驻**注册表（有 runtime 可寻址）。
+   * 命名刻意不叫 isRunning：idle 但还没被回收的会话同样为 true，它**没在跑**。
+   */
+  isResident(sessionId: string): boolean {
     const entry = this.entries.get(sessionId);
     return entry !== undefined && !entry.isDisposed;
   }
 
-  runningSessionIds(): string[] {
+  /** 常驻会话 id（idle 回收要遍历全部候选，不能只看在跑的） */
+  residentSessionIds(): string[] {
     return [...this.entries.keys()];
+  }
+
+  /**
+   * **真在跑**的会话 id（对齐 参考实现 `getRunningRpcSessionIds`：流 / 提示 / 压缩任一为真）。
+   * 侧栏据此显示转圈——常驻 idle 的会话若列进来会永远显示「加载中」（2026-09-26 修的坑）。
+   */
+  runningSessionIds(): string[] {
+    const ids: string[] = [];
+    for (const [sessionId, entry] of this.entries) {
+      if (entry.isDisposed) continue;
+      if (entry.isStreaming || entry.isPromptRunning || entry.session.isCompacting) {
+        ids.push(sessionId);
+      }
+    }
+    return ids;
   }
 
   get registryVersion(): number {

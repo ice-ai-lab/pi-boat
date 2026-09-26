@@ -92,7 +92,7 @@ export class LivenessRegistry {
    * @returns 会话当时是否在注册表里；false = 已被回收，客户端应显式 resume
    */
   renew(sessionId: string): boolean {
-    if (!this.agentService.isRunning(sessionId)) return false;
+    if (!this.agentService.isResident(sessionId)) return false;
     this.leases.set(sessionId, Date.now() + this.leaseTtlMs);
     return true;
   }
@@ -105,7 +105,7 @@ export class LivenessRegistry {
   /** 扫一轮：回收满足两条判据的会话；返回被回收的 id（便于测试与日志） */
   reap(now = Date.now()): string[] {
     const reaped: string[] = [];
-    for (const sessionId of this.agentService.runningSessionIds()) {
+    for (const sessionId of this.agentService.residentSessionIds()) {
       const leaseExpiry = this.leases.get(sessionId);
       const leaseActive = leaseExpiry !== undefined && leaseExpiry > now;
       const watched = leaseActive || this.subscriberCount(sessionId) > 0;

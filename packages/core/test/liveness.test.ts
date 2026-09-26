@@ -15,7 +15,8 @@ function fakeAgentService(options: { running?: string[]; streaming?: string[] } 
   return {
     disposed,
     service: {
-      isRunning: (id: string) => running.has(id),
+      isResident: (id: string) => running.has(id),
+      residentSessionIds: () => [...running],
       runningSessionIds: () => [...running],
       getRunningState: (id: string) =>
         running.has(id)

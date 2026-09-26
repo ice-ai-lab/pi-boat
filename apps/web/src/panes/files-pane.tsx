@@ -1,7 +1,9 @@
 import { fileByteUrl, getFileName, getRelativeFilePath, isImagePath } from '@ice-ai/client';
+import { useGitStatusQuery } from '@ice-ai/client/react';
 import { FileTabs, FileViewer, useI18n } from '@ice-ai/ui';
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { fileTabsStore } from '../services/file-tabs-store';
+import { insertMention } from '../services/mention-bus';
 import { useFileContent } from '../services/use-file-content';
 import { useFileTabs } from '../services/use-file-tabs';
 
@@ -34,7 +36,15 @@ export function FilesPane({
 }: FilesPaneProps) {
   const { t } = useI18n();
   const { state, tab } = useFileTabs();
-  // git 状态仅供侧栏文件树徽标使用；此处不取（避免同域重复轮询）
+  // git 状态仅供侧栏文件树徽标使用；此处只借同一份缓存判断「有没有可对比的改动」，
+  // 用来决定查看器抬头的「内容/diff」切换要不要出现（同 queryKey 不额外轮询）
+  const gitStatus = useGitStatusQuery(root);
+  const diffAvailable = useMemo(() => {
+    if (tab === null || root === null) return false;
+    const relative = getRelativeFilePath(tab.path, root);
+    const status = gitStatus.data?.files.find((file) => file.path === relative);
+    return status !== undefined && status.kind !== 'untracked';
+  }, [gitStatus.data, root, tab]);
   const content = useFileContent({
     path: tab?.path ?? null,
     mode: tab?.displayMode ?? 'source',
@@ -169,7 +179,11 @@ export function FilesPane({
           text={content.text}
           size={content.size}
           patch={content.patch}
+          diffAvailable={diffAvailable}
           byteUrl={byteUrl}
+          onAtMention={() =>
+            insertMention(root === null ? tab.path : getRelativeFilePath(tab.path, root), false)
+          }
           onToggleWrap={() => fileTabsStore.toggleWrap(tab.path)}
           onShowDiff={() => fileTabsStore.setMode(tab.path, 'diff')}
           onShowSource={() =>

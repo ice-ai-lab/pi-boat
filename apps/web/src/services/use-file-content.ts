@@ -46,12 +46,19 @@ export function useFileContent(options: {
         const meta = await getFileMeta(path, sessionId);
         if (!alive) return;
         if (mode === 'diff') {
-          const diff = await getGitDiff(root ?? '', getRelativeFilePath(path, root ?? undefined));
+          // 抬头要显示 `语言 · N lines · 体积`（与 参考实现 同形），所以 diff 模式下也把文本取回来：
+          // 只用来数行，不渲染（diff 模式下查看器走 patch）
+          const [diff, text] = await Promise.all([
+            getGitDiff(root ?? '', getRelativeFilePath(path, root ?? undefined)),
+            meta.category === 'text'
+              ? readFileText(path, sessionId).catch(() => null)
+              : Promise.resolve(null),
+          ]);
           if (!alive) return;
           setState({
             loading: false,
             error: diff.supported ? null : (diff.reason ?? '该文件不支持 diff'),
-            text: null,
+            text,
             size: meta.size,
             patch: diff.patch ?? '',
           });

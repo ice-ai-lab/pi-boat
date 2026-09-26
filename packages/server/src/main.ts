@@ -28,7 +28,6 @@ const agentService = new AgentSessionService();
 // （ADR-0008：前端分组与 ?projectKey 过滤不错位）
 const resolver = new ProjectResolver();
 const readService = new SessionReadService({
-  isRunning: (id) => agentService.isRunning(id),
   resolver,
 });
 const projectService = new ProjectReadService({ resolver });
