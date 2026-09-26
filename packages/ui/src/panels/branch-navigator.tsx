@@ -1,19 +1,9 @@
-import type { SessionEntry, SessionTreeNode } from '@ice-ai/protocol';
+import type { SessionTreeEntry, SessionTreeNode } from '@ice-ai/protocol';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '../i18n/i18n-provider';
 
-/** 设计规范 的 BranchPreview（本仓协议树不带，字段恒缺省走 labelEntry 回退） */
-interface BranchPreview {
-  role?: string | null;
-  text: string;
-}
-
-/** 树节点：设计规范的 SessionTreeNode 带可选 branchPreview / compressedEntryIds（本仓协议恒缺省） */
-interface BranchTreeNode extends Omit<SessionTreeNode, 'children'> {
-  children: BranchTreeNode[];
-  compressedEntryIds?: string[];
-  branchPreview?: BranchPreview;
-}
+/** 树节点：协议投影（ADR-0023）——entry 只有 id / 判别字段 / message 的角色与预览 */
+type BranchTreeNode = SessionTreeNode;
 
 interface BranchNavigatorProps {
   tree: BranchTreeNode[];
@@ -49,7 +39,7 @@ export function buildActivePath(nodes: BranchTreeNode[], targetId: string | null
   }));
   while (stack.length > 0) {
     const { node, path } = stack.pop() as { node: BranchTreeNode; path: string[] };
-    if (node.entry.id === target || node.compressedEntryIds?.includes(target)) {
+    if (node.entry.id === target) {
       return new Set(path);
     }
     for (const child of node.children) {
@@ -60,28 +50,25 @@ export function buildActivePath(nodes: BranchTreeNode[], targetId: string | null
 }
 
 // 会话文件的 system 消息是 prompt 而不是一轮对话，不作为分支标签
-function isMessageEntry(entry: SessionEntry): boolean {
-  return entry.type === 'message' && 'message' in entry && entry.message.role !== 'system';
+function isMessageEntry(entry: SessionTreeEntry): boolean {
+  return entry.type === 'message' && entry.message !== undefined && entry.message.role !== 'system';
 }
 
 // 把可见的线性链压缩到第一个分叉/叶节点
 export function compressChain(node: BranchTreeNode): {
   node: BranchTreeNode;
   skipped: number;
-  branchPreview?: BranchPreview;
-  labelEntry: SessionEntry;
+  labelEntry: SessionTreeEntry;
 } {
   let current: BranchTreeNode = node;
-  let branchPreview = current.branchPreview;
-  let labelEntry: SessionEntry | null = isMessageEntry(current.entry) ? current.entry : null;
-  let skipped = current.compressedEntryIds?.length ?? 0;
+  let labelEntry: SessionTreeEntry | null = isMessageEntry(current.entry) ? current.entry : null;
+  let skipped = 0;
   while (current.children.length === 1) {
     current = current.children[0] as BranchTreeNode;
-    branchPreview ??= current.branchPreview;
     if (!labelEntry && isMessageEntry(current.entry)) labelEntry = current.entry;
-    skipped += 1 + (current.compressedEntryIds?.length ?? 0);
+    skipped += 1;
   }
-  return { node: current, skipped, branchPreview, labelEntry: labelEntry ?? current.entry };
+  return { node: current, skipped, labelEntry: labelEntry ?? current.entry };
 }
 
 // 顶层行：多根（从第一条消息分叉）时根本身就是分支；否则取第一个分叉节点的子节点
@@ -92,23 +79,9 @@ export function selectTopLevelBranches(tree: BranchTreeNode[]): BranchTreeNode[]
   return first.children.length > 1 ? first.children : [];
 }
 
-function getLabel(entry: SessionEntry): string {
-  if (entry.type === 'message' && isMessageEntry(entry)) {
-    const msg = entry.message as { role: string; content: unknown };
-    const content = msg.content;
-    let text = '';
-    if (typeof content === 'string') {
-      text = content;
-    } else if (Array.isArray(content)) {
-      text = content
-        .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
-        .map((b) => b.text)
-        .join(' ');
-    }
-    if (text.length > 40) text = `${text.slice(0, 40)}…`;
-    if (text) return text;
-    if (msg.role === 'assistant') return '[assistant]';
-  }
+/** 分支标签文本：服务端已算好（≤40 字预览，非 message 条目回落判别字段） */
+function getLabel(entry: SessionTreeEntry): string {
+  if (isMessageEntry(entry)) return entry.message?.text ?? entry.type;
   return entry.type;
 }
 
@@ -141,15 +114,11 @@ function TreeNodeView({
   parentLines,
   onSelect,
 }: TreeNodeProps) {
-  const { node: rep, skipped, branchPreview, labelEntry } = compressChain(node);
+  const { node: rep, skipped, labelEntry } = compressChain(node);
   const isActive = activePathIds.has(rep.entry.id);
   const isOnPath = activePathIds.has(node.entry.id) || activePathIds.has(rep.entry.id);
-  const label = branchPreview?.text ?? getLabel(labelEntry);
-  const role = branchPreview
-    ? (branchPreview.role ?? null)
-    : isMessageEntry(labelEntry)
-      ? (labelEntry as { message: { role: string } }).message.role
-      : null;
+  const label = getLabel(labelEntry);
+  const role = isMessageEntry(labelEntry) ? (labelEntry.message?.role ?? null) : null;
 
   return (
     <div>

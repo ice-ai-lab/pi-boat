@@ -46,7 +46,7 @@ describe('rest/sessions', () => {
       leafId: 'e9',
       tree: [
         {
-          entry: { type: 'session_info', id: 'e1', parentId: null, timestamp: 't' },
+          entry: { type: 'message', id: 'e1', message: { role: 'user', text: 'hi' } },
           children: [],
         },
       ],
@@ -70,7 +70,7 @@ describe('rest/sessions', () => {
       },
       totalActiveMs: 1200,
     };
-    expect(body.tree[0]?.entry.type).toBe('session_info');
+    expect(body.tree[0]?.entry.type).toBe('message');
     // wrapperRebuilt 只在 force=1 触发重建时出现（ADR-0013b）
     expect(body.wrapperRebuilt).toBeUndefined();
   });

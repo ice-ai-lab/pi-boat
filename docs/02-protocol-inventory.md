@@ -73,7 +73,7 @@
 > 本组类型全部来自 pi-ai（`Message` / 内容块 / `Usage` / `StopReason` / `AssistantMessageEvent`）；`AgentMessage` 与 `BashExecutionMessage`/`CustomMessage`/`BranchSummaryMessage`/`CompactionSummaryMessage` 由 `SessionMessageEntry['message']` 提取（SDK 未从包根导出八角色联合）。
 
 - `AgentMessage = UserMessage | AssistantMessage | ToolResultMessage | CustomMessage | BashExecutionMessage | BranchSummaryMessage | CompactionSummaryMessage | SystemMessage`（与 SDK AgentMessage 完全一致；bashExecution 含 `command/output/exitCode/cancelled/truncated/fullOutputPath`；branch/compactionSummary 为注入 LLM 上下文的合成消息，无 display 字段）
-  - ⚠️ `SystemMessage`（`role:"system"`，SDK ≥ 0.86）**载体可达但不进 UI**：携带完整 prompt 与全部工具 schema。两条路径同口径丢弃——实时由 `toWireAgentEvent()` 整条丢（含 `agent_end.messages` 里的），历史由 `context.messages` 投影跳过；原始条目仍留在 `tree` 里（树要的是「发生过什么」）
+  - ⚠️ `SystemMessage`（`role:"system"`，SDK ≥ 0.86）**载体可达但不进 UI**：携带完整 prompt 与全部工具 schema。两条路径同口径丢弃——实时由 `toWireAgentEvent()` 整条丢（含 `agent_end.messages` 里的），历史由 `context.messages` 投影跳过；条目本身仍留在 `tree` 里（树要的是「发生过什么」，只留 id/角色/预览，见 `SessionTreeEntry`）
 - 内容块：`TextContent | ImageContent | ThinkingContent | ToolCallContent`
 - `AgentUsage`：input/output/cacheRead/cacheWrite token 数 + cost 四项分解 + total
 - `ContextUsage`：`percent | null`、`contextWindow`、`tokens | null`
@@ -84,7 +84,7 @@
 |---|---|
 | `SessionInfo` | `path/id/cwd/name/created/modified/messageCount/firstMessage`；`relation: {kind:"fork", originSessionId?} \| {kind:"subagent", parentSessionId, profile, description, status}`（fork 仍为顶层，仅 subagent 形成父子树；原列出的独立 `parentSessionId` 字段已并入 relation，0.87.1 实现勘误）；`projectRoot/projectKey`（项目分组键，Windows 大小写/分隔符不敏感）；`branch/isWorktree`；`transient`（内存会话未落盘） |
 | `SubagentSessionStatus` | `starting/queued/running/completed/failed/aborted/interrupted` |
-| `SessionTreeNode` | `entry/children/label?/labelTimestamp?` |
+| `SessionTreeNode` | `{ entry: SessionTreeEntry; children: SessionTreeNode[] }`——**wire 投影**（ADR-0023）：`entry` 只有 `id` / `type`（SDK 条目判别字段）/ message 条目的 `{role, text}`（≤40 字预览）；`children` 嵌套即父子关系（不发 `parentId`/`timestamp`/`label`）。**不再复用 SDK 的 `SessionTreeNode`**（它带着整条 entry 正文，本机 2.2 MB 会话里树占 2.2 MB，投影后 ~58 KB） |
 | `SessionContext` | `messages[] + entryIds[]`（平行数组）、`oldestEntryId/hasMore`（向上分页）、`thinkingLevel`、`model` |
 
 ### 3.4 状态与统计
@@ -213,7 +213,7 @@
 
 | 端点 | 形状 |
 |---|---|
-| `GET /api/sessions/:id` | → `{ sessionId, filePath, info, leafId, tree, context, stats, totalActiveMs, toolNames? }`（tail 默认 50，上限 1000） |
+| `GET /api/sessions/:id` | → `{ sessionId, filePath, info, leafId, tree, context, stats, totalActiveMs, toolNames? }`（原 `?force=1` 外部写入探测） |
 | `PATCH /api/sessions/:id` | `{name}` 改名（历史未运行会话直接追加 session_info 行） |
 | `DELETE /api/sessions/:id` | 删除会话文件（返回受影响 id，只含目标自身；不级联子会话） |
 | `GET /api/sessions/:id/state` | 同 `/api/agent/:id` 形状，但会话文件不存在时 **404**（而非 `{running:false}`；语义差异需保留） |

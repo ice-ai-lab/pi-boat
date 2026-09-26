@@ -252,6 +252,73 @@ describe('SessionReadService', () => {
     expect(await service().search('不存在的关键词')).toHaveLength(0);
   });
 
+  it('detail：tree 是投影（ADR-0023）——只有 id/判别字段/角色/40 字预览，不带条目正文', async () => {
+    const detail = await service().detail(sessionId);
+    if (!detail) throw new Error('missing detail');
+    // 树形与 id 不变（点选分支靠它）
+    const root = detail.tree[0]?.entry;
+    const second = detail.tree[0]?.children[0]?.entry;
+    expect([root?.id, second?.id]).toEqual(['e1', 'e2']);
+    // user 条目：role + 预览文本（夹具里就是「请读取 README」）
+    expect(root?.message).toEqual({ role: 'user', text: '请读取 README' });
+    // assistant 条目：只有 text 块进预览（thinking 与 toolCall 参数一律不进）→ 空文本回退为 [assistant]
+    expect(second?.message?.role).toBe('assistant');
+    expect(second?.message?.text).toBe('[assistant]');
+    // 整个树里不得出现 entry 正文（thinking / 工具参数 / 时间戳 / parentId）
+    const raw = JSON.stringify(detail.tree);
+    expect(raw).not.toContain('思考中');
+    expect(raw).not.toContain('README.md');
+    expect(raw).not.toContain('parentId');
+    expect(raw).not.toContain('timestamp');
+  });
+
+  it('detail：树标签截断到 40 字，空文本按角色回退', async () => {
+    const longId = 'aaaacccc-1111-2222-3333-444455556666';
+    const dir2 = mkdtempSync(join(tmpdir(), 'piboat-test-treelabel-'));
+    const long = '很长的分支标签'.repeat(10);
+    const entries = [
+      { type: 'session', version: 3, id: longId, timestamp: now, cwd: '/proj' },
+      {
+        type: 'message',
+        id: 'u1',
+        parentId: null,
+        timestamp: ts(0),
+        message: { role: 'user', content: long, timestamp: Date.parse(ts(0)) },
+      },
+      {
+        type: 'message',
+        id: 'a1',
+        parentId: 'u1',
+        timestamp: ts(1),
+        message: {
+          role: 'assistant',
+          content: [{ type: 'thinking', thinking: '只想不做' }],
+          api: 'anthropic-messages',
+          provider: 'anthropic',
+          model: 'claude-test',
+          usage,
+          stopReason: 'stop',
+          timestamp: Date.parse(ts(1)),
+        },
+      },
+    ];
+    writeFileSync(
+      join(dir2, `${longId}.jsonl`),
+      `${entries.map((e) => JSON.stringify(e)).join('\n')}\n`,
+    );
+    try {
+      const detail = await new SessionReadService({ sessionDir: dir2 }).detail(longId);
+      if (!detail) throw new Error('missing detail');
+      const [root, child] = [detail.tree[0]?.entry, detail.tree[0]?.children[0]?.entry];
+      expect(root?.message?.text).toHaveLength(41); // 40 字 + 省略号
+      expect(root?.message?.text?.endsWith('…')).toBe(true);
+      // 只有 thinking 的 assistant 消息：预览回退到 [assistant]（不是空串）
+      expect(child?.message?.text).toBe('[assistant]');
+    } finally {
+      rmSync(dir2, { recursive: true, force: true });
+    }
+  });
+
   it('detail：tree/context/stats/leafId 装配', async () => {
     const detail = await service().detail(sessionId);
     if (!detail) throw new Error('missing detail');

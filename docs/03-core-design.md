@@ -218,6 +218,8 @@ id**：SDK 建会话时命名 `<ISO 时间戳>_<id>.jsonl`（`newSession`/`forkF
 
 - `list/search`：`SessionManager.listAll` 扫描（目录指纹缓存，ADR-0008）+ 轻量字段过滤，再对有限候选扫正文（G2-7；候选数与单文件字节数均有上限）
 - `detail`：tree/stats/context 装配；`totalActiveMs` 冷会话置 0（需运行时埋点）。
+  `tree` 过 `toWireSessionTree()` 投影（ADR-0023）：只留 `id`/判别字段/message 的角色与 ≤40 字预览，
+  SDK 条目里的 thinking / 工具参数与结果 / 内联图片不上 wire（本机 457 节点的会话：树 2.20 MB → 58 KB）
   入口是 §7.0 的文件名定位（不再是全量解析）
 - `rename`：`appendSessionInfo` 追加行（空白名抛 UserInputError）；运行中会话 `PATCH` 仍返 **409**（server 提示改走 `set_session_name` 命令，避免与 SDK 写盘竞争）
 - `computeStats`：对齐 SDK `getSessionStats` 聚合口径（导出的纯函数）。⚠️ **必须计入 `usage` 条目**（如 `kind: "cache_warm"` 的 prompt 缓存预热，SDK ≥ 0.86）：它不进模型上下文但计费，漏掉它 token / cost 就与 SDK `/session` 不一致；`context_edit` 条目对统计无影响（不改原始消息）
@@ -269,6 +271,5 @@ id**：SDK 建会话时命名 `<ISO 时间戳>_<id>.jsonl`（`newSession`/`forkF
   `buildSystemPrompt(_runSystemPromptOptions ?? _baseSystemPromptOptions)`，而 `_runSystemPromptOptions`
   只在 run 期间存在——注册了强制 prompt 的 handler 时会**随时机变**（run 中显示强制值、空闲显示结构化值），
   这正是删除它的直接原因之一（ADR-0015）
-- **`deferMedia` 占位符形状**待后续定（历史图片目前全文直发；`toolResultImage` 惰性读取已就位）
 - **SSE 重放缓冲**（Last-Event-ID 差量重放）：core 仍只发不存，重连降级为整体重建（docs/04 §5.5，
   `docs/07` B8 可选）

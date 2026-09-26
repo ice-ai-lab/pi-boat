@@ -1,7 +1,7 @@
 import type {
   SessionContext as SdkSessionContext,
+  SessionEntry as SdkSessionEntry,
   SessionInfo as SdkSessionInfo,
-  SessionTreeNode as SdkSessionTreeNode,
 } from '@earendil-works/pi-coding-agent';
 import type { ThinkingLevel } from '../constants';
 import type { AgentMessage } from './message';
@@ -62,8 +62,24 @@ export type SessionInfo = Omit<
   revision?: string;
 };
 
-/** 会话树节点：SDK 形状即 wire 形状（entry + children + 标签） */
-export type SessionTreeNode = SdkSessionTreeNode;
+/**
+ * 会话树节点条目（wire 投影，ADR-0023）。
+ *
+ * **为什么不直接用 SDK 的 `SessionEntry`**（ADR-0017 的显式例外）：树只用来做分支导航，
+ * 而 SDK 条目的 `message` 里带着 thinking / 工具参数全文 / 工具结果与内联图片——本机 2.2 MB
+ * 的会话里树占 2.2 MB（457 节点、平均 4.8 KB），而客户端只用 id / 判别字段 / 角色 / 40 字预览。
+ * 同一份正文在 `SessionContext.messages` 里已经发过一次。
+ */
+export type SessionTreeEntry = {
+  id: string;
+  /** SDK 条目判别字段（`message` / `compaction` / `model_change` / `custom` / …） */
+  type: SdkSessionEntry['type'];
+  /** 仅 message 条目：角色 + 标签文本（≤40 字预览；空文本按角色回退） */
+  message?: { role: AgentMessage['role']; text: string };
+};
+
+/** 会话树节点：`children` 嵌套即父子关系（不重复发 parentId），`entry` 是上面的投影条目 */
+export type SessionTreeNode = { entry: SessionTreeEntry; children: SessionTreeNode[] };
 
 /**
  * 会话上下文：messages 与 entryIds 为平行数组（下标一一对应），

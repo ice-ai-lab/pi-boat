@@ -151,14 +151,14 @@ describe('domain/session-entry', () => {
 
 describe('domain/session-info', () => {
   it('accepts a recursive session tree', () => {
+    // 投影后的树：entry 只有 id / 判别字段 / （message 才有的）角色与预览（ADR-0023）
     const leaf = {
-      entry: { type: 'session_info', id: 'e2', parentId: 'e1', timestamp: 't2' },
+      entry: { type: 'message', id: 'e2', message: { role: 'assistant', text: '答' } },
       children: [],
     } satisfies SessionTreeNode;
     const tree: SessionTreeNode = {
-      entry: { type: 'session_info', id: 'e1', parentId: null, timestamp: 't1' },
+      entry: { type: 'custom', id: 'e1' },
       children: [leaf],
-      label: 'root branch',
     };
     expect(tree.children).toHaveLength(1);
   });

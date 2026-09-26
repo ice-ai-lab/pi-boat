@@ -8,6 +8,7 @@ import {
   getPackageDir,
   type ModelRuntime,
   type SessionInfo as SdkSessionInfo,
+  type SessionTreeNode as SdkSessionTreeNode,
   type SessionEntry,
   SessionManager,
   type SettingsManager,
@@ -21,6 +22,7 @@ import type {
   SessionInfo,
   SessionSearchHit,
   SessionStatsInfo,
+  SessionTreeEntry,
   SessionTreeNode,
   ThinkingLevel,
   Usage,
@@ -342,7 +344,7 @@ export class SessionReadService {
 
     const entries = manager.getEntries();
     const leafId = manager.getLeafId();
-    const tree = manager.getTree() as SessionTreeNode[];
+    const tree = toWireSessionTree(manager.getTree());
     const stats = computeStats(entries, manager.getSessionId(), manager.getSessionFile());
     const context = this.buildContext(entries, leafId, {});
 
@@ -810,6 +812,45 @@ function autoNameExcerpt(entries: readonly SessionEntry[]): string {
     if (parts.join('\n').length > 4000) break;
   }
   return parts.join('\n').slice(0, 4000);
+}
+
+/**
+ * 会话树 → wire 投影（ADR-0023）。
+ *
+ * 为什么需要：SDK 的树节点带**整条 entry 原文**（thinking / 工具参数 / 工具结果与内联图片），
+ * 而客户端从树里只读三样：`entry.id`（点选分支要切到哪个叶）、`children`（分支数/层级）、
+ * message 条目的角色与前 40 字（标签 + `U`/`A` 徽章）。同一份正文在 `context` 里已发过一次。
+ * 本机实测（2.2 MB 会话 / 457 节点）：树 2.20 MB → 投影后 ~70 KB（平均 4.8 KB/节点 → 150 B）。
+ *
+ * 与 `toWireAgentEvent()` 同一条原则：SDK 形状不许直接出门。
+ */
+export function toWireSessionTree(nodes: SdkSessionTreeNode[]): SessionTreeNode[] {
+  return nodes.map((node) => ({
+    entry: toWireTreeEntry(node.entry),
+    children: toWireSessionTree(node.children),
+  }));
+}
+
+/** 分支标签的最大字符数（超了截断加省略号；客户端不再二次截断） */
+const TREE_LABEL_MAX_CHARS = 40;
+
+function toWireTreeEntry(entry: SessionEntry): SessionTreeEntry {
+  if (entry.type !== 'message') return { id: entry.id, type: entry.type };
+  const { role } = entry.message;
+  // 八角色联合里只有部分角色有 content（bashExecution / 摘要类都没有）
+  const text = searchTextOf((entry.message as { content?: unknown }).content);
+  return {
+    id: entry.id,
+    type: 'message',
+    message: { role, text: treeLabelText(role, text) },
+  };
+}
+
+/** 空文本按角色回退——口径与投影之前客户端 `getLabel()` 算的一致（已上提到服务端） */
+function treeLabelText(role: AgentMessage['role'], text: string): string {
+  if (text.length > TREE_LABEL_MAX_CHARS) return `${text.slice(0, TREE_LABEL_MAX_CHARS)}…`;
+  if (text.length > 0) return text;
+  return role === 'assistant' ? '[assistant]' : 'message';
 }
 
 function userMessageText(message: SdkAgentMessage): string {
