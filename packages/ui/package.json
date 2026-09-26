@@ -29,6 +29,7 @@
   "dependencies": {
     "@ice-ai/client": "workspace:*",
     "@ice-ai/protocol": "workspace:*",
+    "ansi_up": "^6.0.6",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.0.0",
     "lucide-react": "^1.48.0",
@@ -38,7 +39,8 @@
     "tailwind-merge": "^3.0.0"
   },
   "peerDependencies": {
-    "react": "^19.3.0"
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.14",
@@ -47,6 +49,8 @@
     "jsdom": "^27.0.0",
     "react": "^19.3.0",
     "typescript": "~7.0.2",
-    "vitest": "^5.0.1"
+    "vitest": "^5.0.1",
+    "@types/react-dom": "^19",
+    "react-dom": "^19.3.0"
   }
 }

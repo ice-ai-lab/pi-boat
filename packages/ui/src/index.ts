@@ -28,15 +28,25 @@ export {
 export { SystemRowView, ThinkingRowView } from './chat/thinking-row';
 export { ToolRowView } from './chat/tool-row';
 export { TurnWrittenFiles, type TurnWrittenFilesProps } from './chat/turn-written-files';
+export { WorkspacePlaceholder } from './chat/workspace-placeholder';
+export { stripAnsi } from './extension/ansi';
+// extension 册（ADR-0012）
+export { AnsiText } from './extension/ansi-text';
 export {
   ExtensionRequestDialog,
   type ExtensionRequestDialogProps,
 } from './extension/extension-request-dialog';
-// extension 册（ADR-0012）
-export { ExtensionStatusBar } from './extension/extension-status-bar';
+export {
+  ExtensionStatusBar,
+  formatExtensionStatusLine,
+  sanitizeExtensionStatusText,
+} from './extension/extension-status-bar';
 export {
   DEFAULT_EXPANDED_WIDGET_LINES,
   ExtensionWidgets,
+  formatExtensionWidgetContent,
+  snapshotExtensionWidgetContents,
+  WIDGET_UPDATE_IDLE_MS,
 } from './extension/extension-widgets';
 // files 册（docs/06 §4.3）
 export { CodeViewer, type CodeViewerProps } from './files/code-viewer';
@@ -59,14 +69,16 @@ export type { Locale, LocalePlugin, TranslationParams } from './i18n/types';
 // panels 册（docs/06 §4.4）
 export {
   BranchNavigator,
-  type BranchNavigatorProps,
-  type BranchNodeView,
+  buildActivePath,
+  compressChain,
+  hasSessionBranches,
+  selectTopLevelBranches,
 } from './panels/branch-navigator';
 export { PanelShell, type PanelShellProps } from './panels/panel-shell';
 export {
-  SessionStatsPanel,
-  type SessionStatsPanelProps,
-} from './panels/session-stats-panel';
+  SessionInfoPopover,
+  type SessionInfoPopoverProps,
+} from './panels/session-info-popover';
 export {
   SystemPromptPanel,
   type SystemPromptPanelProps,
@@ -154,19 +166,18 @@ export {
   type SkillUpdateView,
 } from './settings/skills-section';
 export { ThemeIcon } from './settings/theme-icon';
-// sidebar 册（docs/06 §4.3）
-export {
-  ProjectPicker,
-  type ProjectPickerProps,
-  shortenProjectPath,
-} from './sidebar/project-picker';
-export { SessionList, type SessionListProps } from './sidebar/session-list';
-export { SESSION_ROW_HEIGHT, SessionRow, type SessionRowProps } from './sidebar/session-row';
 export {
   SessionSearch,
   type SessionSearchProps,
-  useDebouncedValue,
 } from './sidebar/session-search';
-export { Sidebar, type SidebarProps } from './sidebar/sidebar';
+// sidebar 册（docs/06 §4.3；T2 重排后结构逐字对齐 pi-web `SessionSidebar`）
+export {
+  displayCwd,
+  getSessionListIndices,
+  Sidebar,
+  type SidebarProject,
+  type SidebarProps,
+  type SidebarWorktreeState,
+} from './sidebar/sidebar';
 export { cn } from './utils/cn';
 export { useScrollbarVisibility } from './utils/use-scrollbar-visibility';

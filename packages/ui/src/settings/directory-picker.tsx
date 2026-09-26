@@ -1,154 +1,452 @@
-import { useEffect, useState } from 'react';
-import { Button } from '../primitives/button';
-import { Input } from '../primitives/input';
-import { ScrollArea } from '../primitives/scroll-area';
-import { SettingsNotice, SettingsRow, SettingsSectionTitle } from './settings-panel';
+import { browseCwd } from '@ice-ai/client';
+import { type FormEvent, useCallback, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useI18n } from '../i18n/i18n-provider';
+
+interface DirectoryEntry {
+  name: string;
+  path: string;
+}
 
 /**
- * DirectoryPicker（docs/06 §4.3）：目录选择器。
- * 浏览**不受 allowed-roots 限制**（用户必须能走到任意目录才能选中它）；
- * 选中动作由宿主负责（`POST /api/cwd/validate` 才是 allowed-roots 的写入入口）。
+ * DirectoryPicker：逐字移植 pi-web `components/DirectoryPicker.tsx`（T2-10 / G5）——
+ * portal 模态 520×620、圆角 10；目录数据走 `GET /api/cwd/browse`（ui 依赖 client 的既定例外）。
  */
 export interface DirectoryPickerProps {
-  /** 当前路径（受控）；缺省从家目录开始 */
-  path?: string;
-  onNavigate(path: string): void;
-  onSelect(path: string): void;
-  /** 浏览数据（宿主取数，本组件不调接口） */
-  data?: {
-    path: string;
-    parentPath: string | null;
-    directories: { name: string; path: string; readable: boolean }[];
-    drives?: string[];
-  } | null;
-  loading?: boolean;
+  onCancel: () => void;
+  onSelect: (path: string) => void;
+  initialPath?: string;
+  busy?: boolean;
   error?: string | null;
-  /** 选中按钮文案 */
-  selectLabel?: string;
-  /** 手动输入路径（可直接选一个没浏览到的目录） */
-  allowManualInput?: boolean;
+}
+
+function FolderIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      aria-hidden="true"
+    >
+      <path d="M1.5 3h4l1.5 2h7.5v7.5h-13z" />
+    </svg>
+  );
+}
+
+function DriveIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect x="2" y="3" width="12" height="10" rx="1.5" />
+      <path d="M2 9h12" />
+      <circle cx="11.5" cy="11" r="0.6" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
+function isWindowsDriveRoot(directory: string): boolean {
+  return /^[a-zA-Z]:[\\/]?$/.test(directory);
 }
 
 export function DirectoryPicker({
-  path,
-  onNavigate,
+  onCancel,
   onSelect,
-  data,
-  loading = false,
+  initialPath,
+  busy = false,
   error,
-  selectLabel = '使用此目录',
-  allowManualInput = true,
 }: DirectoryPickerProps) {
-  const [manual, setManual] = useState(path ?? '');
-  const current = data?.path ?? path ?? '';
+  const { t } = useI18n();
+  const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(null);
+  const [currentPath, setCurrentPath] = useState('');
+  const [parentDirectory, setParentDirectory] = useState<string | null>(null);
+  const [pathInput, setPathInput] = useState(initialPath ?? '');
+  const [directories, setDirectories] = useState<DirectoryEntry[]>([]);
+  const [drives, setDrives] = useState<DirectoryEntry[] | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const navigateTo = useCallback(async (directory?: string) => {
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const data = await browseCwd(directory);
+      const nextPath = data.path ?? directory ?? '/';
+      setCurrentPath(nextPath);
+      setParentDirectory(data.parentPath ?? null);
+      setPathInput(nextPath);
+      setDirectories(data.directories ?? []);
+      // B 协议只给盘符路径（string[]），这里补上 name 供列表渲染
+      setDrives(
+        data.drives === undefined
+          ? null
+          : data.drives.map((drivePath) => ({ name: drivePath, path: drivePath })),
+      );
+    } catch (cause) {
+      setLoadError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    setManual(current);
-  }, [current]);
+    setPortalTarget(document.body);
+    void navigateTo(initialPath || undefined);
+  }, [initialPath, navigateTo]);
 
-  return (
-    <div className="flex min-h-0 flex-col gap-2">
-      <SettingsSectionTitle title="选择目录" hint="选中即授权该目录（allowed-roots 的唯一来源）" />
-      <div className="flex items-center gap-1.5">
-        <Input
-          value={manual}
-          onChange={(event) => setManual(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && manual.trim().length > 0) onNavigate(manual.trim());
+  const handlePathSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const candidate = pathInput.trim();
+    if (candidate) void navigateTo(candidate);
+  };
+  const hasUncommittedPath = pathInput.trim() !== currentPath;
+  const canSelect = Boolean(currentPath) && !hasUncommittedPath && !busy;
+  const canNavigateUp = Boolean(parentDirectory) || isWindowsDriveRoot(currentPath);
+
+  if (!portalTarget) return null;
+
+  return createPortal(
+    <div
+      className="directory-picker-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label={t('directoryPicker.selectDirectory')}
+      onClick={(event) => {
+        if (event.target === event.currentTarget && !busy) onCancel();
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && !busy) onCancel();
+      }}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 1000,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'rgba(0,0,0,0.35)',
+      }}
+    >
+      <div
+        className="directory-picker-panel"
+        style={{
+          width: 520,
+          maxWidth: 'calc(100vw - 16px)',
+          height: 'min(620px, calc(100dvh - 16px))',
+          maxHeight: 'calc(100dvh - 16px)',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          background: 'var(--bg)',
+          border: '1px solid var(--border)',
+          borderRadius: 10,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexShrink: 0,
+            padding: '12px 18px',
+            borderBottom: '1px solid var(--border)',
           }}
-          placeholder="/path/to/project"
-          spellCheck={false}
-          className="font-mono text-[12px]"
-        />
-        <Button
-          variant="chip"
-          size="sm"
-          onClick={() => onNavigate(manual.trim())}
-          disabled={manual.trim().length === 0}
         >
-          前往
-        </Button>
-        {allowManualInput && (
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => onSelect(manual.trim())}
-            disabled={manual.trim().length === 0}
-          >
-            {selectLabel}
-          </Button>
-        )}
-      </div>
-
-      {error !== undefined && error !== null && (
-        <SettingsNotice tone="error">{error}</SettingsNotice>
-      )}
-
-      <div className="sq hairline flex min-h-0 flex-col border-line-2">
-        <div className="hairline-b flex items-center gap-2 border-line-1 px-2 py-1.5">
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ color: 'var(--text)', fontWeight: 700, fontSize: 15 }}>
+              {t('directoryPicker.selectDirectory')}
+            </div>
+          </div>
           <button
             type="button"
-            disabled={data?.parentPath === null || data?.parentPath === undefined}
-            onClick={() => {
-              if (data?.parentPath !== null && data?.parentPath !== undefined)
-                onNavigate(data.parentPath);
+            onClick={onCancel}
+            disabled={busy}
+            title={t('i18n.close')}
+            aria-label={t('i18n.close')}
+            style={{
+              padding: '2px 6px',
+              border: 0,
+              background: 'none',
+              color: 'var(--text-muted)',
+              fontSize: 20,
+              lineHeight: 1,
+              cursor: busy ? 'default' : 'pointer',
+              opacity: busy ? 0.5 : 1,
             }}
-            className="sq px-2 py-0.5 text-[11.5px] text-fg-subtle hover:bg-hover hover:text-fg disabled:opacity-40"
           >
-            ↑ 上级
+            ×
           </button>
-          <span className="truncate font-mono text-[11px] text-fg-faint" title={current}>
-            {current}
-          </span>
-          {loading && <span className="ml-auto text-[11px] text-fg-faint">加载中…</span>}
         </div>
-        <ScrollArea className="max-h-64 min-h-32">
-          {(data?.drives ?? []).map((drive) => (
-            <button
-              key={drive}
-              type="button"
-              onClick={() => onNavigate(drive)}
-              className="sq flex w-full items-center px-2 py-1 text-left text-[12px] text-fg-muted hover:bg-hover"
-            >
-              {drive}
-            </button>
-          ))}
-          {(data?.directories ?? []).map((entry) => (
-            <div key={entry.path} className="group/dir flex items-center">
-              <button
-                type="button"
-                disabled={!entry.readable}
-                onClick={() => onNavigate(entry.path)}
-                title={entry.path}
-                className="sq min-w-0 flex-1 truncate px-2 py-1 text-left text-[12px] text-fg-muted hover:bg-hover disabled:opacity-50"
-              >
-                {entry.name}
-              </button>
-              <button
-                type="button"
-                onClick={() => onSelect(entry.path)}
-                className="sq mr-1 hidden px-1.5 py-0.5 text-[10.5px] text-accent hover:bg-accent-weak group-hover/dir:block"
-              >
-                选它
-              </button>
-            </div>
-          ))}
-          {data !== null && data !== undefined && (data.directories ?? []).length === 0 && (
-            <p className="px-2 py-2 text-[11.5px] text-fg-faint">此目录下没有子目录</p>
-          )}
-        </ScrollArea>
-      </div>
 
-      <SettingsRow label="当前选择" hint={current.length > 0 ? undefined : '还没选中目录'}>
-        <Button
-          variant="primary"
-          size="sm"
-          disabled={current.length === 0}
-          onClick={() => onSelect(current)}
+        <form
+          onSubmit={handlePathSubmit}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            flexShrink: 0,
+            padding: '10px 14px',
+            borderBottom: '1px solid var(--border)',
+          }}
         >
-          {selectLabel}
-        </Button>
-      </SettingsRow>
-    </div>
+          <button
+            className="directory-picker-back"
+            type="button"
+            onClick={() => void navigateTo(parentDirectory ?? undefined)}
+            disabled={loading || !canNavigateUp}
+            title={t('directoryPicker.goToParent')}
+            aria-label={t('directoryPicker.goToParent')}
+            style={{
+              width: 36,
+              height: 36,
+              padding: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              background: 'var(--bg-hover)',
+              color: 'var(--text-muted)',
+              cursor: canNavigateUp ? 'pointer' : 'default',
+              opacity: canNavigateUp ? 1 : 0.45,
+            }}
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="m18 15-6-6-6 6" />
+            </svg>
+          </button>
+          <label
+            htmlFor="directory-path"
+            style={{
+              position: 'absolute',
+              width: 1,
+              height: 1,
+              padding: 0,
+              margin: -1,
+              overflow: 'hidden',
+              clip: 'rect(0, 0, 0, 0)',
+              whiteSpace: 'nowrap',
+              border: 0,
+            }}
+          >
+            {t('directoryPicker.directoryPath')}
+          </label>
+          <input
+            className="directory-picker-path"
+            id="directory-path"
+            type="text"
+            value={pathInput}
+            placeholder="/path/to/project or ~/project"
+            // biome-ignore lint/a11y/noAutofocus: 逐字移植 pi-web DirectoryPicker（打开即输入路径）
+            autoFocus
+            autoComplete="off"
+            spellCheck={false}
+            onChange={(event) => {
+              setPathInput(event.target.value);
+              setLoadError(null);
+            }}
+            style={{
+              minWidth: 0,
+              flex: 1,
+              height: 36,
+              padding: '0 10px',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              outline: 'none',
+              background: 'var(--bg-panel)',
+              color: 'var(--text)',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 12,
+            }}
+          />
+          <button
+            className="directory-picker-action"
+            type="submit"
+            disabled={loading || !pathInput.trim()}
+            title={t('directoryPicker.goToDirectory')}
+            style={{
+              minWidth: 58,
+              height: 36,
+              padding: '0 12px',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              background: 'var(--bg-hover)',
+              color: 'var(--text-muted)',
+              cursor: loading || !pathInput.trim() ? 'default' : 'pointer',
+              opacity: loading || !pathInput.trim() ? 0.6 : 1,
+            }}
+          >
+            {t('directoryPicker.go')}
+          </button>
+        </form>
+
+        <div
+          className="directory-picker-list"
+          style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '8px 10px' }}
+        >
+          {loading ? (
+            <div style={{ padding: 8, color: 'var(--text-dim)', fontSize: 11 }}>
+              {t('directoryPicker.loadingDirectories')}
+            </div>
+          ) : drives !== null ? (
+            drives.length > 0 ? (
+              drives.map((drive) => (
+                <button
+                  key={drive.path}
+                  className="directory-picker-entry"
+                  type="button"
+                  onClick={() => void navigateTo(drive.path)}
+                  title={drive.path}
+                  style={{
+                    width: '100%',
+                    minHeight: 34,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 7,
+                    padding: '6px 8px',
+                    border: 0,
+                    borderRadius: 5,
+                    background: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: 11,
+                  }}
+                >
+                  <DriveIcon />
+                  <span>{drive.name}</span>
+                </button>
+              ))
+            ) : (
+              <div style={{ padding: 8, color: 'var(--text-dim)', fontSize: 11 }}>
+                {t('directoryPicker.noDrives')}
+              </div>
+            )
+          ) : directories.length > 0 ? (
+            directories.map((entry) => (
+              <button
+                key={entry.path}
+                className="directory-picker-entry"
+                type="button"
+                onClick={() => void navigateTo(entry.path)}
+                title={entry.path}
+                style={{
+                  width: '100%',
+                  minHeight: 30,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  padding: '5px 8px',
+                  border: 0,
+                  borderRadius: 5,
+                  background: 'none',
+                  color: 'var(--text-muted)',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: 11,
+                }}
+              >
+                <FolderIcon />
+                <span
+                  style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                >
+                  {entry.name}
+                </span>
+              </button>
+            ))
+          ) : (
+            <div style={{ padding: 8, color: 'var(--text-dim)', fontSize: 11 }}>
+              {t('directoryPicker.noSubdirectories')}
+            </div>
+          )}
+          {(loadError || error) && (
+            <div style={{ padding: '8px', color: '#dc2626', fontSize: 11 }}>
+              {loadError ?? error}
+            </div>
+          )}
+        </div>
+
+        <div
+          className="directory-picker-footer"
+          style={{
+            display: 'flex',
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            gap: 10,
+            flexShrink: 0,
+            padding: '10px 18px',
+            borderTop: '1px solid var(--border)',
+          }}
+        >
+          <button
+            className="directory-picker-action"
+            type="button"
+            onClick={onCancel}
+            disabled={busy}
+            style={{
+              padding: '6px 14px',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              background: 'none',
+              color: 'var(--text-muted)',
+              cursor: busy ? 'default' : 'pointer',
+              fontSize: 13,
+            }}
+          >
+            {t('i18n.cancel')}
+          </button>
+          <button
+            className="directory-picker-action"
+            type="button"
+            onClick={() => onSelect(currentPath)}
+            disabled={!canSelect}
+            title={
+              hasUncommittedPath
+                ? t('directoryPicker.openBeforeSelecting')
+                : t('directoryPicker.selectCurrentDirectory')
+            }
+            style={{
+              padding: '6px 16px',
+              border: 0,
+              borderRadius: 6,
+              background: 'var(--accent)',
+              color: 'var(--accent-contrast)',
+              fontSize: 13,
+              fontWeight: 600,
+              opacity: canSelect ? 1 : 0.6,
+              cursor: canSelect ? 'pointer' : 'default',
+            }}
+          >
+            {busy ? t('i18n.checking') : t('directoryPicker.selectThisFolder')}
+          </button>
+        </div>
+      </div>
+    </div>,
+    portalTarget,
   );
 }

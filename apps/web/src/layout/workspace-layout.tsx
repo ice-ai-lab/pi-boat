@@ -1,5 +1,6 @@
 import {
   getDefaultRightPanelWidth,
+  getFileName,
   getRightPanelMaxWidth,
   getSidebarMaxWidth,
   RIGHT_PANEL_FALLBACK_WIDTH,
@@ -27,7 +28,7 @@ import { SidebarPane } from '../panes/sidebar-pane';
 import { setLastSettingsSection } from '../services/settings-navigation';
 import { useTheme } from '../services/theme';
 import { useFileTabs } from '../services/use-file-tabs';
-import { useKeyboardShortcuts } from '../services/use-keyboard-shortcuts';
+import { useGlobalKeyboardShortcuts } from '../services/use-keyboard-shortcuts';
 import { useResizablePanel } from '../services/use-resizable-panel';
 
 /**
@@ -52,13 +53,17 @@ export function WorkspaceLayout() {
   const { tab: activeFileTab } = useFileTabs();
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [rightPanelExpanded, setRightPanelExpanded] = useState(false);
+  const rightPanelFullWidth = rightPanelOpen && rightPanelExpanded;
   useEffect(() => {
     if (activeFileTab !== null) setRightPanelOpen(true);
   }, [activeFileTab]);
+  // 关闭右栏时复位展开态（照抄 pi-web `AppShell.tsx:184-186`，T0-4）
+  useEffect(() => {
+    if (!rightPanelOpen) setRightPanelExpanded(false);
+  }, [rightPanelOpen]);
   // 订阅主题（pi-web 的 AppShell 也常驻订阅，保证 auto 跟随系统时改配色能即时生效）
   useTheme();
   const { t } = useI18n();
-  const composerFocusRef = useRef<(() => void) | null>(null);
   const [toasts, dispatchToast] = useReducer(toastQueueReducer, [] as ToastItem[]);
   const pushToast = useCallback((message: string, tone: ToastItem['tone'] = 'info') => {
     const toast: ToastItem = { id: crypto.randomUUID(), message, tone };
@@ -133,11 +138,12 @@ export function WorkspaceLayout() {
     reclampRightPanelWidth();
   }, [reclampRightPanelWidth, reclampSidebarWidth, rightPanelOpen]);
 
-  useKeyboardShortcuts({
-    onToggleSidebar: () => setSidebarOpen((previous) => !previous),
-    onToggleStats: () => setSettingsOpen(false),
-    onFocusComposer: () => composerFocusRef.current?.(),
-    onOpenSettings: () => setSettingsOpen(true),
+  useGlobalKeyboardShortcuts({
+    onNewSession: (cwd) => {
+      setPreferredCwd(cwd);
+      setSearchParams({});
+    },
+    activeCwd: projectRoot,
   });
 
   const sidebarContent = (
@@ -252,6 +258,19 @@ export function WorkspaceLayout() {
     </>
   );
 
+  // 窗口标题（pi-web `AppShell` 的 windowTitle）：`<项目目录名> - Pi Web`，无项目时为 `Pi Web`
+  useEffect(() => {
+    const activeCwdName = projectRoot === null ? null : getFileName(projectRoot) || projectRoot;
+    const windowTitle = activeCwdName === null ? 'Pi Web' : `${activeCwdName} - Pi Web`;
+    const syncWindowTitle = () => {
+      if (document.title !== windowTitle) document.title = windowTitle;
+    };
+    syncWindowTitle();
+    const observer = new MutationObserver(syncWindowTitle);
+    observer.observe(document.head, { childList: true, subtree: true, characterData: true });
+    return () => observer.disconnect();
+  }, [projectRoot]);
+
   return (
     <div
       style={{
@@ -327,10 +346,14 @@ export function WorkspaceLayout() {
       >
         <ChatPane
           preferredCwd={preferredCwd}
+          projectSelected={projectRoot !== null}
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen((previous) => !previous)}
           trustPending={trustPending}
           onTrustProject={() => setTrustDialogOpen(true)}
+          rightPanelOpen={rightPanelOpen}
+          onToggleRightPanel={() => setRightPanelOpen((previous) => !previous)}
+          rightPanelFullWidth={rightPanelFullWidth}
         />
       </div>
 
@@ -354,7 +377,7 @@ export function WorkspaceLayout() {
       <div
         ref={rightPanelResizer.panelRef}
         id="file-panel"
-        className={`right-panel-container${rightPanelOpen ? ' right-panel-open' : ' right-panel-closed'}${rightPanelExpanded ? ' right-panel-full-width' : ''}${rightPanelResizer.isResizing ? ' right-panel-resizing' : ''}`}
+        className={`right-panel-container${rightPanelOpen ? ' right-panel-open' : ' right-panel-closed'}${rightPanelFullWidth ? ' right-panel-full-width' : ''}${rightPanelResizer.isResizing ? ' right-panel-resizing' : ''}`}
         style={
           {
             '--right-panel-width': `${rightPanelResizer.width}px`,
@@ -368,6 +391,7 @@ export function WorkspaceLayout() {
         <FilesPane
           root={projectRoot}
           sessionId={activeSessionId}
+          open={rightPanelOpen}
           expanded={rightPanelExpanded}
           onToggleExpand={() => setRightPanelExpanded((previous) => !previous)}
           onHide={() => setRightPanelOpen(false)}

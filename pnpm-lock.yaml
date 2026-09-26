@@ -371,6 +371,9 @@ importers:
       '@ice-ai/protocol':
         specifier: workspace:*
         version: link:../protocol
+      ansi_up:
+        specifier: ^6.0.6
+        version: 6.0.6
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
@@ -402,12 +405,18 @@ importers:
       '@types/react':
         specifier: ^19
         version: 19.3.0
+      '@types/react-dom':
+        specifier: ^19
+        version: 19.3.0(@types/react@19.3.0)
       jsdom:
         specifier: ^27.0.0
         version: 27.4.0(supports-color@7.2.0)
       react:
         specifier: ^19.3.0
         version: 19.3.0
+      react-dom:
+        specifier: ^19.3.0
+        version: 19.3.0(react@19.3.0)
       typescript:
         specifier: ~7.0.2
         version: 7.0.2
@@ -1608,6 +1617,9 @@ packages:
   agent-base@9.0.0:
     resolution: {integrity: sha512-TQf59BsZnytt8GdJKLPfUZ54g/iaUL2OWDSFCCvMOhsHduDQxO8xC4PNeyIkVcA5KwL2phPSv0douC0fgWzmnA==}
     engines: {node: '>= 20'}
+
+  ansi_up@6.0.6:
+    resolution: {integrity: sha512-yIa1x3Ecf8jWP4UWEunNjqNX6gzE4vg2gGz+xqRGY+TBSucnYp6RRdPV4brmtg6bQ1ljD48mZ5iGSEj7QEpRKA==}
 
   assertion-error@2.0.1:
     resolution: {integrity: sha512-Izi8RQcffqCeNVgFigKli1ssklIbpHnCYc6AknXGYoB6grJqyeby7jv12JUQgmTAnIDnbck1uxksT4dzN3PWBA==}
@@ -3992,6 +4004,8 @@ snapshots:
   agent-base@7.1.4: {}
 
   agent-base@9.0.0: {}
+
+  ansi_up@6.0.6: {}
 
   assertion-error@2.0.1: {}
 

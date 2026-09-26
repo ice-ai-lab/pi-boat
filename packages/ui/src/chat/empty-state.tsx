@@ -1,33 +1,26 @@
-import { FolderOpen, Loader2 } from 'lucide-react';
-import { type FormEvent, useState } from 'react';
+import type { ReactNode } from 'react';
 
 /**
- * EmptyState：新会话首屏。布局照抄 pi-web `ChatWindow` 的空会话态——
- * 顶部一行品牌标题（图标 + 22px 粗体，mono 字体对齐右侧版本信息），下面紧跟输入卡。
- * 提交前只做字符串级校验（非空、绝对路径），存在性由 core 校验（400 → 展示错误）。
+ * EmptyState：新会话首屏（T3-1 / C1 / C8 / C30）——逐字照抄 pi-web `ChatWindow` 的空会话态：
+ * 品牌行（32×32 应用图标 + `Pi Web` 22px/700 + 右侧两行版本块）+ **直接复用 Composer**
+ * + 扩展货架；容器为「上 flex-1 / 内容 / 下 flex-1」（居中偏下），`paddingRight` 桌面 52（避让 minimap）。
  */
 export interface EmptyStateProps {
-  onStart(cwd: string): void;
-  starting: boolean;
-  /** 上次使用的 cwd（startup-preferences，ADR-0019-4） */
-  initialCwd?: string;
-  error?: string | null;
+  /** web 应用版本（如 `0.1.0`） */
+  appVersion: string;
+  /** pi SDK 版本（null 时不显示该行） */
+  piVersion: string | null;
+  /** 输入卡（宿主渲染的 Composer） */
+  children?: ReactNode;
+  /** 扩展货架（composer 之下） */
+  shelf?: ReactNode;
 }
 
-export function EmptyState({ onStart, starting, initialCwd = '', error }: EmptyStateProps) {
-  const [cwd, setCwd] = useState(initialCwd);
-
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    const trimmed = cwd.trim();
-    if (trimmed.length > 0 && !starting) onStart(trimmed);
-  };
-
-  const canStart = cwd.trim().length > 0 && !starting;
-
+export function EmptyState({ appVersion, piVersion, children, shelf }: EmptyStateProps) {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div style={{ marginTop: 16, paddingLeft: 16, paddingRight: 16 }}>
+      <div className="min-h-0 flex-1" />
+      <div className="mb-3 w-full" style={{ paddingLeft: 16, paddingRight: 52 }}>
         <div
           style={{
             display: 'flex',
@@ -39,111 +32,59 @@ export function EmptyState({ onStart, starting, initialCwd = '', error }: EmptyS
             fontFamily: 'var(--font-mono)',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
-            <span aria-hidden style={{ fontSize: 26, lineHeight: 1 }}>
-              🚢
-            </span>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 10,
+              minWidth: 0,
+              flex: 1,
+              lineHeight: 1.4,
+              overflow: 'hidden',
+            }}
+          >
+            <img
+              src="/icons/apple-touch-icon.png"
+              width={32}
+              height={32}
+              alt=""
+              style={{ flexShrink: 0 }}
+            />
             <span
               style={{
                 fontSize: 22,
                 color: 'var(--text)',
                 fontWeight: 700,
+                flexShrink: 0,
                 whiteSpace: 'nowrap',
               }}
             >
-              PiBoat
+              Pi Web
             </span>
           </div>
-          <span style={{ fontSize: 11, color: 'var(--text-muted)', flexShrink: 0 }}>新会话</span>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-end',
+              gap: 2,
+              flexShrink: 0,
+            }}
+          >
+            <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+              web <span style={{ color: 'var(--text)' }}>v{appVersion}</span>
+            </span>
+            {piVersion !== null && (
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                pi <span style={{ color: 'var(--text)' }}>v{piVersion}</span>
+              </span>
+            )}
+          </div>
         </div>
       </div>
-
-      <form
-        onSubmit={submit}
-        style={{
-          padding: '20px 16px 0',
-          maxWidth: 'var(--chat-content-max-width, 820px)',
-          width: '100%',
-          margin: '0 auto',
-        }}
-      >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            background: 'var(--bg)',
-            border: '1px solid color-mix(in srgb, var(--border) 70%, transparent)',
-            borderRadius: 14,
-            padding: '10px 10px 10px 14px',
-            boxShadow: '0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -12px rgba(15,23,42,0.10)',
-          }}
-        >
-          <FolderOpen size={15} style={{ flexShrink: 0, color: 'var(--text-dim)' }} />
-          <input
-            value={cwd}
-            onChange={(event) => setCwd(event.target.value)}
-            placeholder="/path/to/project（绝对路径）"
-            spellCheck={false}
-            autoComplete="off"
-            disabled={starting}
-            style={{
-              flex: 1,
-              minWidth: 0,
-              background: 'none',
-              border: 'none',
-              outline: 'none',
-              color: 'var(--text)',
-              fontFamily: 'var(--font-mono)',
-              fontSize: 14,
-              lineHeight: 1.6,
-              minHeight: 24,
-            }}
-          />
-          <button
-            type="submit"
-            disabled={!canStart}
-            style={{
-              flexShrink: 0,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '7px 14px',
-              background: canStart ? 'var(--accent)' : 'var(--bg-panel)',
-              border: 'none',
-              borderRadius: 8,
-              color: canStart ? 'var(--accent-contrast)' : 'var(--text-dim)',
-              cursor: canStart ? 'pointer' : 'not-allowed',
-              fontSize: 13,
-              fontWeight: 600,
-            }}
-          >
-            {starting && <Loader2 size={14} className="animate-spin" />}
-            开始
-          </button>
-        </div>
-        <p style={{ marginTop: 8, fontSize: 11, color: 'var(--text-dim)' }}>
-          输入一个工作目录，开始一段新的航行
-        </p>
-        {error !== undefined && error !== null && error.length > 0 && (
-          <div
-            role="alert"
-            style={{
-              marginTop: 8,
-              padding: '7px 10px',
-              background: 'rgba(239,68,68,0.07)',
-              border: '1px solid rgba(239,68,68,0.3)',
-              borderRadius: 6,
-              color: '#ef4444',
-              fontFamily: 'var(--font-mono)',
-              fontSize: 12,
-              lineHeight: 1.5,
-            }}
-          >
-            {error}
-          </div>
-        )}
-      </form>
+      {children}
+      {shelf}
+      <div className="min-h-0 flex-1" />
     </div>
   );
 }

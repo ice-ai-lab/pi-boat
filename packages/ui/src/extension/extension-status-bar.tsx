@@ -1,21 +1,58 @@
-import type { ExtensionStatusItem } from '@ice-ai/protocol';
+import type { ExtensionStatusItem, ExtensionWidgetItem } from '@ice-ai/protocol';
+import { stripAnsi } from './ansi';
+import { AnsiText } from './ansi-text';
+import { ExtensionWidgets } from './extension-widgets';
+
+/** 逐字移植 pi-web `components/ExtensionStatusBar.tsx` 的文本清洗 */
+export function sanitizeExtensionStatusText(text: string): string {
+  return text
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/\t/g, ' ').replace(/ +/g, ' ').trim())
+    .join('\n')
+    .trim();
+}
+
+export function formatExtensionStatusLine(statuses: ExtensionStatusItem[]): string {
+  return [...statuses]
+    .sort((a, b) => a.statusKey.localeCompare(b.statusKey))
+    .map(({ statusText }) => sanitizeExtensionStatusText(statusText))
+    .join(' ');
+}
 
 /**
- * ExtensionStatusBar（ADR-0012）：扩展上报的状态项（状态栏短文本）。
- * 视觉照抄 pi-web 的 `.extension-status-line`：35px 高、mono 11px、上描边。
- * 只展示——写状态的是扩展自己经 SDK 的 setStatus，前端仅订阅 `extensionStatuses`。
+ * 扩展货架（ADR-0020）：**单一** `.extension-status-shelf`，widgets 在前、status 在后。
+ * 逐字移植 pi-web `components/ExtensionStatusBar.tsx`。
  */
-export function ExtensionStatusBar({ statuses }: { statuses: ExtensionStatusItem[] }) {
-  if (statuses.length === 0) return null;
+export function ExtensionStatusBar({
+  statuses,
+  widgets = [],
+}: {
+  statuses: ExtensionStatusItem[];
+  widgets?: ExtensionWidgetItem[];
+}) {
+  if (statuses.length === 0 && widgets.length === 0) return null;
+
+  const statusLine = formatExtensionStatusLine(statuses);
+  const plainStatusLine = stripAnsi(statusLine);
+
   return (
-    <div className="extension-status-line" style={{ borderTop: '1px solid var(--border)' }}>
-      <span className="extension-status-text">
-        {statuses.map((status) => (
-          <span key={status.statusKey} title={status.statusKey}>
-            {status.statusText}
+    <div
+      className={`extension-status-shelf${widgets.length > 0 ? ' has-widgets' : ''}${statuses.length > 0 ? ' has-status' : ''}`}
+    >
+      {widgets.length > 0 && <ExtensionWidgets widgets={widgets} />}
+      {statuses.length > 0 && (
+        <div
+          role="status"
+          className="extension-status-line"
+          aria-label={plainStatusLine}
+          title={plainStatusLine}
+        >
+          <span className="extension-status-text">
+            <AnsiText text={statusLine} />
           </span>
-        ))}
-      </span>
+        </div>
+      )}
     </div>
   );
 }

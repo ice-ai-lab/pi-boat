@@ -23,6 +23,8 @@ export interface ComposerProps {
   onPickSlashCommand?(index: number): void;
   /** 排队消息条等附加行（渲染在输入卡上方） */
   aboveInput?: ReactNode;
+  /** 输入卡**下方**的工具行（pi-web ChatInput 的底部行：附件+模型 | 思考/工具/压缩/停止） */
+  belowInput?: ReactNode;
   /** ↑ 历史上翻（仅有历史时由宿主提供） */
   onHistoryPrev?(): void;
   /** ↓ 历史下翻 */
@@ -47,6 +49,7 @@ export function Composer({
   slashCommands,
   onPickSlashCommand,
   aboveInput,
+  belowInput,
   onHistoryPrev,
   onHistoryNext,
   mentionActiveIndex = 0,
@@ -262,6 +265,8 @@ export function Composer({
             </button>
           )}
         </div>
+        {/* 底部工具行（pi-web ChatInput：在输入卡下方 marginTop 8） */}
+        {belowInput !== undefined && <div style={{ marginTop: 8 }}>{belowInput}</div>}
       </div>
     </div>
   );

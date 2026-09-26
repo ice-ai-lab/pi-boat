@@ -1,59 +1,101 @@
-import { Search, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
-import { Input } from '../primitives/input';
+import { searchSessions } from '@ice-ai/client';
+import type { SessionInfo, SessionSearchResponse } from '@ice-ai/protocol';
+import { type ReactNode, useEffect, useState } from 'react';
+import { formatRelativeTime } from '../i18n/format';
+import { useI18n } from '../i18n/i18n-provider';
 
 /**
- * SessionSearch（docs/06 §4.3）：输入框 + 防抖（宿主用返回的 debouncedQuery 发服务端搜索）。
- * 正文搜索在服务端做（有界候选扫正文，G2-7），本组件只管输入与防抖。
- * 视觉对齐 pi-web `SessionSidebar` 的搜索行（32px 高、mono 11px）。
+ * 会话搜索结果（T2-3，逐字移植 pi-web `components/SessionSearch.tsx`）：
+ * 打开且有查询时**替换**会话列表——三段式（标题 / cwd+时间 / 正文片段 + `<mark>` 高亮）
+ * + `role=\"status\"` 计数行；300ms 防抖，只随查询变化重发。
  */
 export interface SessionSearchProps {
-  onQueryChange(query: string): void;
-  /** 防抖毫秒（默认 300） */
-  delayMs?: number;
-  placeholder?: string;
-}
-
-export function useDebouncedValue<T>(value: T, delayMs: number): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(timer);
-  }, [value, delayMs]);
-  return debounced;
+  open: boolean;
+  query: string;
+  children: ReactNode;
+  selectedSessionId: string | null;
+  onSelectSession: (session: SessionInfo, entryId?: string, blockIndex?: number) => void;
 }
 
 export function SessionSearch({
-  onQueryChange,
-  delayMs = 300,
-  placeholder = '搜索会话（标题 / 正文）',
+  open,
+  query,
+  children,
+  selectedSessionId,
+  onSelectSession,
 }: SessionSearchProps) {
-  const [query, setQuery] = useState('');
-  const debounced = useDebouncedValue(query, delayMs);
+  const { t, locale } = useI18n();
+  const [state, setState] = useState<{
+    query: string;
+    response?: SessionSearchResponse;
+    failed?: boolean;
+  }>({ query: '' });
+  const search = query.trim();
+  const response = state.query === search ? state.response : undefined;
+  const failed = state.query === search && state.failed;
 
+  // 只随查询变化重发：不依赖列表版本，避免结果正在被阅读时被轮询刷新重排
   useEffect(() => {
-    onQueryChange(debounced.trim());
-  }, [debounced, onQueryChange]);
+    if (!open || !search) return;
+    const controller = new AbortController();
+    setState({ query: search });
+    const timer = setTimeout(() => {
+      searchSessions(search)
+        .then((data) => {
+          if (!controller.signal.aborted) setState({ query: search, response: data });
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) setState({ query: search, failed: true });
+        });
+    }, 300);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [open, search]);
 
-  return (
-    <div className="relative flex items-center">
-      <Search size={13} className="pointer-events-none absolute left-2.5 text-text-dim" />
-      <Input
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        placeholder={placeholder}
-        className="pl-7 pr-7 font-mono"
-      />
-      {query.length > 0 && (
-        <button
-          type="button"
-          aria-label="清空搜索"
-          onClick={() => setQuery('')}
-          className="absolute right-2 flex h-5 w-5 items-center justify-center text-text-dim hover:text-text"
-        >
-          <X size={12} />
-        </button>
+  return !open || !search ? (
+    children
+  ) : (
+    <div className="min-h-20 flex-1 overflow-y-auto" aria-busy={!response && !failed}>
+      <div role="status" className="px-3 py-2 text-xs text-text-muted">
+        {failed
+          ? t('sidebar.sessionSearchFailed')
+          : !response
+            ? t('sidebar.sessionSearching')
+            : response.results.length === 0
+              ? t('sidebar.sessionSearchEmpty')
+              : t('sidebar.sessionSearchCount', { count: response.results.length })}
+      </div>
+      {response?.truncated && (
+        <div role="status" className="px-3 pb-2 text-xs text-text-muted">
+          {t('sidebar.sessionSearchPartial')}
+        </div>
       )}
+      {response?.results.map(({ session, entryId, blockIndex, before, match, after }) => (
+        <button
+          key={session.id}
+          type="button"
+          onClick={() => onSelectSession(session, entryId ?? undefined, blockIndex ?? undefined)}
+          aria-current={session.id === selectedSessionId ? 'true' : undefined}
+          className={`block w-full cursor-pointer border-b border-border px-3 py-2 text-left hover:bg-bg-hover focus-visible:outline-2 focus-visible:outline-accent ${session.id === selectedSessionId ? 'bg-bg-selected' : ''}`}
+        >
+          <span className="block truncate text-xs font-medium text-text">
+            {session.name || session.firstMessage}
+          </span>
+          <span className="mt-1 flex min-w-0 gap-2 text-[10px] text-text-dim">
+            <span className="min-w-0 flex-1 truncate" title={session.cwd}>
+              {session.cwd}
+            </span>
+            <span className="shrink-0">{formatRelativeTime(session.modified, locale)}</span>
+          </span>
+          <span className="mt-1 block text-xs leading-relaxed wrap-anywhere text-text-muted">
+            {before}
+            <mark className="rounded-sm bg-accent/20 text-text">{match}</mark>
+            {after}
+          </span>
+        </button>
+      ))}
     </div>
   );
 }

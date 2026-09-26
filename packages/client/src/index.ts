@@ -71,7 +71,7 @@ export {
   getSessionDetail,
   sessionExportUrl,
 } from './endpoints/sessions';
-export { browseCwd, getHome } from './endpoints/system';
+export { browseCwd, getDefaultCwd, getHome } from './endpoints/system';
 export {
   createWorktree,
   deleteSession,

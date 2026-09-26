@@ -1,5 +1,5 @@
 import { fileByteUrl, getFileName, getRelativeFilePath, isImagePath } from '@ice-ai/client';
-import { FileTabs, FileViewer } from '@ice-ai/ui';
+import { FileTabs, FileViewer, useI18n } from '@ice-ai/ui';
 import { useCallback } from 'react';
 import { fileTabsStore } from '../services/file-tabs-store';
 import { useFileContent } from '../services/use-file-content';
@@ -14,6 +14,8 @@ export interface FilesPaneProps {
   root: string | null;
   /** 当前会话 id（工具产物在 allowed-roots 之外时凭它放行） */
   sessionId: string | null;
+  /** 右栏是否展开（`aria-expanded` 用真实值，T0-2） */
+  open: boolean;
   /** 右栏是否全宽展开（pi-web `rightPanelFullWidth`） */
   expanded: boolean;
   /** 切换全宽展开（toolbar 的 expand 按钮） */
@@ -22,7 +24,15 @@ export interface FilesPaneProps {
   onHide(): void;
 }
 
-export function FilesPane({ root, sessionId, expanded, onToggleExpand, onHide }: FilesPaneProps) {
+export function FilesPane({
+  root,
+  sessionId,
+  open,
+  expanded,
+  onToggleExpand,
+  onHide,
+}: FilesPaneProps) {
+  const { t } = useI18n();
   const { state, tab } = useFileTabs();
   // git 状态仅供侧栏文件树徽标使用；此处不取（避免同域重复轮询）
   const content = useFileContent({
@@ -40,12 +50,15 @@ export function FilesPane({ root, sessionId, expanded, onToggleExpand, onHide }:
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* 顶行：页签 + 全宽展开 + 隐藏（逐字照抄 pi-web `AppShell.tsx:2435-2469`） */}
+      {/* 顶行：页签 + 全宽展开 + 隐藏（逐字照抄 pi-web `AppShell.tsx:2418-2426`） */}
       <div
         style={{
           display: 'flex',
-          alignItems: 'stretch',
+          alignItems: 'center',
           flexShrink: 0,
+          height: 'calc(36px + env(safe-area-inset-top))',
+          paddingTop: 'env(safe-area-inset-top)',
+          background: 'var(--bg-panel)',
           borderBottom: '1px solid var(--border)',
         }}
       >
@@ -93,7 +106,7 @@ export function FilesPane({ root, sessionId, expanded, onToggleExpand, onHide }:
           type="button"
           onClick={onHide}
           aria-controls="file-panel"
-          aria-expanded={false}
+          aria-expanded={open}
           title="隐藏文件面板"
           aria-label="隐藏文件面板"
           style={{
@@ -135,12 +148,17 @@ export function FilesPane({ root, sessionId, expanded, onToggleExpand, onHide }:
         </button>
       </div>
       {tab === null ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-1 px-5 text-center">
-          <p className="text-[12.5px] text-fg-muted">尚未打开文件</p>
-          <p className="text-[11.5px] text-fg-faint">
-            左侧切到「文件」页签浏览项目，点击文件即在此打开
-          </p>
-          {root !== null && <p className="mt-1 font-mono text-[10.5px] text-fg-faint">{root}</p>}
+        <div
+          style={{
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--text-dim)',
+            fontSize: 12,
+          }}
+        >
+          {t('files.noneOpen')}
         </div>
       ) : (
         <FileViewer

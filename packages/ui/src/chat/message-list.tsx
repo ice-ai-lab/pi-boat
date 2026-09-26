@@ -28,6 +28,12 @@ export interface MessageListProps {
   onLoadOlder?(): void;
   /** 宿主持有它以驱动滚动（可选） */
   controllerRef?: RefObject<MessageListHandle | null>;
+  /** 视口回传（T0-1：minimap 的 active 区间需要 scrollTop/clientHeight/scrollHeight） */
+  onViewportChange?(viewport: {
+    scrollTop: number;
+    clientHeight: number;
+    scrollHeight: number;
+  }): void;
 }
 
 /** 距顶部多少像素内触发自动翻页 */
@@ -42,6 +48,7 @@ export function MessageList({
   loadingOlder = false,
   onLoadOlder,
   controllerRef,
+  onViewportChange,
 }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const attachedRef = useRef(true);
@@ -91,6 +98,17 @@ export function MessageList({
     setShowJump(shouldShowScrollToLatest(el.scrollTop, el.clientHeight, el.scrollHeight));
   }, []);
 
+  const reportViewport = useCallback(
+    (el: HTMLDivElement) => {
+      onViewportChange?.({
+        scrollTop: el.scrollTop,
+        clientHeight: el.clientHeight,
+        scrollHeight: el.scrollHeight,
+      });
+    },
+    [onViewportChange],
+  );
+
   // 内容变化：优先还原翻页锚点；否则吸附跟随；自己发消息（轮数增加）强制回底
   useEffect(() => {
     const el = scrollRef.current;
@@ -107,6 +125,7 @@ export function MessageList({
       });
       prevTopRef.current = el.scrollTop;
       syncJump(el);
+      reportViewport(el);
       return;
     }
     const turnCount = chat.turns.length;
@@ -114,11 +133,13 @@ export function MessageList({
     turnCountRef.current = turnCount;
     if (forced) {
       scrollToBottom('smooth');
+      reportViewport(el);
       return;
     }
     if (attachedRef.current) scrollToBottom();
     syncJump(el);
-  }, [chat, scrollToBottom, syncJump]);
+    reportViewport(el);
+  }, [chat, scrollToBottom, syncJump, reportViewport]);
 
   const onScroll = useCallback(() => {
     const el = scrollRef.current;
@@ -132,6 +153,7 @@ export function MessageList({
     );
     prevTopRef.current = el.scrollTop;
     syncJump(el);
+    reportViewport(el);
     if (
       el.scrollTop < AUTO_LOAD_THRESHOLD_PX &&
       hasOlder &&
@@ -141,7 +163,7 @@ export function MessageList({
     ) {
       requestOlder();
     }
-  }, [hasOlder, loadingOlder, onLoadOlder, requestOlder, syncJump]);
+  }, [hasOlder, loadingOlder, onLoadOlder, requestOlder, syncJump, reportViewport]);
 
   useScrollbarVisibility(scrollRef);
 
