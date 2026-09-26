@@ -23,7 +23,14 @@ import {
   formatTokens,
   summarizeStats,
 } from '../src/view-models/session-stats';
-import { applyTheme, nextTheme, resolveTheme, themeLabel } from '../src/view-models/theme';
+import {
+  applyTheme,
+  isDarkTheme,
+  isThemePreference,
+  resolveTheme,
+  THEME_OPTIONS,
+  themeLabel,
+} from '../src/view-models/theme';
 import {
   allWrittenFiles,
   extractTurnWrittenFiles,
@@ -218,20 +225,47 @@ describe('本轮改动文件', () => {
 });
 
 describe('主题', () => {
-  it('解析与循环切换', () => {
-    expect(resolveTheme('system', true)).toBe('dark');
-    expect(resolveTheme('system', false)).toBe('light');
-    expect(resolveTheme('dark', false)).toBe('dark');
-    expect(nextTheme('system')).toBe('light');
-    expect(nextTheme('light')).toBe('dark');
-    expect(nextTheme('dark')).toBe('system');
-    expect(themeLabel('system')).toBe('跟随系统');
+  it('偏好是调色板 id（与 pi-web THEME_OPTIONS 同序）', () => {
+    expect(THEME_OPTIONS.map((option) => option.id)).toEqual([
+      'light',
+      'dark',
+      'mist',
+      'rose',
+      'pine',
+      'auto',
+    ]);
+    expect(isThemePreference('mist')).toBe(true);
+    expect(isThemePreference('system')).toBe(false);
   });
 
-  it('applyTheme 写 data-theme（theme.css 的暗色变量挂在它上面）', () => {
+  it('auto 跟随系统；其余原样', () => {
+    expect(resolveTheme('auto', true)).toBe('dark');
+    expect(resolveTheme('auto', false)).toBe('light');
+    expect(resolveTheme('dark', false)).toBe('dark');
+    expect(resolveTheme('pine', false)).toBe('pine');
+  });
+
+  it('dark 与 pine 都算暗色', () => {
+    expect(isDarkTheme('dark')).toBe(true);
+    expect(isDarkTheme('pine')).toBe(true);
+    expect(isDarkTheme('mist')).toBe(false);
+  });
+
+  it('标签取自 pi-web zh-CN', () => {
+    expect(themeLabel('auto')).toBe('跟随系统');
+    expect(themeLabel('mist')).toBe('雾青');
+    expect(themeLabel('pine')).toBe('松夜');
+  });
+
+  it('applyTheme 写 data-theme 与 dark class', () => {
     const root = document.createElement('div');
     applyTheme('dark', root);
     expect(root.dataset['theme']).toBe('dark');
-    expect(root.style.colorScheme).toBe('dark');
+    expect(root.classList.contains('dark')).toBe(true);
+    applyTheme('pine', root);
+    expect(root.dataset['theme']).toBe('pine');
+    expect(root.classList.contains('dark')).toBe(true);
+    applyTheme('light', root);
+    expect(root.classList.contains('dark')).toBe(false);
   });
 });

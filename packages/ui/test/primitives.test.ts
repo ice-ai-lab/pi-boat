@@ -32,7 +32,7 @@ describe('buttonStyles', () => {
   });
 
   it('默认 ghost / md', () => {
-    expect(buttonStyles()).toContain('text-fg-muted');
+    expect(buttonStyles()).toContain('text-text-muted');
     expect(buttonStyles({ variant: 'primary' })).toContain('bg-accent');
   });
 });

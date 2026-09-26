@@ -8,6 +8,26 @@
       href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚢</text></svg>"
     />
     <title>PiBoat</title>
+    <!-- 首帧前应用已保存的主题（pi-web layout.tsx 的 THEME_INIT_SCRIPT）。
+         调色板清单与 storage key 必须与 @ice-ai/client 的 THEME_OPTIONS / THEME_INIT_SCRIPT 一致，
+         一致性由 apps/web/test/theme-init.test.ts 锁。 -->
+    <script>
+      (() => {
+        let stored = null;
+        try {
+          stored = localStorage.getItem('piboat:theme');
+        } catch {}
+        let theme = ['light', 'dark', 'mist', 'rose', 'pine', 'auto'].includes(stored)
+          ? stored
+          : 'auto';
+        if (theme === 'auto') {
+          theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        const root = document.documentElement;
+        root.dataset.theme = theme;
+        root.classList.toggle('dark', theme === 'dark' || theme === 'pine');
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

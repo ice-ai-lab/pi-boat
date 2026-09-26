@@ -1,6 +1,6 @@
 import type { ProcessGroupData, TrailItem } from '@ice-ai/client';
 import { formatDuration } from '@ice-ai/client';
-import { ChevronRight } from 'lucide-react';
+import { useState } from 'react';
 import { SystemRowView, ThinkingRowView } from './thinking-row';
 import { ToolRowView } from './tool-row';
 
@@ -11,7 +11,8 @@ function ProcessItem({ item }: { item: TrailItem }) {
 }
 
 /**
- * ProcessGroup（docs/06 §4.2）：「处理详情 · N 条消息 · M 次工具调用」收拢壳。
+ * ProcessGroup：结构/样式照抄 pi-web `ChatWindow.tsx` 的 `ProcessDetailsGroup`
+ * （纯文字折叠按钮：12px mono-ish、箭头 90° 旋转、无描边无底色；展开内容 marginTop 8）。
  * defaultExpanded = 本轮没拿到回答（中断/报错时展开避免空白，docs/05 §6.5-6）。
  */
 export function ProcessGroup({
@@ -21,26 +22,77 @@ export function ProcessGroup({
   group: ProcessGroupData;
   defaultExpanded: boolean;
 }) {
+  const [expanded, setExpanded] = useState(defaultExpanded);
   const duration = groupDuration(group);
+  const parts = [
+    '处理详情',
+    `${group.messageCount} 条消息`,
+    ...(group.toolCallCount > 0 ? [`${group.toolCallCount} 次工具调用`] : []),
+    ...(duration !== null ? [formatDuration(duration)] : []),
+  ];
+
   return (
-    <details className="group/g sq hairline border-line-1 py-1.5" open={defaultExpanded}>
-      <summary className="flex cursor-pointer list-none items-center gap-1.5 px-2.5 text-[12px] text-fg-subtle">
-        <ChevronRight size={12} className="shrink-0 transition-transform group-open/g:rotate-90" />
-        <span>
-          处理详情 · {group.messageCount} 条消息
-          {group.toolCallCount > 0 && ` · ${group.toolCallCount} 次工具调用`}
-          {duration !== null && ` · ${formatDuration(duration)}`}
+    <div style={{ marginBottom: 14 }}>
+      <button
+        type="button"
+        aria-expanded={expanded}
+        onClick={() => setExpanded((value) => !value)}
+        title={expanded ? '收起处理详情' : '展开处理详情'}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          width: 'auto',
+          minHeight: 24,
+          padding: '2px 0',
+          border: 'none',
+          background: 'transparent',
+          color: 'var(--text-muted)',
+          cursor: 'pointer',
+          fontSize: 12,
+          textAlign: 'left',
+        }}
+      >
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 12 12"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{
+            flexShrink: 0,
+            transform: expanded ? 'rotate(90deg)' : 'none',
+            transition: 'transform 0.15s',
+          }}
+          aria-hidden="true"
+        >
+          <polyline points="4 2.5 7.5 6 4 9.5" />
+        </svg>
+        <span
+          style={{
+            minWidth: 0,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {parts.join(' · ')}
         </span>
-      </summary>
-      <div className="ml-3 mt-1.5 flex flex-col gap-1.5 border-l border-line-2 pl-2.5">
-        {group.items.map((item, index) => (
-          <ProcessItem
-            key={item.kind === 'tool' ? item.toolCallId : `${item.kind}-${index}`}
-            item={item}
-          />
-        ))}
-      </div>
-    </details>
+      </button>
+      {expanded && (
+        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {group.items.map((item, index) => (
+            <ProcessItem
+              key={item.kind === 'tool' ? item.toolCallId : `${item.kind}-${index}`}
+              item={item}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

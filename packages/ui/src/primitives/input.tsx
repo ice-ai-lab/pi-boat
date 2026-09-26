@@ -1,13 +1,13 @@
 import type { InputHTMLAttributes } from 'react';
 import { cn } from '../utils/cn';
 
-/** Input（primitives）：单行输入，规格取自原型 .ws-line / 搜索框 */
+/** Input（primitives）：视觉对齐 pi-web 的输入框（1px 描边 / 5px 圆角 / `--bg` 底） */
 export function Input({ className, ...rest }: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       className={cn(
-        'sq hairline h-8 w-full border-line-2 bg-surface-raised px-2.5 text-[12.5px] text-fg',
-        'outline-none placeholder:text-fg-faint focus:border-accent/60',
+        'w-full rounded-[5px] border border-border bg-bg px-2 py-[5px] text-[11px] text-text',
+        'outline-none placeholder:text-text-dim focus:border-accent',
         className,
       )}
       {...rest}

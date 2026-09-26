@@ -2,7 +2,6 @@ import type { Turn } from '@ice-ai/client';
 import { groupTrail, isLiveTail } from '@ice-ai/client';
 import type { Usage } from '@ice-ai/protocol';
 import { memo } from 'react';
-import { cn } from '../utils/cn';
 import { MarkdownView } from './markdown-view';
 import { ProcessGroup } from './process-group';
 import { SystemRowView, ThinkingRowView } from './thinking-row';
@@ -18,29 +17,53 @@ function trailKey(item: { kind: string; toolCallId?: string }, index: number): s
     : `${item.kind}-${index}`;
 }
 
-/** 每轮用量行（in · out · cache R）——usage 在 message_end 定稿快照 */
+/** 每轮用量行（in · out · cache R）——结构对齐 pi-web `formatUsage`（11px / text-dim） */
 export function UsageLine({ usage }: { usage: Usage }) {
   const parts = [
     `in ${usage.input.toLocaleString()}`,
     `out ${usage.output.toLocaleString()}`,
     usage.cacheRead > 0 ? `cache R ${usage.cacheRead.toLocaleString()}` : null,
   ].filter((part): part is string => part !== null);
-  return <p className="mt-1 font-mono text-[10.5px] text-fg-faint">{parts.join(' · ')}</p>;
+  return <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{parts.join(' · ')}</div>;
 }
 
-/** 用户气泡（docs/06 §4.2：.msg-user .bub） */
+/** 用户气泡：照抄 pi-web `MessageView` 的 UserMessageView（12px 圆角 / 8×12 内边距 / 14px 字 / 1.6 行高） */
 export function UserBubble({ turn }: { turn: Turn }) {
   return (
-    <div className="flex justify-end">
-      <div className="sq max-w-[85%] bg-bubble px-3.5 py-2.5 text-[13.5px] leading-relaxed whitespace-pre-wrap break-words text-fg">
-        {turn.user.text}
+    <div
+      style={{
+        marginBottom: 16,
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-end',
+      }}
+    >
+      <div
+        style={{
+          maxWidth: '85%',
+          minWidth: 0,
+          background: 'var(--user-bg)',
+          border: '1px solid rgba(59,130,246,0.2)',
+          borderRadius: 12,
+          padding: '8px 12px',
+          fontSize: 'calc(14px + var(--chat-font-size-offset, 0px))',
+          lineHeight: 1.6,
+          color: 'var(--text)',
+          wordBreak: 'break-word',
+        }}
+      >
+        <div className="markdown-body markdown-user-message">
+          <MarkdownView markdown={turn.user.text} />
+        </div>
       </div>
     </div>
   );
 }
 
 /**
- * AssistantTurn（docs/06 §4.2）：模型标签 + 轨迹（流式平铺 / 静止后成组）+ 回答 + 用量。
+ * AssistantTurn：模型标签 + 轨迹（流式平铺 / 静止后成组）+ 回答 + 用量。
+ * 布局照抄 pi-web `MessageView` 的 AssistantMessageView：标签 11px text-dim，
+ * 块间距 8，底部用量 11px text-dim。
  * 成组是渲染期派生（groupTrail），流式末轮平铺不分组（docs/05 §6.5 方案 2）。
  */
 export const AssistantTurn = memo(function AssistantTurn({
@@ -57,48 +80,79 @@ export const AssistantTurn = memo(function AssistantTurn({
   const streamingText = liveTail && turn.final === null;
 
   return (
-    <div className="flex flex-col gap-2">
+    <div style={{ marginBottom: 16 }}>
       {turn.model !== null && (
-        <span
-          className={cn(
-            'sq self-start bg-accent-weak px-1.5 py-0.5 font-mono text-[10.5px] text-accent',
-          )}
+        <div
+          style={{
+            fontSize: 11,
+            color: 'var(--text-dim)',
+            marginBottom: 4,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+          }}
         >
-          {turn.model.modelId}
-        </span>
-      )}
-      {grouped.map((item, index) => {
-        if (item.kind === 'group') {
-          return (
-            <ProcessGroup
-              key={trailKey(item.items[0] ?? { kind: 'group' }, index)}
-              group={item}
-              defaultExpanded={!hasFinal}
-            />
-          );
-        }
-        if (item.kind === 'thinking')
-          return <ThinkingRowView key={trailKey(item, index)} row={item} />;
-        if (item.kind === 'tool') return <ToolRowView key={item.toolCallId} row={item} />;
-        return <SystemRowView key={trailKey(item, index)} text={item.text} tone={item.tone} />;
-      })}
-      {streamingText && <p className="shimmer text-[12px]">生成中…</p>}
-      {turn.final !== null && turn.final.markdown.length > 0 && (
-        <div className="min-w-0">
-          <MarkdownView markdown={turn.final.markdown} />
-          {turn.usage !== null && !liveTail && <UsageLine usage={turn.usage} />}
+          <span>{turn.model.modelId}</span>
+          {liveTail && <span className="shimmer">生成中…</span>}
         </div>
       )}
-      {turn.status === 'stopped' && (
-        <p className="sq self-start bg-surface-side px-2 py-1 text-[11.5px] text-fg-faint">
-          已停止
-        </p>
-      )}
-      {turn.status === 'error' && (
-        <p className="sq self-start bg-danger-soft px-2 py-1 text-[11.5px] text-danger">
-          本轮出错（详见处理详情）
-        </p>
-      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {grouped.map((item, index) => {
+          if (item.kind === 'group') {
+            return (
+              <ProcessGroup
+                key={trailKey(item.items[0] ?? { kind: 'group' }, index)}
+                group={item}
+                defaultExpanded={!hasFinal}
+              />
+            );
+          }
+          if (item.kind === 'thinking')
+            return <ThinkingRowView key={trailKey(item, index)} row={item} />;
+          if (item.kind === 'tool') return <ToolRowView key={item.toolCallId} row={item} />;
+          return <SystemRowView key={trailKey(item, index)} text={item.text} tone={item.tone} />;
+        })}
+        {streamingText && turn.model === null && <p className="shimmer text-[12px]">生成中…</p>}
+        {turn.final !== null && turn.final.markdown.length > 0 && (
+          <div className="min-w-0">
+            <MarkdownView markdown={turn.final.markdown} />
+          </div>
+        )}
+        {turn.status === 'stopped' && (
+          <div
+            style={{
+              border: '1px solid var(--border)',
+              borderLeft: '3px solid var(--text-dim)',
+              borderRadius: 7,
+              padding: '6px 10px',
+              background: 'var(--bg-subtle)',
+              color: 'var(--text-muted)',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 11,
+            }}
+          >
+            已停止
+          </div>
+        )}
+        {turn.status === 'error' && (
+          <div
+            role="alert"
+            style={{
+              padding: '7px 10px',
+              border: '1px solid rgba(239,68,68,0.3)',
+              borderRadius: 6,
+              background: 'rgba(239,68,68,0.07)',
+              color: '#ef4444',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 12,
+              lineHeight: 1.5,
+            }}
+          >
+            本轮出错（详见处理详情）
+          </div>
+        )}
+        {turn.usage !== null && !liveTail && <UsageLine usage={turn.usage} />}
+      </div>
     </div>
   );
 });

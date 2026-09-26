@@ -1,29 +1,58 @@
 /**
- * 主题解析与落地（A 类移植自 pi-web lib/theme.ts 的判定部分；ADR-0019-2 深色随 F5）。
- * 纯逻辑（resolveTheme/nextTheme）与 DOM 写入（applyTheme）分开：前者可测，后者只在浏览器跑。
+ * 主题（**B 类移植自 pi-web `lib/theme.ts`**；ADR-0020 视觉基准）。
+ *
+ * pi-web 的模型与「light/dark/system」三态不同，这里按它的口径照抄：
+ * - 偏好是**一个调色板 id**（`light/dark/mist/rose/pine/auto`），不再先解析成 light/dark 再落地；
+ * - `auto` 解析为跟随系统的 `dark` / `light`；
+ * - `pine` 也是暗色（`isDarkTheme`），所以不能只按 id 判等；
+ * - 落地写 `data-theme`（theme.css 的变量块挂它）+ `dark` class（pi-web 的 `html.dark`
+ *   选择器与 `.catppuccin-file-icon` 等靠它生效）。
+ *
+ * 纯逻辑 + DOM 写入都在这里，React 订阅（含 View Transition 圆形揭示）在 app 层。
  */
-export type ThemePreference = 'light' | 'dark' | 'system';
-export type ResolvedTheme = 'light' | 'dark';
 
-export const THEME_ORDER: readonly ThemePreference[] = ['system', 'light', 'dark'];
+/** 与 pi-web `THEME_OPTIONS` 同序；标签取自 pi-web `lib/i18n/messages/zh-CN.ts` */
+export const THEME_OPTIONS = [
+  { id: 'light', label: '浅色' },
+  { id: 'dark', label: '深色' },
+  { id: 'mist', label: '雾青' },
+  { id: 'rose', label: '蔷薇' },
+  { id: 'pine', label: '松夜' },
+  { id: 'auto', label: '跟随系统' },
+] as const;
 
-export function resolveTheme(preference: ThemePreference, systemDark: boolean): ResolvedTheme {
-  if (preference === 'system') return systemDark ? 'dark' : 'light';
-  return preference;
+export type ThemePreference = (typeof THEME_OPTIONS)[number]['id'];
+/** 已解析的调色板（`auto` 被解析掉后的取值） */
+export type ResolvedTheme = Exclude<ThemePreference, 'auto'>;
+
+export function isThemePreference(value: unknown): value is ThemePreference {
+  return THEME_OPTIONS.some((option) => option.id === value);
 }
 
-/** 循环切换：system → light → dark → system（与原型的三态一致） */
-export function nextTheme(preference: ThemePreference): ThemePreference {
-  const index = THEME_ORDER.indexOf(preference);
-  return THEME_ORDER[(index + 1) % THEME_ORDER.length] ?? 'system';
+/** `dark` 与 `pine` 都是暗色（pi-web `isDarkTheme`） */
+export function isDarkTheme(theme: ResolvedTheme): boolean {
+  return theme === 'dark' || theme === 'pine';
+}
+
+/** `auto` → 跟随系统；其余原样（pi-web `hooks/useTheme.ts` 的 `resolveTheme`） */
+export function resolveTheme(preference: ThemePreference, systemDark: boolean): ResolvedTheme {
+  return preference === 'auto' ? (systemDark ? 'dark' : 'light') : preference;
 }
 
 export function themeLabel(preference: ThemePreference): string {
-  return preference === 'system' ? '跟随系统' : preference === 'dark' ? '深色' : '浅色';
+  return THEME_OPTIONS.find((option) => option.id === preference)?.label ?? preference;
 }
 
-/** 落到 DOM：`data-theme` 属性（theme.css 的暗色变量块挂在这个选择器上） */
+/** 落到 DOM：`data-theme` + `dark` class（pi-web `applyDomTheme`） */
 export function applyTheme(theme: ResolvedTheme, root: HTMLElement): void {
   root.dataset['theme'] = theme;
-  root.style.colorScheme = theme;
+  root.classList.toggle('dark', isDarkTheme(theme));
 }
+
+/**
+ * 首帧前应用已保存的调色板（含 localStorage 不可用的情况）。
+ * 逐字照抄 pi-web 的 `THEME_INIT_SCRIPT`，只把 storage key 换成本仓的键。
+ */
+export const THEME_INIT_SCRIPT = `(function(){var t="auto";try{var s=localStorage.getItem("piboat:theme");if(${JSON.stringify(
+  THEME_OPTIONS.map((option) => option.id),
+)}.includes(s))t=s}catch(e){}if(t==="auto")t=window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";var r=document.documentElement;r.dataset.theme=t;r.classList.toggle("dark",t==="dark"||t==="pine")})();`;

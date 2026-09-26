@@ -1,12 +1,13 @@
 import { formatRelativeTime, sessionDisplayTitle } from '@ice-ai/client';
 import type { SessionInfo } from '@ice-ai/protocol';
-import { Copy, Loader2, Pencil, Trash2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { cn } from '../utils/cn';
 
 /**
- * SessionRow（docs/06 §4.3 inspect 册）：会话行 = 标题 + 相对时间/条数 + 运行标记 +
- * 悬停操作（重命名 / 删除 / 复制 id）。定高 54px（窗口化依赖，见 session-list-window）。
+ * SessionRow：会话行 = 标题 + 相对时间/条数 + 运行标记 + 悬停操作（重命名 / 删除 / 复制 id）。
+ * 视觉照抄 pi-web `SessionSidebar` 的 `SessionListItem`：定高 54px、左内边距 14、
+ * 选中 = `--bg-selected` 底 + 左侧 2px accent 竖条（无圆角、无 hover 圆角块）。
+ * 定高由窗口化依赖（见 session-list-window）。
  */
 export interface SessionRowProps {
   session: SessionInfo;
@@ -47,11 +48,20 @@ export function SessionRow({
 
   return (
     <div
-      className={cn(
-        'group/row relative flex flex-col justify-center gap-0.5 rounded-[10px] px-2.5',
-        active ? 'bg-accent-weak' : 'hover:bg-hover',
-      )}
-      style={{ height: SESSION_ROW_HEIGHT }}
+      className={active ? 'group/row' : 'group/row hover:bg-bg-hover'}
+      style={{
+        height: SESSION_ROW_HEIGHT,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        paddingLeft: 14,
+        paddingRight: 8,
+        overflow: 'hidden',
+        cursor: editing ? 'default' : 'pointer',
+        background: active ? 'var(--bg-selected)' : undefined,
+        borderLeft: active ? '2px solid var(--accent)' : '2px solid transparent',
+        transition: 'background 0.1s',
+      }}
     >
       {editing ? (
         <input
@@ -64,68 +74,131 @@ export function SessionRow({
             if (event.key === 'Enter') commit();
             if (event.key === 'Escape') setEditing(false);
           }}
-          className="sq w-full bg-surface-raised px-1.5 py-0.5 text-[12.5px] text-fg outline-none"
+          style={{
+            flex: 1,
+            fontSize: 12,
+            padding: '5px 8px',
+            border: '1px solid var(--accent)',
+            borderRadius: 5,
+            outline: 'none',
+            background: 'var(--bg)',
+            color: 'var(--text)',
+            height: 30,
+          }}
         />
       ) : (
-        <button
-          type="button"
-          onClick={onSelect}
-          aria-current={active}
-          className="flex w-full flex-col items-start gap-0.5 text-left"
-        >
-          <span
-            className={cn(
-              'w-full truncate text-[12.5px] leading-tight',
-              active ? 'text-fg' : 'text-fg-muted',
-            )}
-          >
-            {running && <Loader2 size={11} className="mr-1 inline animate-spin text-accent" />}
-            {sessionDisplayTitle(session)}
-          </span>
-          <span className="w-full truncate text-[11px] text-fg-faint">
-            {formatRelativeTime(session.modified)}
-            {session.messageCount > 0 && ` · ${session.messageCount} 条`}
-            {session.branch !== undefined && ` · ${session.branch}`}
-          </span>
-        </button>
-      )}
-
-      <div className="absolute right-1.5 top-1.5 hidden items-center gap-0.5 group-hover/row:flex">
-        {!renameDisabled && (
+        <>
           <button
             type="button"
-            title="重命名"
-            aria-label="重命名会话"
-            className="sq flex h-6 w-6 items-center justify-center text-fg-faint hover:bg-hover hover:text-fg"
-            onClick={() => {
-              setDraft(session.name ?? '');
-              setEditing(true);
+            onClick={onSelect}
+            aria-current={active}
+            style={{
+              flex: 1,
+              minWidth: 0,
+              display: 'block',
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              textAlign: 'left',
+              cursor: 'inherit',
+              color: 'inherit',
             }}
           >
-            <Pencil size={12} />
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
+                minWidth: 0,
+                fontSize: 12,
+                fontWeight: active ? 500 : 400,
+                lineHeight: 1.4,
+                color: 'var(--text)',
+              }}
+            >
+              {running && (
+                <Loader2
+                  size={11}
+                  className="shrink-0 animate-spin"
+                  style={{ color: 'var(--accent)' }}
+                />
+              )}
+              <span
+                style={{
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  minWidth: 0,
+                }}
+              >
+                {sessionDisplayTitle(session)}
+              </span>
+            </div>
+            <div
+              style={{
+                marginTop: 2,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                color: 'var(--text-dim)',
+                fontSize: 11,
+                minWidth: 0,
+              }}
+            >
+              <span>{formatRelativeTime(session.modified)}</span>
+              <span>{session.messageCount > 0 ? `${session.messageCount} 条` : '0 条'}</span>
+              {session.branch !== undefined && (
+                <span
+                  style={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    minWidth: 0,
+                  }}
+                >
+                  {session.branch}
+                </span>
+              )}
+            </div>
           </button>
-        )}
-        <button
-          type="button"
-          title="复制会话 id"
-          aria-label="复制会话 id"
-          className="sq flex h-6 w-6 items-center justify-center text-fg-faint hover:bg-hover hover:text-fg"
-          onClick={() => {
-            void navigator.clipboard?.writeText(session.id).catch(() => {});
-          }}
-        >
-          <Copy size={12} />
-        </button>
-        <button
-          type="button"
-          title="删除会话"
-          aria-label="删除会话"
-          className="sq flex h-6 w-6 items-center justify-center text-fg-faint hover:bg-danger-soft hover:text-danger"
-          onClick={onDelete}
-        >
-          <Trash2 size={12} />
-        </button>
-      </div>
+          <div className="hidden shrink-0 items-center gap-2 group-hover/row:flex">
+            {!renameDisabled && (
+              <button
+                type="button"
+                title="重命名"
+                aria-label="重命名会话"
+                className="flex h-6 shrink-0 items-center justify-center rounded-[5px] px-1.5 text-[10px] text-text-dim hover:bg-bg hover:text-text"
+                onClick={() => {
+                  setDraft(session.name ?? '');
+                  setEditing(true);
+                }}
+              >
+                改名
+              </button>
+            )}
+            <button
+              type="button"
+              title="复制会话 id"
+              aria-label="复制会话 id"
+              className="flex h-6 shrink-0 items-center justify-center rounded-[5px] px-1.5 text-[10px] text-text-dim hover:bg-bg hover:text-text"
+              onClick={() => {
+                void navigator.clipboard?.writeText(session.id).catch(() => {});
+              }}
+            >
+              复制
+            </button>
+            <button
+              type="button"
+              title="删除会话"
+              aria-label="删除会话"
+              className="flex h-6 shrink-0 items-center justify-center rounded-[5px] px-1.5 text-[10px] text-text-dim hover:bg-danger-soft hover:text-danger"
+              onClick={onDelete}
+            >
+              删除
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

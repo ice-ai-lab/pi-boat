@@ -56,19 +56,53 @@ export function ProjectPicker({
       width={320}
       triggerLabel="项目与 worktree"
       trigger={
-        <span className="flex min-w-0 flex-1 items-center gap-1.5 px-1.5 py-1 text-left hover:bg-hover rounded-[10px]">
-          <span className="truncate text-[12px] font-medium text-fg-muted">
+        <span
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '6px 10px',
+            background: 'var(--bg-hover)',
+            border: '1px solid var(--border)',
+            borderRadius: 7,
+            fontSize: 11,
+            fontFamily: 'var(--font-mono)',
+            color: 'var(--text)',
+            textAlign: 'left',
+          }}
+        >
+          <span
+            style={{
+              flex: 1,
+              minWidth: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
             {active === undefined ? '选择项目' : shortenProjectPath(active.root)}
           </span>
           {active !== undefined && (
-            <span className="shrink-0 text-[10.5px] text-fg-faint">{active.sessionCount}</span>
+            <span style={{ flexShrink: 0, color: 'var(--text-dim)' }}>{active.sessionCount}</span>
           )}
-          <ChevronDown size={12} className="ml-auto shrink-0 text-fg-faint" />
+          <ChevronDown size={12} style={{ flexShrink: 0, color: 'var(--text-dim)' }} />
         </span>
       }
     >
       <div className="flex flex-col gap-0.5">
-        <p className="px-1.5 py-1 text-[10.5px] text-fg-faint">项目</p>
+        <p
+          style={{
+            padding: '4px 6px',
+            fontSize: 10,
+            color: 'var(--text-dim)',
+            fontFamily: 'var(--font-mono)',
+            letterSpacing: 0.4,
+            textTransform: 'uppercase',
+          }}
+        >
+          项目
+        </p>
         {projects.map((project) => {
           const counters = activity.get(project.key);
           return (
@@ -81,10 +115,10 @@ export function ProjectPicker({
                 setOpen(false);
               }}
               className={cn(
-                'sq flex items-center gap-1.5 px-2 py-1.5 text-left text-[12px]',
+                'flex items-center gap-1.5 rounded-[5px] px-2 py-1.5 text-left text-[12px]',
                 project.key === activeProjectKey
-                  ? 'bg-accent-weak text-accent'
-                  : 'text-fg-muted hover:bg-hover',
+                  ? 'bg-bg-selected text-accent'
+                  : 'text-text-muted hover:bg-bg-hover',
               )}
             >
               <span className="min-w-0 flex-1 truncate">{shortenProjectPath(project.root)}</span>
@@ -100,7 +134,7 @@ export function ProjectPicker({
 
         {active !== undefined && hasWorktrees && (
           <>
-            <p className="mt-1 border-t border-line-1 px-1.5 pt-2 pb-1 text-[10.5px] text-fg-faint">
+            <p className="mt-1 border-t border-border px-1.5 pt-2 pb-1 text-[10px] font-mono tracking-wide text-text-dim uppercase">
               worktree
             </p>
             {worktrees.map((worktree) => (
@@ -113,10 +147,10 @@ export function ProjectPicker({
                     setOpen(false);
                   }}
                   className={cn(
-                    'sq flex min-w-0 flex-1 items-center gap-1.5 truncate px-2 py-1.5 text-left text-[12px]',
+                    'flex min-w-0 flex-1 items-center gap-1.5 truncate rounded-[5px] px-2 py-1.5 text-left text-[12px]',
                     worktree.path === currentWorktreePath
-                      ? 'bg-accent-weak text-accent'
-                      : 'text-fg-muted hover:bg-hover',
+                      ? 'bg-bg-selected text-accent'
+                      : 'text-text-muted hover:bg-bg-hover',
                   )}
                 >
                   <GitBranch size={11} className="shrink-0 text-fg-faint" />
@@ -131,7 +165,7 @@ export function ProjectPicker({
                     title="删除该 worktree"
                     aria-label="删除 worktree"
                     data-x
-                    className="sq flex h-6 w-6 shrink-0 items-center justify-center text-fg-faint hover:bg-danger-soft hover:text-danger"
+                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[5px] text-text-dim hover:bg-danger-soft hover:text-danger"
                     onClick={() => onRemoveWorktree(worktree.path)}
                   >
                     <Trash2 size={12} />
@@ -139,7 +173,7 @@ export function ProjectPicker({
                 )}
               </div>
             ))}
-            <div className="mt-1 flex items-center gap-1 border-t border-line-1 pt-2">
+            <div className="mt-1 flex items-center gap-1 border-t border-border pt-2">
               <Input
                 value={branch}
                 onChange={(event) => setBranch(event.target.value)}
@@ -158,7 +192,7 @@ export function ProjectPicker({
                 title="新建 worktree"
                 aria-label="新建 worktree"
                 disabled={worktreeBusy || branch.trim().length === 0}
-                className="sq flex h-8 w-8 shrink-0 items-center justify-center bg-accent-weak text-accent disabled:opacity-40"
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[5px] bg-bg-selected text-accent disabled:opacity-40"
                 onClick={() => {
                   onCreateWorktree(branch.trim());
                   setBranch('');
@@ -171,7 +205,7 @@ export function ProjectPicker({
           </>
         )}
         {currentWorktree === null && active !== undefined && !hasWorktrees && (
-          <p className="px-1.5 py-1 text-[10.5px] text-fg-faint">非 git 仓库：无 worktree</p>
+          <p className="px-1.5 py-1 text-[10.5px] text-text-dim">非 git 仓库：无 worktree</p>
         )}
       </div>
     </Popover>

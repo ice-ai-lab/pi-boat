@@ -10,7 +10,7 @@ export interface ScrollAreaProps extends HTMLAttributes<HTMLDivElement> {
 export function ScrollArea({ mask, className, ...rest }: ScrollAreaProps) {
   return (
     <div
-      className={cn('scrollbar-thin overflow-y-auto', mask === 'top' && 'mask-fade-top', className)}
+      className={cn('overflow-y-auto', mask === 'top' && 'mask-fade-top', className)}
       {...rest}
     />
   );

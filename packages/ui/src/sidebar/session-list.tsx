@@ -5,6 +5,7 @@ import {
 } from '@ice-ai/client';
 import type { SessionInfo } from '@ice-ai/protocol';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useScrollbarVisibility } from '../utils/use-scrollbar-visibility';
 import { SessionRow } from './session-row';
 
 /**
@@ -47,13 +48,15 @@ export function SessionList({
     return () => observer.disconnect();
   }, []);
 
+  useScrollbarVisibility(scrollRef);
+
   const indices = getSessionListIndices(sessions.length, scrollTop, viewportHeight);
 
   return (
     <div
       ref={setRef}
       onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}
-      className="scrollbar-thin min-h-0 flex-1 overflow-y-auto pr-1"
+      className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto pr-1"
     >
       <div style={{ height: getSessionListHeight(sessions.length), position: 'relative' }}>
         {indices.map((index) => {

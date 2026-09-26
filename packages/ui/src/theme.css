@@ -1,148 +1,249 @@
 /**
- * PiBoat 视觉 token 单一来源（docs/06 §2/§3）。
- * 视觉基准：docs/design/piboat-web-v3.html（原型 v3），运行时变量沿用原型原名（方便对照）。
+ * PiBoat 视觉 token 单一来源。
  *
- * - `:root` / `[data-theme="dark"]` 定义运行时变量；暗色块已照抄原型但 **F5 才启用**（ADR-0019）
- * - `@theme inline` 把变量映射为语义 Tailwind token（bg-surface / text-fg-muted / shadow-panel …）
- *   ⚠️ 暗色值不得写进 `@theme`——它是编译期常量，写死则主题切换失效（docs/06 §2）
- * - 布局尺寸 `--sb-w` / `--rb-w` / `--chat-w` 不进 `@theme`：走组件 / CSS 变量（docs/06 §3 末行）
- * - 原型 `--font-noto-mono` 未定义，已按 docs/06 §10-1 删除引用：mono 栈直接落地
+ * 视觉基准 = **pi-web `app/globals.css`**（ADR-0020 推翻原「原型 v3」基准）：变量名与取值逐条照抄
+ * pi-web，因此从 pi-web 移植的组件可以原样写 `var(--bg-panel)` / `bg-bg-panel` / `text-text-muted`。
+ *
+ * - `:root` / `[data-theme="dark"]` 定义运行时变量；暗色值**不得**写进 `@theme`（编译期常量，写死则切换失效）
+ * - `@theme inline` 暴露 pi-web 名 + 旧 pi-boat 语义名（别名，见下）两套 Tailwind token
+ * - 布局尺寸 `--sb-w` / `--rb-w` / `--chat-w` 不进 `@theme`（可拖拽、可持久化）
+ * - 遗留别名（--bg-base / --l2 / --t2 / --bubble / --pw-* 等）全部指向 pi-web 变量，
+ *   老组件的 className 不需要一次性改完；**新代码一律用 pi-web 名**
  */
 
-:root {
-  /* 表面 */
-  --bg-base: #ffffff;
-  --bg-side: #f9fafb;
-  --bg-raised: #ffffff;
-  /* 描边（由弱到强 4 档，1:1 保留不合并） */
-  --l1: rgba(0, 0, 0, 0.04);
-  --l2: rgba(0, 0, 0, 0.1);
-  --l3: rgba(0, 0, 0, 0.12);
-  --l4: rgba(0, 0, 0, 0.16);
-  /* 文字四级 */
-  --t1: #16181d;
-  --t2: rgb(97 102 107);
-  --t3: rgb(129 133 140);
-  --t4: rgb(173 178 184);
-  /* 业务蓝与弱底 */
-  --accent: #4176e6;
-  --accent-weak: rgba(65, 118, 230, 0.1);
-  /* 交互底色 */
-  --hover: rgba(38, 49, 72, 0.06);
-  --bubble: #edf3fe;
-  --menu: rgba(248, 249, 250, 0.72); /* 毛玻璃底，须配合 backdrop-blur */
-  /* 语义色（原型色名 → 语义名见 docs/06 §3） */
-  --green: rgb(34 197 94);
-  --green-bg: rgba(34, 197, 94, 0.12);
-  --red: rgb(239 68 68);
-  --red-bg: rgba(248, 113, 113, 0.13);
-  --amber: rgb(201 123 32);
-  --amber-bg: #fef5e7;
-  --teal: rgb(23 165 157);
-  --teal-bg: rgba(23, 165, 157, 0.1);
-  --blue-bg: rgba(77, 147, 248, 0.1);
-  /* 轨迹分段指示色 */
-  --seg-sys: rgb(173 178 184);
-  --seg-tools: rgb(167 139 250);
-  --seg-msg: rgb(77 147 248);
-  /* 工具名 → 色（docs/06 §7） */
-  --k-think: rgb(201 123 32);
-  --k-bash: #16a34a;
-  --k-read: #4176e6;
-  --k-edit: rgb(23 165 157);
-  --k-err: rgb(239 68 68);
-  /* markdown 排版专用（与业务 token 隔离，docs/06 §3） */
-  --pw-panel: #f5f5f5;
-  --pw-border: #e0e0e0;
-  --pw-subtle: rgba(0, 0, 0, 0.03);
-  --pw-accent: #245bce;
-  /* 代码块 / 折叠体底 */
-  --code-bg: #f9fafb;
-  --code-banner: #f9fafb;
-  /* 终端（保留不用：终端不在产品范围，docs/02 §5.3） */
-  --term-bg: #111318;
-  --term-fg: #d7dce5;
-  /* 三档阴影（均以 0.5px 环起始） */
-  --elev-panel:
-    0 0 0 0.5px var(--l2), 0 3px 8px 0 rgba(0, 0, 0, 0.03), 0 0 16px 0 rgba(0, 0, 0, 0.02);
-  --elev-soft:
-    0 0 0 0.5px var(--l2), 0 4px 16px 0 rgba(0, 0, 0, 0.03), 0 0 24px 0 rgba(0, 0, 0, 0.03);
-  --elev-soft-sm: 0 0 0 0.5px var(--l2), 0 2px 6px 0 rgba(0, 0, 0, 0.025);
-  /* 字体 */
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+
+  /* ---- pi-web 运行变量（照抄 app/globals.css） ---- */
+  --bg: #ffffff;
+  --bg-panel: #f5f5f5;
+  --bg-hover: #eeeeee;
+  --bg-selected: #e8e8e8;
+  --border: #e0e0e0;
+  --text: #1a1a1a;
+  --text-muted: #515c6b;
+  --text-dim: #5e6673;
+  --accent: #245bce;
+  --accent-hover: #1d4ed8;
+  --accent-contrast: #ffffff;
+  --user-bg: #eff6ff;
+  --assistant-bg: #ffffff;
+  --tool-bg: #f9fafb;
+  --bg-subtle: rgba(0, 0, 0, 0.03);
+  --chat-content-max-width: 820px;
+  --chat-content-font-size: 14px;
+
+  /* ---- 语义色（pi-web 内联写死的色值，这里收敛为变量） ---- */
+  --green: #16a34a;
+  --green-bg: color-mix(in srgb, #16a34a 10%, transparent);
+  --red: #dc2626;
+  --red-bg: color-mix(in srgb, #dc2626 8%, transparent);
+  --amber: #d97706;
+  --amber-bg: color-mix(in srgb, #d97706 8%, transparent);
+  --teal: #0d9488;
+  --teal-bg: color-mix(in srgb, #0d9488 10%, transparent);
+  --blue-bg: color-mix(in srgb, var(--accent) 10%, transparent);
+
+  /* ---- 折叠轨迹分段色（docs/06 §7） ---- */
+  --seg-sys: var(--text-dim);
+  --seg-tools: #7c3aed;
+  --seg-msg: var(--accent);
+
+  /* ---- 工具名 → 色 ---- */
+  --k-think: var(--amber);
+  --k-bash: var(--green);
+  --k-read: var(--accent);
+  --k-edit: var(--teal);
+  --k-err: var(--red);
+
+  /* ---- 阴影（pi-web 的三档：popover / modal / 悬浮按钮） ---- */
+  --elev-panel: 0 10px 28px rgba(0, 0, 0, 0.1);
+  --elev-soft: 0 8px 32px rgba(0, 0, 0, 0.18);
+  --elev-soft-sm: 0 2px 8px color-mix(in srgb, var(--text) 16%, transparent);
+
+  /* ---- 字体（pi-web 版式） ---- */
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --mono:
-    "JetBrains Mono", "Fira Code", Consolas, ui-monospace, "PingFang SC", "Microsoft YaHei",
-    monospace;
-  /* 细滚动条（utilities.css 消费；原型 §119–152） */
-  --sb-thumb: rgb(229 229 229);
-  --sb-thumb-hover: rgb(212 212 212);
-  --sb-thumb-l2: rgb(229 229 229);
-  --sb-thumb-hover-l2: rgb(212 212 212);
-  --sb-width: 5px;
-  /* 布局尺寸：不进 @theme（可拖拽、可持久化，docs/06 §3） */
-  --sb-w: 284px;
-  --rb-w: 324px;
-  --chat-w: 760px;
+  /* pi-web 由 next/font 定义 `--font-noto-mono`（自托管 Noto Sans Mono，latin + cyrillic）；
+     本仓由 apps/web 引 `@fontsource-variable/noto-sans-mono` 提供同名变量。
+     这里必须定义：`var(--font-noto-mono)` 未定义时整条 font-family 声明在计算期失效，
+     等宽文本会静默回落成继承的 sans（不是回落到下一个字体）。 */
+  --font-noto-mono: "Noto Sans Mono Variable";
+  --font-mono:
+    var(--font-noto-mono), "JetBrains Mono", "Fira Code", "Consolas", ui-monospace, "PingFang SC",
+    "Microsoft YaHei", monospace;
+
+  /* ---- 布局尺寸（不进 @theme） ---- */
+  --sb-w: 260px;
+  --rb-w: clamp(360px, 42vw, 640px);
+  --chat-w: var(--chat-content-max-width);
+
+  /* ---- 遗留别名 → pi-web 变量 ---- */
+  --bg-base: var(--bg);
+  --bg-side: var(--bg-panel);
+  --bg-raised: var(--bg);
+  --l1: color-mix(in srgb, var(--border) 55%, transparent);
+  --l2: var(--border);
+  --l3: color-mix(in srgb, var(--text) 20%, var(--border));
+  --l4: color-mix(in srgb, var(--text) 35%, var(--border));
+  --t1: var(--text);
+  --t2: var(--text-muted);
+  --t3: var(--text-dim);
+  --t4: var(--text-dim);
+  --accent-weak: color-mix(in srgb, var(--accent) 10%, transparent);
+  --hover: var(--bg-hover);
+  --bubble: var(--user-bg);
+  --menu: color-mix(in srgb, var(--bg-panel) 94%, transparent);
+  --mono: var(--font-mono);
+  --code-bg: var(--bg);
+  --code-banner: var(--bg-panel);
+  --pw-panel: var(--bg-panel);
+  --pw-border: var(--border);
+  --pw-subtle: var(--bg-subtle);
+  --pw-accent: var(--accent);
 }
 
-/* 暗色：照抄原型变量块（原样保留，含原型未覆盖项沿用亮色值）；F5 启用（ADR-0019） */
+html.dark,
 [data-theme="dark"] {
-  --bg-base: #151517;
-  --bg-side: #1b1b1c;
-  --bg-raised: #232324;
-  --l1: rgba(255, 255, 255, 0.06);
-  --l2: rgba(255, 255, 255, 0.12);
-  --l3: rgba(255, 255, 255, 0.16);
-  --l4: rgba(255, 255, 255, 0.2);
-  --t1: #f9fafb;
-  --t2: rgb(207 211 214);
-  --t3: rgb(173 178 184);
-  --t4: rgb(129 133 140);
-  --accent: #7aaaff;
-  --accent-weak: rgba(122, 170, 255, 0.14);
-  --hover: rgba(255, 255, 255, 0.08);
-  --bubble: #2c2c2e;
-  --menu: rgba(48, 49, 54, 0.6);
-  --amber: rgb(245 158 11);
-  --amber-bg: rgba(245, 158, 11, 0.14);
-  --teal: rgb(45 212 191);
-  --teal-bg: rgba(45, 212, 191, 0.12);
-  --blue-bg: rgba(122, 170, 255, 0.14);
-  --k-think: rgb(245 158 11);
-  --k-bash: #4ade80;
-  --k-read: #7aaaff;
-  --k-edit: rgb(45 212 191);
-  --k-err: rgb(248 113 113);
-  --pw-panel: #242424;
-  --pw-border: #454545;
-  --pw-subtle: rgba(255, 255, 255, 0.04);
-  --pw-accent: #a4c2f4;
-  --code-bg: #1b1b1c;
-  --code-banner: #2c2c2e;
-  --elev-panel:
-    0 0 0 0.5px var(--l2), 0 3px 8px 0 rgba(0, 0, 0, 0.3), 0 0 16px 0 rgba(0, 0, 0, 0.22);
-  --elev-soft:
-    0 0 0 0.5px var(--l2), 0 4px 16px 0 rgba(0, 0, 0, 0.3), 0 0 24px 0 rgba(0, 0, 0, 0.22);
-  --elev-soft-sm: 0 0 0 0.5px var(--l2), 0 2px 6px 0 rgba(0, 0, 0, 0.25);
+  color-scheme: dark;
+  --bg: #1a1a1a;
+  --bg-panel: #242424;
+  --bg-hover: #2e2e2e;
+  --bg-selected: #383838;
+  --border: #454545;
+  --text: #e8e8e8;
+  --text-muted: #b7b7b7;
+  --text-dim: #a4a4a4;
+  --accent: #a4c2f4;
+  --accent-hover: #c3d8fa;
+  --accent-contrast: #182234;
+  --user-bg: #292929;
+  --assistant-bg: #1a1a1a;
+  --tool-bg: #222222;
+  --bg-subtle: rgba(255, 255, 255, 0.04);
+
+  --green: #4ade80;
+  --green-bg: color-mix(in srgb, #4ade80 14%, transparent);
+  --red: #f87171;
+  --red-bg: color-mix(in srgb, #f87171 14%, transparent);
+  --amber: #fbbf24;
+  --amber-bg: color-mix(in srgb, #fbbf24 14%, transparent);
+  --teal: #2dd4bf;
+  --teal-bg: color-mix(in srgb, #2dd4bf 14%, transparent);
+  --blue-bg: color-mix(in srgb, var(--accent) 14%, transparent);
+
+  --seg-tools: #a78bfa;
+  --k-think: var(--amber);
+
+  --elev-panel: 0 10px 28px rgba(0, 0, 0, 0.45);
+  --elev-soft: 0 8px 32px rgba(0, 0, 0, 0.55);
+  --elev-soft-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
-/* 语义 Tailwind token（暗色经 var() 间接引用，切主题即时生效） */
+/* ---- pi-web 的三套彩色主题（逐字照抄 app/globals.css） ---- */
+[data-theme="mist"] {
+  color-scheme: light;
+  --bg: #f4f8f7;
+  --bg-panel: #e9f0ee;
+  --bg-hover: #e0eae7;
+  --bg-selected: #d7e4df;
+  --border: #afc4ba;
+  --text: #202e2b;
+  --text-muted: #455f56;
+  --text-dim: #52685f;
+  --accent: #1e6559;
+  --accent-hover: #174f46;
+  --accent-contrast: #ffffff;
+  --user-bg: #e0efeb;
+  --assistant-bg: #f4f8f7;
+  --tool-bg: #ecf3f0;
+  --bg-subtle: rgba(24, 65, 50, 0.04);
+}
+
+[data-theme="rose"] {
+  color-scheme: light;
+  --bg: #fcf7f8;
+  --bg-panel: #f3edef;
+  --bg-hover: #eee3e7;
+  --bg-selected: #e8dce1;
+  --border: #cdb5bf;
+  --text: #34282e;
+  --text-muted: #65505a;
+  --text-dim: #705b65;
+  --accent: #914360;
+  --accent-hover: #76324d;
+  --accent-contrast: #ffffff;
+  --user-bg: #f3e4eb;
+  --assistant-bg: #fcf7f8;
+  --tool-bg: #f7eef2;
+  --bg-subtle: rgba(89, 39, 62, 0.04);
+}
+
+html[data-theme="pine"],
+[data-theme="pine"] {
+  color-scheme: dark;
+  --bg: #19201f;
+  --bg-panel: #212b28;
+  --bg-hover: #2b3632;
+  --bg-selected: #35433c;
+  --border: #4a5f52;
+  --text: #e6ede8;
+  --text-muted: #c3d0c6;
+  --text-dim: #afc2b5;
+  --accent: #acccb7;
+  --accent-hover: #d0e2d3;
+  --accent-contrast: #182b20;
+  --user-bg: #25382f;
+  --assistant-bg: #19201f;
+  --tool-bg: #222d29;
+  --bg-subtle: rgba(210, 236, 219, 0.04);
+}
+
+/* WebKit 在已安装的桌面/主屏应用里用 dvh/innerHeight 会少掉状态栏那一条；standalone 下没有
+   浏览器工具栏使 vh 不稳定，而 vh 恰好包含那一条。键盘钩子在编辑框聚焦时用
+   visualViewport.height 临时覆盖这个自定义属性。（逐字照抄 pi-web app/globals.css） */
+@media (display-mode: standalone) {
+  :root {
+    --app-viewport-height: 100vh;
+  }
+}
+
+/* 语义 Tailwind token（暗色经 var() 间接引用，切主题即时生效）。
+   pi-web 名在前（`bg-bg-panel` / `text-text-muted` / `border-border` …），
+   旧 pi-boat 语义名保留为别名（`bg-surface-side` / `text-fg-muted` / `border-line-2` …）。 */
 @theme inline {
-  --color-surface: var(--bg-base);
-  --color-surface-side: var(--bg-side);
-  --color-surface-raised: var(--bg-raised);
+  /* pi-web 名 */
+  --color-bg: var(--bg);
+  --color-bg-panel: var(--bg-panel);
+  --color-bg-hover: var(--bg-hover);
+  --color-bg-selected: var(--bg-selected);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-dim: var(--text-dim);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-contrast: var(--accent-contrast);
+  --color-user-bg: var(--user-bg);
+  --color-assistant-bg: var(--assistant-bg);
+  --color-tool-bg: var(--tool-bg);
+  --color-bg-subtle: var(--bg-subtle);
+
+  /* 旧别名 */
+  --color-surface: var(--bg);
+  --color-surface-side: var(--bg-panel);
+  --color-surface-raised: var(--bg);
   --color-line-1: var(--l1);
   --color-line-2: var(--l2);
   --color-line-3: var(--l3);
   --color-line-4: var(--l4);
-  --color-fg: var(--t1);
-  --color-fg-muted: var(--t2);
-  --color-fg-subtle: var(--t3);
-  --color-fg-faint: var(--t4);
-  --color-accent: var(--accent);
+  --color-fg: var(--text);
+  --color-fg-muted: var(--text-muted);
+  --color-fg-subtle: var(--text-dim);
+  --color-fg-faint: var(--text-dim);
   --color-accent-weak: var(--accent-weak);
-  --color-hover: var(--hover);
-  --color-bubble: var(--bubble);
+  --color-hover: var(--bg-hover);
+  --color-bubble: var(--user-bg);
   --color-menu: var(--menu);
   --color-success: var(--green);
   --color-success-soft: var(--green-bg);
@@ -160,14 +261,17 @@
   --color-tool-read: var(--k-read);
   --color-tool-edit: var(--k-edit);
   --color-tool-err: var(--k-err);
-  --color-md-panel: var(--pw-panel);
-  --color-md-border: var(--pw-border);
-  --color-md-subtle: var(--pw-subtle);
-  --color-md-accent: var(--pw-accent);
-  --color-code-bg: var(--code-bg);
-  --color-code-banner: var(--code-banner);
+  --color-md-panel: var(--bg-panel);
+  --color-md-border: var(--border);
+  --color-md-subtle: var(--bg-subtle);
+  --color-md-accent: var(--accent);
+  --color-code-bg: var(--bg);
+  --color-code-banner: var(--bg-panel);
   --font-sans: var(--font);
-  --font-mono: var(--mono);
+  /* 字面量而非 var(--font-mono)：@theme 与运行时变量同名会自我引用 */
+  --font-mono:
+    "Noto Sans Mono Variable", "JetBrains Mono", "Fira Code", "Consolas", ui-monospace,
+    "PingFang SC", "Microsoft YaHei", monospace;
   --shadow-panel: var(--elev-panel);
   --shadow-soft: var(--elev-soft);
   --shadow-soft-sm: var(--elev-soft-sm);

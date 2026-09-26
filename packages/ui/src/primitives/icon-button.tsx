@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { cn } from '../utils/cn';
 
-/** IconButton（docs/06 §4.1）：原型 .icon-btn——方形、悬停浮底、`on` 为激活态 */
+/** IconButton（primitives）：32px 方形图标按钮（pi-web 工具条/页头同款：hover 浮底、激活 `--bg-selected`） */
 export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   icon: ReactNode;
   /** 激活态（同步下发 aria-pressed） */
@@ -23,8 +23,8 @@ export function IconButton({
       aria-label={title}
       aria-pressed={on}
       className={cn(
-        'sq inline-flex h-8 w-8 items-center justify-center transition-colors focus-visible:outline-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-50',
-        on ? 'bg-accent-weak text-accent' : 'text-fg-subtle hover:bg-hover hover:text-fg',
+        'inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-[7px] text-text-muted transition-colors focus-visible:outline-2 focus-visible:outline-accent disabled:pointer-events-none disabled:opacity-50',
+        on ? 'bg-bg-selected text-accent' : 'hover:bg-bg-hover hover:text-text',
         className,
       )}
       {...rest}

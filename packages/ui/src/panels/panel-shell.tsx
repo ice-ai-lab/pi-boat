@@ -2,7 +2,8 @@ import { X } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 /**
- * PanelShell（docs/06 §4.4）：顶部活动面板的通用壳（整宽面板，不取原型的锚定浮层）。
+ * PanelShell：顶部活动面板的通用壳（整宽面板，不取原型的锚定浮层）。
+ * 视觉照抄 pi-web 顶部下拉面板：`--bg-panel` 底 + 1px 下描边 + 28px 落影，内边距 12×16。
  * 系统提示词 / 工具定义 / 会话统计 / 分支导航共用。
  */
 export interface PanelShellProps {
@@ -16,24 +17,51 @@ export interface PanelShellProps {
 
 export function PanelShell({ title, hint, onClose, actions, children }: PanelShellProps) {
   return (
-    <section className="hairline-b flex min-h-0 shrink-0 flex-col border-line-2 bg-surface-raised">
-      <header className="flex shrink-0 items-center gap-2 px-4 py-2">
-        <h2 className="text-[13px] font-semibold text-fg">{title}</h2>
-        {hint !== undefined && <span className="truncate text-[11px] text-fg-faint">{hint}</span>}
-        <div className="ml-auto flex items-center gap-1">
+    <section
+      className="hairline-b flex min-h-0 shrink-0 flex-col border-border bg-bg-panel"
+      style={{ boxShadow: '0 10px 28px rgba(0,0,0,0.10)' }}
+    >
+      <header
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 8,
+          padding: '8px 16px',
+          borderBottom: '1px solid var(--border)',
+        }}
+      >
+        <h2 style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>{title}</h2>
+        {hint !== undefined && (
+          <span
+            style={{
+              minWidth: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              fontSize: 11,
+              color: 'var(--text-dim)',
+            }}
+          >
+            {hint}
+          </span>
+        )}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
           {actions}
           <button
             type="button"
             onClick={onClose}
             title="关闭面板"
             aria-label={`关闭${title}`}
-            className="sq flex h-7 w-7 items-center justify-center text-fg-subtle hover:bg-hover hover:text-fg"
+            className="flex h-6 w-6 items-center justify-center rounded-[5px] text-text-dim hover:bg-bg-hover hover:text-text"
           >
-            <X size={14} />
+            <X size={13} />
           </button>
         </div>
       </header>
-      <div className="scrollbar-thin min-h-0 max-h-[min(600px,60dvh)] overflow-y-auto px-4 pb-3">
+      <div
+        className="min-h-0 overflow-y-auto"
+        style={{ maxHeight: 'min(600px, 60dvh)', padding: '12px 16px' }}
+      >
         {children}
       </div>
     </section>

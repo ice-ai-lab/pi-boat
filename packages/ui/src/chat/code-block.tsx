@@ -1,13 +1,30 @@
-import { Check, Copy } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { cn } from '../utils/cn';
 import { highlightToHtml, shikiLanguageFor } from './code-highlight';
 
+/** 代码块正文底/内边距 —— 照抄 pi-web `CodeBlock` 的 customStyle */
+const PRE_STYLE = {
+  margin: 0,
+  padding: '11px 13px',
+  fontSize: 'calc(12.5px + var(--chat-font-size-offset, 0px))',
+  lineHeight: 1.62,
+  overflowX: 'auto',
+  background: 'color-mix(in srgb, var(--bg) 92%, var(--bg-panel))',
+} as const;
+
 /**
- * CodeBlock（docs/06 §4.2）：banner + 语言标 + 复制 + 高亮（shiki，F5）。
+ * CodeBlock：banner + 语言标 + 复制 + 高亮（shiki，F5）。
+ * 类名/结构照抄 pi-web `components/MermaidBlock.tsx` 的 `CodeBlock`（ADR-0020）；
  * 高亮失败/语言未知 → 纯文本（保证大文件与罕见语言也能读）。
  */
-export function CodeBlock({ code, lang }: { code: string; lang?: string }) {
+export function CodeBlock({
+  code,
+  lang,
+  isStreaming = false,
+}: {
+  code: string;
+  lang?: string;
+  isStreaming?: boolean;
+}) {
   const [copied, setCopied] = useState(false);
   const [html, setHtml] = useState<string | null>(null);
 
@@ -16,14 +33,14 @@ export function CodeBlock({ code, lang }: { code: string; lang?: string }) {
   useEffect(() => {
     let alive = true;
     setHtml(null);
-    if (language === null) return;
+    if (language === null || isStreaming) return;
     void highlightToHtml(code, language).then((result) => {
       if (alive) setHtml(result);
     });
     return () => {
       alive = false;
     };
-  }, [code, language]);
+  }, [code, language, isStreaming]);
 
   const copy = async () => {
     try {
@@ -36,26 +53,24 @@ export function CodeBlock({ code, lang }: { code: string; lang?: string }) {
   };
 
   return (
-    <div className="sq my-2 overflow-hidden border border-line-2 bg-code-bg">
-      <div className="hairline-b flex items-center justify-between border-line-1 bg-code-banner px-3 py-1.5">
-        <span className="font-mono text-[11px] text-fg-faint">{language ?? 'text'}</span>
-        <button
-          type="button"
-          onClick={copy}
-          title="复制代码"
-          aria-label="复制代码"
-          className="sq flex h-6 w-6 items-center justify-center text-fg-faint transition-colors hover:bg-hover hover:text-fg"
-        >
-          {copied ? <Check size={13} className="text-success" /> : <Copy size={13} />}
-        </button>
+    <div className="markdown-code-block">
+      <div className="markdown-code-header">
+        <span className="markdown-code-lang">
+          {lang !== undefined && lang !== '' ? lang : 'text'}
+        </span>
+        <div className="markdown-code-actions">
+          <button type="button" onClick={copy} className="markdown-code-action">
+            {copied ? '已复制' : '复制'}
+          </button>
+        </div>
       </div>
       {html === null ? (
-        <pre className="scrollbar-thin overflow-x-auto px-3 py-2.5">
-          <code className="font-mono text-[12.5px] leading-[1.6] text-fg">{code}</code>
+        <pre style={PRE_STYLE}>
+          <code style={{ fontFamily: 'var(--font-mono)' }}>{code}</code>
         </pre>
       ) : (
         <div
-          className={cn('scrollbar-thin overflow-x-auto px-3 py-2.5 text-[12.5px] leading-[1.6]')}
+          style={PRE_STYLE}
           // biome-ignore lint/security/noDangerouslySetInnerHtml: shiki 输出是它自己转义后的 HTML（从不塞用户 HTML）
           dangerouslySetInnerHTML={{ __html: html }}
         />

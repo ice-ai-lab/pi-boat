@@ -1,4 +1,21 @@
-import { cn } from '../utils/cn';
+import type { CSSProperties } from 'react';
+
+/** pi-web 底部工具条的按钮规格：32px 高 / 9px 圆角 / 12px 字 / text-muted */
+const BAR_BUTTON: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 6,
+  height: 32,
+  padding: '0 8px',
+  background: 'none',
+  border: 'none',
+  borderRadius: 9,
+  color: 'var(--text-muted)',
+  cursor: 'pointer',
+  fontSize: 12,
+  flexShrink: 0,
+};
 
 /**
  * ComposerToolbar（docs/06 §4.2）：输入卡上方/下方的控制条——模型、思考档位、工具预设、
@@ -40,12 +57,18 @@ export function ComposerToolbar({
   onOpenStats,
   busy,
 }: ComposerToolbarProps) {
-  const chip =
-    'sq px-1.5 py-0.5 text-[11px] text-fg-subtle hover:bg-hover hover:text-fg disabled:opacity-40';
+  const chip = 'composer-bar-button';
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-0.5">
       {modelLabel !== null && (
-        <span className="sq bg-accent-weak px-1.5 py-0.5 font-mono text-[10.5px] text-accent">
+        <span
+          title="当前模型"
+          style={{
+            ...BAR_BUTTON,
+            fontFamily: 'var(--font-mono)',
+            color: 'var(--accent)',
+          }}
+        >
           {modelLabel}
         </span>
       )}
@@ -55,7 +78,7 @@ export function ComposerToolbar({
           disabled={busy}
           onChange={(event) => onThinkingLevelChange(event.target.value)}
           title="思考档位"
-          className={cn(chip, 'sq border-line-2 bg-transparent')}
+          style={{ ...BAR_BUTTON, color: 'var(--text-muted)' }}
         >
           {thinkingLevel === null && <option value="">思考档位</option>}
           {thinkingLevels.map((level) => (
@@ -70,7 +93,7 @@ export function ComposerToolbar({
         disabled={busy}
         onChange={(event) => onToolPresetChange(event.target.value)}
         title="工具预设"
-        className={cn(chip, 'sq border-line-2 bg-transparent')}
+        style={{ ...BAR_BUTTON, color: 'var(--text-muted)' }}
       >
         {toolPreset === null && <option value="">工具预设</option>}
         {toolPresets.map((preset) => (
@@ -80,7 +103,7 @@ export function ComposerToolbar({
         ))}
       </select>
       {compacting ? (
-        <button type="button" onClick={onAbortCompaction} className={chip}>
+        <button type="button" onClick={onAbortCompaction} className={chip} style={BAR_BUTTON}>
           停止压缩
         </button>
       ) : (
@@ -89,18 +112,25 @@ export function ComposerToolbar({
           onClick={onCompact}
           disabled={busy}
           className={chip}
+          style={BAR_BUTTON}
           title="压缩上下文"
         >
           压缩
         </button>
       )}
-      <button type="button" onClick={onAutoName} disabled={autoNaming || busy} className={chip}>
+      <button
+        type="button"
+        onClick={onAutoName}
+        disabled={autoNaming || busy}
+        className={chip}
+        style={BAR_BUTTON}
+      >
         {autoNaming ? '命名中…' : '自动命名'}
       </button>
-      <button type="button" onClick={onExport} className={chip}>
+      <button type="button" onClick={onExport} className={chip} style={BAR_BUTTON}>
         导出
       </button>
-      <button type="button" onClick={onOpenStats} className={chip}>
+      <button type="button" onClick={onOpenStats} className={chip} style={BAR_BUTTON}>
         统计
       </button>
     </div>

@@ -21,7 +21,7 @@ export function DiffView({ patch, emptyHint = '没有改动', className }: DiffV
   }
 
   return (
-    <div className={cn('scrollbar-thin min-h-0 flex-1 overflow-auto', className)}>
+    <div className={cn('min-h-0 flex-1 overflow-auto', className)}>
       <div className="hairline-b sticky top-0 z-10 flex items-center gap-3 border-line-2 bg-surface-raised px-3 py-1.5 text-[11.5px]">
         <span className="text-success">+{parsed.additions}</span>
         <span className="text-danger">-{parsed.deletions}</span>

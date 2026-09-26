@@ -144,7 +144,7 @@ export function ModelsSection({ enabled, config, refresh, catalog }: ModelsSecti
           onChange={(event) => config.onChange(event.target.value)}
           spellCheck={false}
           rows={16}
-          className="sq hairline scrollbar-thin w-full resize-y border-line-2 bg-code-bg p-2.5 font-mono text-[11.5px] leading-[1.55] text-fg outline-none"
+          className="sq hairline w-full resize-y border-line-2 bg-code-bg p-2.5 font-mono text-[11.5px] leading-[1.55] text-fg outline-none"
         />
         <div className="mt-2 flex items-center gap-2">
           <Button
@@ -196,7 +196,7 @@ export function ModelsSection({ enabled, config, refresh, catalog }: ModelsSecti
               </Button>
             </div>
             {catalog.error !== null && <SettingsNotice tone="warn">{catalog.error}</SettingsNotice>}
-            <div className="scrollbar-thin max-h-48 overflow-y-auto">
+            <div className="max-h-48 overflow-y-auto">
               {catalog.results.map((model) => (
                 <div
                   key={`${model.provider}:${model.id}`}

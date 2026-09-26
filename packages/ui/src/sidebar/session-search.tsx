@@ -5,6 +5,7 @@ import { Input } from '../primitives/input';
 /**
  * SessionSearch（docs/06 §4.3）：输入框 + 防抖（宿主用返回的 debouncedQuery 发服务端搜索）。
  * 正文搜索在服务端做（有界候选扫正文，G2-7），本组件只管输入与防抖。
+ * 视觉对齐 pi-web `SessionSidebar` 的搜索行（32px 高、mono 11px）。
  */
 export interface SessionSearchProps {
   onQueryChange(query: string): void;
@@ -36,19 +37,19 @@ export function SessionSearch({
 
   return (
     <div className="relative flex items-center">
-      <Search size={13} className="pointer-events-none absolute left-2.5 text-fg-faint" />
+      <Search size={13} className="pointer-events-none absolute left-2.5 text-text-dim" />
       <Input
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         placeholder={placeholder}
-        className="pl-7 pr-7"
+        className="pl-7 pr-7 font-mono"
       />
       {query.length > 0 && (
         <button
           type="button"
           aria-label="清空搜索"
           onClick={() => setQuery('')}
-          className="absolute right-2 flex h-5 w-5 items-center justify-center text-fg-faint hover:text-fg"
+          className="absolute right-2 flex h-5 w-5 items-center justify-center text-text-dim hover:text-text"
         >
           <X size={12} />
         </button>

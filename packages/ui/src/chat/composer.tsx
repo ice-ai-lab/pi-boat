@@ -1,7 +1,6 @@
 import { ArrowUp, Square } from 'lucide-react';
 import { type KeyboardEvent, type ReactNode, useCallback, useRef } from 'react';
 import { Textarea } from '../primitives/textarea';
-import { cn } from '../utils/cn';
 import { type SuggestionItem, SuggestionMenu } from './suggestion-menu';
 
 /**
@@ -131,7 +130,7 @@ export function Composer({
   );
 
   return (
-    <div className="relative shrink-0">
+    <div className="relative shrink-0" style={{ padding: '0 16px 8px' }}>
       {aboveInput}
       {mentionOpen && (
         <SuggestionMenu
@@ -153,49 +152,116 @@ export function Composer({
           emptyHint="没有匹配的命令"
         />
       )}
-      <div className="pointer-events-none absolute -top-8 bottom-0 left-0 right-0 bg-gradient-to-t from-surface to-transparent" />
-      <div
-        className={cn(
-          'sq elev-soft mx-auto flex w-(--chat-w) max-w-full items-end gap-2 bg-surface-raised p-2.5',
-        )}
-      >
-        <Textarea
-          value={value}
-          onChange={(event) => {
-            onChange(event.target.value);
-            onCaretChange?.(event.target.selectionStart ?? event.target.value.length);
+      <div style={{ maxWidth: 'var(--chat-content-max-width, 820px)', margin: '0 auto' }}>
+        {/* 输入卡：pi-web ChatInput 的 14px 圆角卡 + 10/14 内边距 + 轻阴影 */}
+        <div
+          style={{
+            minWidth: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            background: 'var(--bg)',
+            border: '1px solid color-mix(in srgb, var(--border) 70%, transparent)',
+            borderRadius: 14,
+            padding: '10px 10px 10px 14px',
+            boxShadow: '0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -12px rgba(15,23,42,0.10)',
+            transition: 'border-color 0.15s, background 0.15s, box-shadow 0.15s',
           }}
-          onSelect={(event) =>
-            onCaretChange?.(event.currentTarget.selectionStart ?? event.currentTarget.value.length)
-          }
-          onKeyDown={onKeyDown}
-          placeholder={placeholder}
-          disabled={disabled}
-          rows={1}
-          className="px-1.5 py-1 text-[13.5px] leading-6"
-        />
-        {streaming ? (
-          <button
-            type="button"
-            onClick={onAbort}
-            title="停止"
-            aria-label="停止生成"
-            className="sq flex h-8 w-8 shrink-0 items-center justify-center bg-surface-side text-fg-muted transition-colors hover:bg-danger-soft hover:text-danger"
-          >
-            <Square size={13} fill="currentColor" />
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={submit}
-            title="发送"
-            aria-label="发送消息"
-            disabled={disabled || value.trim().length === 0}
-            className="sq flex h-8 w-8 shrink-0 items-center justify-center bg-accent text-white transition-opacity hover:bg-accent/90 disabled:opacity-40"
-          >
-            <ArrowUp size={15} />
-          </button>
-        )}
+        >
+          <Textarea
+            value={value}
+            onChange={(event) => {
+              onChange(event.target.value);
+              onCaretChange?.(event.target.selectionStart ?? event.target.value.length);
+            }}
+            onSelect={(event) =>
+              onCaretChange?.(
+                event.currentTarget.selectionStart ?? event.currentTarget.value.length,
+              )
+            }
+            onKeyDown={onKeyDown}
+            placeholder={placeholder}
+            disabled={disabled}
+            rows={1}
+            className="chat-input-textarea"
+            style={{
+              flex: 1,
+              minWidth: 0,
+              background: 'none',
+              border: 'none',
+              outline: 'none',
+              resize: 'none',
+              color: 'var(--text)',
+              fontSize: 'var(--chat-content-font-size, 14px)',
+              lineHeight: 1.6,
+              fontFamily: 'inherit',
+              minHeight: 24,
+              maxHeight: 200,
+              overflow: 'auto',
+            }}
+          />
+          {streaming ? (
+            <button
+              type="button"
+              onClick={onAbort}
+              title="停止"
+              aria-label="停止生成"
+              style={{
+                flexShrink: 0,
+                alignSelf: 'flex-end',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '7px 12px',
+                background: 'rgba(234,179,8,0.12)',
+                border: '1px solid rgba(234,179,8,0.35)',
+                borderRadius: 8,
+                color: 'rgba(180,130,0,1)',
+                cursor: 'pointer',
+                fontSize: 13,
+                fontWeight: 600,
+              }}
+            >
+              <Square size={12} fill="currentColor" />
+              停止
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={submit}
+              title="发送"
+              aria-label="发送消息"
+              disabled={disabled || value.trim().length === 0}
+              style={{
+                flexShrink: 0,
+                alignSelf: 'flex-end',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: '7px 14px',
+                background:
+                  !disabled && value.trim().length > 0 ? 'var(--accent)' : 'var(--bg-panel)',
+                border: 'none',
+                borderRadius: 8,
+                color:
+                  !disabled && value.trim().length > 0
+                    ? 'var(--accent-contrast)'
+                    : 'var(--text-dim)',
+                cursor: !disabled && value.trim().length > 0 ? 'pointer' : 'not-allowed',
+                fontSize: 13,
+                fontWeight: 600,
+                boxShadow:
+                  !disabled && value.trim().length > 0
+                    ? '0 1px 3px color-mix(in srgb, var(--accent) 25%, transparent)'
+                    : 'none',
+                transition: 'background 0.15s, box-shadow 0.15s',
+              }}
+            >
+              <ArrowUp size={14} />
+              发送
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

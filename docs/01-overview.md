@@ -136,8 +136,8 @@ pi-boat/
 - 只依赖 `protocol` 类型与 `client` hooks，不依赖任何宿主框架（Next.js / Electron 等）→ Web 与桌面端直接复用
 - Tailwind 4 + token 单一来源 `ui/theme.css`（`:root` / `[data-theme="dark"]` 两套变量，经 `@theme inline`
   暴露给 Tailwind；暗色不得写死在 `@theme` 里）
-- **视觉与交互基准 = `docs/design/piboat-web-v3.html`（原型 v3，2026-09-22 定稿）**：0.5px hairline /
-  superellipse 圆角 / `#4176E6` 业务蓝 / 毛玻璃浮层 / sticky 输入卡等签名细节必须保留（docs/06 §2）
+- **视觉与交互基准 = pi-web 自身（ADR-0020，2026-01）**：`packages/ui/src/theme.css` 照抄 pi-web 的运行变量，
+  组件层结构与样式照抄 pi-web 源码；旧原型 `docs/design/piboat-web-v3.html`（0.5px hairline / superellipse / #4176E6）已退役（docs/06 §2）
 
 ### 3.2 拆包策略：先粗后细
 
@@ -167,7 +167,7 @@ pi-boat/
 | 测试 | Vitest（core/protocol/client/ui）+ Playwright（web E2E） | |
 | 发布 | Changesets（如需发包）；桌面端 electron-builder | |
 
-> **原型登记**：`docs/design/piboat-web-v3.html` 是 v0.1 的视觉/交互基准（未走 ADR，属设计资产而非架构决策）。
+> **原型登记**：`docs/design/piboat-web-v3.html` 曾是 v0.1 的视觉/交互基准，**已被 ADR-0020 取代**（退役，仅作历史参照）。
 > 它定义了一层文档此前没有的东西——**事件上方的视图模型**（处理详情分组 / 折叠行 / 每轮 usage），
 > 该形状由 client 承载（docs/05 §6），不进 protocol。
 

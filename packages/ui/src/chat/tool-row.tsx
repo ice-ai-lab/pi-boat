@@ -1,69 +1,128 @@
 import type { ToolRow as ToolRowModel } from '@ice-ai/client';
 import { formatDuration } from '@ice-ai/client';
-import { AlertTriangle, Check, Loader2 } from 'lucide-react';
-import { cn } from '../utils/cn';
+import { useState } from 'react';
 
-/** 工具名 → 色 token（docs/06 §7；不许组件内写死颜色） */
-const TOOL_COLOR: Record<string, string> = {
-  bash: 'bg-tool-bash/12 text-tool-bash',
-  read: 'bg-tool-read/12 text-tool-read',
-  edit: 'bg-tool-edit/12 text-tool-edit',
-  write: 'bg-tool-edit/12 text-tool-edit',
-};
-
-export function toolTagClass(toolName: string, isError: boolean): string {
-  if (isError) return 'bg-tool-err/12 text-tool-err';
-  return TOOL_COLOR[toolName] ?? 'bg-warn-soft text-warn';
-}
-
-/** ToolTag（docs/06 §4.2）：工具名色签 + 状态图标 */
-export function ToolTag({ row }: { row: ToolRowModel }) {
-  return (
-    <span
-      className={cn(
-        'sq inline-flex h-5 shrink-0 items-center gap-1 px-1.5 font-mono text-[11px] leading-none',
-        toolTagClass(row.toolName, row.isError),
-      )}
-    >
-      {row.status === 'running' && <Loader2 size={11} className="animate-spin" />}
-      {row.status === 'error' && <AlertTriangle size={11} />}
-      {row.status === 'ok' && row.output !== null && <Check size={11} />}
-      {row.toolName}
-    </span>
-  );
-}
-
-/** ToolRow（docs/06 §4.2 CollapseRow 的工具实例）：tag + 摘要 + 耗时 + 折叠输出 */
+/**
+ * ToolRow：结构/样式照抄 pi-web `MessageView.tsx` 的 `ToolCallBlock`
+ * （工具名等宽色签 + 摘要单行省略 + 耗时 + 折叠箭头；成功绿/失败红 1px 描边与淡底）。
+ * 展开态 = 入参 pre（`--bg-subtle` 底 + 对应色上边线）。
+ */
 export function ToolRowView({ row }: { row: ToolRowModel }) {
+  const [expanded, setExpanded] = useState(false);
   const errored = row.isError || row.status === 'error';
+  const running = row.status === 'running';
+  const accent = errored ? '#f87171' : running ? 'var(--accent)' : '#16a34a';
+
   return (
-    <details className="group/tool sq hairline border-line-1 bg-surface-side/60 py-1.5">
-      <summary className="flex cursor-pointer list-none items-center gap-2 px-2.5 text-[12px]">
-        <ToolTag row={row} />
-        <span className="min-w-0 flex-1 truncate font-mono text-fg-muted">{row.title}</span>
-        {row.durationMs !== undefined && (
-          <span className="shrink-0 font-mono text-[10.5px] text-fg-faint">
-            {formatDuration(row.durationMs)}
-          </span>
-        )}
-      </summary>
-      <div className="scrollbar-thin mt-1.5 max-h-60 overflow-auto px-2.5 pb-1.5">
-        {row.argsText.length > 0 && (
-          <pre
-            className={cn(
-              'mb-1.5 whitespace-pre-wrap break-all font-mono text-[11.5px] leading-[1.55]',
-              errored ? 'text-danger' : 'text-fg-subtle',
-            )}
+    <div
+      style={{
+        borderRadius: 7,
+        overflow: 'hidden',
+        fontSize: 12,
+        border: errored ? '1px solid rgba(248,113,113,0.45)' : '1px solid rgba(34,197,94,0.25)',
+        background: errored ? 'rgba(248,113,113,0.05)' : 'rgba(34,197,94,0.04)',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'stretch', minWidth: 0 }}>
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          aria-expanded={expanded}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 7,
+            flex: 1,
+            minWidth: 0,
+            padding: '6px 10px',
+            background: 'none',
+            border: 'none',
+            color: 'var(--text-muted)',
+            cursor: 'pointer',
+            fontSize: 12,
+            textAlign: 'left',
+          }}
+        >
+          <span
+            className={running ? 'shimmer' : undefined}
+            style={{
+              color: accent,
+              fontFamily: 'var(--font-mono)',
+              fontWeight: 600,
+              fontSize: 11,
+              flexShrink: 0,
+            }}
           >
-            {row.argsText}
-          </pre>
-        )}
-        {row.output !== null && row.output.length > 0 && (
-          <pre className="whitespace-pre-wrap break-all font-mono text-[11.5px] leading-[1.55] text-fg-muted">
-            {row.output}
-          </pre>
-        )}
+            {row.toolName}
+          </span>
+          <span
+            style={{
+              color: 'var(--text-dim)',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 11,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              flex: 1,
+              minWidth: 0,
+            }}
+          >
+            {row.title}
+          </span>
+          {row.durationMs !== undefined && (
+            <span
+              style={{
+                fontSize: 11,
+                color: 'var(--text-dim)',
+                flexShrink: 0,
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
+              {formatDuration(row.durationMs)}
+            </span>
+          )}
+          <svg
+            width="10"
+            height="10"
+            viewBox="0 0 10 10"
+            fill="none"
+            stroke="var(--text-dim)"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{
+              flexShrink: 0,
+              transform: expanded ? 'rotate(180deg)' : 'none',
+              transition: 'transform 0.15s',
+            }}
+            aria-hidden="true"
+          >
+            <polyline points="2 3.5 5 6.5 8 3.5" />
+          </svg>
+        </button>
       </div>
-    </details>
+      {expanded && (
+        <pre
+          style={{
+            margin: 0,
+            padding: '8px 10px',
+            color: 'var(--text-muted)',
+            fontSize: 'calc(12px + var(--chat-font-size-offset, 0px))',
+            lineHeight: 1.5,
+            overflow: 'auto',
+            maxHeight: 480,
+            background: 'var(--bg-subtle)',
+            borderTop: errored
+              ? '1px solid rgba(248,113,113,0.25)'
+              : '1px solid rgba(34,197,94,0.2)',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-all',
+          }}
+        >
+          {row.argsText}
+          {row.output !== null && row.output.length > 0 ? `\n${row.output}` : ''}
+        </pre>
+      )}
+    </div>
   );
 }

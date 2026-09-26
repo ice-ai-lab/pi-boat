@@ -7,7 +7,6 @@ import {
   isImagePath,
 } from '@ice-ai/client';
 import { AlertTriangle, Download, ExternalLink, Loader2 } from 'lucide-react';
-import { cn } from '../utils/cn';
 import { CodeViewer } from './code-viewer';
 import { DiffView } from './diff-view';
 import { ImagePreview } from './image-preview';
@@ -59,67 +58,88 @@ export function FileViewer({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="hairline-b flex shrink-0 items-center gap-2 border-line-2 px-3 py-1.5">
-        <span className="truncate font-mono text-[11.5px] text-fg-subtle" title={tab.path}>
+      <div
+        className="file-viewer-toolbar hairline-b flex shrink-0 items-center gap-3 border-border px-3"
+        style={{ background: 'var(--bg-panel)' }}
+      >
+        <span
+          className="file-viewer-path"
+          style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5, color: 'var(--text-muted)' }}
+          title={tab.path}
+        >
           {displayPath}
         </span>
         {size !== undefined && (
-          <span className="shrink-0 text-[11px] text-fg-faint">{formatFileSize(size)}</span>
+          <span className="file-viewer-meta" style={{ fontSize: 11, color: 'var(--text-dim)' }}>
+            {formatFileSize(size)}
+          </span>
         )}
-        <div className="ml-auto flex shrink-0 items-center gap-0.5">
-          {tab.displayMode !== 'diff' && (
-            <button
-              type="button"
-              onClick={onShowDiff}
-              title="查看 git 改动"
-              className="sq px-2 py-0.5 text-[11.5px] text-fg-subtle hover:bg-hover hover:text-fg"
-            >
-              diff
-            </button>
-          )}
-          {tab.displayMode === 'diff' && (
+        <div className="file-viewer-controls">
+          <div className="file-viewer-mode-switch">
             <button
               type="button"
               onClick={onShowSource}
+              aria-pressed={tab.displayMode !== 'diff'}
               title="查看文件内容"
-              className="sq px-2 py-0.5 text-[11.5px] text-fg-subtle hover:bg-hover hover:text-fg"
+              className="file-viewer-mode-button"
+              style={{
+                background: tab.displayMode !== 'diff' ? 'var(--bg-selected)' : 'transparent',
+                color: tab.displayMode !== 'diff' ? 'var(--text)' : 'var(--text-muted)',
+              }}
             >
               内容
             </button>
-          )}
-          {tab.displayMode === 'source' && !image && !pdf && (
             <button
               type="button"
-              aria-pressed={tab.wrapLines}
-              onClick={onToggleWrap}
-              title="折行"
-              className={cn(
-                'sq px-2 py-0.5 text-[11.5px] hover:bg-hover',
-                tab.wrapLines ? 'text-accent' : 'text-fg-subtle hover:text-fg',
-              )}
+              onClick={onShowDiff}
+              aria-pressed={tab.displayMode === 'diff'}
+              title="查看 git 改动"
+              className="file-viewer-mode-button"
+              style={{
+                background: tab.displayMode === 'diff' ? 'var(--bg-selected)' : 'transparent',
+                color: tab.displayMode === 'diff' ? 'var(--text)' : 'var(--text-muted)',
+              }}
             >
-              折行
+              diff
             </button>
-          )}
-          <a
-            href={byteUrl('download')}
-            download={name}
-            title="下载"
-            aria-label="下载文件"
-            className="sq flex h-6 w-6 items-center justify-center text-fg-subtle hover:bg-hover hover:text-fg"
-          >
-            <Download size={13} />
-          </a>
-          <a
-            href={byteUrl('read')}
-            target="_blank"
-            rel="noreferrer"
-            title="在新标签页打开"
-            aria-label="在新标签页打开"
-            className="sq flex h-6 w-6 items-center justify-center text-fg-subtle hover:bg-hover hover:text-fg"
-          >
-            <ExternalLink size={13} />
-          </a>
+          </div>
+          <div className="file-viewer-actions">
+            {tab.displayMode === 'source' && !image && !pdf && (
+              <button
+                type="button"
+                aria-pressed={tab.wrapLines}
+                onClick={onToggleWrap}
+                title="折行"
+                className="file-viewer-icon-button"
+                style={{
+                  width: 'auto',
+                  padding: '0 8px',
+                  color: tab.wrapLines ? 'var(--accent)' : undefined,
+                }}
+              >
+                折行
+              </button>
+            )}
+            <a
+              href={byteUrl('download')}
+              download={name}
+              title="下载"
+              aria-label="下载文件"
+              className="file-viewer-icon-button"
+            >
+              <Download size={13} />
+            </a>
+            <a
+              href={byteUrl('read')}
+              target="_blank"
+              rel="noreferrer"
+              title="在新标签页打开"
+              aria-label="在新标签页打开"
+              className="file-viewer-icon-button"
+            >
+              <ExternalLink size={13} />
+            </a>
+          </div>
         </div>
       </div>
 
