@@ -61,7 +61,7 @@ export function ImagePreview({ src, alt, className }: ImagePreviewProps) {
           +
         </button>
       </div>
-      <div className="scrollbar-thin flex min-h-0 flex-1 items-center justify-center overflow-auto p-3">
+      <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-3">
         <img
           src={src}
           alt={alt}

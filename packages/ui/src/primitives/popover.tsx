@@ -66,12 +66,15 @@ export function Popover({
         <div
           role="dialog"
           className={cn(
-            'sq elev-panel absolute top-[calc(100%+6px)] z-99 bg-menu p-2 backdrop-blur-[40px]',
+            'absolute top-[calc(100%+4px)] z-99 overflow-hidden rounded-[8px] border border-border bg-bg p-1',
             align === 'start' && 'left-0',
             align === 'end' && 'right-0',
             align === 'center' && 'left-1/2 -translate-x-1/2',
           )}
-          style={width === undefined ? undefined : { width: `${width}px` }}
+          style={{
+            boxShadow: '0 6px 20px rgba(0,0,0,0.10)',
+            ...(width === undefined ? {} : { width: `${width}px` }),
+          }}
         >
           {children}
         </div>

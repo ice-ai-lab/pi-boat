@@ -1,8 +1,9 @@
 import { getRelativeFilePath } from '@ice-ai/client';
 import type { FileListEntry, GitFileStatus } from '@ice-ai/protocol';
 import { ChevronRight, Loader2 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { cn } from '../utils/cn';
+import { useScrollbarVisibility } from '../utils/use-scrollbar-visibility';
 import { FileIcon } from './file-icon';
 
 /**
@@ -53,6 +54,8 @@ export function FileTree({
   onToggleDir,
   onOpenFile,
 }: FileTreeProps) {
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  useScrollbarVisibility(scrollRef);
   const rootEntries = entriesByPath.get(root);
 
   if (rootEntries === undefined) {
@@ -60,7 +63,11 @@ export function FileTree({
   }
 
   return (
-    <div className="scrollbar-thin min-h-0 flex-1 overflow-y-auto pr-1" role="tree">
+    <div
+      ref={scrollRef}
+      className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto pr-1"
+      role="tree"
+    >
       <TreeLevel
         entries={sortEntries(rootEntries)}
         depth={0}

@@ -29,7 +29,7 @@ export function CodeViewer({
   }, [code, maxLines]);
 
   return (
-    <div className={cn('scrollbar-thin min-h-0 flex-1 overflow-auto', className)}>
+    <div className={cn('min-h-0 flex-1 overflow-auto', className)}>
       <table className="w-full border-collapse font-mono text-[12.5px] leading-[1.6]">
         <tbody>
           {lines.map((line, index) => (
