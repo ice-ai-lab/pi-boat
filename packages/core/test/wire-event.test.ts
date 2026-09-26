@@ -250,7 +250,7 @@ describe('toWireAgentEvent：透传与 seq', () => {
     expect(wire).toEqual({ type: 'agent_end', seq: 9, messages: [userMessage], willRetry: false });
   });
 
-  it('queue_update：readonly 数组拷贝为可变数组', () => {
+  it('queue_update：readonly 数组沿用为可变数组', () => {
     const steering: readonly string[] = ['a'];
     const wire = toWireAgentEvent(e({ type: 'queue_update', steering, followUp: [] }), 1);
     expect(wire).toEqual({ type: 'queue_update', seq: 1, steering: ['a'], followUp: [] });

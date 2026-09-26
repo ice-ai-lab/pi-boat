@@ -3,7 +3,7 @@ import type { ButtonHTMLAttributes } from 'react';
 import { cn } from '../utils/cn';
 
 /**
- * Button：收敛为 5 个语义档，视觉对齐 pi-web 的按钮族（ADR-0020）：
+ * Button：收敛为 5 个语义档，视觉按设计规范的按钮族（ADR-0020）：
  * 主按钮 = accent 底 + `--accent-contrast` 字 + 8px 圆角；次按钮 = `--bg-hover` 底 + 1px 描边 + 7px 圆角；
  * ghost 无底无描边、hover 才浮底。变体名是稳定 API。
  */

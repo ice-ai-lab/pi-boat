@@ -1,5 +1,5 @@
 /**
- * 文件路径工具（A 类移植自 pi-web lib/file-paths.ts）。
+ * 文件路径工具（A 类按设计规范 lib/file-paths.ts）。
  * 关键点：UNC 路径（`\\\\host\\share`）的 `//` 前缀会被 URL 路由 308 归一掉，
  * 因此必须把它折进**第一个路径段**（`%2F%2Fhost`），不能拆段重组（docs/07 §7 文件/路径条）。
  */
@@ -15,7 +15,7 @@ export function normalizeFilePathSlashes(filePath: string): string {
 /**
  * 把绝对路径编成 `/api/files/<...>` 的通配段（逐段 encodeURIComponent）。
  *
- * ⚠️ 与 pi-web 的关键差异：**前导斜杠必须折进首段**（编成 `%2F`）。
+ * ⚠️ 与设计规范的关键差异：**前导斜杠必须折进首段**（编成 `%2F`）。
  * 本仓服务端把「首段无斜杠」的路径当作**相对 server cwd** 解析（server 测试即用
  * `/api/files//repo/...` 形式），而 Hono 会把裸 `//` 前缀 308 归一掉
  * （docs/07 §7 文件/路径条）——所以唯一稳妥写法是 `%2F` 开头：

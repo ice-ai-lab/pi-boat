@@ -67,7 +67,7 @@ export type SessionSearchHit = {
   session: SessionInfo;
   /** 命中条目 id（轻量字段命中时为 null） */
   entryId: string | null;
-  /** 命中块下标（B 暂不用，保持 pi-web 形状） */
+  /** 命中块下标（本仓暂不用，保持设计规范形状） */
   blockIndex: number | null;
   before: string;
   match: string;

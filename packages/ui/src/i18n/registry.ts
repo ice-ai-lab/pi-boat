@@ -39,7 +39,7 @@ export function resolveBrowserLocale(languages: readonly string[]): Locale {
     )
       return 'zh-CN';
     if (normalized === 'ja' || normalized.startsWith('ja-')) return 'ja';
-    // 已注册语言之外的 zh 变体（如 zh-TW）回落简体，与 pi-web 的「任意 zh-* → zh-CN」口径一致
+    // 已注册语言之外的 zh 变体（如 zh-TW）回落简体（任意 zh-* → zh-CN）
     if (normalized.startsWith('zh-')) return 'zh-CN';
   }
   return 'en';

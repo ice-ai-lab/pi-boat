@@ -1,5 +1,5 @@
 /**
- * 文件页签状态（纯函数 reducer；A 类移植自 pi-web lib/file-viewer-state.ts +
+ * 文件页签状态（纯函数 reducer；A 类按设计规范 lib/file-viewer-state.ts +
  * components/file-tab-state.ts 的语义）。状态归 apps/web，本文件只给不可变操作。
  */
 export type FileDisplayMode = 'source' | 'preview' | 'diff';

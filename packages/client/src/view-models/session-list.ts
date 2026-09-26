@@ -1,8 +1,8 @@
 import type { SessionInfo } from '@ice-ai/protocol';
 
 /**
- * 会话列表的展示派生（A 类移植自 pi-web lib/project-groups.ts + lib/session-title.ts 的展示部分）。
- * LLM 生成标题（pi-web buildTitleRequest）不走这里——本仓由后端 `/auto-name` 负责。
+ * 会话列表的展示派生（A 类按设计规范 lib/project-groups.ts + lib/session-title.ts 的展示部分）。
+ * LLM 生成标题（设计规范 buildTitleRequest）不走这里——本仓由后端 `/auto-name` 负责。
  */
 
 /** 会话所属工作区的稳定标识：projectKey → projectRoot → cwd（worktree 共享同一槽位） */

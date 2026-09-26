@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 
 /**
  * PanelShell：顶部活动面板的通用壳（整宽面板，不取原型的锚定浮层）。
- * 视觉照抄 pi-web 顶部下拉面板：`--bg-panel` 底 + 1px 下描边 + 28px 落影，内边距 12×16。
+ * 视觉按设计规范顶部下拉面板：`--bg-panel` 底 + 1px 下描边 + 28px 落影，内边距 12×16。
  * 系统提示词 / 工具定义 / 会话统计 / 分支导航共用。
  */
 export interface PanelShellProps {

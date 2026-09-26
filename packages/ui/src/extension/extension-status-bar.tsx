@@ -3,7 +3,7 @@ import { stripAnsi } from './ansi';
 import { AnsiText } from './ansi-text';
 import { ExtensionWidgets } from './extension-widgets';
 
-/** 逐字移植 pi-web `components/ExtensionStatusBar.tsx` 的文本清洗 */
+/** 按设计规范 的文本清洗 */
 export function sanitizeExtensionStatusText(text: string): string {
   return text
     .replace(/\r\n?/g, '\n')
@@ -22,7 +22,7 @@ export function formatExtensionStatusLine(statuses: ExtensionStatusItem[]): stri
 
 /**
  * 扩展货架（ADR-0020）：**单一** `.extension-status-shelf`，widgets 在前、status 在后。
- * 逐字移植 pi-web `components/ExtensionStatusBar.tsx`。
+ * 按设计规范。
  */
 export function ExtensionStatusBar({
   statuses,

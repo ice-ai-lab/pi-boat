@@ -23,7 +23,7 @@ export interface ComposerProps {
   onPickSlashCommand?(index: number): void;
   /** 排队消息条等附加行（渲染在输入卡上方） */
   aboveInput?: ReactNode;
-  /** 输入卡**下方**的工具行（pi-web ChatInput 的底部行：附件+模型 | 思考/工具/压缩/停止） */
+  /** 输入卡**下方**的工具行（设计规范 ChatInput 的底部行：附件+模型 | 思考/工具/压缩/停止） */
   belowInput?: ReactNode;
   /** ↑ 历史上翻（仅有历史时由宿主提供） */
   onHistoryPrev?(): void;
@@ -156,7 +156,7 @@ export function Composer({
         />
       )}
       <div style={{ maxWidth: 'var(--chat-content-max-width, 820px)', margin: '0 auto' }}>
-        {/* 输入卡：pi-web ChatInput 的 14px 圆角卡 + 10/14 内边距 + 轻阴影 */}
+        {/* 输入卡：设计规范 ChatInput 的 14px 圆角卡 + 10/14 内边距 + 轻阴影 */}
         <div
           style={{
             minWidth: 0,
@@ -265,7 +265,7 @@ export function Composer({
             </button>
           )}
         </div>
-        {/* 底部工具行（pi-web ChatInput：在输入卡下方 marginTop 8） */}
+        {/* 底部工具行（设计规范 ChatInput：在输入卡下方 marginTop 8） */}
         {belowInput !== undefined && <div style={{ marginTop: 8 }}>{belowInput}</div>}
       </div>
     </div>

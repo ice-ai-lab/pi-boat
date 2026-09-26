@@ -10,7 +10,7 @@ import {
 } from 'react';
 
 /**
- * 可拖拽面板（**逐字移植自 pi-web `hooks/useResizablePanel.ts`**；ADR-0020 布局结构照抄）。
+ * 可拖拽面板（ADR-0020：布局结构按设计规范）。
  *
  * 行为：指针拖拽 / 键盘（方向键 12px、Shift 32px、Home/End 两端、Enter 复位）/ 双击复位 /
  * 宽度落 localStorage / 窗口 resize 与面板开合时重新夹紧 / 拖拽期间接管 body 光标与选中。

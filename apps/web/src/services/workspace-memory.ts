@@ -1,5 +1,5 @@
 /**
- * 工作区记忆（A 类移植自 pi-web lib/workspace-memory.ts）：按工作区记住上次打开的会话。
+ * 工作区记忆（A 类按设计规范 lib/workspace-memory.ts）：按工作区记住上次打开的会话。
  * 工作区键用服务端给的 projectKey（Windows 路径变体与同一仓库的 worktree 共享一个槽位）。
  * localStorage，best-effort（不可用时静默忽略）。
  */

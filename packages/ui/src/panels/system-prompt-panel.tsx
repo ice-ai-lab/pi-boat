@@ -1,7 +1,7 @@
 import { useI18n } from '../i18n/i18n-provider';
 
 /**
- * SystemPromptPanel：逐字移植 pi-web `components/SystemPromptPanel.tsx`。
+ * SystemPromptPanel：按设计规范。
  * 无标题栏、无关闭键；`height:min(600px,75dvh); min-height:220px`。
  * 展示的是 pi 的**结构化 prompt**（不是某次请求实际下发的），ADR-0015。
  */

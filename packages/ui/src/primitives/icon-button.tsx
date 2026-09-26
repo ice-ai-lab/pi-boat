@@ -1,7 +1,7 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
 import { cn } from '../utils/cn';
 
-/** IconButton（primitives）：32px 方形图标按钮（pi-web 工具条/页头同款：hover 浮底、激活 `--bg-selected`） */
+/** IconButton（primitives）：32px 方形图标按钮（设计规范工具条/页头同款：hover 浮底、激活 `--bg-selected`） */
 export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   icon: ReactNode;
   /** 激活态（同步下发 aria-pressed） */

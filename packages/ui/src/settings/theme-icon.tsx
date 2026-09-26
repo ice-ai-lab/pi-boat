@@ -1,8 +1,8 @@
 import type { ThemePreference } from '@ice-ai/client';
 
 /**
- * 主题图标（**逐字移植自 pi-web `components/ThemeIcon.tsx`**）。
- * 每个调色板一枚手绘 SVG，尺寸/描边参数与 pi-web 相同。
+ * 主题图标（**按设计规范**）。
+ * 每个调色板一枚手绘 SVG，尺寸/描边参数与设计规范相同。
  */
 export function ThemeIcon({
   preference,

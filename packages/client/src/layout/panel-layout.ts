@@ -1,5 +1,5 @@
 /**
- * 面板布局的纯逻辑（**逐字移植自 pi-web `lib/panel-layout.ts`**；ADR-0020 布局结构照抄）。
+ * 面板布局的纯逻辑（ADR-0020：布局结构按设计规范）。
  *
  * 侧栏/右栏宽度的默认值、上下限与「响应式上限」都在这里；DOM 拖拽在 web 层
  * （`apps/web/src/services/use-resizable-panel.ts`）。

@@ -25,7 +25,7 @@ import { type FileExplorerHandle, FileExplorerPane } from './file-explorer-pane'
 /**
  * SidebarPane（T2 重排）：侧栏数据装配——项目/工作区选择、会话列表、未读与运行指示、
  * 自定义目录选择、worktree 管理与 EXPLORER 区。
- * 结构与动作口径逐条对齐 pi-web `SessionSidebar`；展示全部交给 `@ice-ai/ui` 的 `Sidebar`。
+ * 结构与动作口径逐条按设计规范 `SessionSidebar`；展示全部交给 `@ice-ai/ui` 的 `Sidebar`。
  */
 export interface SidebarPaneProps {
   activeSessionId: string | null;
@@ -133,7 +133,7 @@ export function SidebarPane({
       .catch(() => setHomeDir(''));
   }, []);
 
-  // —— 选中 cwd 同步：活动会话的 cwd 优先（pi-web `lastSyncedCwdPropRef` 语义） ——
+  // —— 选中 cwd 同步：活动会话的 cwd 优先（设计规范 `lastSyncedCwdPropRef` 语义） ——
   const lastSyncedSessionCwdRef = useRef<string | null>(null);
   useEffect(() => {
     const active = allSessions.find((session) => session.id === activeSessionId);
@@ -169,7 +169,7 @@ export function SidebarPane({
     };
   }, [worktreesQuery.data]);
 
-  // —— 项目身份（与 pi-web `projectFor` 同口径：worktree → 会话 → cwd 兜底） ——
+  // —— 项目身份（与设计规范 `projectFor` 同口径：worktree → 会话 → cwd 兜底） ——
   const selectedProject: SidebarProject | null = useMemo(() => {
     if (selectedCwd === null) return null;
     if (worktreeState !== null) {
@@ -202,7 +202,7 @@ export function SidebarPane({
   useEffect(() => {
     rootChangeRef.current(projectRoot);
     // 目录读受 allowed-roots 约束（ADR-0013）：首屏默认项目/会话恢复的 cwd 也要显式授权一次，
-    // 否则文件树与右栏会拿到 403（pi-web 在初始项目选择与自定义路径两处都做 validateCwd）
+    // 否则文件树与右栏会拿到 403（设计规范在初始项目选择与自定义路径两处都做 validateCwd）
     if (projectRoot !== null) void validateCwd(projectRoot).catch(() => null);
   }, [projectRoot]);
 
@@ -251,7 +251,7 @@ export function SidebarPane({
     });
   }, [activeSessionId]);
 
-  // —— 会话/EXPLORER 之间的竖向拖拽（pi-web `sidebar-section-resize-handle`） ——
+  // —— 会话/EXPLORER 之间的竖向拖拽（设计规范 `sidebar-section-resize-handle`） ——
   const sessionPaneHeightRef = useRef(SESSION_PANE_DEFAULT_HEIGHT);
   const sessionPaneResizer = useResizablePanel({
     ariaLabel: '调整会话列表与文件浏览器高度',

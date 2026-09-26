@@ -1,5 +1,5 @@
 /**
- * 会话列表窗口化（A 类移植自 pi-web components/SessionSidebar.tsx 的
+ * 会话列表窗口化（A 类按设计规范 components/SessionSidebar.tsx 的
  * getSessionListIndices）：行高固定，只挂载可视切片 + overscan。
  * 与 chat-lazy-load 的滚动距离保持是两套不同用途（这里是「少挂 DOM」，那里是「加内容不跳」）。
  */

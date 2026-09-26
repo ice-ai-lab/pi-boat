@@ -6,8 +6,8 @@ type SessionCopyField = 'file' | 'id' | 'projectDir' | 'gitBranch' | 'gitWorktre
 
 /**
  * 会话统计浮层（工具条「会话信息」下拉）：三列 key-value（会话信息 / 项目信息 / 消息计数 /
- * token 表含 cacheWrite·cost·cacheHitRate）+ 逐字段复制按钮 + 入场动画。
- * 逐字移植 pi-web `AppShell.tsx` 的 `session-info-popover`（T1-10 / C6）。
+ * token 表含 cacheWrite·cost·cacheHitRate）+ 完全段复制按钮 + 入场动画。
+ * 按设计规范 的 `session-info-popover`（T1-10 / C6）。
  */
 export interface SessionInfoPopoverProps {
   stats: SessionStatsInfo | null;

@@ -4,7 +4,7 @@ type ConfigButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
 type ConfigButtonSize = 'small' | 'default';
 
 /**
- * SettingsUi（T2-8）：逐字移植 pi-web `components/SettingsUi.tsx` 全族。
+ * SettingsUi（T2-8）：按设计规范 全族。
  * 只把 `"use client"` 去掉、缺省文案改为英文（真正的文案由调用方走 i18n）。
  * CSS 单一来源是 `styles/settings.css` 的 `.config-*` 规则。
  */
@@ -38,8 +38,8 @@ export function ConfigPanelShell({
 
   return (
     <>
-      {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: 逐字照抄 pi-web；`aria-modal` 仅在非 embedded 时有效 */}
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: 逐字照抄 pi-web 的遮罩点击关闭 */}
+      {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: 按设计规范；`aria-modal` 仅在非 embedded 时有效 */}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: 按设计规范的遮罩点击关闭 */}
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: 同上 */}
       <div
         role={embedded ? undefined : 'dialog'}

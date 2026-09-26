@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { highlightToHtml, shikiLanguageFor } from './code-highlight';
 
-/** 代码块正文底/内边距 —— 照抄 pi-web `CodeBlock` 的 customStyle */
+/** 代码块正文底/内边距 ——按设计规范 `CodeBlock` 的 customStyle */
 const PRE_STYLE = {
   margin: 0,
   padding: '11px 13px',
@@ -13,7 +13,7 @@ const PRE_STYLE = {
 
 /**
  * CodeBlock：banner + 语言标 + 复制 + 高亮（shiki，F5）。
- * 类名/结构照抄 pi-web `components/MermaidBlock.tsx` 的 `CodeBlock`（ADR-0020）；
+ * 类名/结构按设计规范 的 `CodeBlock`（ADR-0020）；
  * 高亮失败/语言未知 → 纯文本（保证大文件与罕见语言也能读）。
  */
 export function CodeBlock({

@@ -5,7 +5,7 @@ import { formatRelativeTime } from '../i18n/format';
 import { useI18n } from '../i18n/i18n-provider';
 
 /**
- * 会话搜索结果（T2-3，逐字移植 pi-web `components/SessionSearch.tsx`）：
+ * 会话搜索结果（T2-3，按设计规范）：
  * 打开且有查询时**替换**会话列表——三段式（标题 / cwd+时间 / 正文片段 + `<mark>` 高亮）
  * + `role=\"status\"` 计数行；300ms 防抖，只随查询变化重发。
  */

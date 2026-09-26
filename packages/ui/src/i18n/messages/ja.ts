@@ -1,6 +1,6 @@
 import type { LocalePlugin } from '../types';
 
-/** pi-boat 内置日语语言包（pi-web 无此语言，独立撰写）。 */
+/** pi-boat 内置日语语言包。 */
 export const jaLocale: LocalePlugin = {
   id: 'ja',
   label: '日本語',
@@ -14,7 +14,7 @@ export const jaLocale: LocalePlugin = {
     'common.settings': '設定',
     'settings.title': '設定',
     'settings.general': '一般',
-    'settings.generalDescription': 'Pi Web の外観と言語を選択します。',
+    'settings.generalDescription': 'PiBoat の外観と言語を選択します。',
     'settings.appearance': '外観',
     'settings.appearanceDescription': 'テーマを選択するか、システム設定に従います。',
     'settings.chatContentWidth': 'チャット表示幅',
@@ -527,12 +527,12 @@ export const jaLocale: LocalePlugin = {
     'models.refreshCatalog': 'カタログを更新',
     'models.refreshingCatalog': '更新中…',
     'models.refreshCatalogHint':
-      'このプロバイダーが公開しているモデル一覧を今すぐ取得します。pi の組み込み一覧は pi-web が同梱する pi バージョンに固定されているため、新しくリリースされたモデルは更新後にのみ表示されます。',
+      'このプロバイダーが公開しているモデル一覧を今すぐ取得します。pi の組み込み一覧は本アプリが同梱する pi バージョンに固定されているため、新しくリリースされたモデルは更新後にのみ表示されます。',
     'models.catalogUpdated': 'プロバイダーからモデル一覧を更新しました。',
     'models.catalogUnchanged': 'すでに最新です。',
     'models.catalogUnreachable':
       'カタログに到達できませんでした。接続とプロバイダーの資格情報を確認して再試行してください。',
-    'models.catalogOffline': 'PI_OFFLINE が設定されているため、pi-web はカタログを取得しません。',
+    'models.catalogOffline': 'PI_OFFLINE が設定されているため、PiBoat はカタログを取得しません。',
     'models.enabledCustomEmpty':
       'このプロバイダーから利用可能なモデルはまだありません。変更を保存し、API キーが機能することを確認してください。',
     'models.enabledStale': '{count} 件が未一致',

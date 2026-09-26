@@ -14,7 +14,7 @@ import { useI18n } from '../i18n/i18n-provider';
 import { DirectoryPicker } from '../settings/directory-picker';
 import { SessionSearch } from './session-search';
 
-/** 会话列表固定行高：窗口化渲染只挂可见切片（pi-web `SESSION_LIST_ITEM_HEIGHT`） */
+/** 会话列表固定行高：窗口化渲染只挂可见切片（设计规范 `SESSION_LIST_ITEM_HEIGHT`） */
 const SESSION_LIST_ITEM_HEIGHT = 54;
 
 export function getSessionListIndices(
@@ -37,7 +37,7 @@ export function getSessionListIndices(
   return indices;
 }
 
-/** pi-web `SessionSidebar` 的 26×26 工具条图标按钮原语（T2-6） */
+/** 设计规范 `SessionSidebar` 的 26×26 工具条图标按钮原语（T2-6） */
 function ToolbarIconButton({
   onClick,
   title,
@@ -103,13 +103,13 @@ function ToolbarIconButton({
   );
 }
 
-/** 家目录前缀替换为 ~（pi-web `displayCwd`；不做路径截断——截断交给 PathLabel） */
+/** 家目录前缀替换为 ~（设计规范 `displayCwd`；不做路径截断——截断交给 PathLabel） */
 export function displayCwd(cwd: string, homeDir?: string): string {
   return homeDir && cwd.startsWith(homeDir) ? `~${cwd.slice(homeDir.length)}` : cwd;
 }
 
 /**
- * 左省略路径标签（pi-web `PathLabel`）：rtl 容器把省略号挪到左缘，
+ * 左省略路径标签（设计规范 `PathLabel`）：rtl 容器把省略号挪到左缘，
  * 内层 plaintext 双向隔离保证路径本身严格从左到右渲染。
  */
 function PathLabel({ text, style }: { text: string; style?: CSSProperties }) {
@@ -232,13 +232,13 @@ function useScramble(target: string, running: boolean): string {
   return display;
 }
 
-/** 品牌字标：`Pi Web`，点击切换显示版本号（带字符扰乱动画，T2-15） */
-function PiWebTitle({ versionLabel }: { versionLabel: string }) {
+/** 品牌字标：`PiBoat`，点击切换显示版本号（带字符扰乱动画，T2-15） */
+function BrandTitle({ versionLabel }: { versionLabel: string }) {
   const [showVersion, setShowVersion] = useState(false);
   const [scrambling, setScrambling] = useState(false);
   const revertTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const target = showVersion ? versionLabel : 'Pi Web';
+  const target = showVersion ? versionLabel : 'PiBoat';
   const display = useScramble(target, scrambling);
 
   const triggerScramble = useCallback((toVersion: boolean) => {
@@ -373,7 +373,7 @@ function UnreadSessionIndicator() {
   );
 }
 
-/** 项目下拉里的活动徽标（运行计数 + 未读计数，pi-web `showProjectActivity`） */
+/** 项目下拉里的活动徽标（运行计数 + 未读计数，设计规范 `showProjectActivity`） */
 function showProjectActivity(
   activity: { running: number; unread: number } | undefined,
   t: (key: string) => string,
@@ -455,7 +455,7 @@ function showProjectActivity(
   );
 }
 
-/** 会话行（pi-web `SessionItem`：54px 固定高 + 行内重命名/删除确认 + hover 双图标按钮，T2-7/T2-13） */
+/** 会话行（设计规范 `SessionItem`：54px 固定高 + 行内重命名/删除确认 + hover 双图标按钮，T2-7/T2-13） */
 function SessionItem({
   session,
   isSelected,
@@ -544,7 +544,7 @@ function SessionItem({
   );
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: 逐字移植 pi-web 会话行（行点击选中）
+    // biome-ignore lint/a11y/noStaticElementInteractions: 按设计规范会话行（行点击选中）
     // biome-ignore lint/a11y/useKeyWithClickEvents: 同上——键盘用户由 Tab 聚焦行内按钮替代
     <div
       onClick={confirmDelete || renaming ? undefined : onClick}
@@ -674,7 +674,7 @@ function SessionItem({
             if (e.key === 'Enter') void commitRename();
             if (e.key === 'Escape') setRenaming(false);
           }}
-          // biome-ignore lint/a11y/noAutofocus: 逐字移植 pi-web（行内重命名进入即聚焦）
+          // biome-ignore lint/a11y/noAutofocus: 按设计规范（行内重命名进入即聚焦）
           autoFocus
           style={{
             flex: 1,
@@ -890,8 +890,8 @@ export interface SidebarProject {
 }
 
 /**
- * 侧栏（T2 全量重排，结构逐字照抄 pi-web `SessionSidebar`）：
- * 头部（Pi Web 字标 + 新建 + 搜索图标）→ 项目下拉（筛选/对勾/活动徽标/默认目录/自定义路径）
+ * 侧栏（T2 全量重排，结构按设计规范 `SessionSidebar`）：
+ * 头部（PiBoat 字标 + 新建 + 搜索图标）→ 项目下拉（筛选/对勾/活动徽标/默认目录/自定义路径）
  * → worktree 行（或只读引导态）→ 会话列表（窗口化）→ `.sidebar-section-resize-handle`
  * → EXPLORER（可折叠标题 + 26×26 图标行 + 文件树内容）。
  * 数据与动作全部由宿主注入（ui 保持纯展示）。
@@ -908,11 +908,11 @@ export interface SidebarProps {
   projects: SidebarProject[];
   projectActivity: Map<string, { running: number; unread: number }>;
   homeDir: string;
-  /** PiWebTitle 点击后显示的版本串（如 `0.1.0p0.87.1`） */
+  /** BrandTitle 点击后显示的版本串（如 `0.1.0p0.87.1`） */
   versionLabel: string;
   worktreeState: SidebarWorktreeState | null;
   worktreeLoading: boolean;
-  /** EXPLORER 区是否显示（选中了项目才显示，pi-web 同款） */
+  /** EXPLORER 区是否显示（选中了项目才显示，设计规范同款） */
   showExplorer: boolean;
   explorerOpen: boolean;
   onToggleExplorer(open: boolean): void;
@@ -1198,7 +1198,7 @@ export function Sidebar(props: SidebarProps) {
             marginBottom: 10,
           }}
         >
-          <PiWebTitle versionLabel={props.versionLabel} />
+          <BrandTitle versionLabel={props.versionLabel} />
           <div style={{ display: 'flex', gap: 6 }}>
             <button
               type="button"
@@ -1379,7 +1379,7 @@ export function Sidebar(props: SidebarProps) {
                     }
                   }}
                   placeholder={t('sidebar.filterProjects')}
-                  // biome-ignore lint/a11y/noAutofocus: 逐字移植 pi-web（下拉展开即聚焦筛选框）
+                  // biome-ignore lint/a11y/noAutofocus: 按设计规范（下拉展开即聚焦筛选框）
                   autoFocus
                   style={{
                     width: '100%',
@@ -1546,7 +1546,7 @@ export function Sidebar(props: SidebarProps) {
           <input
             id="session-search-input"
             type="search"
-            // biome-ignore lint/a11y/noAutofocus: 逐字移植 pi-web（点开搜索即聚焦）
+            // biome-ignore lint/a11y/noAutofocus: 按设计规范（点开搜索即聚焦）
             autoFocus
             value={sessionSearchQuery}
             maxLength={200}
@@ -1691,7 +1691,7 @@ export function Sidebar(props: SidebarProps) {
                           }
                         }}
                         placeholder={t('sidebar.filterWorktrees')}
-                        // biome-ignore lint/a11y/noAutofocus: 逐字移植 pi-web（下拉展开即聚焦筛选框）
+                        // biome-ignore lint/a11y/noAutofocus: 按设计规范（下拉展开即聚焦筛选框）
                         autoFocus
                         style={{
                           width: '100%',
@@ -2227,7 +2227,7 @@ export function Sidebar(props: SidebarProps) {
               </svg>
               {t('files.explorer')}
             </button>
-            {/* 终端按钮：⛔ 排除域（ADR-0014），不移植 */}
+            {/* 终端按钮：⛔ 排除域（ADR-0014），不落地 */}
             {props.explorerOpen && props.changesCount > 0 && (
               <ToolbarIconButton
                 onClick={props.onToggleChanges}

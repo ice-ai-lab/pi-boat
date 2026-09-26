@@ -1,5 +1,5 @@
 /**
- * 设置节的导航记忆（A 类移植自 pi-web lib/settings-navigation.ts 的简化版）：
+ * 设置节的导航记忆（A 类按设计规范 lib/settings-navigation.ts 的简化版）：
  * 关掉浮层再打开时回到上次那一节。localStorage，best-effort。
  */
 const STORAGE_KEY = 'piboat:settings-navigation';

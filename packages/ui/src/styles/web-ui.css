@@ -1,11 +1,13 @@
 /**
- * 从 pi-web `app/globals.css` **逐字搬运**的组件级样式（MIT；ADR-0020 决策 3）。
+ * Web UI 组件级样式表（统一设计规范落地版；ADR-0020 决策 3）。
  *
- * - 生成方式：脚本按块提取 pi-web 源文件，仅剔除排除域（`web-login-*` / `terminal-*` / `mermaid-*` /
- *   `agents-*` / `.katex` / xterm 导入 / PWA standalone 视口变量）与由本仓持有的部分
- *   （token 变量 → `theme.css`；`html`/`body`/`*` 基础版式 → `apps/web/src/index.css`）。
- * - **不要在此手写新规则**：与 pi-web 不一致时改组件或重新搬运，保持一致靠 diff 可核查。
- * - 消费方式：`apps/web/src/index.css` 的 `@import "@ice-ai/ui/pi-web.css"`。
+ * - 覆盖范围：markdown 排版 / 代码块 / 扩展货架 / 文件查看器 / 设置浮层等组件公共样式。
+ * 排除域（`web-login-*` / `terminal-*` / `mermaid-*` / `agents-*` / `.katex` / xterm /
+ * PWA standalone 视口变量）不在此表内。
+ * - token 变量在 `theme.css`；`html`/`body`/`*` 基础版式在 `apps/web/src/index.css`。
+ * - **不要在此手写新规则**：类名以规范为准，改样式改组件或同步规范，保持一致靠 diff 可核查。
+ * - 消费方式：`apps/web/src/index.css` 的 `@import "@ice-ai/ui/web-ui.css"`。
+ * - 许可：MIT（许可与来源声明集中见 `THIRD_PARTY_NOTICES.md`）。
  */
 
 .catppuccin-file-icon {
@@ -1637,7 +1639,7 @@ span.token.table {
 
 }
 
-/* Tool definitions panel（pi-web `ToolDefinitionsPanel.tsx` 内联 style 的搬运，T7-11） */
+/* Tool definitions panel（组件内联 style 收录，T7-11） */
 .tool-definitions-panel {
   display: grid;
   grid-template-columns: clamp(112px, 26%, 220px) minmax(0, 1fr);
@@ -1786,7 +1788,7 @@ span.token.table {
   overflow-wrap: anywhere;
 }
 
-/* —— 会话统计浮层（pi-web AppShell 内联 <style> 的 session-info-popover，T1-10） —— */
+/* —— 会话统计浮层（session-info-popover，T1-10） —— */
 @keyframes session-info-pop {
   0% {
     opacity: 0;
@@ -1847,7 +1849,7 @@ span.token.table {
   }
 }
 
-/* —— Catppuccin 文件图标（T2-18：逐字照抄 pi-web globals.css:135-155） —— */
+/* —— Catppuccin 文件图标（T2-18） —— */
 .catppuccin-file-icon {
   display: block;
   flex-shrink: 0;

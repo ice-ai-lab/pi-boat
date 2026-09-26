@@ -9,7 +9,7 @@ interface DirectoryEntry {
 }
 
 /**
- * DirectoryPicker：逐字移植 pi-web `components/DirectoryPicker.tsx`（T2-10 / G5）——
+ * DirectoryPicker：按设计规范（T2-10 / G5）——
  * portal 模态 520×620、圆角 10；目录数据走 `GET /api/cwd/browse`（ui 依赖 client 的既定例外）。
  */
 export interface DirectoryPickerProps {
@@ -87,7 +87,7 @@ export function DirectoryPicker({
       setParentDirectory(data.parentPath ?? null);
       setPathInput(nextPath);
       setDirectories(data.directories ?? []);
-      // B 协议只给盘符路径（string[]），这里补上 name 供列表渲染
+      // 本仓协议只给盘符路径（string[]），这里补上 name 供列表渲染
       setDrives(
         data.drives === undefined
           ? null
@@ -260,7 +260,7 @@ export function DirectoryPicker({
             type="text"
             value={pathInput}
             placeholder="/path/to/project or ~/project"
-            // biome-ignore lint/a11y/noAutofocus: 逐字移植 pi-web DirectoryPicker（打开即输入路径）
+            // biome-ignore lint/a11y/noAutofocus: 按设计规范 DirectoryPicker（打开即输入路径）
             autoFocus
             autoComplete="off"
             spellCheck={false}

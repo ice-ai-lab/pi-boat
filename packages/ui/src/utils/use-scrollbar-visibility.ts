@@ -1,9 +1,9 @@
 import { type RefObject, useEffect } from 'react';
 
 /**
- * 滚动条显隐（**逐字移植自 pi-web `hooks/useScrollbarVisibility.ts`**）。
+ * 滚动条显隐（**按设计规范**）。
  *
- * 与 `styles/pi-web.css` 的 `.scrollbar-subtle` 配对：默认 thumb 全透明，
+ * 与 `styles/web-ui.css` 的 `.scrollbar-subtle` 配对：默认 thumb 全透明，
  * 指针进入或滚动时加 `.scrollbar-visible`，离开/停滚 500ms 后移除。
  */
 const HIDE_DELAY_MS = 500;

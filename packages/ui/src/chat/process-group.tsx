@@ -11,7 +11,7 @@ function ProcessItem({ item }: { item: TrailItem }) {
 }
 
 /**
- * ProcessGroup：结构/样式照抄 pi-web `ChatWindow.tsx` 的 `ProcessDetailsGroup`
+ * ProcessGroup：结构/样式按设计规范 的 `ProcessDetailsGroup`
  * （纯文字折叠按钮：12px mono-ish、箭头 90° 旋转、无描边无底色；展开内容 marginTop 8）。
  * defaultExpanded = 本轮没拿到回答（中断/报错时展开避免空白，docs/05 §6.5-6）。
  */

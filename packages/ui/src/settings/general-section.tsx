@@ -13,10 +13,10 @@ import { ThemeOptions } from './settings-panel';
 import { ConfigButton, ConfigSwitch } from './settings-ui';
 
 /**
- * GeneralSection（T5-3 / T8-4）：逐字移植 pi-web `SettingsPanel.tsx` 的 `GeneralSettings`。
+ * GeneralSection（T5-3 / T8-4）：按设计规范 的 `GeneralSettings`。
  *
- * 节顺序与 pi-web 一致：外观 → 对话 → (Shell，仅 Windows，属排除域) → 语言。
- * 「项目信任」按 T5-4 移出，改由 `ProjectTrustDialog` 承担；pi-web 的推送 / Web 鉴权两节
+ * 节顺序与设计规范一致：外观 → 对话 → (Shell，仅 Windows，属排除域) → 语言。
+ * 「项目信任」按 T5-4 移出，改由 `ProjectTrustDialog` 承担；设计规范的推送 / Web 鉴权两节
  * 属排除域（ADR-0014/0016），不补。
  */
 export interface ThemeSetting {
@@ -35,7 +35,7 @@ export interface GeneralSectionProps {
   };
 }
 
-/** 主题 id → i18n key（pi-web 的 `THEME_OPTIONS[].label` 本身就是 key） */
+/** 主题 id → i18n key（设计规范的 `THEME_OPTIONS[].label` 本身就是 key） */
 const THEME_LABEL_KEY: Record<ThemePreference, string> = {
   light: 'settings.themeLight',
   dark: 'settings.themeDark',
@@ -167,7 +167,7 @@ export function GeneralSection({ theme, chat }: GeneralSectionProps) {
           {supportedLocales.map((plugin) => {
             const selected = locale === plugin.id;
             return (
-              // biome-ignore lint/a11y/useSemanticElements: 逐字照抄 pi-web 的 radiogroup 按钮实现
+              // biome-ignore lint/a11y/useSemanticElements: 按设计规范的 radiogroup 按钮实现
               <button
                 key={plugin.id}
                 type="button"

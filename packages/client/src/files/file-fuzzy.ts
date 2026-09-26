@@ -1,8 +1,8 @@
 /**
- * `@` 文件提及（A 类移植自 pi-web lib/file-fuzzy.ts）。
+ * `@` 文件提及（A 类按设计规范 lib/file-fuzzy.ts）。
  * 规则与 pi TUI 对齐：`@` 必须位于行首或空白之后（`foo@bar` 不触发）；
  * 打分梯度 exact 100 / prefix 80 / substring 50 / 路径 substring 30，目录 +10，
- * 兜底子序列匹配（`chinp` 能找到 `components/ChatInput.tsx`）。
+ * 兜底子序列匹配（`chinp` 能找到）。
  * 含 `/` 的查询按**整条相对路径**匹配——这是「插入 `@src/` 后继续下钻」的关键。
  */
 

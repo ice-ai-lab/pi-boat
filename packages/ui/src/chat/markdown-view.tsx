@@ -5,7 +5,7 @@ import { CodeBlock } from './code-block';
 
 /**
  * MarkdownView：流式增量 markdown（react-markdown + gfm，ADR-0009）。
- * 排版类名/结构照抄 pi-web `components/MarkdownBody.tsx` + `.markdown-body`（ADR-0020）；
+ * 排版类名/结构按设计规范 + `.markdown-body`（ADR-0020）；
  * 代码块走 CodeBlock（复制 + 语言标）。
  */
 export const MarkdownView = memo(function MarkdownView({ markdown }: { markdown: string }) {
@@ -46,7 +46,7 @@ export const MarkdownView = memo(function MarkdownView({ markdown }: { markdown:
   );
 });
 
-/** markdown 排版容器（pi-web 的 `className` 由调用方叠加：markdown-user-message 等） */
+/** markdown 排版容器（设计规范的 `className` 由调用方叠加：markdown-user-message 等） */
 export function MarkdownBody({ markdown, className }: { markdown: string; className?: string }) {
   return (
     <div className={className}>

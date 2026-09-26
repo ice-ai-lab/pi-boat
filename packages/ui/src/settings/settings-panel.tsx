@@ -4,7 +4,7 @@ import { cn } from '../utils/cn';
 import { ThemeIcon } from './theme-icon';
 
 /**
- * SettingsPanel（T5-1）：逐字移植 pi-web `SettingsPanel.tsx` 的外壳——
+ * SettingsPanel（T5-1）：按设计规范 的外壳——
  * 顶部横向 tab（`.settings-section-tabs` / `.settings-section-tab`）+ 标题 `Settings` 在左
  * + `.config-close-button.settings-dialog-close` 的 `×` 关闭键；内容区 `.settings-dialog-main`
  * 内的每一节用 `.settings-section-host` 常驻挂载（`hidden` 切换，切节不丢状态）。
@@ -151,7 +151,7 @@ export function SettingsPanel({
   );
 }
 
-/** 设置节图标（移植自 pi-web `SettingsPanel.tsx` 的 `SettingsSectionIcon`；无子代理节） */
+/** 设置节图标（按设计规范 的 `SettingsSectionIcon`；无子代理节） */
 export function SettingsSectionIcon({
   section,
   size = 16,
@@ -208,8 +208,8 @@ export function SettingsSectionIcon({
 }
 
 /**
- * 外观（主题）选择：逐字照抄 pi-web `SettingsPanel.tsx` 的 GeneralSettings 外观段。
- * 档案与标签单一来源是 `@ice-ai/client` 的 `THEME_OPTIONS`（与 pi-web 同序）。
+ * 外观（主题）选择：按设计规范 的 GeneralSettings 外观段。
+ * 档案与标签单一来源是 `@ice-ai/client` 的 `THEME_OPTIONS`（与设计规范同序）。
  */
 export function ThemeOptions({
   options,
@@ -245,7 +245,7 @@ export function ThemeOptions({
   );
 }
 
-/** @deprecated 待改造区仍在使用；pi-web 没有 `.settings-row`，改完后删除（T5-10）。 */
+/** @deprecated 待改造区仍在使用；设计规范没有 `.settings-row`，改完后删除（T5-10）。 */
 export function SettingsRow({
   label,
   hint,
@@ -266,7 +266,7 @@ export function SettingsRow({
   );
 }
 
-/** @deprecated 待改造区仍在使用；pi-web 用 `.settings-general-heading`（T5-10）。 */
+/** @deprecated 待改造区仍在使用；设计规范用 `.settings-general-heading`（T5-10）。 */
 export function SettingsSectionTitle({ title, hint }: { title: string; hint?: string }) {
   return (
     <div className="mb-2">

@@ -153,7 +153,7 @@ export function PluginsSection({
           <Input
             value={install.source}
             onChange={(event) => install.onSourceChange(event.target.value)}
-            placeholder="npm:pi-web-access 或 git+https://…"
+            placeholder="npm:<包名> 或 git+https://…"
           />
           <select
             value={install.scope}

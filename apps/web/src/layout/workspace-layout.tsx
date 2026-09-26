@@ -33,7 +33,7 @@ import { useResizablePanel } from '../services/use-resizable-panel';
 
 /**
  * 三栏工作区：左栏会话/项目、中栏对话、右栏文件。
- * **结构逐字照抄 pi-web `AppShell`**（ADR-0020）：
+ * **结构按设计规范 `AppShell`**（ADR-0020）：
  * 根容器（视口高度 + safe-area 内边距）→ `sidebar-overlay-backdrop` → `sidebar-container`
  * → `panel-resize-handle sidebar-resize-handle` → 中栏 → `right-panel-overlay-backdrop`
  * → `panel-resize-handle right-panel-resize-handle` → `right-panel-container`。
@@ -49,7 +49,7 @@ export function WorkspaceLayout() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [trustDialogOpen, setTrustDialogOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  // 右栏开合：与 pi-web 一致——有打开的页签才展开，关闭时宽度动画到 0（容器仍挂载）
+  // 右栏开合：与设计规范一致——有打开的页签才展开，关闭时宽度动画到 0（容器仍挂载）
   const { tab: activeFileTab } = useFileTabs();
   const [rightPanelOpen, setRightPanelOpen] = useState(false);
   const [rightPanelExpanded, setRightPanelExpanded] = useState(false);
@@ -57,11 +57,11 @@ export function WorkspaceLayout() {
   useEffect(() => {
     if (activeFileTab !== null) setRightPanelOpen(true);
   }, [activeFileTab]);
-  // 关闭右栏时复位展开态（照抄 pi-web `AppShell.tsx:184-186`，T0-4）
+  // 关闭右栏时复位展开态（按设计规范，T0-4）
   useEffect(() => {
     if (!rightPanelOpen) setRightPanelExpanded(false);
   }, [rightPanelOpen]);
-  // 订阅主题（pi-web 的 AppShell 也常驻订阅，保证 auto 跟随系统时改配色能即时生效）
+  // 订阅主题（设计规范的 AppShell 也常驻订阅，保证 auto 跟随系统时改配色能即时生效）
   useTheme();
   const { t } = useI18n();
   const [toasts, dispatchToast] = useReducer(toastQueueReducer, [] as ToastItem[]);
@@ -75,7 +75,7 @@ export function WorkspaceLayout() {
   const updateTrust = useUpdateProjectTrustMutation(projectRoot);
   const trustPending = trust.data?.requiresTrust === true && trust.data.trusted === false;
 
-  // —— 面板宽度（pi-web `useResizablePanel` 的两处调用：侧栏向右生长、右栏向左生长） ——
+  // —— 面板宽度（设计规范 `useResizablePanel` 的两处调用：侧栏向右生长、右栏向左生长） ——
   const sidebarWidthRef = useRef(SIDEBAR_DEFAULT_WIDTH);
   const rightPanelWidthRef = useRef(RIGHT_PANEL_FALLBACK_WIDTH);
   const getResponsiveRightPanelWidth = useCallback(
@@ -157,7 +157,7 @@ export function WorkspaceLayout() {
           setSearchParams({});
         }}
       />
-      {/* 侧栏底栏：模型 / Skills / 设置（逐字照抄 pi-web AppShell 的 settings 行：内联样式 + 悬停处理） */}
+      {/* 侧栏底栏：模型 / Skills / 设置（按设计规范 AppShell 的 settings 行：内联样式 + 悬停处理） */}
       <div
         style={{
           padding: '8px',
@@ -258,10 +258,10 @@ export function WorkspaceLayout() {
     </>
   );
 
-  // 窗口标题（pi-web `AppShell` 的 windowTitle）：`<项目目录名> - Pi Web`，无项目时为 `Pi Web`
+  // 窗口标题（设计规范 `AppShell` 的 windowTitle）：`<项目目录名> - PiBoat`，无项目时为 `PiBoat`
   useEffect(() => {
     const activeCwdName = projectRoot === null ? null : getFileName(projectRoot) || projectRoot;
-    const windowTitle = activeCwdName === null ? 'Pi Web' : `${activeCwdName} - Pi Web`;
+    const windowTitle = activeCwdName === null ? 'PiBoat' : `${activeCwdName} - PiBoat`;
     const syncWindowTitle = () => {
       if (document.title !== windowTitle) document.title = windowTitle;
     };
@@ -283,8 +283,8 @@ export function WorkspaceLayout() {
         background: 'var(--bg)',
       }}
     >
-      {/* 移动端遮罩（pi-web 同款；宽屏下 CSS 已 display:none，桌面语义下保留结构）
-          biome-ignore lint/a11y/noStaticElementInteractions: 逐字照抄 pi-web 的遮罩层（纯鼠标交互的装饰元素）
+      {/* 移动端遮罩（设计规范同款；宽屏下 CSS 已 display:none，桌面语义下保留结构）
+          biome-ignore lint/a11y/noStaticElementInteractions: 按设计规范的遮罩层（纯鼠标交互的装饰元素）
           biome-ignore lint/a11y/useKeyWithClickEvents: 同上——键盘用户由 Esc / 侧栏开关按钮提供等价操作 */}
       <div
         className="sidebar-overlay-backdrop"
@@ -373,7 +373,7 @@ export function WorkspaceLayout() {
         />
       )}
 
-      {/* 右栏：文件查看器——始终挂载，宽度由 CSS 动画（pi-web 同款） */}
+      {/* 右栏：文件查看器——始终挂载，宽度由 CSS 动画（设计规范同款） */}
       <div
         ref={rightPanelResizer.panelRef}
         id="file-panel"

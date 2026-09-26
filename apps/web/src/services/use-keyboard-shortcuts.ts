@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 // ---------------------------------------------------------------------------
 // 模块级注册表 —— ChatPane 在这里登记 abort 处理器，让全局 Esc 监听器无需逐层透传。
-// 逐字移植 pi-web `hooks/useKeyboardShortcuts.ts`（T1-9 / S10）。
+// 按设计规范（T1-9 / S10）。
 // ---------------------------------------------------------------------------
 let globalAbortHandler: (() => void) | null = null;
 
@@ -26,7 +26,7 @@ interface UseGlobalKeyboardShortcutsOptions {
 }
 
 /**
- * 注册全局快捷键（pi-web 同款）：
+ * 注册全局快捷键（设计规范同款）：
  *   Esc          —— 停止运行中的 agent（经模块级 abort 处理器）
  *   Ctrl+Alt+N   —— 在当前项目目录新建会话
  *

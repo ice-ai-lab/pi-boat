@@ -2,7 +2,7 @@ import { cn } from '../utils/cn';
 
 /**
  * SuggestionMenu：输入卡上方的候选浮层——`@` 文件提及与 `/` 斜杠命令共用。
- * 视觉照抄 pi-web `ChatInput` 的候选浮层：`--bg` 底 + 1px 描边 + 8px 圆角 + 上向落影，
+ * 视觉按设计规范 `ChatInput` 的候选浮层：`--bg` 底 + 1px 描边 + 8px 圆角 + 上向落影，
  * 条目 6×8 内边距 / 6px 圆角 / mono 12.5px，选中 `--bg-selected`。
  * 位置固定为「输入卡上方」；键盘交互（↑↓/Tab/Enter/Esc）由 Composer 处理并回传下标。
  */

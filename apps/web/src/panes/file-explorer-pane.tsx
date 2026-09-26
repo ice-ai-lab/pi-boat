@@ -15,7 +15,7 @@ import { useFileTree } from '../services/use-file-tree';
 /**
  * FileExplorerPane（T2 重排）：EXPLORER 区内容——文件树 + 文件搜索面板 + 变更文件区块。
  * 头部（路径行 / 上传按钮）上移到 EXPLORER 图标行（Sidebar 提供），这里只剩内容。
- * 上传入口经 `FileExplorerHandle.openUploadPicker()` 暴露（pi-web `FileExplorerHandle` 同款）。
+ * 上传入口经 `FileExplorerHandle.openUploadPicker()` 暴露（设计规范 `FileExplorerHandle` 同款）。
  */
 export interface FileExplorerPaneProps {
   /** 当前项目根（树根 = git 状态查询 cwd） */
@@ -37,12 +37,12 @@ export interface FileExplorerPaneProps {
   onNotice(message: string): void;
 }
 
-/** 命令式接口（上传选择器；pi-web `FileExplorerHandle`） */
+/** 命令式接口（上传选择器；设计规范 `FileExplorerHandle`） */
 export interface FileExplorerHandle {
   openUploadPicker(): void;
 }
 
-/** git 状态色（pi-web `GIT_STATUS_COLORS`） */
+/** git 状态色（设计规范 `GIT_STATUS_COLORS`） */
 const GIT_STATUS_COLORS: Record<string, string> = {
   modified: '#e2b34d',
   added: '#4ade80',
@@ -106,7 +106,7 @@ export const FileExplorerPane = forwardRef<FileExplorerHandle, FileExplorerPaneP
       if (fileSearchOpen) searchInputRef.current?.focus();
     }, [fileSearchOpen]);
 
-    // 文件搜索：150ms 防抖 + 索引端点（pi-web FileExplorer 的 fileSearch）
+    // 文件搜索：150ms 防抖 + 索引端点（设计规范 FileExplorer 的 fileSearch）
     const hasSearchQuery = searchQuery.trim().length > 0;
     // biome-ignore lint/correctness/useExhaustiveDependencies: 防抖只随查询词变化
     useEffect(() => {

@@ -3,7 +3,7 @@ import { formatDuration } from '@ice-ai/client';
 import { useState } from 'react';
 
 /**
- * ToolRow：结构/样式照抄 pi-web `MessageView.tsx` 的 `ToolCallBlock`
+ * ToolRow：结构/样式按设计规范 的 `ToolCallBlock`
  * （工具名等宽色签 + 摘要单行省略 + 耗时 + 折叠箭头；成功绿/失败红 1px 描边与淡底）。
  * 展开态 = 入参 pre（`--bg-subtle` 底 + 对应色上边线）。
  */

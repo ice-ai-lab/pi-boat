@@ -5,7 +5,7 @@ import { useScrollbarVisibility } from '../utils/use-scrollbar-visibility';
 import { FileIcon } from './file-icon';
 
 /**
- * FileTree（T2-16：行几何 / git 徽标 / 行内「提及·下载」逐条对齐 pi-web `FileExplorer`）：
+ * FileTree（T2-16：行几何 / git 徽标 / 行内「提及·下载」逐条按设计规范 `FileExplorer`）：
  * - 行：`paddingLeft: 8 + depth*14` / `height:24` / `gap:4` / `radius:4` / 文字 `var(--text)`
  * - git 徽标：14×14 / mono 11 / 600 / untracked 绿 `#4ade80` / **仅未 hover 显示**
  * - hover 时右侧出现「提及」（`@`）与「下载」
@@ -27,7 +27,7 @@ export interface FileTreeProps {
   onAtMention?(relativePath: string, isDir: boolean): void;
 }
 
-/** 目录优先、再按名称排序（A 类移植自 pi-web 的 dirent 排序语义） */
+/** 目录优先、再按名称排序（A 类按设计规范的 dirent 排序语义） */
 export function sortEntries(entries: readonly FileListEntry[]): FileListEntry[] {
   return [...entries].sort((a, b) => {
     const aDir = a.type === 'directory';
@@ -37,7 +37,7 @@ export function sortEntries(entries: readonly FileListEntry[]): FileListEntry[] 
   });
 }
 
-/** git 徽标色（pi-web `GIT_STATUS_COLORS`） */
+/** git 徽标色（设计规范 `GIT_STATUS_COLORS`） */
 const GIT_STATUS_COLORS: Record<GitFileStatusKind, string> = {
   modified: '#d6a84b',
   added: '#4ade80',
@@ -164,7 +164,7 @@ function TreeNode({
 
   return (
     <div role="treeitem" tabIndex={-1} aria-expanded={isDir ? expanded : undefined}>
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: 逐字移植 pi-web 文件树行（点击展开/打开） */}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: 按设计规范文件树行（点击展开/打开） */}
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: 同上——键盘入口由 role=tree 的容器与行内按钮提供 */}
       <div
         onClick={() => (isDir ? onToggleDir(entry.path) : onOpenFile(entry.path))}

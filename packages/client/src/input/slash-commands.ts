@@ -1,7 +1,7 @@
 import type { SlashCommandInfo } from '@ice-ai/protocol';
 
 /**
- * 斜杠命令的输入匹配与展示（A 类移植自 pi-web lib/slash-display.ts 的匹配部分）。
+ * 斜杠命令的输入匹配与展示（A 类按设计规范 lib/slash-display.ts 的匹配部分）。
  * 与 `@` 提及的区别：斜杠命令必须在**行首**（或仅前导空白）——命令不嵌在句子里。
  */
 

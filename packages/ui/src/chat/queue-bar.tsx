@@ -1,6 +1,6 @@
 /**
  * QueueBar：排队消息条——steering（插队）与 followUp（收尾后追问）两组。
- * 视觉照抄 pi-web `ChatInput` 的排队消息面板：1px 描边 + 6px 圆角 + `--bg-panel` 底，
+ * 视觉按设计规范 `ChatInput` 的排队消息面板：1px 描边 + 6px 圆角 + `--bg-panel` 底，
  * 组标题为 mono 10px 大写字距标签。数据来自 `queue_update` 事件（fold 已折叠进 chat.queued）。
  */
 export interface QueueBarProps {

@@ -1,6 +1,6 @@
 import type { LocalePlugin } from '../types';
 
-/** pi-boat 内置简体中文语言包（源自 pi-web，已扣除排除域 key）。 */
+/** pi-boat 内置简体中文语言包。 */
 export const zhCNLocale: LocalePlugin = {
   id: 'zh-CN',
   label: '简体中文',
@@ -14,7 +14,7 @@ export const zhCNLocale: LocalePlugin = {
     'common.settings': '设置',
     'settings.title': '设置',
     'settings.general': '常规',
-    'settings.generalDescription': '选择 Pi Web 的显示方式和界面语言。',
+    'settings.generalDescription': '选择 PiBoat 的显示方式和界面语言。',
     'settings.appearance': '外观',
     'settings.appearanceDescription': '选择浅色或深色主题，也可以跟随系统设置。',
     'settings.chatContentWidth': '聊天内容宽度',
@@ -516,11 +516,11 @@ export const zhCNLocale: LocalePlugin = {
     'models.refreshCatalog': '刷新模型目录',
     'models.refreshingCatalog': '刷新中…',
     'models.refreshCatalogHint':
-      '立即获取该 provider 当前发布的模型列表。pi 内置的列表固定在 pi-web 附带的 pi 版本上，新发布的模型需要刷新后才会出现。',
+      '立即获取该 provider 当前发布的模型列表。pi 内置的列表固定在当前运行时附带的 pi 版本上，新发布的模型需要刷新后才会出现。',
     'models.catalogUpdated': '已从服务商更新模型列表。',
     'models.catalogUnchanged': '模型列表已是最新。',
     'models.catalogUnreachable': '无法获取模型目录。请检查网络连接和该 provider 的凭据后重试。',
-    'models.catalogOffline': '已设置 PI_OFFLINE，pi-web 不会联网获取模型目录。',
+    'models.catalogOffline': '已设置 PI_OFFLINE，PiBoat 不会联网获取模型目录。',
     'models.enabledCustomEmpty':
       '这个 provider 目前没有可用模型。请先保存修改，并确认 API key 有效。',
     'models.enabledStale': '{count} 条失配',

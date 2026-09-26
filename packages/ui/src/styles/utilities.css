@@ -1,12 +1,12 @@
 /**
- * 本仓自有 utility（ADR-0020：pi-web 的规则一律在 `pi-web.css` / `settings.css`，**不在此重复**）。
- * 这里只放 pi-web 没有、本仓组件仍在用的类；消费方式：apps/web `@import '@ice-ai/ui/utilities.css'`。
+ * 本仓自有 utility（ADR-0020：规范类名一律在 `web-ui.css` / `settings.css`，**不在此重复**）。
+ * 这里只放规范未覆盖、本仓组件仍在用的类；消费方式：apps/web `@import '@ice-ai/ui/utilities.css'`。
  *
- * 注：旧 `.scrollbar-thin` 已删——滚动条统一走 pi-web 的全局 `::-webkit-scrollbar` 规则 +
+ * 注：旧 `.scrollbar-thin` 已删——滚动条统一走全局 `::-webkit-scrollbar` 规则 +
  * `.scrollbar-subtle` / `.scrollbar-visible`（`useScrollbarVisibility`）。
  */
 
-/* pi-web 全站描边为 1px 实线（旧原型是 0.5px hairline，已废弃宽字重） */
+/* 全站描边为 1px 实线（旧原型是 0.5px hairline，已废弃宽字重） */
 .hairline {
   border-width: 1px;
 }
@@ -23,7 +23,7 @@
   border-left-width: 1px;
 }
 
-/* 旧原型的 superellipse 形状类：pi-web 一律普通圆角，这里退化为 6px 兜底；
+/* 旧原型的 superellipse 形状类：规范一律普通圆角，这里退化为 6px 兜底；
    新代码直接用 rounded-* / 内联 borderRadius，不再新增 .sq 用法 */
 .sq {
   border-radius: 6px;

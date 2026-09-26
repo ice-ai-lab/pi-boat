@@ -225,7 +225,7 @@ describe('本轮改动文件', () => {
 });
 
 describe('主题', () => {
-  it('偏好是调色板 id（与 pi-web THEME_OPTIONS 同序）', () => {
+  it('偏好是调色板 id（与设计规范 THEME_OPTIONS 同序）', () => {
     expect(THEME_OPTIONS.map((option) => option.id)).toEqual([
       'light',
       'dark',
@@ -251,7 +251,7 @@ describe('主题', () => {
     expect(isDarkTheme('mist')).toBe(false);
   });
 
-  it('标签取自 pi-web zh-CN', () => {
+  it('标签取自设计规范 zh-CN', () => {
     expect(themeLabel('auto')).toBe('跟随系统');
     expect(themeLabel('mist')).toBe('雾青');
     expect(themeLabel('pine')).toBe('松夜');

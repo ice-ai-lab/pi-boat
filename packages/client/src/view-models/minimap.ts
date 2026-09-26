@@ -1,7 +1,7 @@
 import type { Turn } from '../stream/view-model';
 
 /**
- * 消息 minimap（A 类移植自 pi-web components/ChatMinimap.tsx 的几何算法）：
+ * 消息 minimap（A 类按设计规范 components/ChatMinimap.tsx 的几何算法）：
  * 每个 turn 一条 bar，视口覆盖区间标为 at 态。
  */
 export interface MinimapBar {

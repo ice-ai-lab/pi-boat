@@ -2,7 +2,7 @@ import { useI18n } from '../i18n/i18n-provider';
 
 /**
  * WorkspacePlaceholder：无会话且未选项目时的中栏占位（T3-1 的 A 侧 counterpart）。
- * 逐字照抄 pi-web `AppShell.tsx:2365-2383` 的两种形态：
+ * 按设计规范 的两种形态：
  * - 选了项目（等一句话开新会话）→ 居中「从侧栏选择会话」
  * - 什么都没选 → 左上角「开始使用」引导块（1. 选择项目 / 2. 添加模型）
  */

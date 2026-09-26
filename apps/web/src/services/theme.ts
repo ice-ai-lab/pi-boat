@@ -9,10 +9,10 @@ import {
 import { useCallback, useSyncExternalStore } from 'react';
 
 /**
- * 主题订阅（**B 类移植自 pi-web `hooks/useTheme.ts`**）。
+ * 主题订阅（**B 类按设计规范**）。
  *
  * 差异只有两处，都是本仓的既有约定：
- * - storage key 用 `piboat:theme`（不与同源上的 pi-web 实例互相覆盖）；
+ * - storage key 用 `piboat:theme`（不与同源上的设计规范实例互相覆盖）；
  * - 纯逻辑（`isDarkTheme`/`resolveTheme`/`applyTheme`/`THEME_OPTIONS`）在 client 里，这里只管订阅。
  */
 const STORAGE_KEY = 'piboat:theme';

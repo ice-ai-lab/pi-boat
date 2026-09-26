@@ -1,8 +1,8 @@
 /**
- * 文件类型判定（A 类移植自 pi-web lib/file-types.ts 的子集）。
+ * 文件类型判定（A 类按设计规范 lib/file-types.ts 的子集）。
  *
  * ⚠️ 与本仓后端的边界（docs/07 §9）：DOCX 转 HTML **未实现**，所以
- * `documentPreviewKind('x.docx')` 返回 null（pi-web 返回 'docx'）——DOCX 走下载，
+ * `documentPreviewKind('x.docx')` 返回 null（设计规范返回 'docx'）——DOCX 走下载，
  * 不假装能预览。PDF 可用（浏览器原生 iframe 渲染，后端只回原始字节）。
  */
 

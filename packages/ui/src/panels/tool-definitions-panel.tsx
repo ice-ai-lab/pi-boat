@@ -32,7 +32,7 @@ function formatValue(value: unknown): string {
   }
 }
 
-/** JSON Schema 类型 → 可读字符串（逐字移植 pi-web `formatSchemaType`） */
+/** JSON Schema 类型 → 可读字符串（按设计规范 `formatSchemaType`） */
 export function formatSchemaType(schema: Record<string, unknown>): string {
   const variants = Array.isArray(schema.anyOf)
     ? schema.anyOf
@@ -77,7 +77,7 @@ export function formatSchemaType(schema: Record<string, unknown>): string {
   return type;
 }
 
-/** 参数表（逐字移植 pi-web `getToolParameterFields`） */
+/** 参数表（按设计规范 `getToolParameterFields`） */
 export function getToolParameterFields(parameters?: unknown): ParameterField[] {
   if (parameters === null || parameters === undefined || typeof parameters !== 'object') return [];
   const schemaRoot = parameters as Record<string, unknown>;
@@ -109,7 +109,7 @@ function EmptyState({ children }: { children: string }) {
 }
 
 /**
- * ToolDefinitionsPanel（T6-1）：逐字移植 pi-web `components/ToolDefinitionsPanel.tsx`。
+ * ToolDefinitionsPanel（T6-1）：按设计规范。
  * 两栏：左侧工具列表（`.tool-definitions-item`，选中 `inset 2px 0 0 accent`）+ 右侧参数/准则详情。
  * 挂载形态（工具条下方 `position:fixed` 下拉）由宿主负责（T1-6）。
  */

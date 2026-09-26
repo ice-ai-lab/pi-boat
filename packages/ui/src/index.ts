@@ -170,7 +170,7 @@ export {
   SessionSearch,
   type SessionSearchProps,
 } from './sidebar/session-search';
-// sidebar 册（docs/06 §4.3；T2 重排后结构逐字对齐 pi-web `SessionSidebar`）
+// sidebar 册（docs/06 §4.3；T2 重排后结构按设计规范 `SessionSidebar`）
 export {
   displayCwd,
   getSessionListIndices,

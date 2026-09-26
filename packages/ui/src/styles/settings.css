@@ -1,8 +1,9 @@
 /**
- * 从 pi-web `app/settings.css` **逐字搬运**的设置域样式（MIT；ADR-0020 决策 3）。
+ * 设置域样式表（统一设计规范落地版；ADR-0020 决策 3）。
  *
- * 仅剔除排除域（`agents-*` 子代理运行时，ADR-0014）。其余 `config-*` / `settings-*` /
- * `models-sidebar-*` / `enabled-models-*` / `skill-*` 逐字保留，组件按同一批类名重写。
+ * 覆盖 `config-*` / `settings-*` / `models-sidebar-*` / `enabled-models-*` / `skill-*`；
+ * 排除域（`agents-*` 子代理运行时，ADR-0014）不在此表内。
+ * 许可：MIT（声明见 `THIRD_PARTY_NOTICES.md`）。
  */
 
 /* Shared settings and configuration surfaces. */

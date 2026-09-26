@@ -11,7 +11,7 @@ import {
 import { useCallback, useSyncExternalStore } from 'react';
 
 /**
- * 对话外观订阅（移植自 pi-web `hooks/useChatAppearance.ts` 的 React 部分）。
+ * 对话外观订阅（按设计规范 的 React 部分）。
  * 纯逻辑在 `@ice-ai/client`；这里只管订阅与持久化。
  */
 const listeners = new Set<() => void>();

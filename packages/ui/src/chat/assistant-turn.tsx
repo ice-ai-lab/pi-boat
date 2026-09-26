@@ -17,7 +17,7 @@ function trailKey(item: { kind: string; toolCallId?: string }, index: number): s
     : `${item.kind}-${index}`;
 }
 
-/** 每轮用量行（in · out · cache R）——结构对齐 pi-web `formatUsage`（11px / text-dim） */
+/** 每轮用量行（in · out · cache R）——结构按设计规范 `formatUsage`（11px / text-dim） */
 export function UsageLine({ usage }: { usage: Usage }) {
   const parts = [
     `in ${usage.input.toLocaleString()}`,
@@ -27,7 +27,7 @@ export function UsageLine({ usage }: { usage: Usage }) {
   return <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{parts.join(' · ')}</div>;
 }
 
-/** 用户气泡：照抄 pi-web `MessageView` 的 UserMessageView（12px 圆角 / 8×12 内边距 / 14px 字 / 1.6 行高） */
+/** 用户气泡：按设计规范 `MessageView` 的 UserMessageView（12px 圆角 / 8×12 内边距 / 14px 字 / 1.6 行高） */
 export function UserBubble({ turn }: { turn: Turn }) {
   return (
     <div
@@ -62,7 +62,7 @@ export function UserBubble({ turn }: { turn: Turn }) {
 
 /**
  * AssistantTurn：模型标签 + 轨迹（流式平铺 / 静止后成组）+ 回答 + 用量。
- * 布局照抄 pi-web `MessageView` 的 AssistantMessageView：标签 11px text-dim，
+ * 布局按设计规范 `MessageView` 的 AssistantMessageView：标签 11px text-dim，
  * 块间距 8，底部用量 11px text-dim。
  * 成组是渲染期派生（groupTrail），流式末轮平铺不分组（docs/05 §6.5 方案 2）。
  */

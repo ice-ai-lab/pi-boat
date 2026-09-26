@@ -5,7 +5,7 @@ import { FileIcon } from './file-icon';
 
 /**
  * FileTabs：多标签 + 关闭 + 活动态。
- * 视觉照抄 pi-web `TabBar`：36px 高、`--bg-panel` 底、标签间 1px 右分隔线，
+ * 视觉按设计规范 `TabBar`：36px 高、`--bg-panel` 底、标签间 1px 右分隔线，
  * 活动标签换 `--bg` 底并加粗，关闭按钮 24×24 圆角 4、hover 才浮底。
  */
 export interface FileTabsProps {

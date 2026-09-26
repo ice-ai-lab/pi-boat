@@ -1,7 +1,7 @@
 import { useI18n } from '../i18n/i18n-provider';
 
 /**
- * ProjectTrustDialog（T5-9）：逐字移植 pi-web `components/ProjectTrustDialog.tsx`。
+ * ProjectTrustDialog（T5-9）：按设计规范。
  * 项目信任不再放在设置里，改为在需要时弹出的模态。
  */
 export interface ProjectTrustDialogProps {
@@ -23,7 +23,7 @@ export function ProjectTrustDialog({
 
   return (
     <>
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: 逐字照抄 pi-web 的遮罩点击取消（键盘等价操作为 Esc） */}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: 按设计规范的遮罩点击取消（键盘等价操作为 Esc） */}
       <div
         role="presentation"
         style={{

@@ -16,7 +16,7 @@ export interface FilesPaneProps {
   sessionId: string | null;
   /** 右栏是否展开（`aria-expanded` 用真实值，T0-2） */
   open: boolean;
-  /** 右栏是否全宽展开（pi-web `rightPanelFullWidth`） */
+  /** 右栏是否全宽展开（设计规范 `rightPanelFullWidth`） */
   expanded: boolean;
   /** 切换全宽展开（toolbar 的 expand 按钮） */
   onToggleExpand(): void;
@@ -50,7 +50,7 @@ export function FilesPane({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* 顶行：页签 + 全宽展开 + 隐藏（逐字照抄 pi-web `AppShell.tsx:2418-2426`） */}
+      {/* 顶行：页签 + 全宽展开 + 隐藏（按设计规范） */}
       <div
         style={{
           display: 'flex',

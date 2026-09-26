@@ -2,13 +2,13 @@ import type { SessionEntry, SessionTreeNode } from '@ice-ai/protocol';
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '../i18n/i18n-provider';
 
-/** pi-web `lib/types.ts` 的 BranchPreview（B 协议树不带，字段恒缺省走 labelEntry 回退） */
+/** 设计规范 的 BranchPreview（本仓协议树不带，字段恒缺省走 labelEntry 回退） */
 interface BranchPreview {
   role?: string | null;
   text: string;
 }
 
-/** 树节点：pi-web 的 SessionTreeNode 带可选 branchPreview / compressedEntryIds（B 协议恒缺省） */
+/** 树节点：设计规范的 SessionTreeNode 带可选 branchPreview / compressedEntryIds（本仓协议恒缺省） */
 interface BranchTreeNode extends Omit<SessionTreeNode, 'children'> {
   children: BranchTreeNode[];
   compressedEntryIds?: string[];
@@ -36,7 +36,7 @@ interface BranchNavigatorProps {
 }
 
 /**
- * BranchNavigator：逐字移植 pi-web `components/BranchNavigator.tsx`（T3-15 / C7）——
+ * BranchNavigator：按设计规范（T3-15 / C7）——
  * 连接导引线 + 7×7 三态节点圆点 + `U`/`A` 角色徽章 + `+N` 链压缩，算法内聚。
  */
 // 从根到 activeLeafId 的可见路径（迭代 DFS：线性会话退化为链，递归会爆栈）
@@ -154,7 +154,7 @@ function TreeNodeView({
   return (
     <div>
       {/* 本节点行 */}
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: 逐字移植 pi-web 的树行（点击选叶） */}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: 按设计规范的树行（点击选叶） */}
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: 同上——键盘用户由目录树外的分支按钮提供等价入口 */}
       <div
         style={{

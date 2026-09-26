@@ -5,7 +5,7 @@ import { AnsiText } from './ansi-text';
 
 /**
  * ExtensionWidgets（ADR-0012）：扩展上报的多行小组件。
- * 逐字移植 pi-web `components/ExtensionWidgets.tsx`：
+ * 按设计规范：
  * - 更新脉冲：快照 diff + `is-updating` + `.extension-widget-update-pulse`（1100ms 空闲清除）
  * - 位置三角：`.extension-widget-placement` + `<svg aria-hidden="true" viewBox="0 0 8 6" data-direction>`
  * - 展开面板（`.extension-widget-panels`）渲染在触发条**之前**
@@ -146,7 +146,7 @@ export function ExtensionWidgets({ widgets }: { widgets: ExtensionWidgetItem[] }
           })()}
         </div>
       )}
-      {/* biome-ignore lint/a11y/useSemanticElements: 触发条容器（pi-web 同款 div + aria-label） */}
+      {/* biome-ignore lint/a11y/useSemanticElements: 触发条容器（设计规范同款 div + aria-label） */}
       <div
         role="group"
         className="extension-widget-triggers"
@@ -206,7 +206,7 @@ export function ExtensionWidgets({ widgets }: { widgets: ExtensionWidgetItem[] }
               {content}
             </button>
           ) : (
-            // biome-ignore lint/a11y/useSemanticElements: 非可交互挂件触发器（pi-web 同款 div）
+            // biome-ignore lint/a11y/useSemanticElements: 非可交互挂件触发器（设计规范同款 div）
             <div
               key={widget.widgetKey}
               role="group"

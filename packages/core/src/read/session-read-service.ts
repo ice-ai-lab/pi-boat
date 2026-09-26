@@ -191,7 +191,7 @@ export class SessionReadService {
     return (await scanSessionsDir(this.sessionsRoot)).fingerprint;
   }
 
-  /** 搜索：轻量字段优先 + 有界正文扫描，带片段（T2-3，对齐 pi-web 搜索结果的 before/match/after） */
+  /** 搜索：轻量字段优先 + 有界正文扫描，带片段（T2-3，按设计规范搜索结果的 before/match/after） */
   async searchDetailed(q: string): Promise<{ results: SessionSearchHit[]; truncated: boolean }> {
     const needle = q.toLowerCase();
     const all = await this.list();
@@ -224,7 +224,7 @@ export class SessionReadService {
       const hit = await this.fileSearchHit(candidate, needle);
       if (hit !== null) hits.set(candidate.id, hit);
     }
-    // 有界返回：超过上限的丢弃并标记 truncated（pi-web 同语义）
+    // 有界返回：超过上限的丢弃并标记 truncated（设计规范同语义）
     const ordered = [...hits.values()];
     const truncated = ordered.length > SEARCH_MAX_RESULTS;
     return { results: ordered.slice(0, SEARCH_MAX_RESULTS), truncated };

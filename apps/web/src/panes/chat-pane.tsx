@@ -60,10 +60,10 @@ import { useCompletionSignal } from '../services/use-notifications';
 import { getLastCwd, setLastCwd } from '../services/workspace-memory';
 import { type ActivePanel, PanelsHost } from './panels-host';
 
-/** pi-web `AppShell` 的 `TOP_BAR_ICON_BUTTON_SIZE` */
+/** 设计规范 `AppShell` 的 `TOP_BAR_ICON_BUTTON_SIZE` */
 const TOP_BAR_ICON_BUTTON_SIZE = 36;
 
-/** 中栏工具条最左侧的侧栏开关（逐字照抄 pi-web `AppShell`：36×36 图标按钮） */
+/** 中栏工具条最左侧的侧栏开关（按设计规范 `AppShell`：36×36 图标按钮） */
 function SidebarToggleButton({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const { t } = useI18n();
   return (
@@ -129,7 +129,7 @@ function SidebarToggleButton({ open, onToggle }: { open: boolean; onToggle: () =
   );
 }
 
-/** 生成标题的三态（pi-web `autoNameStatus`） */
+/** 生成标题的三态（设计规范 `autoNameStatus`） */
 type AutoNameStatus = {
   kind: 'idle' | 'naming' | 'success' | 'error';
   message?: string;
@@ -137,7 +137,7 @@ type AutoNameStatus = {
 
 /**
  * ChatPane（F1→F5）：对话主面板。URL `?s=` 是会话的唯一真相（ADR-0019-5）。
- * 工具条逐字照抄 pi-web `AppShell` 的桌面向：
+ * 工具条按设计规范 `AppShell` 的桌面向：
  * 侧栏开关 → 信任警示 → 历史/生成标题/分支/系统/工具 → 会话统计 → 文件面板开关；
  * 顶部面板为 `position:fixed` 贴顶下拉（T1-3），一次只开一个。
  */
@@ -145,7 +145,7 @@ export interface ChatPaneProps {
   /** 侧栏已选中项目（无会话且未请求新会话时的占位形态由它决定） */
   projectSelected?: boolean;
   preferredCwd?: string | null;
-  /** 侧栏开关（页头左侧按钮，结构对齐 pi-web AppShell 的中栏工具条） */
+  /** 侧栏开关（页头左侧按钮，结构按设计规范 AppShell 的中栏工具条） */
   sidebarOpen?: boolean;
   onToggleSidebar?: () => void;
   /** 项目需要信任但未信任：在工具条上给一个常驻入口 */
@@ -154,7 +154,7 @@ export interface ChatPaneProps {
   /** 右栏（文件面板）开合：工具条最右的 36×36 开关按钮（T1-1） */
   rightPanelOpen?: boolean;
   onToggleRightPanel?: () => void;
-  /** 右栏全宽展开时收起顶部面板（pi-web `rightPanelFullWidth` 效果，T0-4） */
+  /** 右栏全宽展开时收起顶部面板（设计规范 `rightPanelFullWidth` 效果，T0-4） */
   rightPanelFullWidth?: boolean;
 }
 
@@ -166,7 +166,7 @@ const TOOL_PRESET_OPTIONS = [
   { value: 'full', label: '全部工具' },
 ] as const;
 
-/** pi-web `formatCompact`（AppShell：1200 → "1k"，1_200_000 → "1.2M"） */
+/** 设计规范 `formatCompact`（AppShell：1200 → "1k"，1_200_000 → "1.2M"） */
 function formatCompact(value: number): string {
   return value >= 1_000_000
     ? `${(value / 1_000_000).toFixed(1)}M`
@@ -176,7 +176,7 @@ function formatCompact(value: number): string {
 }
 
 /**
- * pi-web 中栏工具条按钮（`AppShell` 的 `renderChatToolbarActions`）：
+ * 设计规范中栏工具条按钮（`AppShell` 的 `renderChatToolbarActions`）：
  * 2px 顶部描边表示激活态，右侧 1px 分隔线，图标 12–13px + 11px 文案。
  */
 function TopBarAction({
@@ -269,7 +269,7 @@ export function ChatPane({
   const [viewport, setViewport] = useState({ scrollTop: 0, clientHeight: 1, scrollHeight: 1 });
   const selfNavigationRef = useRef<string | null>(null);
   const minimapController = useRef<MessageListHandle | null>(null);
-  /** pi-web `topBarRef`：顶部面板 fixed 下拉的定位基准（T1-3） */
+  /** 设计规范 `topBarRef`：顶部面板 fixed 下拉的定位基准（T1-3） */
   const topBarRef = useRef<HTMLDivElement>(null);
   const [topPanelPos, setTopPanelPos] = useState<{
     top: number;
@@ -286,7 +286,7 @@ export function ChatPane({
   const detail = useSessionDetailQuery(sessionId);
   const serverInfo = useServerInfo();
 
-  // 侧栏文件树的「提及」：把 @相对路径 追加进草稿（pi-web AppShell → ChatInput 同款链路）
+  // 侧栏文件树的「提及」：把 @相对路径 追加进草稿（设计规范 AppShell → ChatInput 同款链路）
   const insertMentionText = useCallback((text: string) => {
     setDraft((previous) => (previous.length === 0 ? text : `${previous} ${text}`));
   }, []);
@@ -298,7 +298,7 @@ export function ChatPane({
     setTimeout(() => dispatchToast({ type: 'dismiss', id: toast.id }), 4000);
   }, []);
 
-  // pi-web `showChat`：选中会话、或已选目录准备开新会话 → 显示完整工具条与对话区
+  // 设计规范 `showChat`：选中会话、或已选目录准备开新会话 → 显示完整工具条与对话区
   const showChat = sessionId !== null || preferredCwd !== null;
 
   // ① URL → 会话
@@ -344,7 +344,7 @@ export function ChatPane({
     if (wasStreamingRef.current && !chat.streaming) {
       const lastTurn = chat.turns[chat.turns.length - 1];
       signal.notifyDone(
-        chat.sessionName ?? 'Pi Web',
+        chat.sessionName ?? 'PiBoat',
         lastTurn?.final?.markdown.slice(0, 120) ?? '本轮已完成',
       );
       void session.refreshStats();
@@ -354,7 +354,7 @@ export function ChatPane({
     wasStreamingRef.current = chat.streaming;
   }, [chat.streaming]);
 
-  // ⑤ 全局 Esc 停止（pi-web `registerAbortHandler`：只在运行中接管 Esc）
+  // ⑤ 全局 Esc 停止（设计规范 `registerAbortHandler`：只在运行中接管 Esc）
   useEffect(() => {
     registerAbortHandler(chat.streaming ? () => void session.abort() : null);
     return () => {
@@ -362,7 +362,7 @@ export function ChatPane({
     };
   }, [chat.streaming, session]);
 
-  // ⑥ 顶部面板定位：fixed 贴顶下拉（T1-3，照抄 AppShell 的 topPanelPos effect）
+  // ⑥ 顶部面板定位：fixed 贴顶下拉，位置由 topPanelPos 测量（T1-3）
   useEffect(() => {
     if (activePanel === null || activePanel === 'branches' || topBarRef.current === null) return;
     const update = () => {
@@ -376,7 +376,7 @@ export function ChatPane({
     return () => ro.disconnect();
   }, [activePanel]);
 
-  // ⑦ 右栏全宽展开时收起顶部面板（T0-4，照抄 AppShell `rightPanelFullWidth` 效果）
+  // ⑦ 右栏全宽展开时收起顶部面板（T0-4）
   useEffect(() => {
     if (rightPanelFullWidth) setActivePanel(null);
   }, [rightPanelFullWidth]);
@@ -456,7 +456,7 @@ export function ChatPane({
     [session, pushToast],
   );
 
-  /** 生成标题（工具条与 composer 工具行共用；三态照抄 pi-web `autoNameStatus`，T1-6） */
+  /** 生成标题（工具条与 composer 工具行共用；三态按设计规范 `autoNameStatus`，T1-6） */
   const runAutoName = useCallback(() => {
     if (sessionId === null) return;
     setAutoNameStatus({ kind: 'naming' });
@@ -474,7 +474,7 @@ export function ChatPane({
   const handleSubmit = useCallback(
     (text: string) => {
       history.remember(text);
-      // 空态直接发消息：先按当前项目开一条新会话，再把这句话发出去（pi-web：发送即建会话）
+      // 空态直接发消息：先按当前项目开一条新会话，再把这句话发出去（设计规范：发送即建会话）
       if (sessionId === null) {
         const cwd = preferredCwd ?? getLastCwd();
         if (cwd === null) {
@@ -537,7 +537,7 @@ export function ChatPane({
       : `${session.liveState.model.provider}:${session.liveState.model.modelId}`;
   const thinkingLevels = modelKey === null ? [] : (models.data?.thinkingLevels[modelKey] ?? []);
 
-  // —— 工具条数据（pi-web 的 sessionStats / contextUsage / sessionHasBranches） ——
+  // —— 工具条数据（设计规范的 sessionStats / contextUsage / sessionHasBranches） ——
   const sessionStats = session.stats;
   const contextUsage = session.liveState?.contextUsage ?? null;
   const hasBranches = useMemo(
@@ -545,7 +545,7 @@ export function ChatPane({
     [detail.data?.tree],
   );
 
-  // 会话统计按钮内容（照抄 pi-web `renderSessionStatsButton` 桌面分支，T1-5）
+  // 会话统计按钮内容（按设计规范 `renderSessionStatsButton` 桌面分支，T1-5）
   const tokens = sessionStats?.tokens;
   const cost = sessionStats?.cost ?? 0;
   const costText = cost > 0 ? (cost >= 0.01 ? `$${cost.toFixed(2)}` : '<$0.01') : null;
@@ -577,7 +577,7 @@ export function ChatPane({
   const statsTooltip = tooltipParts.join('  |  ');
   const showStatsButton = showChat && (sessionStats !== null || contextUsage !== null);
 
-  // 生成标题按钮状态（照抄 pi-web：hasMessages 参考 userMessages 与消息总数）
+  // 生成标题按钮状态（按设计规范：hasMessages 参考 userMessages 与消息总数）
   const hasMessages =
     sessionId !== null &&
     ((sessionStats?.userMessages ?? 0) > 0 || (session.liveState?.messageCount ?? 0) > 0);
@@ -604,7 +604,7 @@ export function ChatPane({
 
   /**
    * 输入区（空态与活动会话共用）：排队条 + Composer。
-   * 工具行（T3-4 的几何纠正）放在输入卡**下方**（`belowInput`，pi-web ChatInput 底部行）：
+   * 工具行（T3-4 的几何纠正）放在输入卡**下方**（`belowInput`，设计规范 ChatInput 底部行）：
    * 左=模型/思考，右=工具预设/压缩/导出/统计/插队/声音。完整图标化形态见 T3-4 剩余项。
    */
   const composerElement = (
@@ -725,7 +725,7 @@ export function ChatPane({
         {onToggleSidebar !== undefined && (
           <SidebarToggleButton open={sidebarOpen} onToggle={onToggleSidebar} />
         )}
-        {/* 项目信任警示（逐字照抄 pi-web `renderProjectTrustWarning` 桌面分支） */}
+        {/* 项目信任警示（按设计规范 `renderProjectTrustWarning` 桌面分支） */}
         {trustPending && (
           <button
             type="button"
@@ -772,7 +772,7 @@ export function ChatPane({
         {/* 历史 / 生成标题 / 分支 / 系统 / 工具（空态也渲染，页签 disabled，T1-2） */}
         {showChat && (
           <div style={{ display: 'flex', alignItems: 'stretch', height: '100%' }}>
-            {/* 完整历史（pi-web `handleViewFullHistory`：导出的内联页） */}
+            {/* 完整历史（设计规范 `handleViewFullHistory`：导出的内联页） */}
             <TopBarAction
               title={sessionId !== null ? t('history.full') : t('history.unsaved')}
               label={t('history.label')}
@@ -908,7 +908,7 @@ export function ChatPane({
               )}
               <span>{autoNameLabel}</span>
             </button>
-            {/* 分支：仅在会话存在分支时渲染（T1-7/T3-15，pi-web `BranchNavigator inline`） */}
+            {/* 分支：仅在会话存在分支时渲染（T1-7/T3-15，设计规范 `BranchNavigator inline`） */}
             {hasBranches && (
               <BranchNavigator
                 tree={detail.data?.tree ?? []}
@@ -1129,7 +1129,7 @@ export function ChatPane({
             )}
           </button>
         )}
-        {/* 文件面板开合（T1-1，照抄 pi-web `renderMainFileToggle`） */}
+        {/* 文件面板开合（T1-1，按设计规范 `renderMainFileToggle`） */}
         {onToggleRightPanel !== undefined && (
           <button
             type="button"

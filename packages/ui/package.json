@@ -13,7 +13,7 @@
     },
     "./theme.css": "./src/theme.css",
     "./utilities.css": "./src/styles/utilities.css",
-    "./pi-web.css": "./src/styles/pi-web.css",
+    "./web-ui.css": "./src/styles/web-ui.css",
     "./settings.css": "./src/styles/settings.css"
   },
   "files": [

@@ -7,7 +7,7 @@ export interface ToastItem {
   tone?: 'info' | 'success' | 'error';
 }
 
-/** 同屏上限（对齐 pi-web Notice 的 MAX_NOTICES=5；更旧的被挤掉） */
+/** 同屏上限（按设计规范 Notice 的 MAX_NOTICES=5；更旧的被挤掉） */
 export const TOAST_MAX_VISIBLE = 5;
 
 export type ToastAction = { type: 'add'; toast: ToastItem } | { type: 'dismiss'; id: string };

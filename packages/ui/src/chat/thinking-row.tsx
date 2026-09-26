@@ -2,7 +2,7 @@ import type { ThinkingRow as ThinkingRowModel } from '@ice-ai/client';
 import { useState } from 'react';
 import { cn } from '../utils/cn';
 
-/** pi-web `ThinkingIcon`（折叠态 = 暗色灯泡；展开 = 高亮灯泡） */
+/** 设计规范 `ThinkingIcon`（折叠态 = 暗色灯泡；展开 = 高亮灯泡） */
 function ThinkingIcon({ active, size = 14 }: { active: boolean; size?: number }) {
   return (
     <svg
@@ -30,7 +30,7 @@ function ThinkingIcon({ active, size = 14 }: { active: boolean; size?: number })
 }
 
 /**
- * ThinkingRow：结构/样式照抄 pi-web `MessageView.tsx` 的 `ThinkingBlock`
+ * ThinkingRow：结构/样式按设计规范 的 `ThinkingBlock`
  * （1px 描边 + 7px 圆角 + mono 11px；折叠态单行省略，展开态换行全文）。
  */
 export function ThinkingRowView({ row }: { row: ThinkingRowModel }) {
@@ -108,7 +108,7 @@ export function ThinkingRowView({ row }: { row: ThinkingRowModel }) {
   );
 }
 
-/** SystemRow：压缩 / 重试 / 终止等系统提示行（pi-web 的窄条提示块） */
+/** SystemRow：压缩 / 重试 / 终止等系统提示行（设计规范的窄条提示块） */
 export function SystemRowView({ text, tone }: { text: string; tone: 'info' | 'warn' | 'error' }) {
   const color =
     tone === 'warn' ? 'var(--amber)' : tone === 'error' ? 'var(--red)' : 'var(--text-muted)';

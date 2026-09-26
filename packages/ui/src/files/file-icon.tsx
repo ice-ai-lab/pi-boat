@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 
 /**
- * 文件图标（T2-18 / L20 / F14）：逐字移植 pi-web `components/FileIcons.tsx`——
+ * 文件图标（T2-18 / L20 / F14）：按设计规范——
  * Catppuccin SVG 精灵（`/icons/catppuccin/{latte,mocha}/`）+ `mask` 单色化，
  * 跟随应用的克制文字色 `--text-dim`（14px），不显示语言专属彩色。
  */
@@ -143,7 +143,7 @@ export interface FileIconProps {
   className?: string;
 }
 
-/** 文件/目录图标（FileTree 消费；等价 pi-web 的 FolderIcon + getFileIcon 组合） */
+/** 文件/目录图标（FileTree 消费；等价设计规范的 FolderIcon + getFileIcon 组合） */
 export function FileIcon({ name, isDir = false, expanded = false }: FileIconProps) {
   return isDir ? <FolderGlyph open={expanded} /> : getFileIcon(name, 14);
 }

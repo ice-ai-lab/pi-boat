@@ -1,3 +1,4 @@
+import path from 'node:path';
 import { chromium } from '@playwright/test';
 
 /**
@@ -44,9 +45,8 @@ ok('models.json 草稿已载入（含 providers）', textareaValue.includes('pro
 // skills 节（需要项目：先打开一个 repo 会话让 projectRoot 就位）
 await panel.locator('button[aria-label="关闭设置"]').click();
 const sessions = await fetch('http://127.0.0.1:9527/api/sessions').then((r) => r.json());
-const repo = sessions.sessions.find(
-  (s) => s.cwd === '/Users/gatesma/project/WebstormProjects/pi-boat',
-);
+const repoRoot = path.resolve(import.meta.dirname, '../../..');
+const repo = sessions.sessions.find((s) => s.cwd === repoRoot);
 await page.goto(`http://127.0.0.1:9528/?s=${repo.id}`);
 await page.waitForSelector('aside button:has-text("新会话")', { timeout: 20_000 });
 await page.waitForTimeout(3000);

@@ -6,13 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "includes": [
-      "**",
-      "!**/public/**",
-      "!**/dist/**",
-      "!**/test-results/**",
-      "!**/playwright-report/**"
-    ]
+    "includes": ["**", "!**/public", "!**/dist", "!**/test-results", "!**/playwright-report"]
   },
   "formatter": {
     "enabled": true,
@@ -47,7 +41,7 @@
   },
   "overrides": [
     {
-      "includes": ["packages/ui/src/styles/pi-web.css", "packages/ui/src/styles/settings.css"],
+      "includes": ["packages/ui/src/styles/web-ui.css", "packages/ui/src/styles/settings.css"],
       "formatter": { "enabled": false },
       "linter": {
         "rules": {

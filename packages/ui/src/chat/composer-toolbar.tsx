@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 
-/** pi-web 底部工具条的按钮规格：32px 高 / 9px 圆角 / 12px 字 / text-muted */
+/** 设计规范底部工具条的按钮规格：32px 高 / 9px 圆角 / 12px 字 / text-muted */
 const BAR_BUTTON: CSSProperties = {
   display: 'flex',
   alignItems: 'center',

@@ -39,7 +39,7 @@ export interface MessageListProps {
 /** 距顶部多少像素内触发自动翻页 */
 const AUTO_LOAD_THRESHOLD_PX = 80;
 
-/** 右侧 minimap 占位宽度（pi-web `CHAT_MINIMAP_WIDTH`，回到底部按钮据此避让） */
+/** 右侧 minimap 占位宽度（设计规范 `CHAT_MINIMAP_WIDTH`，回到底部按钮据此避让） */
 const CHAT_MINIMAP_WIDTH = 36;
 
 export function MessageList({
@@ -175,7 +175,7 @@ export function MessageList({
         className="scrollbar-subtle min-w-0 flex-1 overflow-x-hidden overflow-y-auto pt-4 [scrollbar-gutter:stable] [overflow-anchor:none]"
         aria-live="polite"
       >
-        {/* 正文列：pi-web `ChatWindow` 的 820px 居中栏 + 16px 列内边距 */}
+        {/* 正文列：设计规范 `ChatWindow` 的 820px 居中栏 + 16px 列内边距 */}
         <div style={{ minWidth: 0, padding: '0 16px' }}>
           <div
             style={{
@@ -210,7 +210,7 @@ export function MessageList({
           </div>
         </div>
       </div>
-      {/* pi-web `ChatWindow.tsx:1325-1349` 的外层 wrapper 定位：贴住消息区底部、居中、避开右侧 minimap */}
+      {/* 设计规范 的外层 wrapper 定位：贴住消息区底部、居中、避开右侧 minimap */}
       <div
         style={{
           position: 'absolute',

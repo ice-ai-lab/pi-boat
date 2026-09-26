@@ -1,7 +1,7 @@
 import type { Turn } from '../stream/view-model';
 
 /**
- * 「本轮写出的文件」（A 类移植自 pi-web lib/turn-written-files.ts 的抽取逻辑）。
+ * 「本轮写出的文件」（A 类按设计规范 lib/turn-written-files.ts 的抽取逻辑）。
  * 只认**写类工具**的参数：write / edit（以及 bash 里明显重定向的场景不猜）。
  * 与工具结果里的文本无关——从文本里 grep 路径会把模型随口提到的路径也算进来。
  */
