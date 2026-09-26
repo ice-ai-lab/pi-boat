@@ -3,13 +3,18 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link
-      rel="icon"
-      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚢</text></svg>"
-    />
+    <!-- 站点图标：标记是 PiBoat 品牌标 `i-boat`（帆船，见 docs/design/piboat-web-v3.html:685 的 symbol），
+         容器为自有超椭圆(n=4) + 琥珀(amber)渐变底色（HSL 38°→48°，135° 对角）——
+         不沿用 pi-web 的说话气泡轮廓与单色底。
+         public/favicon.svg 是矢量源，public/favicon.ico 与 public/icons/*.png 由它光栅导出。 -->
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
     <title>PiBoat</title>
     <meta name="description" content="PiBoat interface for the pi coding agent" />
     <meta name="application-name" content="PiBoat" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1a1a1a" />
     <!-- 首帧前应用已保存的主题（设计规范 layout.tsx 的 THEME_INIT_SCRIPT）。
          调色板清单与 storage key 必须与 @ice-ai/client 的 THEME_OPTIONS / THEME_INIT_SCRIPT 一致，
          一致性由 apps/web/test/theme-init.test.ts 锁。 -->

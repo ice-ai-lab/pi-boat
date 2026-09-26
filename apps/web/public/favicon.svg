@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"
+     role="img" aria-label="PiBoat">
+  <defs>
+    <linearGradient id="rb" x1="0.0" y1="0.0" x2="512.0" y2="512.0" gradientUnits="userSpaceOnUse">
+      <stop offset="0.0000" stop-color="#f9a006"/>
+      <stop offset="0.0500" stop-color="#f9a308"/>
+      <stop offset="0.1000" stop-color="#f9a50a"/>
+      <stop offset="0.1500" stop-color="#f9a80c"/>
+      <stop offset="0.2000" stop-color="#f9ab0e"/>
+      <stop offset="0.2500" stop-color="#f9ad10"/>
+      <stop offset="0.3000" stop-color="#f9b012"/>
+      <stop offset="0.3500" stop-color="#f9b214"/>
+      <stop offset="0.4000" stop-color="#f9b516"/>
+      <stop offset="0.4500" stop-color="#f9b818"/>
+      <stop offset="0.5000" stop-color="#f9ba1a"/>
+      <stop offset="0.5500" stop-color="#f9bc1c"/>
+      <stop offset="0.6000" stop-color="#f9bf1e"/>
+      <stop offset="0.6500" stop-color="#f9c120"/>
+      <stop offset="0.7000" stop-color="#f9c422"/>
+      <stop offset="0.7500" stop-color="#f9c624"/>
+      <stop offset="0.8000" stop-color="#f9c826"/>
+      <stop offset="0.8500" stop-color="#f9ca28"/>
+      <stop offset="0.9000" stop-color="#facd2a"/>
+      <stop offset="0.9500" stop-color="#facf2c"/>
+      <stop offset="1.0000" stop-color="#fad12e"/>
+    </linearGradient>
+  </defs>
+  <polygon points="512.0,256.0 511.5,331.6 510.0,362.7 507.6,386.2 504.2,405.7 499.7,422.4 494.2,437.0 487.7,449.9 480.1,461.2 471.3,471.3 461.2,480.1 449.9,487.7 437.0,494.2 422.4,499.7 405.7,504.2 386.2,507.6 362.7,510.0 331.6,511.5 256.0,512.0 180.4,511.5 149.3,510.0 125.8,507.6 106.3,504.2 89.6,499.7 75.0,494.2 62.1,487.7 50.8,480.1 40.7,471.3 31.9,461.2 24.3,449.9 17.8,437.0 12.3,422.4 7.8,405.7 4.4,386.2 2.0,362.7 0.5,331.6 0.0,256.0 0.5,180.4 2.0,149.3 4.4,125.8 7.8,106.3 12.3,89.6 17.8,75.0 24.3,62.1 31.9,50.8 40.7,40.7 50.8,31.9 62.1,24.3 75.0,17.8 89.6,12.3 106.3,7.8 125.8,4.4 149.3,2.0 180.4,0.5 256.0,0.0 331.6,0.5 362.7,2.0 386.2,4.4 405.7,7.8 422.4,12.3 437.0,17.8 449.9,24.3 461.2,31.9 471.3,40.7 480.1,50.8 487.7,62.1 494.2,75.0 499.7,89.6 504.2,106.3 507.6,125.8 510.0,149.3 511.5,180.4" fill="url(#rb)"/>
+  <polygon points="264.3,135.4 366.5,274.1 264.3,284.3" fill="#15102a"/>
+  <polygon points="124.1,304.7 386.9,304.7 348.9,366.0 324.1,380.6 186.9,380.6 162.1,366.0" fill="#15102a"/>
+</svg>
