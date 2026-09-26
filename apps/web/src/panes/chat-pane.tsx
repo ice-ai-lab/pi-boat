@@ -63,6 +63,7 @@ import { registerAbortHandler } from '../services/use-keyboard-shortcuts';
 import { useCompletionSignal } from '../services/use-notifications';
 import { getLastCwd, setLastCwd } from '../services/workspace-memory';
 import { type ActivePanel, PanelsHost } from './panels-host';
+import { decideSessionNav } from './session-nav';
 
 /**
  * 拖拽附加图片的整屏覆盖层（T2-2，设计规范 `ChatWindow.tsx` 同形）：
@@ -339,7 +340,12 @@ export function ChatPane({
   const [dragOver, setDragOver] = useState(false);
   /** minimap 视口跟踪（T0-1：替换硬编码的 0,1,1） */
   const [viewport, setViewport] = useState({ scrollTop: 0, clientHeight: 1, scrollHeight: 1 });
-  const selfNavigationRef = useRef<string | null>(null);
+  /**
+   * 「本次会话切换由本组件发起」（建会话 / fork：会话先行、URL 后跟），供对账决策用。
+   * 用户点侧栏是 URL 先行，绝不置此标记——否则对账会把 URL 反向覆盖回当前会话，
+   * 两个会话无限互切（2026-09-26 实测）。
+   */
+  const selfSwitchRef = useRef(false);
   const minimapController = useRef<MessageListHandle | null>(null);
   /** 设计规范 `topBarRef`：顶部面板 fixed 下拉的定位基准（T1-3） */
   const topBarRef = useRef<HTMLDivElement>(null);
@@ -374,29 +380,26 @@ export function ChatPane({
   // （`preferredCwd` 由 workspace-layout 按 `effectiveNewSessionCwd` 回退到项目根，BUG-2）
   const showChat = sessionId !== null || preferredCwd !== null;
 
-  // ① URL → 会话
-  // biome-ignore lint/correctness/useExhaustiveDependencies: session.open/reset 身份随 sessionId 变化，只在 URL 变化时触发
+  // URL ⇄ 会话对账（单一决策处，规则与理由见 session-nav.ts）：
+  // URL 发起的（点击/前进后退）→ 以 URL 为准去切会话；本组件发起的（建会话/fork）→ 补写 URL。
+  // 拆成两个 effect 会在同一提交里互相覆盖，导致两会话互切。
   useEffect(() => {
-    if (urlSessionId === session.sessionId) return;
-    if (urlSessionId === null) {
-      if (session.sessionId !== null) session.reset();
-      return;
-    }
-    if (selfNavigationRef.current === urlSessionId) {
-      selfNavigationRef.current = null;
-      return;
-    }
-    void session.open(urlSessionId).then((error) => {
-      if (error !== null) pushToast(`打开会话失败：${error}`, 'error');
+    const selfInitiated = selfSwitchRef.current;
+    if (urlSessionId === session.sessionId) selfSwitchRef.current = false;
+    const decision = decideSessionNav({
+      urlSessionId,
+      sessionId: session.sessionId,
+      selfInitiated,
     });
-  }, [urlSessionId, session.sessionId, pushToast]);
-
-  // ② 会话 id → URL
-  useEffect(() => {
-    if (sessionId === null || urlSessionId === sessionId) return;
-    selfNavigationRef.current = sessionId;
-    setSearchParams({ s: sessionId }, { replace: true });
-  }, [sessionId, urlSessionId, setSearchParams]);
+    if (decision.kind === 'reset') session.reset();
+    else if (decision.kind === 'writeUrl') {
+      setSearchParams({ s: decision.sessionId }, { replace: true });
+    } else if (decision.kind === 'open') {
+      void session.open(decision.sessionId).then((error) => {
+        if (error !== null) pushToast(`打开会话失败：${error}`, 'error');
+      });
+    }
+  }, [urlSessionId, session.sessionId, session.open, session.reset, setSearchParams, pushToast]);
 
   // ③ 切会话后预取：命令 / 工具 / 统计 / 运行时状态（systemPrompt）
   // biome-ignore lint/correctness/useExhaustiveDependencies: 只在会话切换时预取一次
@@ -521,8 +524,12 @@ export function ChatPane({
 
   const startSession = useCallback(
     async (cwd: string) => {
+      // 登记「本组件发起」：start() 一提交 sessionId，对账就负责把 URL 补上；
+      // 其间也不能把刚建的会话当「URL 空态」而 reset（否则空态首条消息会把会话拆掉）
+      selfSwitchRef.current = true;
       const error = await session.start(cwd);
       if (error !== null) {
+        selfSwitchRef.current = false;
         pushToast(error, 'error');
         return;
       }
@@ -781,7 +788,7 @@ export function ChatPane({
             attachedCount={attachments.images.length}
             onAttachClick={() => fileInputRef.current?.click()}
             modelOptions={modelOptions}
-            model={session.liveState?.model ?? null}
+            model={sessionId !== null ? (session.liveState?.model ?? null) : session.pendingModel}
             onModelChange={(provider, modelId) =>
               void session.setModel(provider, modelId).then((error) => {
                 if (error !== null) pushToast(error, 'error');

@@ -233,6 +233,40 @@ T1-10（三节 i18n，与套壳同批，避免写两遍）。
 
 ---
 
+## 0.4 会话链路修复（2026-09-26，用户点名「点击发送之后消息没发出去」）
+
+四个独立缺陷叠在一起，现象都是「消息没发出去 / 界面没反应」。均已修复，并用真实 server + 浏览器回归。
+
+- **A. 空态首条消息静默丢失**：`chat-pane.tsx` 的 `handleSubmit` 在 `startSession()` 之后调用**同一个
+  render 闭包里的** `session.send`——那个闭包里的 `sessionId` 还是 `null`，`send` 直接早退，消息不会发出。
+  修：`use-agent-session.ts` 用 `sessionIdRef` 作为「此刻的会话」唯一来源（`switchSession()` 同步 ref + state），
+  `send`/`abort`/`steer`/`followUp` 一律读 ref。
+- **B. 中栏自毁**：`start()` 提交 sessionId 的那帧 `?s=` 还是旧的，effect ① 把「刚建好的会话」读成
+  「URL 切到了无会话」而 `reset()`，中栏退回占位、composer 消失，URL 停在 `?s=<新id>`（顺带一次
+  `GET /api/sessions/:id` 404）。修：对账只留一处（`session-nav.ts` 的 `decideSessionNav`），
+  URL 发起的切换以 URL 为准、本组件发起的切换才补 URL。
+- **B'（同日回归并修回）会话互切**：B 的第一版仍把「URL→会话」「会话→URL」拆在两个 effect 里，
+  且删掉了旧实现里防反向覆盖的 `selfNavigationRef`——用户点会话 B 时 state 还是 A，「会话→URL」
+  把 URL 写回 A，`open(B)` 完成又写回 B，再 `open(A)`……**两个会话无限互切**（每秒一组
+  `open` + `get_commands/get_tools/get_session_stats`）。修：合成单一 effect + `decideSessionNav()`，
+  方向由 `selfSwitchRef` 显式标出；回归用例见 `apps/web/src/panes/session-nav.test.ts`（7 条），
+  并用浏览器实测「点 B / 点 C / 前进 / 后退」各只跑一次 `open`。
+- **C. 订阅前派发 → 整轮不渲染**：命令发得比 SSE 订阅早时，服务端那条 user `message_start`
+  （`fold` 建 Turn 的锚点）收不到，assistant 的流式全落在「无锚点」上被丢弃——消息发出去了，界面什么都没有。
+  修：`AgentStream.waitUntilReady()`（等 `connected` 帧，2s 上限兜底），`send`/`steer`/`followUp` 派发前必等。
+- **D. 会话被回收 / server 重启后不自愈**：`renewAgentLease` 走 `postCommand`，而该端点回的是扁平
+  `{success, renewed}`（无 `data`）→ 返回值恒为 `undefined`，ADR-0013 约定的「`renewed:false` → 显式 resume」
+  从来没生效过；表现为 `POST /api/agent/:id` 一直 404、`session_shutdown` 后 composer 永久禁用。
+  修：① 端点改读扁平字段；② `dispatchWithRevive`——命令 404 时先 revive（resume + 重建历史 + 重置水位线）
+  再重发一次；③ `session_shutdown`（terminated）立即 revive；④ lease 心跳 `renewed:false` 兜底。
+  注意 revive 不能只 `resume`：新 Entry 的 seq 从 1 重新计数，必须同时 `restore()` 重置客户端水位线。
+
+验证：手写 Playwright 脚本跑通四条路径（空态发送 / 既有会话追问 / 「新建会话」后发送 /
+`touch server` 重启后发送）；新增单测 `packages/client/test/stream.test.ts`（waitUntilReady ×4）与
+`packages/client/test/session-revive.test.ts`（revive 重发 ×3）；`test + lint + build` 全绿。
+
+---
+
 ## 1. 必须先修的硬 bug
 
 ### BUG-1【P1·新发现】ChatMinimap 的视口高亮是死的

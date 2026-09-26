@@ -78,6 +78,12 @@ packages/client/src/
 `GET /api/agent/:id/events` → 立刻收到注释帧 → `connected {sessionId, isStreaming, lastSeq}`
 → 快照 `message_start`（若有半截消息）→ 此后增量。
 
+**命令必须在收到 `connected` 之后才派发**（`AgentStream.waitUntilReady()`，`send`/`steer`/`followUp`
+已内置）——服务端的注释帧先于 `core.subscribe()` 下发，所以 `EventSource` 的 `open` 事件**不算**
+订阅生效；而 `prompt` 被接受的那一刻服务端就广播了这条 user 消息的 `message_start`，它同时是
+`fold` 建 Turn 的锚点。订晚了只会拿到半截 assistant 快照，整轮消息在界面上都不渲染
+（表现为「发出去了但界面什么都没有」）。等待上限 2s：连接上不来时照常派发，退化成旧行为。
+
 ### 5.2 seq 对账规则（两条，缺一即错乱）
 
 1. `connected.lastSeq` 与每次 REST 快照（`AgentState.lastSeq`）都是水位线：**丢弃 `seq ≤ lastSeq` 的事件**
@@ -95,9 +101,14 @@ packages/client/src/
 |---|---|
 | 心跳注释帧 | 忽略（仅用于保活） |
 | 未知事件类型 / 校验失败帧 | 丢弃 + 计数上报（不 crash、不断流） |
-| `session_shutdown` | 标记会话终止，停止重连 |
+| `session_shutdown` | 标记会话终止（`terminated`，composer 禁用）：这是 **runtime 没了**，不是会话没了——`.jsonl` 还在，客户端应显式 `resume` 再接回来（`useAgentSession` 的 revive，ADR-0013） |
+| server 重启 / 被 idle 回收（无 shutdown 事件） | 命令回 404 → 先 revive 再重发一次（`dispatchWithRevive`）；lease 心跳 `renewed:false` 是兜底，最长 30s 自愈 |
 | 标签页休眠 / 系统唤醒 | `EventSource` 的 `error` → 退避重连；唤醒后必定走整体重建 |
 | 一页多会话 | 每个会话一个 `EventSource`（HTTP/1.1 同域 6 连接上限是已知风险 docs/01 §8-7；M1 只有单会话） |
+
+> ‼️ revive 不能只 `POST …/resume`：重建出来的 `SessionRegistryEntry` 是**新对象，seq 从 1 重新计数**，
+> 必须同时 `restore()` 重置客户端水位线，否则后续事件全被「seq ≤ watermark」丢掉。因此 revive 直接复用
+> `open()`（重建历史 → 冷会话 resume → restore → 重连流）。
 
 ---
 
@@ -255,7 +266,7 @@ interface SystemRow { kind: 'system'; text: string; tone: 'info' | 'warn' | 'err
 
 ```ts
 // '@ice-ai/client/react'
-useAgentSession(sessionId)   // → { turns, streaming, state, send, abort, notice, reconnect }
+useAgentSession()            // → { sessionId, chat, send, abort, steer, followUp, open, start, liveState, … }（URL 驱动）
 useAgentStream(sessionId)    // 底层：subscribe + useSyncExternalStore（非 Suspense 场景）
 useSessionsQuery()           // REST：列表（含 listFingerprint 失效）
 useSessionDetailQuery(id)    // REST：详情

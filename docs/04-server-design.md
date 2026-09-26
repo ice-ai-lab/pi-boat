@@ -43,7 +43,7 @@
 | `GET /api/agent/:id` | `agentService.getRunningState()` | 轻查直读注册表，**不进 FIFO**（docs/03 §6.4） |
 | `POST /api/agent/:id/resume` | `agentService.resume()` | 从 `.jsonl` 重建 runtime 并登记（ADR-0013a）。**必须 POST**——建流时隐式创建会让 GET 产生副作用（ADR-0007） |
 | `GET /api/agent/running` | `registryVersion + runningSessionIds()` | 轮询端点；`completionNotificationSuppressedSessionIds` 为推送抑制集 |
-| `POST /api/agent/:id/lease` | `liveness.renew()` | 观看心跳；`renewed:false` 表示会话已不在注册表（不是错误，前端据此显式 resume） |
+| `POST /api/agent/:id/lease` | `liveness.renew()` | 观看心跳；`renewed:false` 表示会话已不在注册表（不是错误，前端据此显式 resume）。返回是**扁平** `{success, renewed}`——不是 `CommandOk` 信封（无 `data` 字段），客户端端点不能走 `postCommand` |
 | `GET /api/agent/:id/events` | `agentService.subscribe()` | SSE（§5，本文重点）；鉴权靠 Host/Origin/Sec-Fetch-Site 头校验，无 query 凭据 |
 
 ### 3.2 会话浏览域（12）——`routes/sessions.ts`
@@ -194,9 +194,13 @@ graceful close 可能被 Node 响应管道吞掉——socket 保持 ESTABLISHED�
 `POST /api/agent/:id/lease` 心跳续期（建议 60s 一次，TTL 180s）；
 `renewed:false` 表示会话已不在注册表，前端据此显式 resume（ADR-0013）。
 
-> ⚠️ **前端未接**：`POST /api/agent/:id/lease` 目前没有调用方，lease 恒过期 ⇒ 实际退化为
-> 「只看 SSE 订阅」。后果：关掉标签页后 60s 内即被回收（而非设计中的 180s），重连窗口无人兜底
-> （重连期间可能被扫掉，客户端拿到 `renewed:false` 或 SSE 404 后走 resume 重建，功能可恢复、丢内存态）。
+> ✅ **前端已接（2026-09-26）**：`useAgentSession` 开看即以 30s 间隔续租（`LEASE_RENEW_INTERVAL_MS`），
+> `renewed:false` → 立即 revive（resume + 重建历史 + 重连流），不再静默丢掉这个信号。
+> 另两条触发路径：命令回 404 时先 revive 再重发（`dispatchWithRevive`）；收到 `session_shutdown` 事件
+> 时立即 revive（不必等心跳）。硬杀进程（无 shutdown 广播）时最长 30s 自愈。
+>
+> ⚠️ 该端点回的是扁平 `{success, renewed}`，`postCommand` 取 `payload.data` 会恒为 `undefined`
+> （2026-09-26 实测：lease 已回 `renewed:false`，客户端却当成功——`renewed` 永远传不到调用方）。
 
 ## 6. 安全（docs/01 §5.6 落地，鉴权模型见 ADR-0007）
 

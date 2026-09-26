@@ -160,6 +160,13 @@ src/
 | **F0 骨架** ✅ 已完成（2026-09-27） | `apps/web` 建包（Vite+RR7+Query+Tailwind v4+React Compiler）；client 双入口工程化（`./react` 子导出）；ui `theme.css` + primitives 首批（Button/IconButton/Popover/Textarea/Toast/ScrollArea，9 用例）；`MobileGate` 与 proxy；Playwright 冒烟 | 空壳三栏页 + `/api/health` 打通（冒烟通过） | 0.5 周 |
 | **F1 对话 MVP** ✅ 已完成（2026-09-27） | client：http / agent+会话端点 / stream 四件套（fold/rebuild/group-trail/AgentStream）/ `use-agent-session`；ui：primitives 补齐 + chat 全册（MessageList/Composer/AssistantTurn/ToolRow/ThinkingRow/ProcessGroup/MarkdownView/EmptyState）；web：EmptyState cwd 输入 + `?s=` 刷新恢复 + 冷会话 resume（ADR-0013a） | **M1 验收线达成：浏览器完成一轮带工具调用的编程任务**（真机两轮验收 + Playwright 冒烟；client 14 用例含 fold/rebuild 等价性） | 1.5–2 周 |
 | **F2 会话与项目** ✅ 已完成（2026-09-27） | client：sessions/projects/git/worktrees 端点 + view-models（session-list 分组/窗口化、chat-lazy-load）+ queries（TanStack Query）；ui：sidebar 册（Sidebar/SessionList 窗口化/SessionRow/ProjectPicker/SessionSearch）+ MessageList 懒加载；web：SidebarPane + URL 单一真相（`?s=`）+ workspace-memory + lease 续期 | 侧栏全功能、项目/worktree 切换、服务端正文搜索、历史分页（视口不跳）；**FileTree 移至 F3**（与文件域同批，避免半套文件端点） | 2 周 |
+
+> **URL ⇄ 会话对账规则（2026-09-26 补）**：`?s=` 与 `useAgentSession` 的 sessionId 不在同一个提交里，
+> 两个方向各写一个 effect 会在同一提交里**互相覆盖**——用户点会话 B 时 state 还是 A，
+> 「会话→URL」会把 URL 写回 A，`open(B)` 完成又写回 B，再触发 `open(A)`……两个会话无限互切（已实测）。
+> 因此只留**一个决策处**：`apps/web/src/panes/session-nav.ts` 的 `decideSessionNav()`，
+> 方向由「谁发起」决定——URL 发起的（点击/前进后退）**URL 赢**，本组件发起的（建会话/fork）**会话赢**。
+> 规则有单测（`session-nav.test.ts`），改动前先看那 7 条用例。
 | **F3 文件域** ✅ 已完成（2026-09-27） | client：files/file-index/validateCwd 端点 + files 模块（路径编码/类型判定/fuzzy/统一 diff 解析/页签 reducer）；ui：files 册（FileTree 窗口外懒加载/FileTabs/FileViewer 分发/CodeViewer 行号/DiffView/ImagePreview）；web：FileExplorerPane（+上传）+ FilesPane + Composer `@` 提及 | 侧栏文件树、右栏多标签查看器、git diff、图片、上传；**代码高亮（shiki）仍在 F5** | 1.5 周 |
 | **F4 设置中心** | client：models/models-config/resources/resources 端点 + models/ 模块；ui：settings/ 全册 + ProjectTrustDialog + DirectoryPicker 接线；web：SettingsHost + settings-navigation | models 配置/发现/测试/可见范围、skills、plugins、信任 | 1.5 周 |
 | **F5 对话增强与高级面板** ✅ 已完成（2026-09-27） | client：命令族端点 + minimap/统计/主题/本轮改动文件/输入历史/斜杠的纯逻辑；ui：候选菜单（`@` 与 `/` 共壳）/排队条/控制条/minimap/本轮改动文件/四面板（分支·系统·工具·统计）/扩展状态·widgets·阻塞对话框/shiki 高亮；web：主题三态、快捷键、提示音+页内通知、面板与工具栏接线 | **一期验收线达成**：docs/08 §1 清单 − §5 排除项全部可用（manual-panels 11 项绿） | 2–2.5 周 |

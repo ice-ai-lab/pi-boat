@@ -437,3 +437,55 @@ describe('AgentStream：seq 水位线', () => {
     expect(stream.getSnapshot().turns[0]?.user.text).toBe('新消息');
   });
 });
+
+// ---------------------------------------------------------------------------
+// AgentStream：就绪门禁（docs/05 §5.1；派发命令前必须已订阅）
+// ---------------------------------------------------------------------------
+
+describe('AgentStream：waitUntilReady', () => {
+  const connected = (sessionId: string, seqNo: number, lastSeq: number): WireAgentEvent =>
+    evSeq(seqNo, { type: 'connected', sessionId, isStreaming: false, lastSeq });
+
+  it('收到 connected 帧前一直等，收到即放行', async () => {
+    const stream = new AgentStream('s1');
+    let released = false;
+    const waiting = stream.waitUntilReady().then(() => {
+      released = true;
+    });
+    await Promise.resolve();
+    expect(released).toBe(false);
+    stream.applyEvent(connected('s1', 1, 0));
+    await waiting;
+    expect(released).toBe(true);
+  });
+
+  it('即使 connected 被水位线丢弃（重建后 seq 从 1 重新计数）也算就绪', async () => {
+    const stream = new AgentStream('s1');
+    // 旧 runtime 的水位线远高于新 Entry 的 seq：connected 会被 seq 对账丢掉，但订阅确实已生效
+    stream.restore(emptyChatState(), 100);
+    const waiting = stream.waitUntilReady();
+    stream.applyEvent(connected('s1', 1, 0));
+    await expect(waiting).resolves.toBeUndefined();
+  });
+
+  it('断开后就绪复位，必须等下一次 connected', async () => {
+    const stream = new AgentStream('s1');
+    stream.applyEvent(connected('s1', 1, 0));
+    await stream.waitUntilReady();
+    stream.disconnect();
+    let released = false;
+    const waiting = stream.waitUntilReady(1_000).then(() => {
+      released = true;
+    });
+    await Promise.resolve();
+    expect(released).toBe(false);
+    stream.applyEvent(connected('s1', 2, 0));
+    await waiting;
+    expect(released).toBe(true);
+  });
+
+  it('超时兜底：连接上不来时不把发送动作钉死', async () => {
+    const stream = new AgentStream('s1');
+    await expect(stream.waitUntilReady(5)).resolves.toBeUndefined();
+  });
+});

@@ -54,9 +54,20 @@ export async function resumeAgentSession(sessionId: string): Promise<void> {
   await postCommand<null>(`/agent/${encodeURIComponent(sessionId)}/resume`);
 }
 
-/** POST /api/agent/:id/lease —— 续 lease（推迟 idle 回收，G2-12）；renewed=false 表示会话已不在注册表 */
+/**
+ * POST /api/agent/:id/lease —— 续 lease（推迟 idle 回收，G2-12）；renewed=false 表示会话已不在注册表
+ * （server 重启 / 被 idle 回收），客户端据此显式 resume（ADR-0013）。
+ *
+ * ⚠️ 本端点回的是**扁平** `{success, renewed}`，不是 `CommandOk` 信封——不能用 `postCommand`：
+ * 它取的是 `payload.data`，而这里没有 `data` 字段，返回值恒为 `undefined`，
+ * `renewed:false` 永远传不到调用方（2026-09-26 实测：重启后 lease 回了 renewed:false，
+ * 客户端却静默当成成功）。
+ */
 export async function renewAgentLease(sessionId: string): Promise<{ renewed: boolean }> {
-  return postCommand<{ renewed: boolean }>(`/agent/${encodeURIComponent(sessionId)}/lease`);
+  const res = await http.post<{ success: true; renewed: boolean }>(
+    `/agent/${encodeURIComponent(sessionId)}/lease`,
+  );
+  return { renewed: res.data.renewed };
 }
 
 /** GET /api/agent/:id —— 状态轻查（不进命令 FIFO；run 期间轮询用它，docs/02 §6.1） */
