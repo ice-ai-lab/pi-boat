@@ -1,7 +1,8 @@
 # PiBoat —— ui 详细设计
 
 > `@ice-ai/ui`：纯展示组件库。本文是 `docs/01-overview.md` §3.1 的实现细化，
-> **视觉与交互基准是 `docs/design/piboat-web-v3.html`（原型 v3）**，数据形状来自
+> **视觉与交互基准是 pi-web `app/globals.css` + 其组件结构（ADR-0020，2026-01 推翻原型 v3）**；
+> 旧原型 `docs/design/piboat-web-v3.html` 已退役（仅作历史参照）。数据形状来自
 > `docs/05-client-design.md` §6 的视图模型，类型来自 `@ice-ai/protocol`。
 > 状态：**开工前设计稿**（2026-09-22，随 Web 原型 v3 定稿）。技术栈基准已由 ADR-0009 收口（见 §11.1）。
 > 与代码不一致时以代码为准并当天更新本文档。
@@ -20,15 +21,20 @@
 ——AGENTS.md 允许 ui 依赖 client hooks，但每加一个都要有第二个真实用途。
 **已登记四处**（ADR-0019，2026-09-27）：`sidebar/SessionSidebar`、`settings/SettingsPanel`、
 `files/FileViewer`、`extension/ExtensionWidgets`；第二用途 = `apps/desktop`（M4）复用。
+**第五处（2026-09-26，T8）**：`i18n/I18nProvider`（`useI18n`）——理由不同：它不是取数容器，而是
+全局语言 Context；约 60 个 ui 组件要直接调 `t()`，走 props 下传 612 个 key 不可行。
+这与 `theme.css` 放在 ui、由宿主写 CSS 变量是同一口径（docs/08 §6-3）。
 其余组件保持 props 驱动、无 Provider 可测；新增例外仍须逐个在此登记。
 
 ---
 
 ## 2. 视觉基准与 token 单一来源
 
-- **唯一基准**：`docs/design/piboat-web-v3.html`。原型是 v0.1，允许增量演进，但**签名细节必须保留**：
-  0.5px hairline、superellipse 圆角、`#4176E6` 业务蓝、毛玻璃浮层、sticky 输入卡 + 渐变淡入、细滚动条
-- **token 单一来源**：`packages/ui/theme.css`（原型 `:root` + `[data-theme="dark"]` 两套）
+- **唯一基准（ADR-0020，2026-01 修订）**：**pi-web 自身** —— `~/project/WebstormProjects/pi-web/app/globals.css` 的运行变量
+  + 组件内联样式/类名。组件层结构与样式逐条照抄（pi-web 是 MIT，可移植）。
+  旧原型 `docs/design/piboat-web-v3.html` 退役：其 0.5px hairline、superellipse、`#4176E6`、毛玻璃浮层**不再保留**。
+- **token 单一来源**：`packages/ui/src/theme.css`（pi-web 变量 `:root` + `[data-theme="dark"]` 两套）
+  + `packages/ui/src/styles/pi-web.css`（从 pi-web `globals.css` 搬来的组件级类）
   - 形状：`@import 'tailwindcss'` 之前用 `:root` / `[data-theme="dark"]` 定义变量，再用
     `@theme inline { --color-surface: var(--surface); … }` 暴露给 Tailwind
   - **暗色不能写死在 `@theme` 里**（`@theme` 是编译期常量，写死则切主题失效）
@@ -54,8 +60,10 @@
 | `--elev-panel/-soft/-soft-sm` | `--shadow-panel/-soft/-soft-sm` | 三档阴影（均以 0.5px 环起始） |
 | `--font` `--mono` | `--font-sans` `--font-mono` | ⚠️ 原型 `--font-noto-mono` **未定义**，移植时补或删 |
 
-> **深色主题**（2026-09-22 定「M1 不支持」→ **2026-09-27 修订〔ADR-0019〕：随前端 F5 交付**）：
-> light / dark / system 三态切换，`theme.css` 的 `[data-theme="dark"]` 变量块即为此预留；
+> **深色主题**（2026-09-22 定「M1 不支持」→ **2026-09-27 修订〔ADR-0019〕：随前端 F5 交付** →
+> **2026-01 再修订〔ADR-0020 §5〕：不做自有三态，直接照抄 pi-web 的调色板模型**）：
+> `light` / `dark` / `mist` / `rose` / `pine` / `auto`（`auto` 跟随系统，`pine` 算暗色）六档，
+> 落地写 `data-theme` + `dark` class；`theme.css` 的 `[data-theme="dark"]` 只是其中一档；
 > 实现走 `[data-theme]` 属性 + localStorage（§8.6），「跟随系统」用 `prefers-color-scheme` + `matchMedia`。
 > F5 之前的批次不接切换、不做验证
 | `--sb-w` `--rb-w` `--chat-w` | **不进 `@theme`** | 布局尺寸走组件 props / CSS 变量（可拖拽、可持久化） |
@@ -225,19 +233,18 @@ hover/拖动显示 2px 光条、光条跟随指针 Y（`--mh-y`）、±36px 渐�
 
 ## 9. 响应式与无障碍
 
-### 9.1 响应式（**已定：只保大屏，不做小屏适配**，2026-09-22）
+### 9.1 响应式（**已定：桌面单形态，不做小屏适配**，2026-09-26 修订）
 
-M1 只保证**大屏可用**；小屏不做适配，屏幕特别小时**停止适配**（而非硬撑着变形）：
+只保证**大屏可用**；不做小屏适配，也**不做门禁提示**（原「<880px 显示窗口过窄」方案已废）。
 
-- 视口宽度 **< 880px**（原型第二条断点，语义一致：原型在该宽度把侧栏降为覆盖层）→ 不渲染聊天区，
-  显示一个极简提示（复用 `EmptyState`）：“窗口过窄（< 880px），请加宽窗口”
-- **M1 不做**：drawer / 单栏重排 / `useIsMobile` / 底部导航。移动端与 PWA 形态随 M3 路径一起排期
-- 但**保留「禁写死桌面假设」这条低成本约定**（docs/01 §5.5 ①）：组件不把三栏/固定宽度当硬前提，
-  以免将来要适配时得重写；具体表现为：布局尺寸走 props/CSS 变量、不把 `--sb-w`/`--rb-w` 参与
-  窄屏计算、组件不依赖 `window.innerWidth` 做结构判断
-- Electron 主窗口的最小宽度由 M4 设（与 880 对齐）
-
-原型现状：只有 1180 / 880 两条“覆盖式”断点。M1 不实现 1180 那条（M1 无右栏）；880 转为上述门禁。
+- 窄屏（<880px）照常渲染同一个桌面壳，不重排、不提示、不门禁。
+  原 `MobileGate` 组件 + `.mobile-gate` / `.app-shell` 媒体查询已按对齐审查 T0-2 **删除**
+  （原因：`.app-shell` 类从未出现在 DOM，媒体查询是死代码，实际见到的是“半坏的桌面壳”）。
+  证据与定案见 `docs/09-frontend-alignment-audit.md` §1 BUG-2 / §3.1 #1。
+- **不做**：drawer / 单栏重排 / `useIsMobile` / `matchMedia` 结构判断 / `useViewportHeight` / 底部导航。
+- **仍保留「禁写死桌面假设」这条低成本约定**（docs/01 §5.5 ①）：组件不把三栏/固定宽度当硬前提，
+  布局尺寸走 props/CSS 变量，以免将来要适配时得重写。
+- Electron 主窗口的最小宽度由 M4 定。
 
 ### 9.2 无障碍（原型现状：几乎为零）
 
@@ -303,8 +310,8 @@ Lucide、`cva` + `clsx` + `tailwind-merge`（`cn()`）、markdown 走 `react-mar
 | 1 | **新建会话的 `cwd` 来源** | `POST /api/agent/new` 的 `cwd` 是**必填**（`z.string().min(1)`），而 M1 不做工作区 UX | ✅ **已定（2026-09-22）：前端路径输入框 + `localStorage` 记住上次**。落位：`EmptyState`（hero）的插槽（原型已预留 `#heroSlot`）；提交前只做字符串级校验（非空、绝对路径），**存在性由 core 校验**（见下行） | **高**（无 cwd 无法建会话） |
 | 1b | （连带）**不存在的 cwd 会静默建会话** | 实证（2026-09-22）：SDK `createAgentSession({ cwd: '/不存在' })` **不报错照样建会话**，之后每次 read/bash/edit 都在会话里失败——用户看到的是“agent 莫名一直报错” | ✅ **已定且已落地：core 在 `create()` 前置校验**（存在且为目录 → 否则 `UserInputError` → 400）。**不拖到** `/api/cwd/validate`；也不可选“什么都不做” | **高** |
 | 2 | 自动滚底 vs “用户上滚后脱离” | 原型只有无条件 `scrollBottom()` | ✅ **已定（2026-09-22）：吸附模型**（贴底 8px / 重吸 96px / 上滚即脱离 / 新增 `ScrollToBottomButton`），见 §8.2 | 中 |
-| 3 | <880px 的响应式形态 | 原型只有 1180/880 两条覆盖式断点 | ✅ **已定（2026-09-22）：只保大屏，不做小屏适配**——<880px 显示“窗口过窄”提示，不做 drawer/重排；保留“禁写死桌面假设”，移动端随 M3 排期，见 §9.1 | 低 |
-| 4 | 深色主题是否进 M1 | 原型的 `[data-theme="dark"]` token 已完整 | ✅ 已定（2026-09-22）：F1–F4 **不支持**——不接切换、不做验证（保留 dark 变量块的决策不变）；🔄 **修订（2026-09-27，ADR-0019）：随 F5 交付** light/dark/system 三态 | 低 |
+| 3 | <880px 的响应式形态 | 原型只有 1180/880 两条覆盖式断点 | ✅ **已定（2026-09-26 修订）：桌面单形态**——窄屏照常渲染桌面壳，不重排、不提示（原 MobileGate 已删）；保留“禁写死桌面假设”，见 §9.1 | 低 |
+| 4 | 深色主题是否进 M1 | 原型的 `[data-theme="dark"]` token 已完整 | ✅ 已定（2026-09-22）：F1–F4 **不支持**——不接切换、不做验证（保留 dark 变量块的决策不变）；🔄 **修订（2026-09-27，ADR-0019）：随 F5 交付**；🔄 **再修订（2026-01，ADR-0020 §5）：不自有三态，改为照抄 pi-web 的 `light/dark/mist/rose/pine/auto` 六档** | 低 |
 
 ---
 

@@ -155,6 +155,20 @@ export {
   type SlashQueryMatch,
   slashSourceLabel,
 } from './input/slash-commands';
+export {
+  clampPanelWidth,
+  getDefaultRightPanelWidth,
+  getRightPanelMaxWidth,
+  getSidebarMaxWidth,
+  MOBILE_MAX_WIDTH,
+  RIGHT_PANEL_FALLBACK_WIDTH,
+  RIGHT_PANEL_MAX_WIDTH,
+  RIGHT_PANEL_MIN_WIDTH,
+  SIDEBAR_DEFAULT_WIDTH,
+  SIDEBAR_MAX_WIDTH,
+  SIDEBAR_MIN_WIDTH,
+  SPLIT_PANEL_MIN_WIDTH,
+} from './layout/panel-layout';
 export { AgentEventConnection, parseWireEvent } from './stream/agent-event-connection';
 export { AgentStream, disposeAgentStream, getAgentStream } from './stream/agent-stream';
 export { applyToolResult, assistantFinalText, fold, userText } from './stream/fold';
@@ -174,6 +188,26 @@ export {
   type Turn,
 } from './stream/view-model';
 export { CLIENT_VERSION } from './version';
+export {
+  applyChatAppearance,
+  CHAT_CONTENT_FONT_SIZE_DEFAULT,
+  CHAT_CONTENT_FONT_SIZE_MAX,
+  CHAT_CONTENT_FONT_SIZE_MIN,
+  CHAT_CONTENT_FONT_SIZE_STORAGE_KEY,
+  CHAT_CONTENT_WIDTH_DEFAULT,
+  CHAT_CONTENT_WIDTH_MAX,
+  CHAT_CONTENT_WIDTH_MIN,
+  CHAT_CONTENT_WIDTH_STORAGE_KEY,
+  type ChatAppearance,
+  clampChatContentFontSize,
+  clampChatContentWidth,
+  DEFAULT_CHAT_APPEARANCE,
+  isThinkingExpandedByDefault,
+  readStoredChatAppearance,
+  setThinkingExpandedByDefault,
+  THINKING_EXPANDED_EVENT,
+  THINKING_EXPANDED_STORAGE_KEY,
+} from './view-models/chat-appearance';
 export {
   CHAT_SCROLL_REATTACH_TOLERANCE,
   CHAT_SCROLL_TAIL_TOLERANCE,
@@ -230,9 +264,12 @@ export {
 } from './view-models/session-stats';
 export {
   applyTheme,
-  nextTheme,
+  isDarkTheme,
+  isThemePreference,
   type ResolvedTheme,
   resolveTheme,
+  THEME_INIT_SCRIPT,
+  THEME_OPTIONS,
   type ThemePreference,
   themeLabel,
 } from './view-models/theme';

@@ -72,10 +72,11 @@ pi-web 的 `.test.mjs`（node:test 风格）改写为 Vitest 用例，**先移�
 `subagent-*` 全组、`app-update`、`bash-output`、`exact-system-prompt`、`models-config-store`、
 `enabled-models-runtime`（后端已有）、`git-status` / `worktree`（后端已有）、其余 `*.route` / server 侧工具。
 
-### 2.2 B 类：行为参照、视觉重写（组件层）
+### 2.2 B 类：行为参照、视觉照抄（组件层）— 口径由 ADR-0020 修订
 
 pi-web 的 CSS（`globals.css` 手写类 + CSS 变量）与本仓体系（Tailwind v4 + shadcn + 原型 token）不兼容，
-且本仓**视觉基准是 `docs/design/piboat-web-v3.html` 原型**（docs/06 §2，hairline/superellipse/#4176E6）。
+原定基准是 `docs/design/piboat-web-v3.html` 原型（hairline/superellipse/#4176E6）——**ADR-0020 已推翻**：
+视觉基准改为 pi-web 自身（`app/globals.css` 的变量 + 组件内联样式），组件层结构与样式逐条照抄。
 因此组件层**移植交互与结构、不移植样式**：JSX 结构、状态机、键盘/焦点行为、aria 属性参照 pi-web；
 类名与视觉按 docs/06 token 重写。重写时顺手完成 docs/06 §9.2 的无障碍补齐与 §10 的原型待修项。
 
@@ -203,8 +204,31 @@ src/
 | 11 | DOCX 预览 | ❌ 后端不做转换；FileViewer 走文本回退 | docs/07 §9 |
 | 12 | 扩展 UI `custom` method（自绘终端 UI） | ❌ 只做 9 个 method（ADR-0012）；`ExtensionWidgets` 的 custom 分支不移植 | ADR-0012 |
 | 13 | 桌面目录选择（`piDesktop.selectDirectory`） | ❌ 二期；DirectoryPicker 走 `/api/cwd/browse` | M4 |
-| 14 | i18n 三语 | 待决策（§6-1，倾向 zh-CN 单语） | — |
+| 14 | i18n 三语 | ✅ **已定案（2026-09-26 推翻原「zh-CN 单语」）**：做 en / zh-CN / ja 三语，走 pi-web 的 registry 架构（§6-1） | — |
 | 15 | 启动偏好（`defaultModel` 落盘） | 前端 localStorage 绕过（§6-4） | G2-11 |
+
+---
+
+## 5.1 ADR-0020 视觉复刻的剩余清单（按此表推进，完成项删行）
+
+> 基准 = pi-web 本机快照（0.9.x）。CSS 层已逐字搬运完毕（`styles/pi-web.css` / `styles/settings.css`），
+> 下面剩的是**组件 DOM + 类名**要换成同一批类；类已存在但组件未用，所以视觉还未到位。
+
+| # | 域 | 要做的事（pi-web 对照） | 状态 |
+|---|---|---|---|
+| 1 | 设置壳 | ✅ 已做：顶部横向 tab（`settings-section-tabs/-tab`）+ `settings-dialog-*` 外壳 + `×` 关闭键 + 节常驻挂载（`settings-section-host`）；`SettingsUi` 全族（`config-*`）已移植（`settings-ui.tsx`） | ✅ 完成 |
+| 2 | 通用节 | ✅ 已做：外观 + 对话（思考默认展开 / 内容宽 / 字号 range）+ 语言节（三语 radiogroup）；「工具 / 关于 / 项目信任」三节按 pi-web 移出（信任改 `ProjectTrustDialog`） | ✅ 完成 |
+| 3 | 模型节 | `models-sidebar-*` / `enabled-models-*` / `config-list-action-button` 结构 | ⬜ 未做 |
+| 4 | Skills / 扩展包节 | `skill-*` / `config-detail-*` / `config-button-*` 结构 | ⬜ 未做 |
+| 5 | 目录选择器 | `directory-picker-*` 类（组件已存在，类名待换） | ⬜ 未做 |
+| 6 | 代码块 / 文件查看器 | pi-web 用 `react-syntax-highlighter`（Prism、`vs`/`vscDarkPlus`）+ `showLineNumbers`；本仓现用 shiki 且无行号——颜色与行号都不一样 | ⬜ 未做（需换依赖） |
+| 7 | Markdown | `markdown-frontmatter*`（frontmatter 卡片）、`markdown-custom-message`、`markdown-compaction-message` + `compaction-file-*`、`markdown-file-preview`、`markdown-table-wrap`、`.markdown-user-message` | ⬜ 未做 |
+| 8 | 对话流 | 🟡 部分：`chat-scroll-to-bottom.is-visible` 已归位（BUG-1）、工具条补「完整历史 / 生成标题」+ 右侧 tokens/cost/context 统计按钮（T1-3/S4）；`chat-stats-center` / `chat-input-textarea` 归位、面板改 `position:fixed` 下拉（T1-6）未做 | 🟡 部分 |
+| 9 | 文件域 | 🟡 部分：`file-panel-expand-button` + 隐藏按钮已归位（BUG-3，桌面可关右栏）；`file-viewer-mode-switch` / `-load-more` / `-live-indicator`、`image-preview-dialog` 灯箱、`catppuccin-file-icon`（需图标资源）未做 | 🟡 部分 |
+| 10 | 布局容器 | `sidebar-container`（现为 `<aside>` + `border-r`：内容宽 259 vs pi-web 260）/ `right-panel-container` / `panel-resize-handle`（pi-web 用它画分隔线，不在容器上描边）/ `sidebar-section-resize-handle` / `*-overlay-backdrop` + `scrollbar-subtle` | ⬜ 未做（已实测差异） |
+| 11 | 扩展货架 | `extension-widget-placement(-icon)` / `extension-widget-update-pulse` / `is-updating` | ⬜ 未做 |
+| 12 | 字体 | ✅ 已做：`@fontsource-variable/noto-sans-mono` 提供 `--font-noto-mono`，实测同串同宽（134.41px @14px）。**坑**：`var(--font-noto-mono)` 未定义会让整条 `font-family` 声明在计算期失效（等宽静默回落成 sans），不是回落到下一个字体 | ✅ 完成 |
+| 13 | 侧栏底栏 | 三按钮已对齐（✅）；health 指示器仍在 `chat-pane`（pi-web 无此件，待确认去留） | 🟡 部分 |
 
 ---
 
@@ -212,12 +236,12 @@ src/
 
 | # | 议题 | 结论 | 否决的备选 |
 |---|---|---|---|
-| 1 | **i18n 范围** | ✅ zh-CN 单语：文案集中 `ui/src/locales/zh-cn.ts` 一处，不引 i18n 框架 | 引 pi-web registry 全量三语 |
+| 1 | **i18n 范围** | ✅ **en / zh-CN / ja 三语**（2026-09-26 推翻原「zh-CN 单语」决策）：基建照抄 pi-web `lib/i18n/{types,registry,format}` + `useI18n`，落位 `packages/ui/src/i18n/`；语言包 `messages/{en,zh-CN,ja}.ts`（en/zh-CN 自 pi-web 拷贝并扣除排除域 89 key，ja 独立撰写）；`localStorage` key = `pi-locale`；语言选择器在「设置 → 通用 → 语言」；新增 Vitest 断言三语 key 集合与占位符一致 | 原：zh-CN 单语、文案集中 `ui/src/locales/zh-cn.ts`、不引框架 |
 | 2 | **深色主题时点** | ✅ 随 F5 交付（修订 docs/06「M1 不支持」的时点）：light/dark/system 三态，原型 dark token 即预留 | 维持「M2」，一期只亮色 |
-| 3 | **ui 容器例外登记** | ✅ 登记 4 处（SessionSidebar/SettingsPanel/FileViewer/ExtensionWidgets）可依赖 client hooks；第二用途 = apps/desktop（M4） | 全部哑组件、props 由 web 装配 |
+| 3 | **ui 容器例外登记** | ✅ 登记 5 处（SessionSidebar/SettingsPanel/FileViewer/ExtensionWidgets/**I18n**）：`I18nProvider`/`useI18n` 必须放 `packages/ui`（约 60 个 ui 组件直接调 `t()`，走 props 下传不现实；与 `theme.css` 放 ui 同源） | 全部哑组件、props 由 web 装配；i18n 放 packages/client |
 | 4 | **G2-11 绕过** | ✅ 前端 `startup-preferences.ts`（localStorage 记住上次 model/thinking/cwd）；core 落盘**不做**（G2-11 保持非阻塞缺口） | 一并补 core（`setDefaultModelAndProvider()`） |
 | 5 | **URL 形态** | ✅ 单路由 `/` + `?s=<sessionId>`（对齐 pi-web searchParams 模式；设置/面板浮层不占路由） | `/session/:id` 路由化（与 tab-session 冗余） |
-| 6 | **视觉基准** | ✅ 功能对齐 pi-web、视觉走本仓原型 v3（docs/06 既定）——「一样的页面功能」不含像素对齐 | 视觉也对齐 pi-web（须推翻原型 v3） |
+| 6 | **视觉基准** | ✅ 功能对齐 pi-web、视觉走本仓原型 v3（docs/06 既定）——「一样的页面功能」不含像素对齐 → **已被 ADR-0020 推翻**：视觉基准改为 pi-web 自身 | 视觉也对齐 pi-web（须推翻原型 v3）→ 已采纳 |
 
 ---
 
