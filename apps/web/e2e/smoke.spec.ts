@@ -9,10 +9,13 @@ test('骨架冒烟：三栏空壳 + health 连通 + 对话入口', async ({ page
   await expect(page.getByText('连接正常')).toBeVisible({ timeout: 10_000 });
 });
 
-/** 窄屏门禁（docs/06 §9.1）：<880px 显示提示、隐藏主壳 */
-test('窄屏门禁：<880px 停止适配', async ({ page }) => {
+/**
+ * 窄屏：不做移动端布局（ADR-0020 / 对齐审查 §3.1 #1），桌面单形态。
+ * 原「MobileGate」门禁已按 T0-2 删除，这里只锁「窄屏也照常渲染桌面壳」。
+ */
+test('窄屏仍是桌面壳（无门禁）', async ({ page }) => {
   await page.setViewportSize({ width: 700, height: 800 });
   await page.goto('/');
-  await expect(page.getByText('窗口过窄', { exact: false })).toBeVisible();
-  await expect(page.locator('.app-shell')).toBeHidden();
+  await expect(page.getByText('窗口过窄', { exact: false })).toHaveCount(0);
+  await expect(page.getByText('输入一个工作目录', { exact: false })).toBeVisible();
 });

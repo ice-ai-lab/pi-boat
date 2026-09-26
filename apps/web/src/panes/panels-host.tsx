@@ -26,9 +26,14 @@ export interface PanelsHostProps {
   systemPrompt: string | null;
   systemLoading: boolean;
   onReloadSystemPrompt(): void;
-  tools: { name: string; description: string; active: boolean }[];
+  tools: {
+    name: string;
+    description: string;
+    active: boolean;
+    parameters?: unknown;
+    promptGuidelines?: string[];
+  }[];
   toolsLoading: boolean;
-  onReloadTools(): void;
   stats: ComponentProps<typeof SessionStatsPanel>['summary'];
   statsInfo: ComponentProps<typeof SessionStatsPanel>['info'] | null;
   contextPercent: number | null;
@@ -122,14 +127,7 @@ export function PanelsHost(props: PanelsHostProps) {
     );
   }
   if (props.active === 'tools') {
-    return (
-      <ToolDefinitionsPanel
-        tools={props.tools}
-        loading={props.toolsLoading}
-        onClose={props.onClose}
-        onReload={props.onReloadTools}
-      />
-    );
+    return <ToolDefinitionsPanel tools={props.tools} loading={props.toolsLoading} />;
   }
   if (props.active === 'branches') {
     return (
