@@ -174,7 +174,7 @@ function fakeReadService() {
       if (name.trim() === '') throw new UserInputError('Session name cannot be blank');
       return info;
     }),
-    delete: vi.fn(async (id: string) => (id === 'sess-disk' ? [id, 'sess-child'] : null)),
+    delete: vi.fn(async (id: string) => (id === 'sess-disk' ? [id] : null)),
     toolResultImage: vi.fn(async (id: string, entryId: string, blockIndex: number) => {
       if (id !== 'sess-disk' || entryId !== 'e1' || blockIndex !== 0) return null;
       // 1x1 PNG（最小合法位图）
@@ -736,12 +736,12 @@ describe('轻查与浏览路由', () => {
     expect((await patch({ name: 'x' }, 'nope')).status).toBe(404);
   });
 
-  it('DELETE /api/sessions/:id：运行中 409；级联返回 deletedIds；不存在 404', async () => {
+  it('DELETE /api/sessions/:id：运行中 409；返回 deletedIds；不存在 404', async () => {
     const { app } = makeApp();
     const running = await request(app, '/api/sessions/sess-live', { method: 'DELETE' });
     expect(running.status).toBe(409);
     const ok = await request(app, '/api/sessions/sess-disk', { method: 'DELETE' });
-    expect(await ok.json()).toEqual({ deletedIds: ['sess-disk', 'sess-child'] });
+    expect(await ok.json()).toEqual({ deletedIds: ['sess-disk'] });
     expect((await request(app, '/api/sessions/nope', { method: 'DELETE' })).status).toBe(404);
   });
 

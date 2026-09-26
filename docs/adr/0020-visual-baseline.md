@@ -19,7 +19,7 @@ ADR-0019 §6 定的是「功能按设计规范、**视觉走本仓原型 v3**」
 - 设计规范本身就是 **Tailwind v4**（顶部 `@import "tailwindcss"` + `@theme {}` 映射），
  组件层用 `bg-bg-panel` / `text-text-muted` / `border-border` 等 Token 类名 + 内联 `var(--…)`，
  与本仓体系同构，不存在「不兼容」；
-- 该设计规范以 MIT 许可发布，组件结构与样式可安全落地（许可声明见 `THIRD_PARTY_NOTICES.md`）。
+- 该规范为本仓自有规范，组件结构与样式可直接落地，无第三方许可约束。
 
 ## 决策
 

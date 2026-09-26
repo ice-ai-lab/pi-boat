@@ -31,7 +31,7 @@
 ## 2. 视觉基准与 token 单一来源
 
 - **唯一基准（ADR-0020，2026-01 修订）**：**统一 Web 设计规范** —— 的运行变量
-  + 组件内联样式/类名。组件层结构与样式逐条对齐（规范以 MIT 发布，可安全落地，声明见 `THIRD_PARTY_NOTICES.md`）。
+  + 组件内联样式/类名。组件层结构与样式逐条对齐（口径见 ADR-0020）。
   旧原型 `docs/design/piboat-web-v3.html` 退役：其 0.5px hairline、superellipse、`#4176E6`、毛玻璃浮层**不再保留**。
 - **token 单一来源**：`packages/ui/src/theme.css`（规范变量 `:root` + `[data-theme="dark"]` 两套）
   + `packages/ui/src/styles/web-ui.css`（组件级类，口径见 ADR-0020）

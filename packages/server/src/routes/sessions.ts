@@ -288,7 +288,7 @@ export function registerSessionRoutes(app: Hono, deps: SessionRouteDeps): void {
     }
   });
 
-  // DELETE /api/sessions/:id —— 级联删除 subagent 子会话（core delete，docs/04 §8-2）；
+  // DELETE /api/sessions/:id —— 删除会话文件（core delete，docs/04 §8-2）；
   // 运行中 → 409（删注册表内会话会与 SDK 写盘竞争）
   app.delete('/api/sessions/:id', async (c) => {
     const id = c.req.param('id');

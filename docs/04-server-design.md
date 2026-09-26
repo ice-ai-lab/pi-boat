@@ -61,7 +61,7 @@
 | `GET .../entries/:entryId/thinking` | 条目读取 | 全量推理文本（`blockIndex`）；`deferThinking` 已按 2026-09-20 决策删除 |
 | `GET .../entries/:entryId/tool-result-image` | `readService.toolResultImage()` | 二进制图片（`blockIndex`）；deferMedia 占位符形状待后续定 |
 | `PATCH /api/sessions/:id` | `readService.rename()` | 运行中会话 → **409**（提示改走 `set_session_name` 命令，避免与 SDK 写盘竞争）；空白名 → 400 |
-| `DELETE /api/sessions/:id` | `readService.delete()` | 级联删除 subagent 子会话（§8-2）；运行中 → 409 |
+| `DELETE /api/sessions/:id` | `readService.delete()` | 删除会话文件（§8-2）；运行中 → 409 |
 
 ### 3.3 项目与模型域（10）——`routes/projects.ts` + `routes/models.ts`
 
@@ -237,7 +237,7 @@ graceful close 可能被 Node 响应管道吞掉——socket 保持 ESTABLISHED�
 | # | 缺口 | 归属 | 处理 |
 |---|---|---|---|
 | 1 | SSE 重放缓冲（core 只发不存） | core | ⏸ 降级方案在用（§5.5）；环形缓冲属 B8 可选（`docs/07` §6） |
-| 2 | `DELETE /api/sessions/:id` 级联删除方法 | core | ✅ `SessionReadService.delete()`（subagent 标记判定，fork 子会话不级联） |
+| 2 | `DELETE /api/sessions/:id` 删除方法 | core | ✅ `SessionReadService.delete()`（不级联子会话） |
 | 3 | `tool-result-image` 惰性读取（`deferMedia` 必需） | core | ✅ `toolResultImage()` 与 `/thinking` 端点均已就位；deferMedia 占位符形状待后续定 |
 | 4 | 优雅退出信号处理 | server | ✅ main.ts 接 SIGINT/SIGTERM（§2），含关停硬断（§5.4，SIGTERM 验收） |
 | 5 | 会话存在性轻量检查（state 端点 404 判定） | core | 仍用 `detail() !== null`（贵但正确）；量大后加 `exists(id)` |

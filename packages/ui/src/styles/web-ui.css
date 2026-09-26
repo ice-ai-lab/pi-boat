@@ -7,7 +7,6 @@
  * - token 变量在 `theme.css`；`html`/`body`/`*` 基础版式在 `apps/web/src/index.css`。
  * - **不要在此手写新规则**：类名以规范为准，改样式改组件或同步规范，保持一致靠 diff 可核查。
  * - 消费方式：`apps/web/src/index.css` 的 `@import "@ice-ai/ui/web-ui.css"`。
- * - 许可：MIT（许可与来源声明集中见 `THIRD_PARTY_NOTICES.md`）。
  */
 
 .catppuccin-file-icon {
