@@ -40,7 +40,7 @@ core 是 pi SDK 之上的**传输无关**业务层，补齐 SDK 没有的三件�
 
 | 文件 | 职责 | 测试 |
 |---|---|---|
-| `read/session-read-service.ts` | 列表/正文搜索/详情/分页/改名/统计/级联删除/工具图片/文件指纹（`revision`） | `session-read-service.test.ts` |
+| `read/session-read-service.ts` | 列表/正文搜索/详情/分页/改名/统计/删除/工具图片/文件指纹（`revision`） | `session-read-service.test.ts` |
 | `read/project-read-service.ts` | 项目清单（ADR-0008 派生视图，与列表共用扫描与 resolver） | `project-read-service.test.ts` |
 | `read/project-resolver.ts` | cwd → 项目归一（git 仓库根 / worktree / `projectKey`，60s 缓存） | `project-resolver.test.ts` |
 | `read/dir-scan.ts` | 会话目录元数据扫描 + 目录指纹（列表缓存键，不解析正文） | —（随 read/project 测） |
@@ -207,9 +207,8 @@ agent-session.js:776/784/949）②`agent_settled` 事件幂等兜底（steer/fol
 - `detail`：tree/stats/context 装配；`totalActiveMs` 冷会话置 0（需运行时埋点）
 - `rename`：`appendSessionInfo` 追加行（空白名抛 UserInputError）；运行中会话 `PATCH` 仍返 **409**（server 提示改走 `set_session_name` 命令，避免与 SDK 写盘竞争）
 - `computeStats`：对齐 SDK `getSessionStats` 聚合口径（导出的纯函数）。⚠️ **必须计入 `usage` 条目**（如 `kind: "cache_warm"` 的 prompt 缓存预热，SDK ≥ 0.86）：它不进模型上下文但计费，漏掉它 token / cost 就与 SDK `/session` 不一致；`context_edit` 条目对统计无影响（不改原始消息）
-- `delete`（docs/04 §8-2）：按 header.parentSession（父会话文件路径）建子链，BFS 收集
-  传递闭包，**只级联带子代理标记的子会话**（判定用 custom 条目的 `customType`，字面量
-  见 `SessionReadService.delete()`；fork 子会话仍是顶层列表项，不级联）；运行中拦截归 server（409）
+- `delete`（docs/04 §8-2）：删除目标会话文件，返回受影响 id（**只含目标自身**，不级联
+  子会话——子代理能力不在本仓范围，见 docs/07 §8-4）；运行中拦截归 server（409）
 - `toolResultImage`（docs/04 §8-3）：按 entryId + blockIndex 读 toolResult 消息的图片块，
   base64 解码为二进制；`deferMedia` 占位符形状待后续定（历史图片全文直发）
 

@@ -117,7 +117,7 @@
 | `GET /api/sessions/:id` | ✅ | 含 `wrapperRebuilt`（`force=1` 时触发外部写入检测，G2-5）；`deferMedia` 已实现；未做：`tree=summary` / `treeFormat`（无消费方，按「不养期货」不加） |
 | `GET /api/sessions/:id/revision` | ✅ | 审查后补（G2-6）：单会话文件指纹 |
 | `PATCH /api/sessions/:id` | ✅ | 运行中 409（server 提示改走 `set_session_name` 命令——有意保留 409，避免与 SDK 写盘竞争） |
-| `DELETE /api/sessions/:id` | ✅ | 一致（级联子代理，fork 不级联） |
+| `DELETE /api/sessions/:id` | ✅ | 一致（只删目标会话，不级联子会话） |
 | `GET /api/sessions/:id/state` | ✅ | 一致（文件不存在 404） |
 | `GET /api/sessions/:id/context` | ✅ | `deferThinking` 已按 2026-09-20 决策**不做**（历史 thinking 全文直发），「缺 deferThinking」不再是缺口 |
 | `GET .../entries/:entryId/thinking` | ✅ | 已落地（全量推理文本，按 `blockIndex`） |
@@ -351,7 +351,7 @@
   - 模型默认无法委派子任务（除非用户装了相应扩展）
   - 没有 Web 侧管理面：profile 增删改 / 开关、运行信息 / steer / abort 都没有界面入口
   - 侧栏不把子代理会话聚簇到宿主会话下，也不显示 status / result；它们仍以普通会话（带 `parentSession`）出现，**可浏览、可续聊、可删除**
-  - 删除级联的子代理标记判定**已在 core 实现**（`SessionReadService.delete()`），对既有会话文件仍然生效
+  - 删除只针对目标会话文件：**不做子代理级联**（能力不在范围，`SessionReadService.delete()` 不再识别子代理标记）
 - **将来引入路径**：以 pi 扩展形式提供（第三方包或自研），protocol 侧只加不改（新增端点非破坏性）。届时应重估是否升级为内建运行时以换取管理面与家族聚簇。
 - **后果**：§2 G2 表中的「子代理运行时」与「家族聚簇」两项移出本次范围，见上方损失清单。
 

@@ -7,4 +7,5 @@ This directory contains a selected subset of [Catppuccin Icons for VSCode](https
 - PiBoat uses the SVG alpha channel as a mask and applies `var(--text-dim)`,
   so the rendered icons remain monochrome in both themes.
 
-The copied assets are licensed under the MIT License. See [LICENSE](./LICENSE).
+The copied assets are licensed under the MIT License. See [LICENSE](./LICENSE);
+repo-wide third-party inventory: `THIRD_PARTY_NOTICES.md`.

@@ -2,7 +2,7 @@
 
 > 目标：**一期实现完整 Web 页面功能**（扣除已排除域，见 §5 差异清单），组件结构与样式按统一 Web 设计规范实现，
 > 并按本仓分层铁律落位到 `packages/client` / `packages/ui` / `apps/web` 三包。
-> 规范基准：**统一 Web 设计规范 0.9.1 快照**（MIT 许可）；
+> 规范基准：**统一 Web 设计规范 0.9.1 快照**；
 > 本仓既有设计：`docs/05`（client）/ `docs/06`（ui 视觉与交互）/ ADR-0002（Vite SPA）/ ADR-0009（前端栈）。
 > 状态：**已定案**（2026-09-27 用户确认六项决策，落成 ADR-0019；见 §6）。本文作为 F0–F5 批次的排期依据，
 > `docs/05`/`docs/06` 的组件与模块细节仍以那两文为准（本文不重复其内容，只做范围与落位）。
@@ -43,7 +43,7 @@ SSE 连接管理（`agent-event-connection` / `agent-event-stream` / `agent-even
 ## 2. 模块落位：三分法
 
 前端按三类落位，依赖方向遵守 AGENTS.md 铁律（`apps/*` → client → protocol；`apps/server` → core → protocol），
-`ui` 不依赖任何宿主框架。许可与来源声明统一记入 `THIRD_PARTY_NOTICES.md`，不在每个文件重复。
+`ui` 不依赖任何宿主框架。
 
 ### 2.1 A 类：框架无关逻辑 → `packages/client`（纯函数，测试先行）
 

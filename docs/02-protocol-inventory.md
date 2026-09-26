@@ -215,7 +215,7 @@
 |---|---|
 | `GET /api/sessions/:id` | → `{ sessionId, filePath, info, leafId, tree, context, stats, totalActiveMs, toolNames? }`（tail 默认 50，上限 1000） |
 | `PATCH /api/sessions/:id` | `{name}` 改名（历史未运行会话直接追加 session_info 行） |
-| `DELETE /api/sessions/:id` | 删除（**级联删除全部 subagent 子会话**，返回受影响 id） |
+| `DELETE /api/sessions/:id` | 删除会话文件（返回受影响 id，只含目标自身；不级联子会话） |
 | `GET /api/sessions/:id/state` | 同 `/api/agent/:id` 形状，但会话文件不存在时 **404**（而非 `{running:false}`；语义差异需保留） |
 | `GET /api/sessions/:id/export` | → HTML 导出（attachment/inline） |
 | `GET /api/sessions/:id/revision` | → `{revision}`：会话文件指纹（G2-6，size+mtime，与 `listFingerprint` 同构但针对单文件）。不透明、**无单调性**（只比较相等），客户端拿它决定详情视图缓存能否复用 |

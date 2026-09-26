@@ -37,7 +37,7 @@ import { ProjectResolver } from './project-resolver';
  * 分页截断、详情装配、统计摘要、运行态合并、改名写入都没有现成入口。
  *
  * 相对 SDK 新增：list / search / detail（tail 分页装配）、context（上下文窗口装配）、
- * rename、computeStats、delete（subagent 级联）。数据源是 pi 共享的 .jsonl 会话文件
+ * rename、computeStats、delete。数据源是 pi 共享的 .jsonl 会话文件
  * （~/.pi/agent/sessions 及项目目录），与 pi CLI 天然互见。文件存储的 toolCall 本就是
  * {id, name, arguments} 形状，无需归一化；流式路径的双字段补齐在 core 投影层完成
  * （events/wire-event.ts）。
@@ -131,15 +131,6 @@ function buildSearchSnippet(
 }
 const AUTO_NAME_TIMEOUT_MS = 30_000;
 const AUTO_NAME_MAX_LENGTH = 80;
-
-/**
- * 子代理标记的 `customType`。
- *
- * 这是 `.jsonl` 里的实际磁盘值，不是命名偏好：会话文件与其他读同一目录的运行时
- * 共享，改字面量会让既有子代理会话不再被识别（级联删除、家族归组失效）。
- * 因此只在文档/注释里按常量名引用，字面量只在本行出现一次。
- */
-const SUBAGENT_CUSTOM_TYPE = 'pi-web:subagent';
 
 export class SessionReadService {
   private readonly sessionDir?: string;
@@ -526,54 +517,15 @@ export class SessionReadService {
   // ------------------------------------------------------------------
 
   /**
-   * 级联删除会话及其全部 subagent 子会话，返回受影响 id（含目标自身，目标在前）。
-   * 不存在返回 null。子会话判定：header.parentSession 指向父会话文件路径
-   * （agent-session-runtime 以 previousSessionFile 写入），且条目携带子代理
-   * 标记（custom 条目的 `customType` 命中 `SUBAGENT_CUSTOM_TYPE`）——fork 子会话
-   * 仍是顶层列表项，不在级联范围（docs/02 §3.3）。运行中会话的拦截归 server（409）。
+   * 删除会话文件，返回受影响 id（只含目标自身）。不存在返回 null。
+   * 运行中会话的拦截归 server（409）。
    */
   async delete(id: string): Promise<string[] | null> {
     const infos = await this.listAllSessions(await scanSessionsDir(this.sessionsRoot));
     const target = infos.find((info) => info.id === id);
     if (target === undefined) return null;
-
-    // 按 parentSessionPath 建子链，从目标出发 BFS 收集传递闭包
-    const childrenByParent = new Map<string, typeof infos>();
-    for (const info of infos) {
-      if (info.parentSessionPath === undefined) continue;
-      const list = childrenByParent.get(info.parentSessionPath) ?? [];
-      list.push(info);
-      childrenByParent.set(info.parentSessionPath, list);
-    }
-    const doomed: typeof infos = [];
-    const queue = [target];
-    while (queue.length > 0) {
-      const current = queue.shift() as (typeof infos)[number];
-      for (const child of childrenByParent.get(current.path) ?? []) {
-        if (!(await this.isSubagent(child))) continue; // fork 子会话不级联
-        doomed.push(child);
-        queue.push(child);
-      }
-    }
-
-    const deletedIds = [target.id, ...doomed.map((info) => info.id)];
     await rm(target.path, { force: true });
-    for (const info of doomed) {
-      await rm(info.path, { force: true });
-    }
-    return deletedIds;
-  }
-
-  /** 子代理标记检测（custom 条目的 `customType` 命中 `SUBAGENT_CUSTOM_TYPE`） */
-  private async isSubagent(info: SdkSessionInfo): Promise<boolean> {
-    const manager = SessionManager.open(info.path, this.sessionDir);
-    return manager
-      .getEntries()
-      .some(
-        (entry) =>
-          entry.type === 'custom' &&
-          (entry as { customType?: string }).customType === SUBAGENT_CUSTOM_TYPE,
-      );
+    return [target.id];
   }
 
   // ------------------------------------------------------------------

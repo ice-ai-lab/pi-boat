@@ -3,7 +3,6 @@
  *
  * 覆盖 `config-*` / `settings-*` / `models-sidebar-*` / `enabled-models-*` / `skill-*`；
  * 排除域（`agents-*` 子代理运行时，ADR-0014）不在此表内。
- * 许可：MIT（声明见 `THIRD_PARTY_NOTICES.md`）。
  */
 
 /* Shared settings and configuration surfaces. */
