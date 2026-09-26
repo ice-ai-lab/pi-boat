@@ -8,7 +8,6 @@ import {
   useCheckPluginUpdatesMutation,
   useCheckSkillUpdatesMutation,
   useEnabledModelsQuery,
-  useHomeQuery,
   useInstallSkillMutation,
   useModelCatalogMutation,
   useModelsConfigQuery,
@@ -30,6 +29,7 @@ import {
   SettingsPanel,
   type SettingsSectionItem,
   SkillsSection,
+  useI18n,
 } from '@ice-ai/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -52,8 +52,8 @@ export interface SettingsHostProps {
 }
 
 export function SettingsHost({ projectRoot, onClose, onNotice }: SettingsHostProps) {
+  const { t } = useI18n();
   const [section, setSection] = useState<SectionId>(() => getLastSettingsSection());
-  const theme = useTheme();
   const chatAppearance = useChatAppearance();
   const [thinkingExpanded, setThinkingExpanded] = useState(false);
   useEffect(() => {
@@ -63,9 +63,19 @@ export function SettingsHost({ projectRoot, onClose, onNotice }: SettingsHostPro
     setLastSettingsSection(section);
   }, [section]);
 
-  const home = useHomeQuery();
-  /** 项目级资源的 cwd：项目根 → 家目录（无项目时只用用户级资源） */
-  const resourceCwd = projectRoot ?? home.data?.home ?? null;
+  /**
+   * 项目域节（skills / plugins）与项目域判定：对齐 参考实现 SettingsPanel —— 没有真实项目 cwd 时
+   * 这两节禁用（K5），停在它们上时回退到「常规」（K4）。此前退到家目录，会出现 参考实现 没有的空态。
+   */
+  useEffect(() => {
+    if (projectRoot !== null) return;
+    if (section !== 'skills' && section !== 'plugins') return;
+    setSection('general');
+  }, [projectRoot, section]);
+
+  const theme = useTheme();
+  /** 项目级资源的 cwd：没有项目就没有项目域资源（与禁用口径同一判据，K5） */
+  const resourceCwd = projectRoot;
 
   // —— 模型 ——
   const models = useModelsQuery(projectRoot ?? undefined);
@@ -159,10 +169,10 @@ export function SettingsHost({ projectRoot, onClose, onNotice }: SettingsHostPro
   );
 
   const sections: SettingsSectionItem[] = [
-    { id: 'general', label: 'General' },
-    { id: 'models', label: 'Models' },
-    { id: 'skills', label: 'Skills', disabled: resourceCwd === null },
-    { id: 'plugins', label: 'Plugins', disabled: resourceCwd === null },
+    { id: 'general', label: t('settings.general') },
+    { id: 'models', label: t('common.models') },
+    { id: 'skills', label: t('common.skills'), disabled: projectRoot === null },
+    { id: 'plugins', label: t('common.plugins'), disabled: projectRoot === null },
   ];
 
   const renderSection = (id: string) => {
@@ -388,8 +398,8 @@ export function SettingsHost({ projectRoot, onClose, onNotice }: SettingsHostPro
       activeSection={section}
       onSelectSection={(id) => setSection(id as SectionId)}
       onClose={onClose}
-      title="Settings"
-      projectHint="Open a project from the sidebar (or open a session)"
+      title={t('settings.title')}
+      projectHint={t('settings.projectRequired')}
       renderSection={renderSection}
     />
   );

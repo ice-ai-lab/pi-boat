@@ -5,6 +5,11 @@
 - 关联文档：`docs/08-web-frontend-plan.md` §5-14 / §5.1 / §6-1、`docs/06-ui-design.md` §1（ui 容器例外）、ADR-0019 决策 1（本 ADR 推翻该条）、ADR-0020 §4（本 ADR 修订其 mermaid 一句）
 - 关联决策：**修订 ADR-0019 决策 1**（i18n 范围）与决策 3（ui 容器例外增第 5 处）；ADR-0019 其余决策不变
 
+
+> **基线漂移（2026-09-26 更新）**：本文引用的「设计规范 npm 0.9.1 快照」已过期——上游 参考实现 现为
+> **0.9.3**（设置节增至 5 个，其中子代理节为排除域，本仓仍保持 4 个）。凡引用 0.9.1 快照得出的
+> 「已对齐」结论，均须在 0.9.3 上复核后采信（见 `docs/10-frontend-parity-audit.md`）。
+
 ## 背景
 
 ADR-0019 决策 1 定的是「zh-CN 单语：文案集中 `ui/src/locales/zh-cn.ts` 一处，不引 i18n 框架」。
@@ -28,18 +33,22 @@ ADR-0019 决策 1 定的是「zh-CN 单语：文案集中 `ui/src/locales/zh-cn.
    `format.ts`（`interpolateMessage` / `translateMessage` 回落链「当前语 → en → 返回 key」 /
    `formatRelativeTime` / `formatUpdatedTime`）、`i18n-provider.tsx`（`I18nProvider` / `useI18n`）。
    `localStorage` key 统一为 `pi-locale`；写 `document.documentElement.lang`；hydrate 前强制 `en` 防首帧闪烁。
-2. **语言包 `messages/{en,zh-CN,ja}.ts`，每语 612 key**：
+2. **语言包 `messages/{en,zh-CN,ja}.ts`，每语 616 key（2026-09-26 复核的基数）**：
+   > 数量随功能批次增长（例：T2 对话框批次 +5 = 621），**三语 key 集合一致由测试锁**，
+   > 不再逐次回写本文数字；需要时以 `packages/ui/test/i18n.test.ts` 的实测为准。
    - `en` / `zh-CN` 自设计规范沿用（设计规范的 en / zh-CN key 集合实测一致，可直接当契约基线）；
-   - **扣除排除域 89 key**（`agents.*` 42、`agentSwitcher.*` 14、`subagent.*` 1、
-     `sidebar.expandSubagents`/`collapseSubagents`/`agentRunning` 3、`terminal.*` 11、`auth.*` 10、
-     `providerUsage.*` 7、`appUpdate.*` 1），即 701 − 89 = 612；
+   - **扣除排除域 88 key**（`agents.*` 42、`agentSwitcher.*` 14、`subagent.open` 1、
+     `sidebar.expandSubagents`/`collapseSubagents` 2、`terminal.*` 11、`auth.*` 10、
+     `providerUsage.*` 7、`appUpdate.*` 1），即 701 − 88 = 613；
+   - 加 B 自有的 3 条 `files.*`（`viewSource`/`viewDiff`/`openInNewTab`）= **实测 616 key**
+     （2026-09-26 复核重数；三语 key 集合仍完全一致）。
    - `ja` 为**全新撰写**（设计规范无此语言）。设计规范的第三语是 `zh-TW`（繁中），**本次不采纳**：
      用户确认的范围就是三语，且把 `zh-TW` 直译成日文会得到大量非本地化文本。
 3. **`resolveBrowserLocale` 补 `ja` / `ja-*` → `ja` 分支**（设计规范原版只识别 `en*` / `zh*`）；
    未注册的 `zh-*` 变体（如 `zh-TW`）仍回落 `zh-CN`，与设计规范的「任意 zh-* → zh-CN」口径一致。
 4. **Provider 放 `packages/ui`（登记为第 5 处 ui 容器例外，docs/06 §1）**：
    与「容器型组件依赖 client hooks」的四处理由不同——它是全局语言 Context，约 60 个 ui 组件要直接
-   调 `t()`，走 props 下传 612 个 key 不可行。这与 `theme.css` 放 ui、由宿主写 CSS 变量同源。
+   调 `t()`，走 props 下传 616 个 key 不可行。这与 `theme.css` 放 ui、由宿主写 CSS 变量同源。
    `apps/web` 顶层包 `<I18nProvider>`（`WorkspacePage`，需覆盖设置浮层）。
 5. **语言选择器**在「设置 → 通用 → 语言」节，按设计规范（`role="radiogroup"` +
    `.settings-language-options/-option/-radio/-radio-dot/-label/-code`；CSS 早已在 `styles/settings.css`）。
@@ -58,7 +67,7 @@ ADR-0019 决策 1 定的是「zh-CN 单语：文案集中 `ui/src/locales/zh-cn.
 | 1 | 维持 zh-CN 单语（ADR-0019 决策 1 原样） | 该决策从未落地；且与「按设计规范组件」直接冲突（组件的 `t()` 无处可去） |
 | 2 | 做 4 语 `en/zh-CN/zh-TW/ja`（完全覆盖设计规范 + 加日语） | 用户确认的范围是**三语**；`zh-TW` 包虽可白拿，但会多出一个未被要求的面 |
 | 3 | 拿设计规范的 `zh-TW` 包占位改写成 `ja` | 繁中直译成日文会得到大量非本地化文本，是不可接受的假交付 |
-| 4 | `useI18n` 放 `packages/client`、由 web 用 props 下传 | client 是框架无关入口（不得 import React）；且 612 key 逐层下传不现实 |
+| 4 | `useI18n` 放 `packages/client`、由 web 用 props 下传 | client 是框架无关入口（不得 import React）；且 616 key 逐层下传不现实 |
 | 5 | 每个组件接一个 `translate` prop（设计规范的 `ToolDefinitionsPanel` 就是这种） | 60 个组件 × 61x key 的接线成本远高于一个 Context；设计规范自己也是 Context |
 
 ## 后果
@@ -80,7 +89,7 @@ ADR-0019 决策 1 定的是「zh-CN 单语：文案集中 `ui/src/locales/zh-cn.
 ## 验证记录
 
 - 代码：`packages/ui/src/i18n/{types,registry,format,i18n-provider}.tsx` +
-  `packages/ui/src/i18n/messages/{en,zh-CN,ja}.ts`（各 612 key）；`packages/ui/src/index.ts` 导出；
+  `packages/ui/src/i18n/messages/{en,zh-CN,ja}.ts`（各 616 key）；`packages/ui/src/index.ts` 导出；
   `packages/ui/test/i18n.test.ts`（三语 key/占位符一致性 + locale 解析 + 相对时间含 `ja`）；
   `apps/web/src/pages/workspace-page.tsx` 顶层 `<I18nProvider>`；
   `packages/ui/src/settings/general-section.tsx` 的语言节；`apps/web/src/services/use-chat-appearance.ts`（T5-3 联动）

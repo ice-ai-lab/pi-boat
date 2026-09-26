@@ -1,5 +1,6 @@
 import type {
   AgentState,
+  ImageContent,
   SessionStatsInfo,
   SlashCommandInfo,
   ThinkingLevel,
@@ -24,6 +25,7 @@ import {
   respondAgentExtensionUi,
   resumeAgentSession,
   sendAgentCommand,
+  setAgentModel,
   setAgentSessionName,
   setAgentTools,
   steerAgent,
@@ -55,13 +57,15 @@ export interface UseAgentSessionResult {
   refreshLiveState(): Promise<void>;
   compact(customInstructions?: string): Promise<string | null>;
   setThinkingLevel(level: ThinkingLevel): Promise<string | null>;
+  /** 切换模型（provider + modelId，服务端逐会话生效） */
+  setModel(provider: string, modelId: string): Promise<string | null>;
   abortCompaction(): Promise<void>;
   setTools(preset: ToolPreset): Promise<string | null>;
   /** 用 LLM 生成会话名并落盘（dryRun 只回名字） */
   autoName(dryRun?: boolean): Promise<{ title?: string; error?: string }>;
   setSessionName(name: string): Promise<string | null>;
-  steer(text: string): Promise<string | null>;
-  followUp(text: string): Promise<string | null>;
+  steer(text: string, images?: ImageContent[]): Promise<string | null>;
+  followUp(text: string, images?: ImageContent[]): Promise<string | null>;
   clearQueue(): Promise<void>;
   fork(entryId: string): Promise<string | null>;
   navigateTree(
@@ -88,7 +92,8 @@ export interface UseAgentSessionResult {
   open(sessionId: string): Promise<string | null>;
   /** 向上翻页：取更早一页并前插（调用方负责滚动保持） */
   loadOlder(): Promise<void>;
-  send(text: string): Promise<string | null>;
+  /** 发送消息（images 走 pi-ai 的 ImageContent，与 prompt 命令的 images 字段同形） */
+  send(text: string, images?: ImageContent[]): Promise<string | null>;
   abort(): Promise<void>;
   reset(): void;
 }
@@ -230,12 +235,16 @@ export function useAgentSession(): UseAgentSessionResult {
   }, [sessionId, historyCursor.oldest]);
 
   const send = useCallback(
-    async (text: string): Promise<string | null> => {
+    async (text: string, images?: ImageContent[]): Promise<string | null> => {
       const id = sessionId;
-      if (id === null || text.trim().length === 0) return null;
+      if (id === null || (text.trim().length === 0 && (images?.length ?? 0) === 0)) return null;
       setSending(true);
       try {
-        await sendAgentCommand(id, { type: 'prompt', message: text });
+        await sendAgentCommand(id, {
+          type: 'prompt',
+          message: text,
+          ...(images && images.length > 0 ? { images } : {}),
+        });
         return null;
       } catch (error) {
         return errorMessage(error);
@@ -306,6 +315,21 @@ export function useAgentSession(): UseAgentSessionResult {
     [requireSession, refreshLiveState],
   );
 
+  const setModel = useCallback(
+    async (provider: string, modelId: string): Promise<string | null> => {
+      const id = requireSession();
+      if (id === null) return '没有活动会话';
+      try {
+        await setAgentModel(id, provider, modelId);
+        await refreshLiveState();
+        return null;
+      } catch (error) {
+        return errorMessage(error);
+      }
+    },
+    [requireSession, refreshLiveState],
+  );
+
   const compact = useCallback(
     async (customInstructions?: string): Promise<string | null> => {
       const id = requireSession();
@@ -348,8 +372,9 @@ export function useAgentSession(): UseAgentSessionResult {
       const id = requireSession();
       if (id === null) return { error: '没有活动会话' };
       try {
+        // 落盘归服务端（resident → 命令通道 / 冷会话 → rename），这里不再补一次写，
+        // 否则与 runtime 抢写同一会话文件（2026-09-26 BUG-1d）。
         const { title } = await autoNameSession(id, dryRun ? { dryRun: true } : {});
-        if (!dryRun) await setAgentSessionName(id, title).catch(() => null);
         return { title };
       } catch (error) {
         return { error: errorMessage(error) };
@@ -373,11 +398,11 @@ export function useAgentSession(): UseAgentSessionResult {
   );
 
   const steer = useCallback(
-    async (text: string): Promise<string | null> => {
+    async (text: string, images?: ImageContent[]): Promise<string | null> => {
       const id = requireSession();
       if (id === null) return '没有活动会话';
       try {
-        await steerAgent(id, text);
+        await steerAgent(id, text, images);
         return null;
       } catch (error) {
         return errorMessage(error);
@@ -387,11 +412,11 @@ export function useAgentSession(): UseAgentSessionResult {
   );
 
   const followUp = useCallback(
-    async (text: string): Promise<string | null> => {
+    async (text: string, images?: ImageContent[]): Promise<string | null> => {
       const id = requireSession();
       if (id === null) return '没有活动会话';
       try {
-        await followUpAgent(id, text);
+        await followUpAgent(id, text, images);
         return null;
       } catch (error) {
         return errorMessage(error);
@@ -478,6 +503,7 @@ export function useAgentSession(): UseAgentSessionResult {
     refreshLiveState,
     compact,
     setThinkingLevel,
+    setModel,
     abortCompaction,
     setTools,
     autoName,

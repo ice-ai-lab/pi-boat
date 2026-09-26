@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { cn } from '../utils/cn';
 
 /**
@@ -9,6 +10,8 @@ import { cn } from '../utils/cn';
 export interface SuggestionItem {
   /** 主文本（路径 / 命令名） */
   label: string;
+  /** 左侧图标（`@` 文件提及用 FileIcon，设计规范同款） */
+  icon?: ReactNode;
   /** 右侧次要信息（目录 / 来源 / 描述） */
   hint?: string;
   /** 次行描述 */
@@ -17,6 +20,8 @@ export interface SuggestionItem {
 
 export interface SuggestionMenuProps {
   title?: string;
+  /** 头部右侧的键位提示（设计规范为 `Tab / Enter`） */
+  hint?: string;
   items: SuggestionItem[];
   activeIndex: number;
   onPick(index: number): void;
@@ -26,6 +31,7 @@ export interface SuggestionMenuProps {
 
 export function SuggestionMenu({
   title,
+  hint,
   items,
   activeIndex,
   onPick,
@@ -40,18 +46,21 @@ export function SuggestionMenu({
       style={{ boxShadow: '0 -6px 20px rgba(0,0,0,0.12)' }}
     >
       {title !== undefined && (
-        <p
+        <div
           style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 8,
             padding: '4px 8px',
-            fontSize: 10,
-            fontFamily: 'var(--font-mono)',
+            borderBottom: '1px solid var(--border)',
+            fontSize: 11,
             color: 'var(--text-dim)',
-            letterSpacing: 0.4,
-            textTransform: 'uppercase',
           }}
         >
-          {title}
-        </p>
+          <span>{title}</span>
+          {hint !== undefined && <span style={{ fontFamily: 'var(--font-mono)' }}>{hint}</span>}
+        </div>
       )}
       {items.length === 0 && (
         <p style={{ padding: '6px 8px', fontSize: 12, color: 'var(--text-dim)' }}>{emptyHint}</p>
@@ -73,6 +82,14 @@ export function SuggestionMenu({
           )}
         >
           <span className="flex items-baseline gap-2">
+            {item.icon !== undefined && (
+              <span
+                className="shrink-0"
+                style={{ display: 'flex', alignItems: 'center', alignSelf: 'center' }}
+              >
+                {item.icon}
+              </span>
+            )}
             <span
               className="min-w-0 truncate"
               style={{ fontFamily: 'var(--font-mono)', fontSize: 12.5 }}

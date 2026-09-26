@@ -20,6 +20,7 @@ import {
   useModelsQuery,
   useSessionDetailQuery,
 } from '@ice-ai/client/react';
+import { TOOL_PRESETS } from '@ice-ai/protocol';
 import {
   BranchNavigator,
   ChatMinimap,
@@ -28,6 +29,7 @@ import {
   EmptyState,
   ExtensionRequestDialog,
   ExtensionStatusBar,
+  FileIcon,
   hasSessionBranches,
   MessageList,
   type MessageListHandle,
@@ -42,6 +44,7 @@ import {
 } from '@ice-ai/ui';
 import {
   type CSSProperties,
+  type DragEvent,
   type ReactNode,
   useCallback,
   useEffect,
@@ -54,11 +57,77 @@ import { useSearchParams } from 'react-router';
 import { APP_VERSION, useServerInfo } from '../layout/health';
 import { fileTabsStore } from '../services/file-tabs-store';
 import { useMentionInsertion } from '../services/mention-bus';
+import { attachedImageToContent, useAttachedImages } from '../services/use-attached-images';
 import { useInputHistory } from '../services/use-input-history';
 import { registerAbortHandler } from '../services/use-keyboard-shortcuts';
 import { useCompletionSignal } from '../services/use-notifications';
 import { getLastCwd, setLastCwd } from '../services/workspace-memory';
 import { type ActivePanel, PanelsHost } from './panels-host';
+
+/**
+ * 拖拽附加图片的整屏覆盖层（T2-2，设计规范 `ChatWindow.tsx` 同形）：
+ * 背景淡蓝 + 三圈涟漪 + 相册图标；关键帧在 `web-ui.css` 的 `drop-zone-in` / `drop-ripple`。
+ */
+function DropOverlay() {
+  return (
+    <div className="pointer-events-none absolute inset-0 z-50 flex animate-[drop-zone-in_0.15s_ease_both] items-center justify-center bg-[rgba(37,99,235,0.06)] backdrop-blur-[1px]">
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+        {[0, 0.8, 1.6].map((delay) => (
+          <div
+            key={delay}
+            className="absolute h-[720px] w-[720px] animate-[drop-ripple_2.4s_ease-out_infinite_backwards] rounded-full border-[1.5px] border-solid border-[rgba(37,99,235,0.5)]"
+            style={{ transformOrigin: 'center', animationDelay: `${delay}s` }}
+          />
+        ))}
+      </div>
+      <svg
+        width="280"
+        height="280"
+        viewBox="0 0 140 140"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+        className="drop-shadow-[0_6px_18px_rgba(37,99,235,0.18)]"
+        aria-hidden="true"
+      >
+        <rect
+          x="28"
+          y="44"
+          width="84"
+          height="60"
+          rx="8"
+          fill="rgba(37,99,235,0.08)"
+          stroke="rgba(37,99,235,0.50)"
+          strokeWidth="1.8"
+        />
+        <path
+          d="M36 100 L54 72 L68 88 L80 74 L104 100Z"
+          fill="rgba(37,99,235,0.16)"
+          stroke="rgba(37,99,235,0.40)"
+          strokeWidth="1.4"
+          strokeLinejoin="round"
+        />
+        <circle
+          cx="96"
+          cy="58"
+          r="8"
+          fill="rgba(37,99,235,0.22)"
+          stroke="rgba(37,99,235,0.55)"
+          strokeWidth="1.6"
+        />
+        <g stroke="rgba(37,99,235,0.45)" strokeWidth="1.4" strokeLinecap="round">
+          <line x1="96" y1="46" x2="96" y2="43" />
+          <line x1="96" y1="70" x2="96" y2="73" />
+          <line x1="84" y1="58" x2="81" y2="58" />
+          <line x1="108" y1="58" x2="111" y2="58" />
+          <line x1="87.5" y1="49.5" x2="85.4" y2="47.4" />
+          <line x1="104.5" y1="66.5" x2="106.6" y2="68.6" />
+          <line x1="104.5" y1="49.5" x2="106.6" y2="47.4" />
+          <line x1="87.5" y1="66.5" x2="85.4" y2="68.6" />
+        </g>
+      </svg>
+    </div>
+  );
+}
 
 /** 设计规范 `AppShell` 的 `TOP_BAR_ICON_BUTTON_SIZE` */
 const TOP_BAR_ICON_BUTTON_SIZE = 36;
@@ -158,13 +227,12 @@ export interface ChatPaneProps {
   rightPanelFullWidth?: boolean;
 }
 
-const TOOL_PRESET_OPTIONS = [
-  { value: 'configured', label: '跟随设置' },
-  { value: 'none', label: '纯聊天' },
-  { value: 'read-only', label: '只读' },
-  { value: 'default', label: '默认' },
-  { value: 'full', label: '全部工具' },
-] as const;
+/**
+ * 工具预设候选（T2-6）：与设计规范一致——标签就是预设 id，含义由面板右侧的描述行承担
+ * （`chat.configuredTools` / `chat.chatOnly` / …，见 ComposerMenus）。值域单一来源是 protocol 的
+ * `TOOL_PRESETS`，不再手写第二份中文标签。
+ */
+const TOOL_PRESET_OPTIONS = TOOL_PRESETS.map((value) => ({ value, label: value }));
 
 /** 设计规范 `formatCompact`（AppShell：1200 → "1k"，1_200_000 → "1.2M"） */
 function formatCompact(value: number): string {
@@ -263,8 +331,12 @@ export function ChatPane({
   const [activeIndex, setActiveIndex] = useState(0);
   const [fileIndex, setFileIndex] = useState<string[] | null>(null);
   const [activePanel, setActivePanel] = useState<ActivePanel>(null);
+  const autoNameTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [autoNameStatus, setAutoNameStatus] = useState<AutoNameStatus>({ kind: 'idle' });
-  const [steeringMode, setSteeringMode] = useState(false);
+  /** 图片附件（T2-2）：按钮 / 粘贴 / 拖拽三个入口共用 */
+  const attachments = useAttachedImages();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [dragOver, setDragOver] = useState(false);
   /** minimap 视口跟踪（T0-1：替换硬编码的 0,1,1） */
   const [viewport, setViewport] = useState({ scrollTop: 0, clientHeight: 1, scrollHeight: 1 });
   const selfNavigationRef = useRef<string | null>(null);
@@ -299,6 +371,7 @@ export function ChatPane({
   }, []);
 
   // 设计规范 `showChat`：选中会话、或已选目录准备开新会话 → 显示完整工具条与对话区
+  // （`preferredCwd` 由 workspace-layout 按 `effectiveNewSessionCwd` 回退到项目根，BUG-2）
   const showChat = sessionId !== null || preferredCwd !== null;
 
   // ① URL → 会话
@@ -403,6 +476,8 @@ export function ChatPane({
 
   const mentionItems: SuggestionItem[] = mentionEntries.map((entry) => ({
     label: entry.path,
+    // 设计规范的 `@` 浮层每行带文件/目录图标（ChatInput:2060 getFileIcon）
+    icon: <FileIcon name={entry.path.split('/').pop() ?? entry.path} isDir={entry.isDir} />,
     hint: entry.isDir ? '目录' : undefined,
   }));
 
@@ -456,24 +531,40 @@ export function ChatPane({
     [session, pushToast],
   );
 
-  /** 生成标题（工具条与 composer 工具行共用；三态按设计规范 `autoNameStatus`，T1-6） */
+  /** 生成标题（工具条与 composer 工具行共用；三态按设计规范 `autoNameStatus`，T1-6）
+   *  成功态 1800ms / 失败态 5000ms 后自行回 idle（对齐 参考实现 AppShell，BUG-1b） */
   const runAutoName = useCallback(() => {
-    if (sessionId === null) return;
+    if (sessionId === null || autoNameStatus.kind === 'naming') return;
+    if (autoNameTimerRef.current !== null) clearTimeout(autoNameTimerRef.current);
     setAutoNameStatus({ kind: 'naming' });
     void session.autoName().then((result) => {
       if (result.error !== undefined) {
         setAutoNameStatus({ kind: 'error', message: result.error });
+        autoNameTimerRef.current = setTimeout(() => setAutoNameStatus({ kind: 'idle' }), 5000);
         pushToast(result.error, 'error');
       } else {
         setAutoNameStatus({ kind: 'success' });
+        autoNameTimerRef.current = setTimeout(() => setAutoNameStatus({ kind: 'idle' }), 1800);
         pushToast(`${t('title.updated')}：${result.title ?? ''}`);
       }
     });
-  }, [session, sessionId, pushToast, t]);
+  }, [session, sessionId, pushToast, t, autoNameStatus.kind]);
+
+  // 切会话复位三态（设计规范 AppShell 的 `[selectedSession?.id]` effect，BUG-1b）
+  // biome-ignore lint/correctness/useExhaustiveDependencies: sessionId 是"会话已切换"的触发信号，本就不参与计算
+  useEffect(() => {
+    if (autoNameTimerRef.current !== null) clearTimeout(autoNameTimerRef.current);
+    setAutoNameStatus({ kind: 'idle' });
+    return () => {
+      if (autoNameTimerRef.current !== null) clearTimeout(autoNameTimerRef.current);
+    };
+  }, [sessionId]);
 
   const handleSubmit = useCallback(
     (text: string) => {
+      const images = attachments.images.map(attachedImageToContent);
       history.remember(text);
+      attachments.clear();
       // 空态直接发消息：先按当前项目开一条新会话，再把这句话发出去（设计规范：发送即建会话）
       if (sessionId === null) {
         const cwd = preferredCwd ?? getLastCwd();
@@ -482,34 +573,35 @@ export function ChatPane({
           return;
         }
         void startSession(cwd).then(() => {
-          void session.send(text).then((error) => {
+          void session.send(text, images).then((error) => {
             if (error !== null) pushToast(error, 'error');
           });
         });
         return;
       }
-      if (steeringMode && chat.streaming) {
-        void session.steer(text).then((error) => {
-          if (error !== null) pushToast(error, 'error');
-        });
-        return;
-      }
-      void session.send(text).then((error) => {
+      void session.send(text, images).then((error) => {
         if (error === null) return;
         const command = parseSlashSubmission(text);
         pushToast(command === null ? error : `命令 /${command.name} 发送失败：${error}`, 'error');
       });
     },
-    [
-      session,
-      sessionId,
-      preferredCwd,
-      startSession,
-      pushToast,
-      history,
-      steeringMode,
-      chat.streaming,
-    ],
+    [session, sessionId, preferredCwd, startSession, pushToast, history, attachments],
+  );
+
+  /** 流式中的 Steer / Follow-Up（T2-3）：与输入卡内的两个按钮同源，都带图片并清空输入 */
+  const queueStreamingMessage = useCallback(
+    (behavior: 'steer' | 'followUp') => {
+      const text = draft.trim();
+      const images = attachments.images.map(attachedImageToContent);
+      if (text.length === 0 && images.length === 0) return;
+      setDraft('');
+      attachments.clear();
+      const send = behavior === 'steer' ? session.steer : session.followUp;
+      void send(text, images).then((error) => {
+        if (error !== null) pushToast(error, 'error');
+      });
+    },
+    [draft, attachments, session, pushToast],
   );
 
   const lastTurnId = chat.turns[chat.turns.length - 1]?.id;
@@ -536,6 +628,42 @@ export function ChatPane({
       ? null
       : `${session.liveState.model.provider}:${session.liveState.model.modelId}`;
   const thinkingLevels = modelKey === null ? [] : (models.data?.thinkingLevels[modelKey] ?? []);
+  /** 模型选择器候选（T2-1）：来自 /api/models 的可用清单 */
+  const modelOptions = useMemo(
+    () =>
+      (models.data?.modelList ?? []).map((model) => ({
+        provider: model.provider,
+        modelId: model.id,
+        name: model.name,
+      })),
+    [models.data],
+  );
+
+  /** 拖拽图片到窗口任意处即可附加（T2-2）：depth 计数避开子元素 dragleave 抖动 */
+  const dragDepthRef = useRef(0);
+  const dragHandlers = {
+    onDragEnter: (event: DragEvent) => {
+      if (!event.dataTransfer?.types.includes('Files')) return;
+      event.preventDefault();
+      dragDepthRef.current += 1;
+      setDragOver(true);
+    },
+    onDragOver: (event: DragEvent) => {
+      if (event.dataTransfer?.types.includes('Files')) event.preventDefault();
+    },
+    onDragLeave: () => {
+      dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+      if (dragDepthRef.current === 0) setDragOver(false);
+    },
+    onDrop: (event: DragEvent) => {
+      if (!event.dataTransfer?.types.includes('Files')) return;
+      event.preventDefault();
+      dragDepthRef.current = 0;
+      setDragOver(false);
+      attachments.addFiles(Array.from(event.dataTransfer.files));
+    },
+  };
+  const dragOverlay = dragOver ? <DropOverlay /> : null;
 
   // —— 工具条数据（设计规范的 sessionStats / contextUsage / sessionHasBranches） ——
   const sessionStats = session.stats;
@@ -603,29 +731,35 @@ export function ChatPane({
   const compacting = session.liveState?.isCompacting === true;
 
   /**
-   * 输入区（空态与活动会话共用）：排队条 + Composer。
-   * 工具行（T3-4 的几何纠正）放在输入卡**下方**（`belowInput`，设计规范 ChatInput 底部行）：
-   * 左=模型/思考，右=工具预设/压缩/导出/统计/插队/声音。完整图标化形态见 T3-4 剩余项。
+   * 输入区（空态与活动会话共用）：附件输入 + 排队条 + Composer。
+   * 工具行（T2-6）放在输入卡**下方**（`belowInput`，设计规范 ChatInput 底部行）：
+   * 左 = 附件 + 模型选择器，中 = flex:1 spacer，右 = 思考 / 预设 / 压缩 / (停止) / 声音。
    */
   const composerElement = (
-    <div className="shrink-0 pb-4">
+    <div className="shrink-0">
+      {/* 隐藏文件输入（附件按钮与拖拽共用，T2-2） */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        style={{ display: 'none' }}
+        onChange={(event) => {
+          attachments.addFiles(Array.from(event.target.files ?? []));
+          event.target.value = '';
+        }}
+      />
       {sessionId !== null && (
-        <div style={{ padding: '0 16px' }}>
-          <QueueBar
-            steering={chat.queued.steering}
-            followUp={chat.queued.followUp}
-            onClear={() => void session.clearQueue()}
-          />
-        </div>
+        <QueueBar
+          steering={chat.queued.steering}
+          followUp={chat.queued.followUp}
+          onClear={() => void session.clearQueue()}
+        />
       )}
       <Composer
         value={draft}
-        onChange={(next) => {
-          setDraft(next);
-          history.resetCursor();
-        }}
+        onChange={setDraft}
         onSubmit={handleSubmit}
-        onAbort={() => void session.abort()}
         streaming={chat.streaming}
         disabled={chat.terminated}
         mentions={mentionItems}
@@ -635,76 +769,52 @@ export function ChatPane({
         mentionActiveIndex={activeIndex}
         onMentionActiveIndexChange={setActiveIndex}
         onCaretChange={setCaret}
-        onHistoryPrev={
-          draft.length === 0 || history.cursor.index !== -1
-            ? () => setDraft(history.prevValue(draft))
-            : undefined
-        }
-        onHistoryNext={
-          history.cursor.index !== -1 ? () => setDraft(history.nextValue(draft)) : undefined
-        }
+        historyItems={history.history}
+        onPickHistory={setDraft}
+        attachedImages={attachments.images}
+        onRemoveImage={attachments.remove}
+        onPasteImages={attachments.addFiles}
+        onSteer={chat.streaming ? () => queueStreamingMessage('steer') : undefined}
+        onFollowUp={chat.streaming ? () => queueStreamingMessage('followUp') : undefined}
         belowInput={
-          <div className="flex items-center gap-1.5">
-            <ComposerToolbar
-              modelLabel={session.liveState?.model?.modelId ?? null}
-              thinkingLevel={session.liveState?.thinkingLevel ?? null}
-              thinkingLevels={thinkingLevels}
-              onThinkingLevelChange={(level) =>
-                void session.setThinkingLevel(level as never).then((error) => {
-                  if (error !== null) pushToast(error, 'error');
-                })
-              }
-              toolPreset={null}
-              toolPresets={[...TOOL_PRESET_OPTIONS]}
-              onToolPresetChange={(preset) =>
-                void session.setTools(preset as never).then((error) => {
-                  if (error !== null) pushToast(error, 'error');
-                })
-              }
-              compacting={compacting}
-              onCompact={() =>
-                void session.compact().then((error) => {
-                  if (error !== null) pushToast(error, 'error');
-                  else pushToast('已请求压缩上下文');
-                })
-              }
-              onAbortCompaction={() => void session.abortCompaction()}
-              onAutoName={runAutoName}
-              autoNaming={autoNameStatus.kind === 'naming'}
-              onExport={() =>
-                sessionId !== null && window.open(sessionExportUrl(sessionId), '_blank')
-              }
-              onOpenStats={() => {
-                setActivePanel('session');
-                void session.refreshStats();
-              }}
-              busy={chat.streaming}
-            />
-            <div className="ml-auto flex items-center gap-1">
-              <button
-                type="button"
-                aria-pressed={steeringMode}
-                onClick={() => setSteeringMode((previous) => !previous)}
-                title="开启后发送的消息会插队（steer）而不是排队"
-                className={
-                  steeringMode
-                    ? 'sq bg-accent-weak px-1.5 py-0.5 text-[11px] text-accent'
-                    : 'sq px-1.5 py-0.5 text-[11px] text-fg-subtle hover:bg-hover hover:text-fg'
-                }
-              >
-                插队
-              </button>
-              <button
-                type="button"
-                aria-pressed={signal.soundEnabled}
-                onClick={signal.toggleSound}
-                title="一轮完成时响铃（页面存活期有效；ADR-0016 不做后台推送）"
-                className="sq px-1.5 py-0.5 text-[11px] text-fg-subtle hover:bg-hover hover:text-fg"
-              >
-                {signal.soundEnabled ? '🔔' : '🔕'}
-              </button>
-            </div>
-          </div>
+          <ComposerToolbar
+            attachedCount={attachments.images.length}
+            onAttachClick={() => fileInputRef.current?.click()}
+            modelOptions={modelOptions}
+            model={session.liveState?.model ?? null}
+            onModelChange={(provider, modelId) =>
+              void session.setModel(provider, modelId).then((error) => {
+                if (error !== null) pushToast(error, 'error');
+              })
+            }
+            modelBusy={false}
+            thinkingLevel={session.liveState?.thinkingLevel ?? null}
+            thinkingLevels={thinkingLevels}
+            onThinkingLevelChange={(level) =>
+              void session.setThinkingLevel(level as never).then((error) => {
+                if (error !== null) pushToast(error, 'error');
+              })
+            }
+            toolPreset={null}
+            toolPresets={[...TOOL_PRESET_OPTIONS]}
+            onToolPresetChange={(preset) =>
+              void session.setTools(preset as never).then((error) => {
+                if (error !== null) pushToast(error, 'error');
+              })
+            }
+            compacting={compacting}
+            onCompact={() =>
+              void session.compact().then((error) => {
+                if (error !== null) pushToast(error, 'error');
+                else pushToast('已请求压缩上下文');
+              })
+            }
+            onAbortCompaction={() => void session.abortCompaction()}
+            streaming={chat.streaming}
+            onAbort={() => void session.abort()}
+            soundEnabled={signal.soundEnabled}
+            onToggleSound={signal.toggleSound}
+          />
         }
       />
     </div>
@@ -1224,7 +1334,8 @@ export function ChatPane({
 
   if (sessionId === null) {
     return (
-      <div className="chat-content relative flex min-h-0 flex-1 flex-col">
+      <div className="chat-content relative flex min-h-0 flex-1 flex-col" {...dragHandlers}>
+        {dragOverlay}
         {toolbar}
         {showChat ? (
           <EmptyState
@@ -1248,7 +1359,8 @@ export function ChatPane({
   }
 
   return (
-    <div className="chat-content flex min-h-0 flex-1 flex-col">
+    <div className="chat-content relative flex min-h-0 flex-1 flex-col" {...dragHandlers}>
+      {dragOverlay}
       {toolbar}
 
       <div className="relative flex min-h-0 flex-1 flex-col">

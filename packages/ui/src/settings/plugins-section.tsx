@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Button } from '../primitives/button';
 import { Input } from '../primitives/input';
 import { SettingsNotice, SettingsRow, SettingsSectionTitle } from './settings-panel';
+import { ConfigButton } from './settings-ui';
 import type { SkillUpdateView } from './skills-section';
 
 export interface PluginItemView {
@@ -89,27 +89,25 @@ export function PluginsSection({
                   {pkg.source}
                 </span>
               </span>
-              <Button
-                variant="chip"
-                size="sm"
+              <ConfigButton
+                size="small"
                 disabled={busy}
                 onClick={() => onAction(pkg.enabled ? 'disable' : 'enable', pkg.source)}
               >
                 {pkg.enabled ? '禁用' : '启用'}
-              </Button>
-              <Button
-                variant="chip"
-                size="sm"
+              </ConfigButton>
+              <ConfigButton
+                size="small"
                 disabled={busy}
                 onClick={() => onAction('update', pkg.source)}
               >
                 更新
-              </Button>
+              </ConfigButton>
               {confirmRemove === pkg.source ? (
                 <>
-                  <Button
-                    variant="primary"
-                    size="sm"
+                  <ConfigButton
+                    variant="danger"
+                    size="small"
                     disabled={busy}
                     onClick={() => {
                       onAction('remove', pkg.source);
@@ -117,20 +115,20 @@ export function PluginsSection({
                     }}
                   >
                     确认移除
-                  </Button>
-                  <Button variant="ghost" size="sm" onClick={() => setConfirmRemove(null)}>
+                  </ConfigButton>
+                  <ConfigButton variant="ghost" size="small" onClick={() => setConfirmRemove(null)}>
                     取消
-                  </Button>
+                  </ConfigButton>
                 </>
               ) : (
-                <Button
+                <ConfigButton
                   variant="ghost"
-                  size="sm"
+                  size="small"
                   disabled={busy}
                   onClick={() => setConfirmRemove(pkg.source)}
                 >
                   移除
-                </Button>
+                </ConfigButton>
               )}
             </div>
           ))}
@@ -165,23 +163,23 @@ export function PluginsSection({
             <option value="global">用户级</option>
             <option value="project">项目级</option>
           </select>
-          <Button
+          <ConfigButton
             variant="primary"
-            size="sm"
+            size="small"
             disabled={install.busy || install.source.trim().length === 0}
             onClick={install.onInstall}
           >
             {install.busy ? '安装中…' : '安装'}
-          </Button>
+          </ConfigButton>
         </div>
       </section>
 
       <section>
         <SettingsSectionTitle title="更新检查" hint="与 npm registry 比对（联网）" />
         <div className="flex items-center gap-2">
-          <Button variant="chip" size="sm" disabled={updates.checking} onClick={updates.onCheck}>
+          <ConfigButton size="small" disabled={updates.checking} onClick={updates.onCheck}>
             {updates.checking ? '检查中…' : '检查插件更新'}
-          </Button>
+          </ConfigButton>
         </div>
         {updates.results.length > 0 && (
           <div className="mt-2">

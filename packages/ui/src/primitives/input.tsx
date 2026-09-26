@@ -6,8 +6,8 @@ export function Input({ className, ...rest }: InputHTMLAttributes<HTMLInputEleme
   return (
     <input
       className={cn(
-        'w-full rounded-[5px] border border-border bg-bg px-2 py-[5px] text-[11px] text-text',
-        'outline-none placeholder:text-text-dim focus:border-accent',
+        'w-full rounded-[5px] border border-border bg-bg px-[9px] text-[12px] text-text',
+        'h-[30px] outline-none placeholder:text-text-dim focus:border-accent',
         className,
       )}
       {...rest}

@@ -6,9 +6,11 @@ import {
   buildSessionContext,
   createAgentSessionServices,
   getPackageDir,
+  type ModelRuntime,
   type SessionInfo as SdkSessionInfo,
   type SessionEntry,
   SessionManager,
+  type SettingsManager,
   sessionEntryToContextMessages,
 } from '@earendil-works/pi-coding-agent';
 import type {
@@ -58,8 +60,6 @@ export interface SessionReadOptions {
   sessionDir?: string;
   /** 会话根目录（其下每项目一子目录，列表扫描范围）；缺省 = sessionDir ?? SDK 默认 */
   sessionsRoot?: string;
-  /** 运行中会话查询（详情合并运行时状态用），缺省恒 false */
-  isRunning?: (sessionId: string) => boolean;
   /** 项目解析器（缓存 git 归一结果）；测试可注入以避开真实 git 子进程。
    *  传给 ProjectReadService 的必须是同一实例（projectKey 按构造一致，ADR-0008） */
   resolver?: ProjectResolverLike;
@@ -132,10 +132,32 @@ function buildSearchSnippet(
 const AUTO_NAME_TIMEOUT_MS = 30_000;
 const AUTO_NAME_MAX_LENGTH = 80;
 
+/**
+ * auto-name 的模型选取：settings 的默认模型 → 目录里的第一个。
+ *
+ * 为什么要有回退：settings.json 与 pi CLI/参考实现 共享，SDK 升级改过模型 id 后旧值就查不到
+ * （`deepseek-v4-flash` → `deepseek-flash`，2026-09-26）；SDK 的 `findInitialModel` 第 3 步
+ * 失败会继续落到第 4 步 `getAvailableSnapshot()`，这里对齐同一语义。参考实现 则用会话自身的
+ * 模型（`lib/session-title.ts`），从不读 settings 默认值。
+ *
+ * 单独导出以便单测（settings 写值不在目录内是运行时才暴露的路径）。
+ */
+export async function resolveAutoNameModel(services: {
+  settingsManager: Pick<SettingsManager, 'getDefaultProvider' | 'getDefaultModel'>;
+  modelRuntime: Pick<ModelRuntime, 'getModel' | 'getAvailable'>;
+}): Promise<ReturnType<ModelRuntime['getModel']>> {
+  const provider = services.settingsManager.getDefaultProvider();
+  const modelId = services.settingsManager.getDefaultModel();
+  const configured =
+    provider !== undefined && modelId !== undefined
+      ? services.modelRuntime.getModel(provider, modelId)
+      : undefined;
+  return configured ?? (await services.modelRuntime.getAvailable())[0];
+}
+
 export class SessionReadService {
   private readonly sessionDir?: string;
   private readonly sessionsRoot: string;
-  private readonly isRunning: (sessionId: string) => boolean;
   private readonly resolver: ProjectResolverLike;
   /** 列表缓存：指纹匹配才复用（会话增删/改名/写入都会改变指纹） */
   private listCache: { fingerprint: string; sessions: SessionInfo[] } | null = null;
@@ -143,7 +165,6 @@ export class SessionReadService {
   constructor(options: SessionReadOptions = {}) {
     this.sessionDir = options.sessionDir;
     this.sessionsRoot = resolveSessionsRoot(options);
-    this.isRunning = options.isRunning ?? (() => false);
     this.resolver = options.resolver ?? new ProjectResolver();
   }
 
@@ -428,13 +449,11 @@ export class SessionReadService {
    * 让模型给会话起个名字。
    *
    * 用**会话自己的前几条消息**做输入（不从磁盘重读全文，避免把整段历史塞进
-   * 一次小请求）。模型取该 cwd 的默认模型；`persist` 为真时把结果写回会话文件
-   * （追加一条 session_info，与 `PATCH /api/sessions/:id` 同一落盘路径）。
+   * 一次小请求）。模型取该 cwd 的默认模型（失效时回退目录第一个，见
+   * `resolveAutoNameModel`）。**只生成不落盘**：写盘归调用方（server 路由决定走命令通道
+   * 还是 `rename`，避免与运行中的 runtime 抢写同一文件）。
    */
-  async autoName(
-    id: string,
-    options: { cwd?: string; persist?: boolean } = {},
-  ): Promise<{ title: string } | null> {
+  async autoName(id: string, options: { cwd?: string } = {}): Promise<{ title: string } | null> {
     const manager = await this.openById(id);
     if (manager === null) return null;
     const entries = manager.getEntries();
@@ -443,12 +462,7 @@ export class SessionReadService {
 
     const cwd = options.cwd ?? manager.getCwd();
     const services = await createAgentSessionServices({ cwd });
-    const provider = services.settingsManager.getDefaultProvider();
-    const modelId = services.settingsManager.getDefaultModel();
-    const model =
-      provider !== undefined && modelId !== undefined
-        ? services.modelRuntime.getModel(provider, modelId)
-        : (await services.modelRuntime.getAvailable())[0];
+    const model = await resolveAutoNameModel(services);
     if (model === undefined) {
       throw new UserInputError('No model available to generate a session name');
     }
@@ -485,9 +499,7 @@ export class SessionReadService {
     if (title === undefined || title === '') {
       throw new UserInputError('Model returned an empty session name');
     }
-    const trimmed = title.slice(0, AUTO_NAME_MAX_LENGTH);
-    if (options.persist === true) manager.appendSessionInfo(trimmed);
-    return { title: trimmed };
+    return { title: title.slice(0, AUTO_NAME_MAX_LENGTH) };
   }
 
   // ------------------------------------------------------------------

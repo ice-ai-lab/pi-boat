@@ -23,6 +23,7 @@ export {
   respondAgentExtensionUi,
   resumeAgentSession,
   sendAgentCommand,
+  setAgentModel,
   setAgentSessionName,
   setAgentTools,
   steerAgent,

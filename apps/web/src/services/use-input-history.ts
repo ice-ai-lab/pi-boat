@@ -1,26 +1,19 @@
-import {
-  EMPTY_CURSOR,
-  type HistoryCursor,
-  historyNext,
-  historyPrev,
-  pushHistory,
-} from '@ice-ai/client';
+import { pushHistory } from '@ice-ai/client';
 import { useCallback, useEffect, useState } from 'react';
 
 /**
  * 输入历史（F5）：按会话持久化到 localStorage（上限 100 条，见 client 的 pushHistory）。
- * ↑↓ 导航由 ChatPane 的 onKeyDown 驱动，这里只持有状态。
+ *
+ * `↑` 拉起浮层的交互在 `Composer`（T2-9）；本 hook 只负责「读当前会话的历史」与「记一条」。
  */
 export function useInputHistory(sessionId: string | null) {
   const storageKey = `piboat:input-history:${sessionId ?? 'none'}`;
   const [history, setHistory] = useState<string[]>(() => readHistory(storageKey));
-  const [cursor, setCursor] = useState<HistoryCursor>(EMPTY_CURSOR);
 
   // 会话切换（含「URL → 会话」的异步到位）：重读该会话的历史。
   // 不能只靠 useState 初始化——首帧 sessionId 还是 null，键会落在 none 上。
   useEffect(() => {
     setHistory(readHistory(storageKey));
-    setCursor(EMPTY_CURSOR);
   }, [storageKey]);
 
   const remember = useCallback(
@@ -30,32 +23,11 @@ export function useInputHistory(sessionId: string | null) {
         writeHistory(storageKey, next);
         return next;
       });
-      setCursor(EMPTY_CURSOR);
     },
     [storageKey],
   );
 
-  const prevValue = useCallback(
-    (draft: string) => {
-      const result = historyPrev(history, cursor, draft);
-      setCursor(result.cursor);
-      return result.value;
-    },
-    [history, cursor],
-  );
-
-  const nextValue = useCallback(
-    (draft: string) => {
-      const result = historyNext(history, cursor, draft);
-      setCursor(result.cursor);
-      return result.value;
-    },
-    [history, cursor],
-  );
-
-  const resetCursor = useCallback(() => setCursor(EMPTY_CURSOR), []);
-
-  return { history, cursor, remember, prevValue, nextValue, resetCursor };
+  return { history, remember };
 }
 
 function readHistory(key: string): string[] {

@@ -1,6 +1,6 @@
-import { Button } from '../primitives/button';
 import { Input } from '../primitives/input';
 import { SettingsNotice, SettingsRow, SettingsSectionTitle } from './settings-panel';
+import { ConfigButton } from './settings-ui';
 
 /**
  * ModelsSection（docs/06 §4.4）：模型域三块——可见范围 / models.json 原文 / 目录刷新。
@@ -111,22 +111,20 @@ export function ModelsSection({ enabled, config, refresh, catalog }: ModelsSecti
           ))}
         </div>
         <div className="mt-3 flex items-center gap-2">
-          <Button
-            variant="chip"
-            size="sm"
+          <ConfigButton
+            size="small"
             disabled={!enabled.canWrite || enabled.busy}
             onClick={enabled.onPrune}
           >
             清理失效项（prune）
-          </Button>
-          <Button
-            variant="chip"
-            size="sm"
+          </ConfigButton>
+          <ConfigButton
+            size="small"
             disabled={!enabled.canWrite || enabled.busy}
             onClick={enabled.onResync}
           >
             修复改名残留（resync）
-          </Button>
+          </ConfigButton>
         </div>
       </section>
 
@@ -147,17 +145,17 @@ export function ModelsSection({ enabled, config, refresh, catalog }: ModelsSecti
           className="sq hairline w-full resize-y border-line-2 bg-code-bg p-2.5 font-mono text-[11.5px] leading-[1.55] text-fg outline-none"
         />
         <div className="mt-2 flex items-center gap-2">
-          <Button
+          <ConfigButton
             variant="primary"
-            size="sm"
+            size="small"
             disabled={config.saving || config.parseError !== null || !config.dirty}
             onClick={config.onSave}
           >
             {config.saving ? '保存中…' : '保存'}
-          </Button>
-          <Button variant="chip" size="sm" disabled={config.saving} onClick={config.onReload}>
+          </ConfigButton>
+          <ConfigButton size="small" disabled={config.saving} onClick={config.onReload}>
             重新载入
-          </Button>
+          </ConfigButton>
           {config.dirty && <span className="text-[11.5px] text-warn">有未保存改动</span>}
         </div>
       </section>
@@ -168,9 +166,9 @@ export function ModelsSection({ enabled, config, refresh, catalog }: ModelsSecti
           hint="只有点击按钮才联网（离线态优先用本地缓存 / models-store.json）"
         />
         <div className="flex items-center gap-2">
-          <Button variant="chip" size="sm" disabled={refresh.busy} onClick={refresh.onRefresh}>
+          <ConfigButton size="small" disabled={refresh.busy} onClick={refresh.onRefresh}>
             {refresh.busy ? '刷新中…' : '刷新目录'}
-          </Button>
+          </ConfigButton>
           {refresh.lastResult !== null && (
             <span className="text-[11.5px] text-fg-faint">{refresh.lastResult}</span>
           )}
@@ -186,14 +184,9 @@ export function ModelsSection({ enabled, config, refresh, catalog }: ModelsSecti
                 }}
                 placeholder="搜索 models.dev 目录（联网）"
               />
-              <Button
-                variant="chip"
-                size="sm"
-                disabled={catalog.loading}
-                onClick={catalog.onSearch}
-              >
+              <ConfigButton size="small" disabled={catalog.loading} onClick={catalog.onSearch}>
                 搜索
-              </Button>
+              </ConfigButton>
             </div>
             {catalog.error !== null && <SettingsNotice tone="warn">{catalog.error}</SettingsNotice>}
             <div className="max-h-48 overflow-y-auto">

@@ -1,20 +1,29 @@
-import { ArrowUp, Square } from 'lucide-react';
-import { type KeyboardEvent, type ReactNode, useCallback, useRef } from 'react';
+import {
+  type ClipboardEvent,
+  type KeyboardEvent,
+  type ReactNode,
+  useCallback,
+  useState,
+} from 'react';
+import { useI18n } from '../i18n/i18n-provider';
 import { Textarea } from '../primitives/textarea';
 import { type SuggestionItem, SuggestionMenu } from './suggestion-menu';
 
 /**
- * Composer（docs/06 §4.2）：sticky 输入卡 + 渐变淡入 + 发送↔停止。
- * Enter 发送 / Shift+Enter 换行（docs/06 §8.6）；流式中可排队追问（F5 接 queue UI）。
+ * Composer（docs/06 §4.2）：sticky 输入卡 + 发送↔停止/Steer/FollowUp。
+ *
+ * 结构按设计规范 `ChatInput.tsx` 的输入卡部分（T2-3/T2-4/T2-8/T2-10/T2-13）：
+ * 14px 圆角卡 + `10px 10px 10px 14px` 内边距 + 双层 boxShadow；流式中描边转黄
+ * （`rgba(234,179,8,0.4)`）并把卡内按钮换成 Steer（黄）/ Follow-Up（靛蓝）；
+ * 外层 `padding: 0 16px 8px` + 桌面 52px 右内边距（避让 minimap）。
+ * 附件缩略图渲染在卡上方；`belowInput` 是输入卡**下方**的工具行。
  */
 export interface ComposerProps {
   value: string;
   onChange(value: string): void;
   onSubmit(text: string): void;
-  onAbort(): void;
   streaming: boolean;
   disabled?: boolean;
-  placeholder?: string;
   /** `@` 文件提及候选（web 层用 client 的 file-fuzzy 算出，本组件只渲染与回传选择） */
   mentions?: SuggestionItem[];
   onPickMention?(index: number): void;
@@ -25,46 +34,64 @@ export interface ComposerProps {
   aboveInput?: ReactNode;
   /** 输入卡**下方**的工具行（设计规范 ChatInput 的底部行：附件+模型 | 思考/工具/压缩/停止） */
   belowInput?: ReactNode;
-  /** ↑ 历史上翻（仅有历史时由宿主提供） */
-  onHistoryPrev?(): void;
-  /** ↓ 历史下翻 */
-  onHistoryNext?(): void;
   /** 键盘上下键在候选间移动（web 层持有选中下标） */
   mentionActiveIndex?: number;
   onMentionActiveIndexChange?(index: number): void;
   /** 光标位置回传（`@` 提及需要「光标前的文本」而不是整段） */
   onCaretChange?(caret: number): void;
+  /** 已附加的图片（缩略图 56×56 + 右上角移除） */
+  attachedImages?: { previewUrl: string }[];
+  onRemoveImage?(index: number): void;
+  /** 粘贴板里的图片文件（web 层负责转 data URL 并压缩） */
+  onPasteImages?(files: File[]): void;
+  /** 流式中的 Steer（黄色按钮）：尽快打断当前轮并注入 */
+  onSteer?(): void;
+  /** 流式中的 Follow-Up（靛蓝按钮）：当前轮收尾后追问 */
+  onFollowUp?(): void;
+  /** 输入历史（`↑` 在空输入上拉起浮层，T2-9） */
+  historyItems?: string[];
+  onPickHistory?(text: string): void;
 }
 
 export function Composer({
   value,
   onChange,
   onSubmit,
-  onAbort,
   streaming,
   disabled = false,
-  placeholder = '给 PiBoat 发消息…（Enter 发送，Shift+Enter 换行）',
   mentions,
   onPickMention,
   slashCommands,
   onPickSlashCommand,
   aboveInput,
   belowInput,
-  onHistoryPrev,
-  onHistoryNext,
   mentionActiveIndex = 0,
   onMentionActiveIndexChange,
   onCaretChange,
+  attachedImages,
+  onRemoveImage,
+  onPasteImages,
+  onSteer,
+  onFollowUp,
+  historyItems,
+  onPickHistory,
 }: ComposerProps) {
-  const lastSubmitRef = useRef('');
+  const { t } = useI18n();
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyActiveIndex, setHistoryActiveIndex] = useState(0);
+  const history = historyItems ?? [];
   const mentionOpen = mentions !== undefined && mentions.length > 0;
   const slashOpen = !mentionOpen && slashCommands !== undefined && slashCommands.length > 0;
   const menuOpen = mentionOpen || slashOpen;
+  const hasImages = (attachedImages?.length ?? 0) > 0;
+  // 注：protocol 的 `prompt`/`steer`/`follow_up` 都是 `message: z.string().min(1)`（有单测钉住），
+  // 因此「只发图不写字」在本仓会被 400 拒（设计规范允许）。在不改协议契约前，发送/排队仍以文本非空为准。
+  const canSend = !disabled && value.trim().length > 0;
+  const canQueue = value.trim().length > 0;
 
   const submit = useCallback(() => {
     const text = value.trim();
     if (text.length === 0 || disabled) return;
-    lastSubmitRef.current = text;
     onSubmit(text);
     onChange('');
   }, [value, disabled, onSubmit, onChange]);
@@ -92,27 +119,50 @@ export function Composer({
           return;
         }
       }
+      // 历史浮层开着时：上下选、Tab/Enter 应用、Esc 关（设计规范 ChatInput 的 historyMenuOpen 分支）
+      if (historyOpen) {
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          setHistoryActiveIndex((current) => Math.min(history.length - 1, current + 1));
+          return;
+        }
+        if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          setHistoryActiveIndex((current) => Math.max(0, current - 1));
+          return;
+        }
+        if (event.key === 'Escape') {
+          event.preventDefault();
+          setHistoryOpen(false);
+          return;
+        }
+        if (
+          (event.key === 'Tab' || event.key === 'Enter') &&
+          history[historyActiveIndex] !== undefined
+        ) {
+          event.preventDefault();
+          setHistoryOpen(false);
+          setHistoryActiveIndex(0);
+          onPickHistory?.(history[historyActiveIndex]);
+          return;
+        }
+      }
+      // `↑` 在空输入上拉起历史浮层（设计规范：仅 !isStreaming 且无内容时）
+      if (
+        event.key === 'ArrowUp' &&
+        !event.nativeEvent.isComposing &&
+        !streaming &&
+        history.length > 0 &&
+        value.trim().length === 0
+      ) {
+        event.preventDefault();
+        setHistoryActiveIndex(history.length - 1);
+        setHistoryOpen(true);
+        return;
+      }
       if (event.key === 'Enter' && !event.shiftKey && !event.nativeEvent.isComposing) {
         event.preventDefault();
         submit();
-        return;
-      }
-      // ↑↓：光标在首/末行时才接管（否则让用户在多行文本里移动）
-      const textarea = event.currentTarget;
-      const textareaValue = textarea.value;
-      const caret = textarea.selectionStart ?? 0;
-      if (event.key === 'ArrowUp' && onHistoryPrev !== undefined) {
-        if (!textareaValue.slice(0, caret).includes('\n')) {
-          event.preventDefault();
-          onHistoryPrev();
-        }
-        return;
-      }
-      if (event.key === 'ArrowDown' && onHistoryNext !== undefined) {
-        if (!textareaValue.slice(caret).includes('\n')) {
-          event.preventDefault();
-          onHistoryNext();
-        }
       }
     },
     [
@@ -125,149 +175,438 @@ export function Composer({
       onMentionActiveIndexChange,
       onPickMention,
       onPickSlashCommand,
-      onHistoryPrev,
-      onHistoryNext,
       onChange,
+      historyOpen,
+      history,
+      historyActiveIndex,
+      onPickHistory,
+      streaming,
       value,
     ],
   );
 
+  const onPaste = useCallback(
+    (event: ClipboardEvent<HTMLTextAreaElement>) => {
+      if (onPasteImages === undefined) return;
+      const items = Array.from(event.clipboardData?.items ?? []);
+      const files = items
+        .filter((item) => item.type.startsWith('image/'))
+        .map((item) => item.getAsFile())
+        .filter((file): file is File => file !== null);
+      if (files.length === 0) return;
+      event.preventDefault();
+      onPasteImages(files);
+    },
+    [onPasteImages],
+  );
+
+  const placeholder = streaming
+    ? onSteer !== undefined || onFollowUp !== undefined
+      ? t('chat.steerPlaceholder')
+      : t('chat.agentPlaceholder')
+    : t('chat.messagePlaceholder');
+
   return (
-    <div className="relative shrink-0" style={{ padding: '0 16px 8px' }}>
-      {aboveInput}
-      {mentionOpen && (
-        <SuggestionMenu
-          title="文件"
-          items={mentions ?? []}
-          activeIndex={mentionActiveIndex}
-          onPick={(index) => onPickMention?.(index)}
-          onHover={(index) => onMentionActiveIndexChange?.(index)}
-          emptyHint="没有匹配的文件"
-        />
-      )}
-      {slashOpen && (
-        <SuggestionMenu
-          title="命令"
-          items={slashCommands ?? []}
-          activeIndex={mentionActiveIndex}
-          onPick={(index) => onPickSlashCommand?.(index)}
-          onHover={(index) => onMentionActiveIndexChange?.(index)}
-          emptyHint="没有匹配的命令"
-        />
-      )}
+    <fieldset
+      style={{
+        flexShrink: 0,
+        minWidth: 0,
+        margin: 0,
+        border: 0,
+        background: 'transparent',
+        padding: '0 16px 8px',
+        // 桌面：16px 基准 + 36px 避让 ChatMinimap（设计规范 ChatInput:1586）
+        paddingRight: 52,
+      }}
+    >
       <div style={{ maxWidth: 'var(--chat-content-max-width, 820px)', margin: '0 auto' }}>
-        {/* 输入卡：设计规范 ChatInput 的 14px 圆角卡 + 10/14 内边距 + 轻阴影 */}
-        <div
-          style={{
-            minWidth: 0,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            background: 'var(--bg)',
-            border: '1px solid color-mix(in srgb, var(--border) 70%, transparent)',
-            borderRadius: 14,
-            padding: '10px 10px 10px 14px',
-            boxShadow: '0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -12px rgba(15,23,42,0.10)',
-            transition: 'border-color 0.15s, background 0.15s, box-shadow 0.15s',
-          }}
-        >
-          <Textarea
-            value={value}
-            onChange={(event) => {
-              onChange(event.target.value);
-              onCaretChange?.(event.target.selectionStart ?? event.target.value.length);
-            }}
-            onSelect={(event) =>
-              onCaretChange?.(
-                event.currentTarget.selectionStart ?? event.currentTarget.value.length,
-              )
-            }
-            onKeyDown={onKeyDown}
-            placeholder={placeholder}
-            disabled={disabled}
-            rows={1}
-            className="chat-input-textarea"
-            style={{
-              flex: 1,
-              minWidth: 0,
-              background: 'none',
-              border: 'none',
-              outline: 'none',
-              resize: 'none',
-              color: 'var(--text)',
-              fontSize: 'var(--chat-content-font-size, 14px)',
-              lineHeight: 1.6,
-              fontFamily: 'inherit',
-              minHeight: 24,
-              maxHeight: 200,
-              overflow: 'auto',
-            }}
-          />
-          {streaming ? (
-            <button
-              type="button"
-              onClick={onAbort}
-              title="停止"
-              aria-label="停止生成"
+        {aboveInput}
+        {hasImages && (
+          <div style={{ display: 'flex', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
+            {attachedImages?.map((image, index) => (
+              <div key={image.previewUrl} style={{ position: 'relative', flexShrink: 0 }}>
+                <img
+                  src={image.previewUrl}
+                  alt=""
+                  style={{
+                    width: 56,
+                    height: 56,
+                    objectFit: 'cover',
+                    borderRadius: 6,
+                    border: '1px solid var(--border)',
+                    display: 'block',
+                  }}
+                />
+                <button
+                  type="button"
+                  aria-label={t('chat.removeImage')}
+                  title={t('chat.removeImage')}
+                  onClick={() => onRemoveImage?.(index)}
+                  style={{
+                    position: 'absolute',
+                    top: -4,
+                    right: -4,
+                    width: 16,
+                    height: 16,
+                    borderRadius: '50%',
+                    background: 'var(--bg-panel)',
+                    border: '1px solid var(--border)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    padding: 0,
+                    color: 'var(--text-muted)',
+                  }}
+                >
+                  <svg
+                    width="8"
+                    height="8"
+                    viewBox="0 0 8 8"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    aria-hidden="true"
+                  >
+                    <line x1="1" y1="1" x2="7" y2="7" />
+                    <line x1="7" y1="1" x2="1" y2="7" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ position: 'relative', minWidth: 0 }}>
+          {historyOpen && history.length > 0 && (
+            <div
               style={{
-                flexShrink: 0,
-                alignSelf: 'flex-end',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '7px 12px',
-                background: 'rgba(234,179,8,0.12)',
-                border: '1px solid rgba(234,179,8,0.35)',
+                position: 'absolute',
+                left: 0,
+                right: 0,
+                bottom: 'calc(100% + 8px)',
+                zIndex: 120,
+                background: 'var(--bg)',
+                border: '1px solid var(--border)',
                 borderRadius: 8,
-                color: 'rgba(180,130,0,1)',
-                cursor: 'pointer',
-                fontSize: 13,
-                fontWeight: 600,
+                boxShadow: '0 -6px 20px rgba(0,0,0,0.12)',
+                overflow: 'hidden',
+                maxHeight: 'min(44vh, 360px)',
               }}
             >
-              <Square size={12} fill="currentColor" />
-              停止
-            </button>
-          ) : (
-            <button
-              type="button"
-              onClick={submit}
-              title="发送"
-              aria-label="发送消息"
-              disabled={disabled || value.trim().length === 0}
+              <div
+                title={t('chat.inputHistory')}
+                style={{
+                  height: 30,
+                  padding: '0 10px',
+                  borderBottom: '1px solid var(--border)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  color: 'var(--text-dim)',
+                }}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M3 12a9 9 0 1 0 3-6.7" />
+                  <path d="M3 4v5h5" />
+                  <path d="M12 7v5l3 2" />
+                </svg>
+              </div>
+              <div
+                style={{
+                  maxHeight: 'calc(min(44vh, 360px) - 31px)',
+                  overflowY: 'auto',
+                  padding: 4,
+                }}
+              >
+                {history.map((item, index) => {
+                  const active = index === historyActiveIndex;
+                  return (
+                    <button
+                      // 历史条目文本可重复（同一句话发过两次），下标参与 key
+                      // biome-ignore lint/suspicious/noArrayIndexKey: 同上
+                      key={`${index}:${item}`}
+                      type="button"
+                      onMouseDown={(event) => {
+                        event.preventDefault();
+                        setHistoryOpen(false);
+                        setHistoryActiveIndex(0);
+                        onPickHistory?.(item);
+                      }}
+                      onMouseEnter={() => setHistoryActiveIndex(index)}
+                      style={{
+                        width: '100%',
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: 8,
+                        padding: '7px 8px',
+                        border: 'none',
+                        borderRadius: 6,
+                        background: active ? 'var(--bg-selected)' : 'none',
+                        color: 'var(--text)',
+                        cursor: 'pointer',
+                        textAlign: 'left',
+                        fontSize: 12.5,
+                        lineHeight: 1.45,
+                      }}
+                    >
+                      <span
+                        style={{
+                          flexShrink: 0,
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: 11,
+                          color: 'var(--text-dim)',
+                          paddingTop: 1,
+                        }}
+                      >
+                        {index + 1}
+                      </span>
+                      <span
+                        style={{
+                          minWidth: 0,
+                          display: '-webkit-box',
+                          WebkitBoxOrient: 'vertical',
+                          WebkitLineClamp: 2,
+                          overflow: 'hidden',
+                          overflowWrap: 'anywhere',
+                        }}
+                      >
+                        {item}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {mentionOpen && (
+            <SuggestionMenu
+              title={t('chat.files', {
+                label: t('chat.matches', { count: mentions?.length ?? 0 }),
+                hint: '',
+              })}
+              hint={t('chat.tabEnter')}
+              items={mentions ?? []}
+              activeIndex={mentionActiveIndex}
+              onPick={(index) => onPickMention?.(index)}
+              onHover={(index) => onMentionActiveIndexChange?.(index)}
+              emptyHint={t('chat.noMatchingFiles')}
+            />
+          )}
+          {slashOpen && (
+            <SuggestionMenu
+              title={t('chat.slashCommands', { label: `${slashCommands?.length ?? 0}` })}
+              hint={t('chat.tabEnter')}
+              items={slashCommands ?? []}
+              activeIndex={mentionActiveIndex}
+              onPick={(index) => onPickSlashCommand?.(index)}
+              onHover={(index) => onMentionActiveIndexChange?.(index)}
+              emptyHint={t('chat.noCommands')}
+            />
+          )}
+
+          {/* 输入卡：14px 圆角 + 10/14 内边距 + 流式中黄色描边（设计规范 ChatInput:2119-2121） */}
+          <div
+            style={{
+              minWidth: 0,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              background: 'var(--bg)',
+              border: `1px solid ${
+                streaming && (onSteer !== undefined || onFollowUp !== undefined)
+                  ? 'rgba(234,179,8,0.4)'
+                  : 'color-mix(in srgb, var(--border) 70%, transparent)'
+              }`,
+              borderRadius: 14,
+              padding: '10px 10px 10px 14px',
+              boxShadow: '0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -12px rgba(15,23,42,0.10)',
+              transition: 'border-color 0.15s, background 0.15s, box-shadow 0.15s',
+            }}
+          >
+            <Textarea
+              value={value}
+              onChange={(event) => {
+                setHistoryOpen(false);
+                onChange(event.target.value);
+                onCaretChange?.(event.target.selectionStart ?? event.target.value.length);
+              }}
+              onSelect={(event) =>
+                onCaretChange?.(
+                  event.currentTarget.selectionStart ?? event.currentTarget.value.length,
+                )
+              }
+              onKeyDown={onKeyDown}
+              onPaste={onPaste}
+              placeholder={placeholder}
+              disabled={disabled}
+              rows={1}
+              className="chat-input-textarea"
               style={{
-                flexShrink: 0,
-                alignSelf: 'flex-end',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '7px 14px',
-                background:
-                  !disabled && value.trim().length > 0 ? 'var(--accent)' : 'var(--bg-panel)',
+                flex: 1,
+                minWidth: 0,
+                background: 'none',
                 border: 'none',
-                borderRadius: 8,
-                color:
-                  !disabled && value.trim().length > 0
-                    ? 'var(--accent-contrast)'
-                    : 'var(--text-dim)',
-                cursor: !disabled && value.trim().length > 0 ? 'pointer' : 'not-allowed',
-                fontSize: 13,
-                fontWeight: 600,
-                boxShadow:
-                  !disabled && value.trim().length > 0
+                outline: 'none',
+                resize: 'none',
+                color: 'var(--text)',
+                fontSize: 'var(--chat-content-font-size, 14px)',
+                lineHeight: 1.6,
+                fontFamily: 'inherit',
+                minHeight: 24,
+                maxHeight: 200,
+                overflow: 'auto',
+              }}
+            />
+            {streaming ? (
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  flexShrink: 0,
+                  alignSelf: 'flex-end',
+                }}
+              >
+                {onSteer !== undefined && (
+                  <button
+                    type="button"
+                    onClick={onSteer}
+                    disabled={!canQueue}
+                    title={t('chat.steerHint')}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      padding: '7px 12px',
+                      background: canQueue ? 'rgba(234,179,8,0.12)' : 'none',
+                      border: '1px solid rgba(234,179,8,0.35)',
+                      borderRadius: 8,
+                      color: canQueue ? 'rgba(180,130,0,1)' : 'var(--text-dim)',
+                      cursor: canQueue ? 'pointer' : 'not-allowed',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      letterSpacing: '-0.01em',
+                    }}
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 10 10"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <path d="M5 1 L9 5 L5 9" />
+                      <line x1="1" y1="5" x2="9" y2="5" />
+                    </svg>
+                    {t('chat.steer')}
+                  </button>
+                )}
+                {onFollowUp !== undefined && (
+                  <button
+                    type="button"
+                    onClick={onFollowUp}
+                    disabled={!canQueue}
+                    title={t('chat.followUpHint')}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 5,
+                      padding: '7px 12px',
+                      background: canQueue ? 'rgba(129,140,248,0.12)' : 'none',
+                      border: '1px solid rgba(129,140,248,0.35)',
+                      borderRadius: 8,
+                      color: canQueue ? 'rgba(99,102,241,1)' : 'var(--text-dim)',
+                      cursor: canQueue ? 'pointer' : 'not-allowed',
+                      fontSize: 13,
+                      fontWeight: 600,
+                      letterSpacing: '-0.01em',
+                    }}
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 10 10"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.8"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <line x1="5" y1="1" x2="5" y2="6" />
+                      <polyline points="2.5 3.5 5 1 7.5 3.5" />
+                      <line x1="2" y1="9" x2="8" y2="9" />
+                    </svg>
+                    {t('chat.followUp')}
+                  </button>
+                )}
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={submit}
+                title={t('chat.send')}
+                aria-label={t('chat.send')}
+                disabled={!canSend}
+                style={{
+                  flexShrink: 0,
+                  alignSelf: 'flex-end',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '7px 14px',
+                  background: canSend ? 'var(--accent)' : 'var(--bg-panel)',
+                  border: 'none',
+                  borderRadius: 8,
+                  color: canSend ? 'var(--accent-contrast)' : 'var(--text-dim)',
+                  cursor: canSend ? 'pointer' : 'not-allowed',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  letterSpacing: '-0.01em',
+                  boxShadow: canSend
                     ? '0 1px 3px color-mix(in srgb, var(--accent) 25%, transparent)'
                     : 'none',
-                transition: 'background 0.15s, box-shadow 0.15s',
-              }}
-            >
-              <ArrowUp size={14} />
-              发送
-            </button>
-          )}
+                  transition: 'background 0.15s, box-shadow 0.15s',
+                }}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <line x1="2" y1="7" x2="11" y2="7" />
+                  <polyline points="7.5 3 12 7 7.5 11" />
+                </svg>
+                {t('chat.send')}
+              </button>
+            )}
+          </div>
         </div>
+
         {/* 底部工具行（设计规范 ChatInput：在输入卡下方 marginTop 8） */}
         {belowInput !== undefined && <div style={{ marginTop: 8 }}>{belowInput}</div>}
       </div>
-    </div>
+    </fieldset>
   );
 }

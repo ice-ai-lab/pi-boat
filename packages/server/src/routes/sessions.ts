@@ -152,18 +152,25 @@ export function registerSessionRoutes(app: Hono, deps: SessionRouteDeps): void {
 
   // POST /api/sessions/:id/auto-name —— LLM 生成会话名（会真发一次模型请求）
   app.post('/api/sessions/:id/auto-name', async (c) => {
+    const id = c.req.param('id');
     const raw = await c.req.json().catch(() => ({}));
     const parsed = SessionAutoNameRequestSchema.safeParse(raw ?? {});
     if (!parsed.success) {
       return c.json<CommandError>({ error: firstIssueMessage(parsed.error.issues) }, 400);
     }
     try {
-      const result = await readService.autoName(c.req.param('id'), {
-        cwd: parsed.data.cwd,
-        persist: parsed.data.dryRun !== true,
-      });
+      const result = await readService.autoName(id, { cwd: parsed.data.cwd });
       if (result === null) {
         return c.json<CommandError>({ error: 'Session not found' }, 404);
+      }
+      // 落盘只此一处：运行中会话走命令通道（与 runtime 同一写入者，不与它抢写文件），
+      // 冷会话直写会话文件（与 PATCH /api/sessions/:id 同一路径）。
+      if (parsed.data.dryRun !== true) {
+        if (agentService.isResident(id)) {
+          await agentService.send(id, { type: 'set_session_name', name: result.title });
+        } else {
+          await readService.rename(id, result.title);
+        }
       }
       const body: SessionAutoNameResponse = { title: result.title };
       return c.json(body);
@@ -267,7 +274,7 @@ export function registerSessionRoutes(app: Hono, deps: SessionRouteDeps): void {
     if (!parsed.success) {
       return c.json<CommandError>({ error: firstIssueMessage(parsed.error.issues) }, 400);
     }
-    if (agentService.isRunning(id)) {
+    if (agentService.isResident(id)) {
       return c.json<CommandError>(
         {
           error:
@@ -292,7 +299,7 @@ export function registerSessionRoutes(app: Hono, deps: SessionRouteDeps): void {
   // 运行中 → 409（删注册表内会话会与 SDK 写盘竞争）
   app.delete('/api/sessions/:id', async (c) => {
     const id = c.req.param('id');
-    if (agentService.isRunning(id)) {
+    if (agentService.isResident(id)) {
       return c.json<CommandError>({ error: 'Session is running; dispose it before deletion' }, 409);
     }
     const deletedIds = await readService.delete(id);

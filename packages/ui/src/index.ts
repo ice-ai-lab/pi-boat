@@ -10,6 +10,7 @@ export { AssistantTurn, UsageLine, UserBubble } from './chat/assistant-turn';
 export { ChatMinimap, type ChatMinimapProps } from './chat/chat-minimap';
 export { CodeBlock } from './chat/code-block';
 export { Composer, type ComposerProps } from './chat/composer';
+export { ComposerMenus, type ComposerMenusProps } from './chat/composer-menus';
 export { ComposerToolbar, type ComposerToolbarProps } from './chat/composer-toolbar';
 export { EmptyState, type EmptyStateProps } from './chat/empty-state';
 export { MarkdownBody, MarkdownView } from './chat/markdown-view';
@@ -18,6 +19,12 @@ export {
   type MessageListHandle,
   type MessageListProps,
 } from './chat/message-list';
+export {
+  filterModelOptions,
+  ModelSelector,
+  type ModelSelectorOption,
+  type ModelSelectorProps,
+} from './chat/model-selector';
 export { ProcessGroup } from './chat/process-group';
 export { QueueBar, type QueueBarProps } from './chat/queue-bar';
 export {

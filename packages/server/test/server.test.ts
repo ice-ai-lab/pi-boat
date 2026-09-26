@@ -73,7 +73,8 @@ function fakeAgentService() {
     }),
     getRunningState: (id: string) =>
       running.has(id) ? { running: true, state: { sessionId: id } } : { running: false },
-    isRunning: (id: string) => running.has(id),
+    isResident: (id: string) => running.has(id),
+    residentSessionIds: () => [...running],
     runningSessionIds: () => [...running],
     registryVersion: 7,
     disposeAll: vi.fn(),
@@ -807,13 +808,31 @@ describe('会话域 B4 路由（docs/02 §6.2/§6.3、ADR-0013b）', () => {
     });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ title: '自动命名' });
-    expect(readService.autoName).toHaveBeenCalledWith('sess-disk', {
-      cwd: undefined,
-      persist: false,
-    });
+    expect(readService.autoName).toHaveBeenCalledWith('sess-disk', { cwd: undefined });
     expect((await request(app, '/api/sessions/nope/auto-name', { method: 'POST' })).status).toBe(
       404,
     );
+  });
+
+  it('POST /api/sessions/:id/auto-name：非 dryRun 时由路由落盘一次（冷会话 → rename）', async () => {
+    const { app, readService } = makeApp();
+    const res = await request(app, '/api/sessions/sess-disk/auto-name', { method: 'POST' });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ title: '自动命名' });
+    // readService 只生成不落盘；写归路由（resident → 命令通道，冷会话 → rename）
+    expect(readService.rename).toHaveBeenCalledWith('sess-disk', '自动命名');
+  });
+
+  it('POST /api/sessions/:id/auto-name：运行中会话走 set_session_name 命令通道落盘', async () => {
+    const { app, agentService, readService } = makeApp();
+    agentService.isResident = (id) => id === 'sess-disk';
+    const res = await request(app, '/api/sessions/sess-disk/auto-name', { method: 'POST' });
+    expect(res.status).toBe(200);
+    expect(agentService.send).toHaveBeenCalledWith('sess-disk', {
+      type: 'set_session_name',
+      name: '自动命名',
+    });
+    expect(readService.rename).not.toHaveBeenCalled();
   });
 
   it('GET .../thinking：blockIndex 非法 → 400；无此块 → 404；命中 → {thinking}', async () => {

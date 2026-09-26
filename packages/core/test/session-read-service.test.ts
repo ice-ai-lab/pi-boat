@@ -1,8 +1,12 @@
 import { mkdirSync, mkdtempSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { computeStats, SessionReadService } from '../src/read/session-read-service';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import {
+  computeStats,
+  resolveAutoNameModel,
+  SessionReadService,
+} from '../src/read/session-read-service';
 
 /**
  * SessionReadService 测试：临时目录写真实 .jsonl（SDK SessionManager 解析），
@@ -777,5 +781,61 @@ describe('SessionReadService（B4）', () => {
     const shadowed = await service().list({ transient: [{ ...transient, id: sessionId }] });
     expect(shadowed).toHaveLength(1);
     expect(shadowed[0]?.transient).toBe(true);
+  });
+});
+
+/**
+ * auto-name 的模型回退链（BUG-1）：settings 里记的默认模型 id 可能已被 SDK 改名/删除，
+ * 旧实现只在 provider/modelId **缺失**时回退，查不到时直接抛「No model available」——
+ * 打开会话后点「自动命名」100% 失败。这里钉住「查不到也要回退」这条语义。
+ */
+describe('resolveAutoNameModel（settings 默认模型失效时的回退）', () => {
+  const model = { provider: 'deepseek', id: 'deepseek-flash' };
+  type Services = Parameters<typeof resolveAutoNameModel>[0];
+  const services = (input: {
+    provider?: string;
+    modelId?: string;
+    configured?: typeof model | undefined;
+    available?: (typeof model)[];
+    onAvailable?: () => void;
+  }): Services =>
+    ({
+      settingsManager: {
+        getDefaultProvider: () => input.provider,
+        getDefaultModel: () => input.modelId,
+      },
+      modelRuntime: {
+        getModel: () => input.configured,
+        getAvailable: async () => {
+          input.onAvailable?.();
+          return input.available ?? [];
+        },
+      },
+    }) as unknown as Services;
+
+  it('默认模型查得到 → 直接用它，不查目录', async () => {
+    const onAvailable = vi.fn();
+    const picked = await resolveAutoNameModel(
+      services({ provider: 'deepseek', modelId: 'deepseek-flash', configured: model, onAvailable }),
+    );
+    expect(picked).toBe(model);
+    expect(onAvailable).not.toHaveBeenCalled();
+  });
+
+  it('默认模型已从目录消失（SDK 改名）→ 回退目录第一个', async () => {
+    const picked = await resolveAutoNameModel(
+      services({
+        provider: 'deepseek',
+        modelId: 'deepseek-v4-flash',
+        configured: undefined,
+        available: [model],
+      }),
+    );
+    expect(picked).toBe(model);
+  });
+
+  it('未配置默认模型 → 目录第一个；目录为空 → undefined', async () => {
+    expect(await resolveAutoNameModel(services({ available: [model] }))).toBe(model);
+    expect(await resolveAutoNameModel(services({ available: [] }))).toBeUndefined();
   });
 });

@@ -27,7 +27,7 @@
 | CSS 规则层（选择器差集） | ✅ **基本归零** | `globals.css` 288→266，缺 48（31 = 排除域+token）；`settings.css` 190→178，缺 12（全 = `.agents-*`） |
 | 死 CSS（零消费方） | ❌ **主要问题** | `web-ui.css` 52/126、`settings.css` 58/126、`utilities.css` 5/12 → **115/264 零消费** |
 | 组件 DOM 结构 | ❌ **主要战场** | 外壳 ✓ 已对齐；**侧栏 7 条 P0、中栏 11 条 P0/P1、右栏 3 条 P0、设置 4 条 P0** 未做 |
-| i18n | 🟡 **基建完成、未铺开** | 三语 612 key × 3 已就位；但全仓只有 **5 个文件** import `useI18n` |
+| i18n | 🟡 **基建完成、未铺开** | 三语 616 key × 3 已就位；但全仓只有 **5 个文件** import `useI18n` |
 | 硬 bug | ⚠️ 3 个 | 见 §1（1 个新发现 + 2 个收尾项） |
 
 ---
@@ -106,6 +106,130 @@ protocol 31 / client 83 / ui 16 / web 3 用例）。双实例 DOM 取证：品�
 （`PiBoat` / `New` / `~/…/pi-boat` / `main` / `Explorer` / `Models` / `Skills` / `Settings`）、
 元素计数（`.file-panel-expand-button` / `.sidebar-section-resize-handle` / `.catppuccin-file-icon`）、
 窗口标题 `pi-boat - PiBoat` 与规范一致。
+
+---
+
+## 0.2 第三轮实施进度（2026-09-26，参考实现 逐屏对拍）
+
+> 基线：用户在并排对照 参考实现（`localhost:30141`）后报了 4 处「还是不一样」。本轮用
+> **同视口双实例 DOM 取证**（同一会话 id、同一文件、同一设置节）逐处定位，改掉 2 处、
+> 存证 2 处。取证脚本不入库（临时目录）。
+
+**已修**
+
+- **侧栏「莫名其妙的加载中会话」（P0·真 bug）**：`runningSessionIds()` 返回的是**全部常驻注册表**
+  （含 idle 未被回收的会话），前端据此给它们渲染无限转圈。对齐 参考实现 `getRunningRpcSessionIds()`：
+  只有「流 / 提示 / 压缩」在跑才算 running；常驻但 idle 不再算。改名配套：`isRunning()` → `isResident()`
+  （它的语义确实是「在注册表里」，旧名字是这次误判的源头，AGENTS.md「命名不得暗示做不到的事」）、
+  新增 `residentSessionIds()` 供 idle 回收遍历。顺手删掉 `SessionReadServiceOptions.isRunning`
+  （零消费方的期权，AGENTS.md 规则）。取证：修前侧栏前 3 行有 2 个转圈 span，修后 0 个，全部回落成
+  `x minutes ago` / `N msgs`。
+- **右栏文件查看器抬头（原「文件浏览头部分」）**：`packages/ui/src/files/file-viewer.tsx` 抬头重排成
+  参考实现 同形——`.file-viewer-shell` + `.file-viewer-toolbar`（`padding 5px 12px / gap 8 / 11px /
+  var(--bg)`）+ `路径` + **`语言 · N lines · 体积`** + `.file-viewer-live-indicator`（恒灰＝未监听，
+  不假装已同步）+ **仅有 git 改动时**才出现的内容/diff 切换 + 动作行（提及 / 折行 / 下载）全部走
+  `.file-viewer-icon-button` 的 24×24。修前「折行」是 32×24 文字按钮、meta 只有体积、切换恒在。
+  配套：`use-file-content` 在 diff 模式也取一次文本（只为数行，不渲染），三语补 `files.viewSource /
+  files.viewDiff / files.openInNewTab`。取证：`json · 45 lines · 6.6 KB` 与 参考实现 逐字同形。
+
+**已定位、未修（按本轮取证结论排队）**
+
+1. **中栏「对话框」（阶段 3 剩余）**：与 参考实现 `ChatInput` 的结构差是**整块**的——pi-boat 缺附件按钮
+   （图片通道 core/server 已通：`prompt.images`）、缺模型选择器（`set_model` 命令早在 core，但 client
+   未导出 + web 无 `ModelSelector`/`ProviderIcon` 组件，即 checklist C3）、思考档位与工具预设是**原生
+   `<select>`**（参考实现 是按钮 + 上弹面板，C4）、缺声音开关与红色停止、多出 `自动命名/导出/统计/插队`
+   四个文字按钮（前三个 参考实现 在顶部工具条，插队是 参考实现 的「流式中 Steer/FollowUp 按钮」形态）。
+2. **设置三个标签页（阶段 5 = G1-G5）**：`Models/Skills/Plugins` 三节仍是
+   `div.flex.flex-col.gap-8 > section > SettingsSectionTitle(已标记 deprecated)` 的自造结构 + 硬编码中文，
+   而 参考实现 三节都是 `ConfigPanelShell(embedded) > ConfigSplitView[ConfigSidebar + ConfigDetail]`
+   + `ConfigFooter`。**CSS 与 `settings-ui.tsx` 的 Config* 原语本仓都齐**，缺的是组件接线。
+
+**环境修复（非代码）**：`.turbo/cache` 里曾缓存进一份**损坏的**
+`packages/client/dist/endpoints/sessions.d.ts`（内容是 tar 包），任何 `pnpm turbo run build/typecheck`
+都会被回放覆盖成坏文件、报 `TS1127 Invalid character`。已 `rm -rf .turbo/cache` 并重建；复现时先删缓存。
+
+---
+
+## 0.3 第四轮实施进度（2026-09-26，参考实现 0.9.3 逐屏对拍）
+
+> 完整清单与取证在 `docs/10-frontend-parity-audit.md`（第四轮报告入库版）。本节只记**已完成**的部分，
+> 任务编号用第四轮的 T 编号（与本文 T5-x 编号不同名，切勿混用）。
+
+**阶段 0：硬 bug（全部完成）**
+
+- **T0-1 / BUG-1（auto-name 运行时 100% 失败）**：`session-read-service.ts` 的模型选取抽成可测的
+  `resolveAutoNameModel()`，补上「settings 默认模型查不到 → 回退目录第一个」的回退链（旧写法**只在
+  provider/modelId 缺失时回退**，模型改名后 `getModel()` 返回 undefined 就直接抛错）。
+  settings.json 与 pi CLI/参考实现 共享，SDK 升级改过 id（`deepseek-v4-flash` → `deepseek-flash`）是常见诱因。
+- **T0-6 / BUG-1d（双重落盘）**：core 的 `autoName()` 改为**只生成不落盘**；写盘归 server 路由一处
+  （resident → `set_session_name` 命令通道，冷会话 → `rename`）；client 侧重复的 `setAgentSessionName` 调用删除。
+- **T0-2 / BUG-2（有项目无会话时中栏退化）**：`workspace-layout.tsx` 按 参考实现 `effectiveNewSessionCwd`
+  给 `preferredCwd` 加项目根回退 → 空态恢复品牌行 + 工具条 + 完整 Composer（同时修好了空态发消息用错 cwd）。
+- **T0-3 / BUG-3（设置节标签硬编码英文）**：4 个节标签 + 面板标题 + 关闭键改走 `t()`；
+  `projectHint` 也走 `settings.projectRequired`。
+- **T0-5 / BUG-4（不可达的 `settings-general-error` 节点）**：删掉 `hintFor` 分支（对齐 参考实现：
+  禁用节只给 `title`，不渲染提示行）。
+- **T0-4 / BUG-1b·1c（生成标题三态永不复位）**：`chat-pane.tsx` 补 1800ms / 5000ms 定时器 + 切会话复位
+  + unmount 清理（对齐 参考实现 `AppShell`）；composer 工具行那份按钮改接完整三态 + `hasMessages`。
+
+验证：`core` 194 / `server` 66 / 全包 `typecheck` 全绿；新增 core 单测钉住回退链，
+server 新增「冷会话走 rename / resident 走命令通道」两条。
+
+**阶段 1：设置中心（已做控件层与判定，三节套壳未做）**
+
+- **T1-1 / G7**：三节的 `primitives/button` 全部换成 `ConfigButton`（`-primary`/`-secondary`/`-danger`/`-small`/`-default`
+  因此变为活类）；删除零消费且未导出的 `primitives/switch.tsx`；`primitives/input.tsx` 改 12px / h30 / px9。
+- **T1-9 / G10**：`ProjectTrustDialog` 盾牌色 `#d97706` → `#f59e0b`。
+- **T1-11**：节内小标题改走规范类 `.config-section-title`（11px/600/uppercase/`--text-dim`）。
+- **T1-8 / K4·K5**：没有真实项目 cwd 时 `skills`/`plugins` 两节禁用（改为 `projectRoot === null`，
+  不再退到家目录），且停在禁用节时自动回退「常规」。
+
+**阶段 2：对话框/Composer（全部完成，除 T2-11 的部分项）**
+
+- **T2-1** 新建 `packages/ui/src/chat/model-selector.tsx`（设计规范 `ModelSelector` 整体移植，去掉移动端分支）：
+  芯片 SVG + 友好名 + 按 provider 分组的上弹面板 + >8 条的筛选框。client 补 `setModel`（`set_model` 命令）。
+  ⛔ 未引入 `ProviderIcon` 的 43 条映射（它只服务设置页 provider 树，核实后不属 composer）。
+- **T2-2** 新建 `apps/web/src/services/use-attached-images.ts`（设计规范 `lib/image-attachments.ts` 移植：
+  >1MB 非 GIF → canvas 缩到最长边 1024 / JPEG 0.85）+ Composer 的 56×56 缩略图与右上角移除 +
+  隐藏 file input + 粘贴 + 整屏拖拽覆盖层（三圈涟漪，关键帧已在 `web-ui.css`）。client 的
+  `prompt`/`steer`/`follow_up` 补 `images` 通道（protocol 本就有 `ImagesSchema`）。
+  ⚠️ 有意偏差：protocol 的 `message` 是 `min(1)`（有单测钉住），所以「只发图不写字」仍被拒（设计规范允许），
+  放宽需单独决策。
+- **T2-3** 卡内流式双按钮 Steer（黄）/ Follow-Up（靖蓝），删掉常驻「插队」toggle。
+- **T2-4** 删卡内黄色停止，工具行末端补红 `#ef4444` 停止；流式中输入卡描边转 `rgba(234,179,8,0.4)`。
+- **T2-5** 删工具行的 `自动命名/导出/统计`（实测顶栏已有「生成标题 / 完整历史 / 会话信息」，无功能丢失）。
+- **T2-6** 新建 `packages/ui/src/chat/composer-menus.tsx`：思考档位与工具预设改自定义按钮 + 上弹面板
+  （勾选 SVG + 译文描述）；工具预设标签直接用 protocol 的 `TOOL_PRESETS` 值，不再手写中文。
+- **T2-7** 声音改 SVG 两态（开/静音）。
+- **T2-8** 占位符三态（`steerPlaceholder`/`agentPlaceholder`/`messagePlaceholder`）走 `t()`。
+- **T2-9** 新建输入历史浮层（30px 头 + 时钟 SVG + 序号 + 2 行截断 + active `--bg-selected`）；
+  `↑` 在空输入上拉起，`use-input-history` 因此瘦到只留 `{ history, remember }`。
+- **T2-10** 发送按钮换设计规范的内联右箭头 SVG；右区 `gap: 2`；工具行补 `flex: 1` spacer。
+- **T2-12** 排队条头改 `t('chat.queued', {count})` + 「移回输入框」带 SVG；行改胶囊标签
+  （steer 带 accent 描边）+ 单行省略。
+- **T2-13** 删 `chat-pane` 的 `pb-4` 与双层 16px 包装 div；Composer 外层改 `fieldset`
+  `padding: 0 16px 8px` + `paddingRight: 52`（避让 minimap），与设计规范逐字一致。
+- **T2-11（部分）** 候选浮层补头部（计数 + `Tab / Enter`）与 `@` 行图标；
+  尚缺 `/` 的按来源分组 + 网格布局。
+
+**取证（非截图，文字断言）**：双实例同视口下实测——卡 `border-radius:14px` / `padding:10px 10px 10px 14px`；
+`fieldset` `padding: 0px 52px 8px 16px`；工具行结构为
+`[附加图片][模型选择器 "DeepSeek V4 Pro"] ─ spacer ─ [思考 high][预设 configured][压缩][声音]`，
+**不含** `自动命名/导出/统计/插队`；流式时卡描边 `rgba(234,179,8,0.4)`、工具行末端红停止
+（`#ef4444` / bg `rgba(239,68,68,0.08)`）、引导/后续按钮出现在卡内；附件缩略图 56×56。
+
+- **E2E**：`apps/web/e2e/smoke.spec.ts` 的断言字符串（「输入一个工作目录」/「连接正常」）早已随前几轮重构失效，
+  本次一并改为锁与本地状态无关的结构（侧栏设置入口 / `.chat-content` / `files.noneOpen`），并固定 `zh-CN`。
+
+---
+
+**明确未做（原因写在括号里，需下一轮）**：T1-2/3/4/5（模型/Skills/扩展包三节套
+`ConfigPanelShell + ConfigSplitView + ConfigFooter`；**前置缺口**：参考实现 的三节详情依赖
+本仓 protocol/core 还没有的数据形状——`EnabledModelsView` 的 per-provider `enabledCount`/`thinkingPin`/
+`stalePatterns`、skills 的 `filePath`/`install`/版本、plugins 的 per-package 详情——照搬会只能造假数据）；
+T1-6（「选中文字浮窗」开关**无消费方**：参考实现 的开关背后是 `ChatWindow` 整块 quote-selection 特性，
+本仓未做；先加开关会违反 AGENTS「零调用方的期权直接删」）；T1-7（删自造 `SettingsRow` 等，必须与套壳同批）；
+T1-10（三节 i18n，与套壳同批，避免写两遍）。
 
 ---
 
@@ -216,7 +340,8 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 | 死 CSS | 条数 | 本应消费它的组件 | 对应任务 |
 |---|---|---|---|
 | `.enabled-models-*`（banner / filter / row / pin / count / empty / error / title …） | 19 | （**整块缺失**） | T5-5 / G8 |
-| `.config-button-primary/-secondary/-danger/-ghost/-default/-small/-success-icon` | 7 | `ConfigButton` 的完整变体（本仓只用到 `config-button` / `-ghost` / `-small`） | T5-10 |
+| `.config-button-primary/-secondary/-danger/-ghost/-default/-small/-success-icon` | 7 | `ConfigButton` 的完整变体。**2026-09-26 更正**：`-ghost`/`-small` 早已由 `settings-ui.tsx` 的模板串运行时拼出；`-primary`/`-secondary`/`-danger`/`-default` 也已在 T1-1 后由三节消费。**唯一仍为零消费的是 `-success-icon`**（保存成功勾，随模型节套壳补） | T5-10 |
+| `.config-sidebar-group` | 1 | 规范侧由 `SkillsConfig.tsx`、`PluginsConfig.tsx` 消费（分组容器）；本仓漏列，随后续套壳接线 | T1-4/T1-5 |
 | `.skill-detail-heading` / `.skill-version-row` / `.skill-source-link(-text)` / `.skill-update-status` / `.skill-update-indicator` / `.skill-name-value` / `.skill-version-value` / `.skill-description` | 9 | 详情面板（本仓是单列三块） | T5-6 / G9 |
 | `.models-sidebar-add-item` / `.models-sidebar-badge` / `.models-sidebar-indented-item` | 3 | provider 树 | T5-5 / G7 |
 | `.settings-shell-option` / `.settings-general-description` | 2 | 规范的设置行（本仓用自造 `SettingsRow`） | T5-10 / G14 |
@@ -369,10 +494,10 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 | G2 | **EnabledModelsSection / Banner** | + `EnabledModelsBanner` + helpers | **整块缺失**（`.enabled-models-*` 19 条 CSS 零消费） | **P0** |
 | G3 | **Skills 节结构** | `ConfigPanelShell + SplitView`（列表 + `skill-detail-*` 详情） | 单列三块（`skills-section.tsx`） | **P0** |
 | G4 | **扩展包节结构** | `ConfigPanelShell + SplitView`（extensions/packages 分组 + 详情） | 单列三块（`plugins-section.tsx`） | **P0** |
-| G5 | **`DirectoryPicker` 形态 + 接线** | portal 模态 520×620 / 圆角 10 | 内嵌行，**且全仓无调用方**（`directory-picker.tsx`） | **P0** |
+| G5 | ~~**`DirectoryPicker` 形态 + 接线**~~ | portal 模态 520×620 / 圆角 10 | **已落地且已接线**（`sidebar.tsx` 的「自定义路径…」触发）——**本行已过期**（2026-09-26 复核） | ✅ |
 | G6 | **通用节缺「选中文字浮窗」开关** | 4 项：思考展开 / 内容宽 / 字号 / **Show actions for selected text** | 只有前 3 项（`general-section.tsx`）；`settings-host.tsx` 也未传该 prop | P1 |
 | G7 | **控件层未对齐 `primitives`** | `ConfigSwitch` 32×18 / knob 12×12 `var(--bg)`；`ConfigButton` 圆角 5 / h32·h28 / font 12·11 / `is-success`；输入框 12px | `Switch` 36×20 / 圆角 6 / knob **16px 白**；`Button` 圆角 7-8、无 secondary/danger/成功态；`Input` 11px（`primitives/switch.tsx`、`button.tsx`、`input.tsx`） | P1 |
-| G8 | **自造 `SettingsRow` 仍在用** | 规范无 `.settings-row`，用 `.settings-shell-option` / `ConfigField` | `settings-panel.tsx`，被 `models-section.tsx`、`skills-section.tsx`、`plugins-section.tsx`、`directory-picker.tsx` 消费 | P1 |
+| G8 | **自造 `SettingsRow` 仍在用** | 规范无 `.settings-row`，用 `.settings-shell-option` / `ConfigField` | `settings-panel.tsx`，被 `models-section.tsx`、`skills-section.tsx`、`plugins-section.tsx` 消费（**2026-09-26 更正**：`directory-picker.tsx` 并未 import 它） | P1 |
 | G9 | 三节去掉外层 padding 后文字贴边 | `.config-detail{padding:20px}` 提供内边距（`settings.css`） | `models-section.tsx`、`skills-section.tsx`、`plugins-section.tsx` 是裸 `flex flex-col gap-8` → **内边距为 0** | P1 |
 | G10 | ProjectTrustDialog 盾牌色 | `#f59e0b` | `#d97706`（`project-trust-dialog.tsx`）—— 此前误标为"完全落地"，实为改色 | P2 |
 | G11 | `settings-navigation` 无详情选中记忆 | 存 `{section, selections}` | 简化版，无 selections（`apps/web/src/services/settings-navigation.ts`） | P2 |
@@ -401,7 +526,7 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 
 | 检查项 | 结果 |
 |---|---|
-| 语言包 | ✅ `messages/{en,zh-CN,ja}.ts`，**各 612 key**，三语 key 集合一致（有 Vitest 断言） |
+| 语言包 | ✅ `messages/{en,zh-CN,ja}.ts`，**各 616 key**，三语 key 集合一致（有 Vitest 断言） |
 | 基建 | ✅ `types.ts` / `registry.ts`（**已补 `ja`/`ja-*` → `ja`**）/ `format.ts` / `i18n-provider.tsx`；`localStorage` key = `pi-locale`；同步 `document.documentElement.lang` |
 | 设置域消费 | ✅ `settings-panel.tsx`(9) / `general-section.tsx`(16) / `project-trust-dialog.tsx`(4) / `tool-definitions-panel.tsx` |
 | **全仓 `useI18n` 消费方** | ❌ **仅 5 个文件**（上列 4 个 + `chat-pane.tsx` 部分；`workspace-layout.tsx` 部分） |
@@ -439,7 +564,7 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 - [x] **T1-12** 历史图标 SVG、系统/工具页签 `title` 词条对齐（`chat-pane.tsx` ←）。〔P2〕
 
 ### 阶段 2：左侧栏（P0 —— 最显眼的缺口）
-- [ ] **T2-1** 删「会话/文件」页签（`sidebar-pane.tsx,151-171`），文件树改会话列表**下方常驻 EXPLORER** + `.sidebar-section-resize-handle`。〔L1/L2〕
+- [x] **T2-1** 删「会话/文件」页签（`sidebar-pane.tsx,151-171`），文件树改会话列表**下方常驻 EXPLORER** + `.sidebar-section-resize-handle`。〔L1/L2〕（**2026-09-26 复核：代码已完成**——截图可见文件树常驻、无页签；原勾选状态与 §0.1 自相矛盾，此处更正）
 - [x] **T2-2** 头部补 32×32 搜索图标按钮，搜索框改条件渲染；打开搜索时隐藏 worktree 行。〔L3〕
 - [x] **T2-3** 新建 `session-search-results.tsx`：三段式 + `<mark class="rounded-sm bg-accent/20 text-text">` + `role="status"` 计数。〔L4〕
 - [x] **T2-4** 新增独立 worktree/分支行 + 只读引导态。〔L5〕
@@ -503,7 +628,7 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 - [ ] **T5-4** 通用节补「选中文字浮窗」开关（+ `settings-host.tsx` 传 prop）。〔G6〕
 - [ ] **T5-5** 控件层：`primitives/switch.tsx` / `button.tsx` / `input.tsx` 对齐 `.config-switch` / `.config-button-*` / 12px 输入框；补 secondary/danger/`is-success`。〔G7〕
 - [ ] **T5-6** 删自造 `SettingsRow` / `SettingsSectionTitle` / `SettingsNotice`，改 `ConfigField` / `.settings-shell-option`；三节补 `.config-detail` 内边距。〔G8/G9〕
-- [ ] **T5-7** `DirectoryPicker` portal 模态 + 接线（同 T2-10）。〔G5〕
+- [x] **T5-7** `DirectoryPicker` portal 模态 + 接线（同 T2-10）。〔G5〕（**2026-09-26 复核：已落地且已接线**，条目过期）
 - [ ] **T5-8** 盾牌色 `#d97706` → `#f59e0b`；落地 `settings-navigation` 的 selections 记忆。〔G10/G11〕
 - ~~T5-9 Agents 设置节 / `.agents-*` CSS / `is-agent` 分支~~ ⛔ **排除域（节数保持 4 个）**
 

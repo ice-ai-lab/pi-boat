@@ -1,6 +1,8 @@
 import type { ThemePreference } from '@ice-ai/client';
 import { type ReactNode, useEffect, useState } from 'react';
+import { useI18n } from '../i18n/i18n-provider';
 import { cn } from '../utils/cn';
+import { ConfigSectionTitle } from './settings-ui';
 import { ThemeIcon } from './theme-icon';
 
 /**
@@ -34,11 +36,13 @@ export function SettingsPanel({
   activeSection,
   onSelectSection,
   onClose,
-  title = 'Settings',
-  projectHint = 'Open a project to configure this section',
+  title,
+  projectHint,
   renderSection,
 }: SettingsPanelProps) {
-  const [hintFor, setHintFor] = useState<string | null>(null);
+  const { t } = useI18n();
+  const resolvedTitle = title ?? t('settings.title');
+  const resolvedHint = projectHint ?? t('settings.projectRequired');
   const [mountedSections, setMountedSections] = useState<ReadonlySet<string>>(
     () => new Set([activeSection]),
   );
@@ -60,7 +64,6 @@ export function SettingsPanel({
 
   const activateSection = (id: string) => {
     setMountedSections((current) => new Set(current).add(id));
-    setHintFor(null);
     onSelectSection(id);
   };
 
@@ -70,7 +73,7 @@ export function SettingsPanel({
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={title}
+        aria-label={resolvedTitle}
         className="settings-dialog-backdrop"
         onClick={(event) => {
           if (event.target === event.currentTarget) onClose();
@@ -78,9 +81,9 @@ export function SettingsPanel({
       >
         <div className="settings-dialog-surface">
           <div className="settings-dialog-header">
-            <strong className="settings-dialog-title">{title}</strong>
+            <strong className="settings-dialog-title">{resolvedTitle}</strong>
             <select
-              aria-label={title}
+              aria-label={resolvedTitle}
               value={activeSection}
               onChange={(event) => activateSection(event.target.value)}
               className="settings-mobile-section-picker"
@@ -91,7 +94,7 @@ export function SettingsPanel({
                 </option>
               ))}
             </select>
-            <nav aria-label={title} className="settings-section-tabs">
+            <nav aria-label={resolvedTitle} className="settings-section-tabs">
               {sections.map((section) => {
                 const selected = section.id === activeSection;
                 const disabled = section.disabled === true;
@@ -101,15 +104,9 @@ export function SettingsPanel({
                     type="button"
                     className="settings-section-tab"
                     disabled={disabled}
-                    title={disabled ? projectHint : section.label}
+                    title={disabled ? resolvedHint : section.label}
                     aria-current={selected ? 'page' : undefined}
-                    onClick={() => {
-                      if (disabled) {
-                        setHintFor(section.id);
-                        return;
-                      }
-                      activateSection(section.id);
-                    }}
+                    onClick={() => activateSection(section.id)}
                   >
                     <SettingsSectionIcon section={section.id} />
                     <span>{section.label}</span>
@@ -120,19 +117,14 @@ export function SettingsPanel({
             <button
               type="button"
               onClick={onClose}
-              title="Close"
-              aria-label="Close"
+              title={t('i18n.close')}
+              aria-label={t('i18n.close')}
               className="config-close-button settings-dialog-close"
             >
               ×
             </button>
           </div>
           <main className="settings-dialog-main">
-            {hintFor !== null && (
-              <p className="settings-general-error" role="status">
-                {projectHint}
-              </p>
-            )}
             {sections
               .filter((section) => mountedSections.has(section.id))
               .map((section) => (
@@ -266,12 +258,13 @@ export function SettingsRow({
   );
 }
 
-/** @deprecated 待改造区仍在使用；设计规范用 `.settings-general-heading`（T5-10）。 */
+/** 设定节内的行内小标题（T1-11）：大写小字走设计规范的 `.config-section-title`（11px/600/uppercase/--text-dim）。
+ *  @deprecated 待改造区仍在使用；设计规范用 `ConfigSectionTitle` + 独立 hint（T1-7 套壳后删）。 */
 export function SettingsSectionTitle({ title, hint }: { title: string; hint?: string }) {
   return (
     <div className="mb-2">
-      <h3 className="text-[13.5px] font-semibold text-fg">{title}</h3>
-      {hint !== undefined && <p className="mt-0.5 text-[11.5px] text-fg-faint">{hint}</p>}
+      <ConfigSectionTitle>{title}</ConfigSectionTitle>
+      {hint !== undefined && <p className="mt-1 text-[11px] text-text-dim">{hint}</p>}
     </div>
   );
 }

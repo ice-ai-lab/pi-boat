@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Button } from '../primitives/button';
 import { Input } from '../primitives/input';
 import { SettingsNotice, SettingsRow, SettingsSectionTitle } from './settings-panel';
+import { ConfigButton } from './settings-ui';
 
 /** skills 列表项（协议 SkillInfo 的展示子集） */
 export interface SkillItemView {
@@ -167,9 +167,9 @@ export function SkillsSection({
             <option value="global">用户级</option>
             <option value="project">项目级</option>
           </select>
-          <Button variant="chip" size="sm" disabled={search.loading} onClick={search.onSearch}>
+          <ConfigButton size="small" disabled={search.loading} onClick={search.onSearch}>
             {search.loading ? '搜索中…' : '搜索'}
-          </Button>
+          </ConfigButton>
         </div>
         {search.error !== null && <SettingsNotice tone="warn">{search.error}</SettingsNotice>}
         <div className="mt-2 flex flex-col">
@@ -189,14 +189,14 @@ export function SkillsSection({
               {result.installs !== null && (
                 <span className="shrink-0 text-[10.5px] text-fg-faint">↓{result.installs}</span>
               )}
-              <Button
+              <ConfigButton
                 variant="primary"
-                size="sm"
+                size="small"
                 disabled={search.installingPackage !== null}
                 onClick={() => search.onInstall(result.package, scope)}
               >
                 {search.installingPackage === result.package ? '安装中…' : '安装'}
-              </Button>
+              </ConfigButton>
             </div>
           ))}
         </div>
@@ -205,19 +205,18 @@ export function SkillsSection({
       <section>
         <SettingsSectionTitle title="更新" hint="与 npm registry 比对（联网）" />
         <div className="flex items-center gap-2">
-          <Button variant="chip" size="sm" disabled={updates.checking} onClick={updates.onCheck}>
+          <ConfigButton size="small" disabled={updates.checking} onClick={updates.onCheck}>
             {updates.checking ? '检查中…' : '检查更新'}
-          </Button>
-          <Button
-            variant="chip"
-            size="sm"
+          </ConfigButton>
+          <ConfigButton
+            size="small"
             disabled={
               updates.updating || !updates.results.some((r) => r.state === 'update-available')
             }
             onClick={() => updates.onUpdate()}
           >
             全部更新
-          </Button>
+          </ConfigButton>
         </div>
         {updates.results.length > 0 && (
           <div className="mt-2 flex flex-col">
@@ -232,14 +231,13 @@ export function SkillsSection({
                 }
               >
                 {result.state === 'update-available' && (
-                  <Button
-                    variant="chip"
-                    size="sm"
+                  <ConfigButton
+                    size="small"
                     disabled={updates.updating}
                     onClick={() => updates.onUpdate(result.package)}
                   >
                     更新
-                  </Button>
+                  </ConfigButton>
                 )}
               </SettingsRow>
             ))}

@@ -271,6 +271,10 @@ export function WorkspaceLayout() {
     return () => observer.disconnect();
   }, [projectRoot]);
 
+  // 设计规范 `effectiveNewSessionCwd`（AppShell）：未选会话但有激活项目 → 回退到项目根，
+  // 否则「有项目无会话」时中栏会退化成占位文案（2026-09-26 BUG-2）。
+  const effectiveNewSessionCwd = preferredCwd ?? (activeSessionId === null ? projectRoot : null);
+
   return (
     <div
       style={{
@@ -345,7 +349,7 @@ export function WorkspaceLayout() {
         }}
       >
         <ChatPane
-          preferredCwd={preferredCwd}
+          preferredCwd={effectiveNewSessionCwd}
           projectSelected={projectRoot !== null}
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen((previous) => !previous)}

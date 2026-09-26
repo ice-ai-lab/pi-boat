@@ -6,6 +6,7 @@ import type {
   ClearQueueResult,
   CommandData,
   CompactionResult,
+  ImageContent,
   ModelRef,
   NavigateTreeResult,
   NewSessionRequest,
@@ -110,12 +111,33 @@ export function setAgentSessionName(sessionId: string, name: string): Promise<nu
 }
 
 /** steer —— 插队消息（当前轮内尽快处理）；follow_up —— 收尾后追问 */
-export function steerAgent(sessionId: string, message: string): Promise<null> {
-  return sendAgentCommand(sessionId, { type: 'steer', message });
+export function steerAgent(
+  sessionId: string,
+  message: string,
+  images?: ImageContent[],
+): Promise<null> {
+  return sendAgentCommand(sessionId, { type: 'steer', message, ...(images ? { images } : {}) });
 }
 
-export function followUpAgent(sessionId: string, message: string): Promise<null> {
-  return sendAgentCommand(sessionId, { type: 'follow_up', message });
+export function followUpAgent(
+  sessionId: string,
+  message: string,
+  images?: ImageContent[],
+): Promise<null> {
+  return sendAgentCommand(sessionId, {
+    type: 'follow_up',
+    message,
+    ...(images ? { images } : {}),
+  });
+}
+
+/** set_model —— 切换当前会话的模型（provider + modelId）；回服务端实际选中的 ModelRef */
+export function setAgentModel(
+  sessionId: string,
+  provider: string,
+  modelId: string,
+): Promise<ModelRef> {
+  return sendAgentCommand(sessionId, { type: 'set_model', provider, modelId });
 }
 
 export function clearAgentQueue(sessionId: string): Promise<ClearQueueResult> {
