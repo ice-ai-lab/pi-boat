@@ -1,7 +1,7 @@
 /**
- * 对话外观（**移植自 设计规范 `hooks/useChatAppearance.ts`**）：内容最大宽度与字号。
+ * 对话外观（**按设计规范**）：内容最大宽度与字号。
  * 纯逻辑与 DOM 写入在这里，React 订阅在 app 层（与 `view-models/theme.ts` 同构）。
- * storage key 用本仓的 `piboat:` 前缀，避免与同源 设计规范 互相覆盖。
+ * storage key 用本仓的 `piboat:` 前缀，避免与同源设计规范互相覆盖。
  */
 export const CHAT_CONTENT_WIDTH_DEFAULT = 820;
 export const CHAT_CONTENT_WIDTH_MIN = 820;
@@ -51,7 +51,7 @@ export function readStoredChatAppearance(read: (key: string) => string | null): 
   };
 }
 
-/** 设计规范 `lib/thinking-expansion-preference.ts`：思考块默认是否展开 */
+/** 设计规范：思考块默认是否展开 */
 export const THINKING_EXPANDED_STORAGE_KEY = 'piboat:thinking-expanded';
 export const THINKING_EXPANDED_EVENT = 'piboat:thinking-expanded-changed';
 

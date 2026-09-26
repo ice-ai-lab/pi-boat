@@ -776,7 +776,7 @@ function fileKind(name: string): string {
 
 /** 文件名清洗：只取 basename，拒掉空名与 `.`/`..` */
 function sanitizeUploadName(name: string): string | null {
-  // 只取 basename（`../` 与绝对路径就此失效），再逐字符剥掉控制字符与分隔符
+  // 只取 basename（`../` 与绝对路径就此失效），再完全符剥掉控制字符与分隔符
   // （不写进正则字符类：控制字符范围在正则里既难读又会被 lint 拦）
   const base = [...basename(name)]
     .filter((char) => {

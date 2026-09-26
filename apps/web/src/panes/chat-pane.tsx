@@ -63,7 +63,7 @@ import { type ActivePanel, PanelsHost } from './panels-host';
 /** 设计规范 `AppShell` 的 `TOP_BAR_ICON_BUTTON_SIZE` */
 const TOP_BAR_ICON_BUTTON_SIZE = 36;
 
-/** 中栏工具条最左侧的侧栏开关（逐字照抄 设计规范 `AppShell`：36×36 图标按钮） */
+/** 中栏工具条最左侧的侧栏开关（按设计规范 `AppShell`：36×36 图标按钮） */
 function SidebarToggleButton({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const { t } = useI18n();
   return (
@@ -137,7 +137,7 @@ type AutoNameStatus = {
 
 /**
  * ChatPane（F1→F5）：对话主面板。URL `?s=` 是会话的唯一真相（ADR-0019-5）。
- * 工具条逐字照抄 设计规范 `AppShell` 的桌面向：
+ * 工具条按设计规范 `AppShell` 的桌面向：
  * 侧栏开关 → 信任警示 → 历史/生成标题/分支/系统/工具 → 会话统计 → 文件面板开关；
  * 顶部面板为 `position:fixed` 贴顶下拉（T1-3），一次只开一个。
  */
@@ -145,7 +145,7 @@ export interface ChatPaneProps {
   /** 侧栏已选中项目（无会话且未请求新会话时的占位形态由它决定） */
   projectSelected?: boolean;
   preferredCwd?: string | null;
-  /** 侧栏开关（页头左侧按钮，结构对齐 设计规范 AppShell 的中栏工具条） */
+  /** 侧栏开关（页头左侧按钮，结构按设计规范 AppShell 的中栏工具条） */
   sidebarOpen?: boolean;
   onToggleSidebar?: () => void;
   /** 项目需要信任但未信任：在工具条上给一个常驻入口 */
@@ -166,7 +166,7 @@ const TOOL_PRESET_OPTIONS = [
   { value: 'full', label: '全部工具' },
 ] as const;
 
-/** 参考实现 `formatCompact`（AppShell：1200 → "1k"，1_200_000 → "1.2M"） */
+/** 设计规范 `formatCompact`（AppShell：1200 → "1k"，1_200_000 → "1.2M"） */
 function formatCompact(value: number): string {
   return value >= 1_000_000
     ? `${(value / 1_000_000).toFixed(1)}M`
@@ -176,7 +176,7 @@ function formatCompact(value: number): string {
 }
 
 /**
- * 设计规范 中栏工具条按钮（`AppShell` 的 `renderChatToolbarActions`）：
+ * 设计规范中栏工具条按钮（`AppShell` 的 `renderChatToolbarActions`）：
  * 2px 顶部描边表示激活态，右侧 1px 分隔线，图标 12–13px + 11px 文案。
  */
 function TopBarAction({
@@ -344,7 +344,7 @@ export function ChatPane({
     if (wasStreamingRef.current && !chat.streaming) {
       const lastTurn = chat.turns[chat.turns.length - 1];
       signal.notifyDone(
-        chat.sessionName ?? '参考实现',
+        chat.sessionName ?? 'PiBoat',
         lastTurn?.final?.markdown.slice(0, 120) ?? '本轮已完成',
       );
       void session.refreshStats();
@@ -362,7 +362,7 @@ export function ChatPane({
     };
   }, [chat.streaming, session]);
 
-  // ⑥ 顶部面板定位：fixed 贴顶下拉（T1-3，照抄 AppShell 的 topPanelPos effect）
+  // ⑥ 顶部面板定位：fixed 贴顶下拉，位置由 topPanelPos 测量（T1-3）
   useEffect(() => {
     if (activePanel === null || activePanel === 'branches' || topBarRef.current === null) return;
     const update = () => {
@@ -376,7 +376,7 @@ export function ChatPane({
     return () => ro.disconnect();
   }, [activePanel]);
 
-  // ⑦ 右栏全宽展开时收起顶部面板（T0-4，照抄 AppShell `rightPanelFullWidth` 效果）
+  // ⑦ 右栏全宽展开时收起顶部面板（T0-4）
   useEffect(() => {
     if (rightPanelFullWidth) setActivePanel(null);
   }, [rightPanelFullWidth]);
@@ -456,7 +456,7 @@ export function ChatPane({
     [session, pushToast],
   );
 
-  /** 生成标题（工具条与 composer 工具行共用；三态照抄 设计规范 `autoNameStatus`，T1-6） */
+  /** 生成标题（工具条与 composer 工具行共用；三态按设计规范 `autoNameStatus`，T1-6） */
   const runAutoName = useCallback(() => {
     if (sessionId === null) return;
     setAutoNameStatus({ kind: 'naming' });
@@ -537,7 +537,7 @@ export function ChatPane({
       : `${session.liveState.model.provider}:${session.liveState.model.modelId}`;
   const thinkingLevels = modelKey === null ? [] : (models.data?.thinkingLevels[modelKey] ?? []);
 
-  // —— 工具条数据（设计规范 的 sessionStats / contextUsage / sessionHasBranches） ——
+  // —— 工具条数据（设计规范的 sessionStats / contextUsage / sessionHasBranches） ——
   const sessionStats = session.stats;
   const contextUsage = session.liveState?.contextUsage ?? null;
   const hasBranches = useMemo(
@@ -545,7 +545,7 @@ export function ChatPane({
     [detail.data?.tree],
   );
 
-  // 会话统计按钮内容（照抄 参考实现 `renderSessionStatsButton` 桌面分支，T1-5）
+  // 会话统计按钮内容（按设计规范 `renderSessionStatsButton` 桌面分支，T1-5）
   const tokens = sessionStats?.tokens;
   const cost = sessionStats?.cost ?? 0;
   const costText = cost > 0 ? (cost >= 0.01 ? `$${cost.toFixed(2)}` : '<$0.01') : null;
@@ -577,7 +577,7 @@ export function ChatPane({
   const statsTooltip = tooltipParts.join('  |  ');
   const showStatsButton = showChat && (sessionStats !== null || contextUsage !== null);
 
-  // 生成标题按钮状态（照抄 设计规范：hasMessages 参考 userMessages 与消息总数）
+  // 生成标题按钮状态（按设计规范：hasMessages 参考 userMessages 与消息总数）
   const hasMessages =
     sessionId !== null &&
     ((sessionStats?.userMessages ?? 0) > 0 || (session.liveState?.messageCount ?? 0) > 0);
@@ -725,7 +725,7 @@ export function ChatPane({
         {onToggleSidebar !== undefined && (
           <SidebarToggleButton open={sidebarOpen} onToggle={onToggleSidebar} />
         )}
-        {/* 项目信任警示（逐字照抄 设计规范 `renderProjectTrustWarning` 桌面分支） */}
+        {/* 项目信任警示（按设计规范 `renderProjectTrustWarning` 桌面分支） */}
         {trustPending && (
           <button
             type="button"
@@ -1129,7 +1129,7 @@ export function ChatPane({
             )}
           </button>
         )}
-        {/* 文件面板开合（T1-1，照抄 设计规范 `renderMainFileToggle`） */}
+        {/* 文件面板开合（T1-1，按设计规范 `renderMainFileToggle`） */}
         {onToggleRightPanel !== undefined && (
           <button
             type="button"

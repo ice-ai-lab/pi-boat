@@ -25,7 +25,7 @@ import { type FileExplorerHandle, FileExplorerPane } from './file-explorer-pane'
 /**
  * SidebarPane（T2 重排）：侧栏数据装配——项目/工作区选择、会话列表、未读与运行指示、
  * 自定义目录选择、worktree 管理与 EXPLORER 区。
- * 结构与动作口径逐条对齐 设计规范 `SessionSidebar`；展示全部交给 `@ice-ai/ui` 的 `Sidebar`。
+ * 结构与动作口径逐条按设计规范 `SessionSidebar`；展示全部交给 `@ice-ai/ui` 的 `Sidebar`。
  */
 export interface SidebarPaneProps {
   activeSessionId: string | null;
@@ -169,7 +169,7 @@ export function SidebarPane({
     };
   }, [worktreesQuery.data]);
 
-  // —— 项目身份（与 设计规范 `projectFor` 同口径：worktree → 会话 → cwd 兜底） ——
+  // —— 项目身份（与设计规范 `projectFor` 同口径：worktree → 会话 → cwd 兜底） ——
   const selectedProject: SidebarProject | null = useMemo(() => {
     if (selectedCwd === null) return null;
     if (worktreeState !== null) {
@@ -202,7 +202,7 @@ export function SidebarPane({
   useEffect(() => {
     rootChangeRef.current(projectRoot);
     // 目录读受 allowed-roots 约束（ADR-0013）：首屏默认项目/会话恢复的 cwd 也要显式授权一次，
-    // 否则文件树与右栏会拿到 403（设计规范 在初始项目选择与自定义路径两处都做 validateCwd）
+    // 否则文件树与右栏会拿到 403（设计规范在初始项目选择与自定义路径两处都做 validateCwd）
     if (projectRoot !== null) void validateCwd(projectRoot).catch(() => null);
   }, [projectRoot]);
 

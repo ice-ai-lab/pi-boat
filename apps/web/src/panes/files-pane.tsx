@@ -50,7 +50,7 @@ export function FilesPane({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* 顶行：页签 + 全宽展开 + 隐藏（逐字照抄 设计规范 `AppShell.tsx:2418-2426`） */}
+      {/* 顶行：页签 + 全宽展开 + 隐藏（按设计规范） */}
       <div
         style={{
           display: 'flex',

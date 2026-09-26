@@ -210,7 +210,7 @@ export function MessageList({
           </div>
         </div>
       </div>
-      {/* 设计规范 `ChatWindow.tsx:1325-1349` 的外层 wrapper 定位：贴住消息区底部、居中、避开右侧 minimap */}
+      {/* 设计规范 的外层 wrapper 定位：贴住消息区底部、居中、避开右侧 minimap */}
       <div
         style={{
           position: 'absolute',

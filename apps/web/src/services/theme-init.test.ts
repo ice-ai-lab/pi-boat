@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 /**
  * 首帧主题脚本（`index.html` 内联）与 client 的 `THEME_INIT_SCRIPT` 必须语义一致：
  * 两边各有一份「调色板 id 清单 + storage key + dark/pine 判定」，任何一边加主题都会漂移。
- * 这里不做逐字比对（两侧写法不同：内联版被 Biome 格式化过），只锁这三件事实。
+ * 这里不做完全比对（两侧写法不同：内联版被 Biome 格式化过），只锁这三件事实。
  */
 const html = readFileSync(fileURLToPath(new URL('../../index.html', import.meta.url)), 'utf8');
 

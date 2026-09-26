@@ -16,7 +16,7 @@ import type { AgentMessage } from '@ice-ai/protocol';
 /** SDK 侧消息类型（coding-agent 未从根导出 AgentMessage，经 AgentSession 派生） */
 export type SdkAgentMessage = AgentSession['messages'][number];
 
-/** 七角色结构一致，展开拷贝剥 readonly 即可 */
+/** 七角色结构一致，展开沿用剥 readonly 即可 */
 export function toWireAgentMessage(message: SdkAgentMessage): AgentMessage {
   return { ...message } as AgentMessage;
 }

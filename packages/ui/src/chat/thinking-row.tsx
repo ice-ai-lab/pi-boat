@@ -30,7 +30,7 @@ function ThinkingIcon({ active, size = 14 }: { active: boolean; size?: number })
 }
 
 /**
- * ThinkingRow：结构/样式照抄 设计规范 `MessageView.tsx` 的 `ThinkingBlock`
+ * ThinkingRow：结构/样式按设计规范 的 `ThinkingBlock`
  * （1px 描边 + 7px 圆角 + mono 11px；折叠态单行省略，展开态换行全文）。
  */
 export function ThinkingRowView({ row }: { row: ThinkingRowModel }) {
@@ -108,7 +108,7 @@ export function ThinkingRowView({ row }: { row: ThinkingRowModel }) {
   );
 }
 
-/** SystemRow：压缩 / 重试 / 终止等系统提示行（设计规范 的窄条提示块） */
+/** SystemRow：压缩 / 重试 / 终止等系统提示行（设计规范的窄条提示块） */
 export function SystemRowView({ text, tone }: { text: string; tone: 'info' | 'warn' | 'error' }) {
   const color =
     tone === 'warn' ? 'var(--amber)' : tone === 'error' ? 'var(--red)' : 'var(--text-muted)';
