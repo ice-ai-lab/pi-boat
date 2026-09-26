@@ -1,4 +1,4 @@
-import type { AgentMessage } from '@ice-ai/protocol';
+import type { AgentMessage, QueuedMessages } from '@ice-ai/protocol';
 import { applyToolResult, assistantFinalText, userText } from './fold';
 import { type ImageCoords, messageImageSrcs } from './image-src';
 import { toolTitle } from './tool-display';
@@ -52,13 +52,17 @@ export function rebuildTurns(
           if (block.type === 'thinking') {
             trail.push({ kind: 'thinking', text: block.thinking, streaming: false });
           } else if (block.type === 'toolCall') {
+            // 起点是 `preparing` 而不是 `ok`：有结果的工具行一律由 `applyToolResult`
+            // 回填成 ok/error，所以「停在 preparing」= 历史里还没有 toolResult——既可能是
+            // 进行中的 run（applyLiveRun 会标回 running），也可能是中断的旧轮。
+            // 写死 ok 会让「正在跑的工具」在刷新后显示成已完成且无输出。
             trail.push({
               kind: 'tool',
               toolCallId: block.id,
               toolName: block.name,
               title: toolTitle(block.name, block.arguments),
               argsText: JSON.stringify(block.arguments, null, 2),
-              status: 'ok',
+              status: 'preparing',
               output: null,
               isError: false,
             });
@@ -145,4 +149,59 @@ export function rebuildChatState(
     sessionName: options.sessionName,
     terminated: false,
   };
+}
+
+/** 打开会话时服务端给的运行态（`GET /api/agent/:id` 的 AgentState 子集） */
+export interface LiveRunSnapshot {
+  /** SDK：模型正在流式产出（agent run 进行中） */
+  isStreaming: boolean;
+  /** PiBoat：尚有 prompt/steer/follow_up 未销账（覆盖扩展命令等事件流盲区，docs/02 §3.4） */
+  isPromptRunning: boolean;
+  /** 服务端侧的排队消息快照（steering / followUp） */
+  queuedMessages: QueuedMessages;
+}
+
+/**
+ * 把运行态折进 REST 重建出的「静止」视图模型——`open()` 打开一个**正在跑**的会话时用
+ * （docs/05 §7.2：刷新中途接流）。
+ *
+ * 为什么必须折：`rebuildChatState` 只认 `.jsonl` 事实，而磁盘上还没有的那一段（进行中的
+ * assistant 消息、未落盘的 toolResult）它一无所知。不折的话刷新后三样东西同时丢——
+ * ①composer 的停止态与 Esc 接管（`chat.streaming`）②末轮的平铺渲染
+ * （`isLiveTail` 要 `turn.status === 'streaming'`）③已发起但还没有结果的工具行
+ * （历史里没有结果可回填，只能停在 `preparing`，界面看不出它在跑）。
+ *
+ * `isPromptRunning`（docs/02 §3.4 的盲区判据）只在订阅建立前的窗口里有效：`connected` 帧只带
+ * `isStreaming`，订阅一生效就以那一帧为准（见 `fold` 的 `connected` 分支）。
+ */
+export function applyLiveRun(state: ChatState, snapshot: LiveRunSnapshot): ChatState {
+  return {
+    ...state,
+    // 判据同 docs/02 §3.4：isStreaming 或 isPromptRunning
+    streaming: snapshot.isStreaming || snapshot.isPromptRunning,
+    queued: {
+      steering: [...snapshot.queuedMessages.steering],
+      followUp: [...snapshot.queuedMessages.followUp],
+    },
+    turns: snapshot.isStreaming ? markLiveTail(state.turns) : state.turns,
+  };
+}
+
+/** 末轮仍在流式：状态标回 `streaming`，尚无结果的工具行标回 `running` */
+function markLiveTail(turns: Turn[]): Turn[] {
+  const index = turns.length - 1;
+  const turn = turns[index];
+  if (turn === undefined) return turns;
+  return [
+    ...turns.slice(0, index),
+    {
+      ...turn,
+      status: turn.status === 'done' ? 'streaming' : turn.status,
+      trail: turn.trail.map((item) =>
+        item.kind === 'tool' && item.status === 'preparing'
+          ? { ...item, status: 'running' as const }
+          : item,
+      ),
+    },
+  ];
 }

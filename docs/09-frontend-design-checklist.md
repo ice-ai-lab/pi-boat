@@ -631,7 +631,10 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 - [ ] **T3-9** 新建 `chat/image-preview.tsx` 灯箱（`<dialog class="image-preview-dialog">`）；`markdown-view.tsx` 注册 `img` → 灯箱；用户气泡渲染 `images`；工具行结果图片。〔C12/C15/C16〕
 - [x] **T3-10** 用户气泡：`maxHeight:300` + hover 操作行 + 时间戳 + 去掉多余 `markdown-body` 嵌套。〔C12〕
 - [x] **T3-11** 助手底部：cache W + `$cost` + 复制 + 时间戳 + 截断告警；`TurnWrittenFiles` 改内联 chip 并移入 `AssistantTurn`。〔C13/C14〕
-- [x] **T3-12** 运行态 phase 文案行。〔C18〕
+- [ ] **T3-12** 运行态 phase 文案行。〔C18〕
+  - ⚠️ 2026-09-27 复查：**实际未落地**（`chat.runningNamedTool` / `chat.waitingModel` 等 key 零消费方，
+    只有 `assistant-turn.tsx` 的「生成中…」）。回退勾选，以 `docs/10` C18 为准；参考实现在 设计规范
+    `components/ChatWindow.tsx` 的 `phaseLabel()`（需把 `AgentPhase` 从 fold 状态派生）。
 - [x] **T3-13** 新建 `notice-shelf.tsx`（右上角页内通知，替换中栏底部 toast）。〔C19〕
 - [x] **T3-14** markdown 补 katex / mermaid / 本地文件链接拦截 / `MAX_MARKDOWN_CHARS` 保护；补 `.contains-task-list`/`.task-list-item` 的消费。〔C17〕
 - [x] **T3-15** BranchNavigator 换 `TreeNodeView`（连接线 + 7×7 圆点三态 + `U`/`A` 徽章 + `+N`，算法内聚）。〔C7 / T6-2〕

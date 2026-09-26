@@ -54,14 +54,18 @@ export class AgentStream {
 
   /** 应用一个 wire 事件（seq 对账后 fold） */
   applyEvent(event: WireAgentEvent): void {
-    // 就绪判定放在水位线之前：`connected` 帧证明「订阅已生效」，与 seq 对账无关
-    if (event.type === 'connected') this.markReady();
-    if (event.seq <= this.watermark) return;
+    // 就绪判定放在水位线之前：`connected` 帧证明「订阅已生效」，与 seq 对账无关。
+    // 这一帧同时给水位线（此前已通过 REST 重建对齐）与运行态（isStreaming 是 runtime 真相，
+    // 刷新/重连后靠它恢复「还在跑」的判定——首连时 REST 快照可能还没回来）。
+    // 无 seq 门禁：重建过的 runtime seq 会从头计数（旧水位线必须被这一帧覆盖）。
     if (event.type === 'connected') {
-      // 重连快照水位线：此前已通过 REST 重建对齐
+      this.markReady();
       this.watermark = event.lastSeq;
+      this.state = fold(this.state, event);
+      this.emit();
       return;
     }
+    if (event.seq <= this.watermark) return;
     this.watermark = event.seq;
     this.state = fold(this.state, event);
     this.emit();

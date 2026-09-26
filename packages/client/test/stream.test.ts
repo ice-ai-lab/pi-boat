@@ -1,10 +1,16 @@
-import type { AgentMessage, ToolCall, Usage, WireAgentEvent } from '@ice-ai/protocol';
+import type {
+  AgentMessage,
+  AssistantMessage,
+  ToolCall,
+  Usage,
+  WireAgentEvent,
+} from '@ice-ai/protocol';
 import { describe, expect, it } from 'vitest';
 import { AgentStream } from '../src/stream/agent-stream';
 import { fold } from '../src/stream/fold';
 import { groupTrail } from '../src/stream/group-trail';
-import { rebuildTurns } from '../src/stream/rebuild';
-import { type ChatState, emptyChatState } from '../src/stream/view-model';
+import { applyLiveRun, rebuildChatState, rebuildTurns } from '../src/stream/rebuild';
+import { type ChatState, emptyChatState, isLiveTail } from '../src/stream/view-model';
 
 // ---------------------------------------------------------------------------
 // 事件工厂
@@ -285,6 +291,238 @@ describe('fold：流式中间态与系统事件', () => {
 });
 
 // ---------------------------------------------------------------------------
+// fold / rebuild：刷新与重连接流（docs/05 §5.3）
+// ---------------------------------------------------------------------------
+
+/** 服务端合成的 late join 快照：content 是累积快照（真实 message_start 是空壳） */
+function snapshotMessage(content: AssistantMessage['content']): WireAgentEvent {
+  return ev({
+    type: 'message_start',
+    message: {
+      role: 'assistant',
+      content,
+      api: 'anthropic',
+      provider: 'anthropic',
+      model: 'claude-test',
+      usage: USAGE,
+      stopReason: 'pending',
+      timestamp: 9_000,
+    },
+  });
+}
+
+describe('fold：刷新/重连接流', () => {
+  it('connected 用 runtime 的 isStreaming 对齐本地流式态（含丢过 agent_settled 的收口）', () => {
+    const midRun = run([
+      ev({ type: 'connected', sessionId: 's1', isStreaming: true, lastSeq: 10 }),
+    ]);
+    expect(midRun.streaming).toBe(true);
+
+    const stale = run([
+      ev({ type: 'message_start', message: { role: 'user', content: 'x', timestamp: 1 } }),
+      ev({ type: 'agent_start' }),
+      ev({ type: 'connected', sessionId: 's1', isStreaming: false, lastSeq: 20 }),
+    ]);
+    expect(stale.streaming).toBe(false);
+    expect(stale.turns[0]?.status).toBe('done');
+  });
+
+  it('快照 message_start 接回半截消息（轨迹 + 正文草稿），后续增量接着写', () => {
+    const history: AgentMessage[] = [{ role: 'user', content: '继续', timestamp: 1 }];
+    const restored = rebuildChatState(history, ['e1']);
+    const withSnapshot = fold(
+      restored,
+      snapshotMessage([
+        { type: 'thinking', thinking: '想一下' },
+        { type: 'text', text: '前半段' },
+      ]),
+    );
+    expect(withSnapshot.turns[0]?.trail[0]).toMatchObject({
+      kind: 'thinking',
+      text: '想一下',
+      streaming: false,
+    });
+    expect(withSnapshot.turns[0]?.final?.markdown).toBe('前半段');
+
+    const more = fold(
+      withSnapshot,
+      ev({
+        type: 'message_update',
+        usage: USAGE,
+        assistantMessageEvent: { type: 'text_delta', contentIndex: 1, delta: '后半段' },
+      }),
+    );
+    expect(more.turns[0]?.final?.markdown).toBe('前半段后半段');
+  });
+
+  it('重连快照与已有增量行合并：thinking 不重复、工具行按 id 认领', () => {
+    const partial = run([
+      ev({ type: 'message_start', message: { role: 'user', content: 'x', timestamp: 1 } }),
+      ev({
+        type: 'message_update',
+        usage: USAGE,
+        assistantMessageEvent: { type: 'thinking_start', contentIndex: 0 },
+      }),
+      ev({
+        type: 'message_update',
+        usage: USAGE,
+        assistantMessageEvent: { type: 'thinking_delta', contentIndex: 0, delta: '想' },
+      }),
+      ev({
+        type: 'message_update',
+        usage: USAGE,
+        assistantMessageEvent: { type: 'text_start', contentIndex: 1 },
+      }),
+      ev({
+        type: 'message_update',
+        usage: USAGE,
+        assistantMessageEvent: { type: 'text_delta', contentIndex: 1, delta: '前半' },
+      }),
+      ev({
+        type: 'message_update',
+        usage: USAGE,
+        assistantMessageEvent: {
+          type: 'toolcall_start',
+          contentIndex: 2,
+          id: 'call-1',
+          toolName: 'bash',
+        },
+      }),
+    ]);
+
+    const merged = fold(
+      partial,
+      snapshotMessage([
+        { type: 'thinking', thinking: '想一想' },
+        { type: 'text', text: '前半段' },
+        // partialJson 是 SDK 流式参数原文（wire 展开透传，protocol 类型不含）
+        {
+          type: 'toolCall',
+          id: 'call-1',
+          name: 'bash',
+          arguments: {},
+          partialJson: '{"command":"ls"',
+        } as unknown as ToolCall,
+      ]),
+    );
+    const trail = merged.turns[0]?.trail ?? [];
+    expect(trail.filter((item) => item.kind === 'thinking')).toHaveLength(1);
+    expect(trail[0]).toMatchObject({ kind: 'thinking', text: '想一想' });
+    expect(trail[1]).toMatchObject({
+      kind: 'tool',
+      toolCallId: 'call-1',
+      argsText: '{"command":"ls"',
+    });
+    expect(merged.turns[0]?.final?.markdown).toBe('前半段');
+  });
+});
+
+describe('刷新中途接流：运行态折进静止历史', () => {
+  /** 历史里有一条已发出的 toolCall，但 toolResult 还没落盘 */
+  const history: AgentMessage[] = [
+    { role: 'user', content: '跑个命令', timestamp: 1_000 },
+    {
+      role: 'assistant',
+      content: [
+        { type: 'toolCall', id: 'call-9', name: 'bash', arguments: { command: 'sleep 30' } },
+      ],
+      api: 'anthropic',
+      provider: 'anthropic',
+      model: 'claude-test',
+      usage: USAGE,
+      stopReason: 'toolUse',
+      timestamp: 2_000,
+    },
+  ];
+
+  it('没有 toolResult 的工具行停在 preparing（不冒充已完成）', () => {
+    const [turn] = rebuildTurns(history, ['e1', 'e2']);
+    expect(turn?.trail.find((item) => item.kind === 'tool')).toMatchObject({
+      status: 'preparing',
+      output: null,
+    });
+  });
+
+  it('isStreaming：末轮平铺 + 未回填的工具行标回 running；队列一并恢复', () => {
+    const state = applyLiveRun(rebuildChatState(history, ['e1', 'e2']), {
+      isStreaming: true,
+      isPromptRunning: true,
+      queuedMessages: { steering: ['补充'], followUp: [] },
+    });
+    expect(state.streaming).toBe(true);
+    expect(state.queued.steering).toEqual(['补充']);
+    expect(state.turns[0]?.status).toBe('streaming');
+    expect(isLiveTail(state.turns, state.streaming)).toBe(true);
+    expect(state.turns[0]?.trail.find((item) => item.kind === 'tool')).toMatchObject({
+      status: 'running',
+    });
+  });
+
+  it('仅 isPromptRunning（扩展命令等盲区）：composer 视为运行中，但不改轨迹', () => {
+    const state = applyLiveRun(rebuildChatState(history, ['e1', 'e2']), {
+      isStreaming: false,
+      isPromptRunning: true,
+      queuedMessages: { steering: [], followUp: [] },
+    });
+    expect(state.streaming).toBe(true);
+    expect(state.turns[0]?.status).toBe('done');
+    expect(state.turns[0]?.trail.find((item) => item.kind === 'tool')).toMatchObject({
+      status: 'preparing',
+    });
+  });
+
+  it('历史为空（首轮刷新：会话还没落盘）：快照补孤儿轮承接流式内容，不丢在 undefined 上', () => {
+    const stream = new AgentStream('t1');
+    // open() 的 404 分支：没有历史，只有运行态
+    stream.restore(
+      applyLiveRun(emptyChatState(), {
+        isStreaming: true,
+        isPromptRunning: true,
+        queuedMessages: { steering: [], followUp: [] },
+      }),
+      7,
+    );
+    stream.applyEvent(
+      evSeq(8, { type: 'connected', sessionId: 't1', isStreaming: true, lastSeq: 8 }),
+    );
+    stream.applyEvent(
+      evSeq(9, {
+        type: 'message_start',
+        message: {
+          role: 'assistant',
+          content: [
+            { type: 'thinking', thinking: '先看看' },
+            { type: 'text', text: '正在处理' },
+          ],
+          api: 'anthropic',
+          provider: 'anthropic',
+          model: 'claude-test',
+          usage: USAGE,
+          stopReason: 'pending',
+          timestamp: 9_000,
+        },
+      }),
+    );
+
+    const chat = stream.getSnapshot();
+    expect(chat.turns).toHaveLength(1);
+    expect(chat.turns[0]?.orphan).toBe(true);
+    expect(chat.turns[0]?.trail[0]).toMatchObject({ kind: 'thinking', text: '先看看' });
+    expect(chat.turns[0]?.final?.markdown).toBe('正在处理');
+    expect(isLiveTail(chat.turns, chat.streaming)).toBe(true);
+    // 后续增量落在这个孤儿轮上（没有锚点时 text_delta 会被丢）
+    stream.applyEvent(
+      evSeq(10, {
+        type: 'message_update',
+        usage: USAGE,
+        assistantMessageEvent: { type: 'text_delta', contentIndex: 1, delta: '后续' },
+      }),
+    );
+    expect(stream.getSnapshot().turns[0]?.final?.markdown).toBe('正在处理后续');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // rebuild 与 fold 的等价性（docs/05 §6.4 硬要求）
 // ---------------------------------------------------------------------------
 
@@ -435,6 +673,44 @@ describe('AgentStream：seq 水位线', () => {
     );
     expect(stream.getSnapshot().turns.length).toBe(1);
     expect(stream.getSnapshot().turns[0]?.user.text).toBe('新消息');
+  });
+});
+
+describe('AgentStream：刷新中途接流', () => {
+  it('运行态 restore + connected + 半截消息快照：流式态与已生成内容都在', () => {
+    const stream = new AgentStream('s1');
+    const history: AgentMessage[] = [{ role: 'user', content: '跑', timestamp: 1 }];
+    stream.restore(
+      applyLiveRun(rebuildChatState(history, ['e1']), {
+        isStreaming: true,
+        isPromptRunning: true,
+        queuedMessages: { steering: [], followUp: [] },
+      }),
+      10,
+    );
+    stream.applyEvent(
+      evSeq(11, { type: 'connected', sessionId: 's1', isStreaming: true, lastSeq: 11 }),
+    );
+    stream.applyEvent(
+      evSeq(12, {
+        type: 'message_start',
+        message: {
+          role: 'assistant',
+          content: [{ type: 'text', text: '写到一半' }],
+          api: 'anthropic',
+          provider: 'anthropic',
+          model: 'claude-test',
+          usage: USAGE,
+          stopReason: 'pending',
+          timestamp: 9_000,
+        },
+      }),
+    );
+
+    const chat = stream.getSnapshot();
+    expect(chat.streaming).toBe(true);
+    expect(chat.turns[0]?.status).toBe('streaming');
+    expect(chat.turns[0]?.final?.markdown).toBe('写到一半');
   });
 });
 

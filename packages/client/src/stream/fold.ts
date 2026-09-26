@@ -1,5 +1,6 @@
 import type {
   AgentMessage,
+  AssistantMessage,
   ToolResultMessage,
   Usage,
   UserMessage,
@@ -40,6 +41,20 @@ function appendTrail(turns: Turn[], item: TrailItem): void {
   const turn = turns[turns.length - 1];
   if (turn === undefined) return; // 没有轮锚点时丢弃（不应发生：message_start(user) 先到）
   turn.trail = [...turn.trail, item];
+}
+
+/** 孤儿轮（无用户锚点，与 rebuild 的 pushOrphanTurn 同形）：只在没有轮可挂时兜底建档 */
+function createOrphanTurn(id: string, at: number): Turn {
+  return {
+    id,
+    user: { text: '', at },
+    trail: [],
+    final: null,
+    usage: null,
+    model: null,
+    status: 'streaming',
+    orphan: true,
+  };
 }
 
 function lastTurn(turns: Turn[]): Turn | undefined {
@@ -106,8 +121,15 @@ export function fold(state: ChatState, event: WireAgentEvent): ChatState {
             status: 'streaming',
           },
         ];
+      } else if (message.role === 'assistant') {
+        // assistant message_start：draft 起点；late join 快照（content 非空）时把半截消息接回来。
+        // 没有轮锚点时先补一个孤儿轮：首轮刷新的 transient 窗口（会话还没落盘 → REST 历史为空，
+        // 用户消息不在任何通道里）没有锚点的话，整段流式内容会挂在 undefined 上被丢掉。
+        if (lastTurn(next.turns) === undefined) {
+          next.turns = [createOrphanTurn(`a${message.timestamp}`, message.timestamp)];
+        }
+        applyAssistantSnapshot(next.turns, message);
       }
-      // assistant message_start：draft 起点，thinking/text/toolcall 增量随后到达
       return next;
     }
 
@@ -331,7 +353,15 @@ export function fold(state: ChatState, event: WireAgentEvent): ChatState {
       return next;
 
     case 'connected':
-      // 水位线在 AgentStream 层处理（丢弃 seq ≤ lastSeq 的旧事件）
+      // runtime 真相（docs/04 §5）：水位线在 AgentStream 层处理，这里只对齐「还在跑」——
+      // 刷新/重连后用服务端的 isStreaming 恢复或撤销本地的流式态（丢过 agent_settled 的
+      // 连接靠它收口），本地时序不可靠。
+      next.streaming = event.isStreaming;
+      if (!event.isStreaming) {
+        for (const turn of next.turns) {
+          if (turn.status === 'streaming') turn.status = 'done';
+        }
+      }
       return next;
 
     default:
@@ -385,6 +415,61 @@ function lastThinkingIndex(trail: TrailItem[]): number {
     if (item?.kind === 'tool') continue; // thinking 与 tool 可能交错，取最后一个 thinking
   }
   return -1;
+}
+
+/**
+ * late join 快照（服务端**合成**的 `message_start`，其 content 是累积快照而非空壳，docs/02 §5.2 时序 ③）：
+ * 把「半截 assistant 消息」接回末轮的轨迹尾部与回答草稿（docs/05 §5.3）。
+ *
+ * 不接的话刷新/重连后已生成的部分永久丢失，只能等此后增量（界面看起来就是「没接上流」）。
+ * 两种情况共用同一份代码：刷新后轨迹里根本没有这段（直接追加），重连时已有增量行
+ * （按 toolCallId / thinking 前缀认领并整体替换，避免行重复）。
+ */
+function applyAssistantSnapshot(turns: Turn[], message: AssistantMessage): void {
+  const turn = lastTurn(turns);
+  if (turn === undefined) return;
+  message.content.forEach((block, index) => {
+    const isLast = index === message.content.length - 1;
+    if (block.type === 'thinking') {
+      const at = lastThinkingIndex(turn.trail);
+      const row = at === -1 ? undefined : turn.trail[at];
+      if (row !== undefined && row.kind === 'thinking' && block.thinking.startsWith(row.text)) {
+        turn.trail[at] = { ...row, text: block.thinking, streaming: isLast };
+      } else {
+        turn.trail.push({ kind: 'thinking', text: block.thinking, streaming: isLast });
+      }
+    } else if (block.type === 'toolCall') {
+      // 参数还在流式时 SDK 会把 raw 片段放在 partialJson 上（wire 只是展开透传）：
+      // 保留原文并停在 preparing，后续 toolcall_delta 才能继续往同一行追加
+      const partial = (block as { partialJson?: unknown }).partialJson;
+      const streamingArgs = typeof partial === 'string' && partial.length > 0 ? partial : null;
+      const patch: Partial<ToolRow> = {
+        toolName: block.name,
+        title: toolTitle(block.name, block.arguments),
+        argsText: streamingArgs ?? JSON.stringify(block.arguments, null, 2),
+      };
+      if (findToolRow(turns, block.id) === undefined) {
+        turn.trail.push({
+          kind: 'tool',
+          toolCallId: block.id,
+          toolName: block.name,
+          title: patch.title ?? block.name,
+          argsText: patch.argsText ?? '',
+          status: 'preparing',
+          output: null,
+          isError: false,
+        });
+      } else {
+        patchToolRow(turns, block.id, patch);
+      }
+    }
+  });
+  const text = assistantFinalText(message);
+  // 只在「客户端手里的草稿是快照的前缀（含空）」时才覆盖：重连时本地 draft 可能已经
+  // 跨过前一条 assistant 消息（fold 把整轮文本累积在 final 上），直接覆盖会吃掉前半段
+  if (text.length > 0 && (turn.final === null || text.startsWith(turn.final.markdown))) {
+    turn.final = { markdown: text };
+  }
 }
 
 /** 工具执行起始时刻（fold 内部记账，跨事件配对 start/end） */

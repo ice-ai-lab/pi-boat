@@ -95,6 +95,16 @@ packages/client/src/
 因此 `fold` 必须支持"从快照半截消息重建轨迹尾部"，且 `AgentStream` 在重连时**清空事件派生态但不清空 REST 派生态**。
 （环形缓冲与差量是 core 的待补项，client 侧接口不变。）
 
+落位（2026-09-27，修「刷新中途接流丢流式态」）：
+
+- `AgentStream.applyEvent` 的 `connected` 帧**不过 seq 门禁**：它同时给水位线（重建过的 runtime seq 从头计数，
+  旧水位线必须被这一帧覆盖）与运行态。`fold` 用 `connected.isStreaming`（runtime 真相）对齐 `chat.streaming`，
+  并把本地还挂着 `streaming` 状态的轮收口——断线期间丢过 `agent_settled` 的连接靠这一帧才不会永久停在「运行中」
+- 快照 `message_start`（content 是累积快照而非空壳）由 `fold` 的 `applyAssistantSnapshot` 接回末轮：
+  轨迹行按 `toolCallId`（工具）/ thinking 文本前缀认领并**整体替换**，正文写回 `Turn.final` 草稿。
+  刷新后轨迹里没有这段 → 直接追加；重连时已有增量行 → 替换而非重复。没有轮锚点时先建孤儿轮（§7.3）
+- REST 派生态（`.jsonl` 历史）本身没有「正在跑」的信息，由 `open()` 的 `applyLiveRun` 显式折运行态（§7.2）
+
 ### 5.4 必须处理的 SSE 边界
 
 | 情况 | 处理 |
@@ -310,6 +320,41 @@ in-flight。两者的 `staleTime` 不同是因为**语义不同**：
 
 回归锁：`apps/web/e2e/session-switch.spec.ts`（真浏览器数请求次数——这是两个消费方共缓存的
 行为，client 的 react 层没有 renderHook 设施）。
+
+### 7.2 打开「正在跑」的会话：`applyLiveRun`（2026-09-27）
+
+`rebuildChatState` 只认 `.jsonl` 事实，而磁盘上还没有的那一段（进行中的 assistant 消息、
+未落盘的 toolResult）它一无所知。所以 `open()` 在拿到 `GET /api/agent/:id` 的 `AgentState` 后
+必须把运行态折进重建结果（`stream/rebuild.ts` 的 `applyLiveRun`），否则**刷新中途接流**会同时丢：
+
+| 丢什么 | 后果 | 折法 |
+|---|---|---|
+| `chat.streaming`（`isStreaming \|\| isPromptRunning`） | composer 回到「发送」态、Esc 不接管 abort——正在跑的任务停不下来 | 直接取 `AgentState` |
+| 末轮 `status !== 'streaming'` | `isLiveTail` 为假 → 该轮被收成「过程组」，看不到实时长出来的思考/工具 | 末轮标回 `streaming` |
+| 工具行停在 `preparing`（历史里没有 toolResult 可回填） | 「正在运行 bash」显示成已完成且无输出 | 末轮无结果的工具行标回 `running` |
+| 排队消息 | steering / followUp 条消失 | 取 `AgentState.queuedMessages` |
+
+`rebuildTurns` 里工具行的起点因此从 `ok` 改成 `preparing`（有结果一律由 `applyToolResult`
+回填成 ok/error）：停在 `preparing` 的旧轮与之前的绿色行等价，只有运行中的轮才被标成 `running`。
+
+### 7.3 未落盘会话（首轮刷新）的两道兜底
+
+pi 直到**首条 assistant 消息**落盘才写 `.jsonl`（`SessionManager._persist`：文件里没有 assistant 条目就
+不落盘）。所以 `ensure_session` 建的会话在首条 assistant 消息流完之前是「磁盘上不存在」的：
+`GET /api/sessions/:id` 回 404、`open()` 只能拿到运行态，**用户消息不在任何通道里**
+（快照只补进行中的 assistant 消息）。附带发现（未在本次修）：core 的 `transientInfos()` 按
+`sessionFile === undefined` 过滤，而 SDK 建会话时就已分配路径（只是文件未写）——该分支实测永不命中，
+所以这个窗口内的会话同样不会出现在会话列表里。两道兜底：
+
+1. `fold`：assistant 侧事件没有轮锚点时先建**孤儿轮**（`orphan: true`，与 `rebuildTurns` 的前导孤儿轮同形）
+   —— 否则 `lastTurn(...) === undefined` 会把整段流式内容（含后续 `text_delta`）静默丢掉
+2. `useAgentSession`：记下这个 404 过一回的会话 id（`transientRef`），在 `chat.streaming` 回落为假时**只补一次**
+   `open()`——那时文件必定已落盘，重开就能补回完整历史（用户气泡 + 轮锚点）；仍在跑时不重开
+   （重开会把已 fold 的流式内容冲成历史快照）
+
+仍在的缺口（已知，不在本次范围）：`.jsonl` 没有「过期」概念，所以**已经中断**的旧轮里那个没结果的
+工具行也只能显示 `preparing`（无从区分「正在跑」与「跑挂了」）；运行态行总表里「正在运行 xxx 工具 /
+等待模型…」的 phase 文案仍未实现（`docs/09` C18 / `docs/10` C18）。
 
 ---
 

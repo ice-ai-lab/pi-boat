@@ -35,7 +35,7 @@ import { validateCwd } from '../endpoints/files';
 import { autoNameSession, getSessionContext } from '../endpoints/sessions';
 import { ApiError } from '../http';
 import { disposeAgentStream, getAgentStream } from '../stream/agent-stream';
-import { rebuildChatState, rebuildTurns } from '../stream/rebuild';
+import { applyLiveRun, rebuildChatState, rebuildTurns } from '../stream/rebuild';
 import { type ChatState, emptyChatState } from '../stream/view-model';
 import { fetchSessionDetail } from './queries';
 
@@ -127,6 +127,12 @@ export function useAgentSession(): UseAgentSessionResult {
   const sessionIdRef = useRef<string | null>(null);
   /** 自愈去重：同一时刻只跑一次 revive（lease 心跳与用户动作可能同时发现会话已回收） */
   const reviveRef = useRef<Promise<void> | null>(null);
+  /**
+   * 未落盘会话（`ensure_session` 建的）：pi 直到首条 assistant 消息才写 `.jsonl`，
+   * 这之前 `open()` 走 404 分支（只有运行态、没有历史，用户消息不在任何通道里）。
+   * 记下它，等它落盘后补一次历史（见下方 effect）。
+   */
+  const transientRef = useRef<string | null>(null);
   /** 详情走 Query 缓存：与 `useSessionDetailQuery` 共用同一份（见 fetchSessionDetail） */
   const queryClient = useQueryClient();
   /**
@@ -212,7 +218,11 @@ export function useAgentSession(): UseAgentSessionResult {
           if (!(error instanceof ApiError) || error.status !== 404) throw error;
           const running = await getAgentRunningState(id);
           if (!running.running) throw error;
-          getAgentStream(id).restore(emptyChatState(), running.state.lastSeq);
+          transientRef.current = id;
+          getAgentStream(id).restore(
+            applyLiveRun(emptyChatState(), running.state),
+            running.state.lastSeq,
+          );
           setCwd(null);
           switchSession(id);
           return null;
@@ -230,14 +240,21 @@ export function useAgentSession(): UseAgentSessionResult {
         // 水位线：热会话取 lastSeq（双通道对账）；冷会话先 resume 再连流（ADR-0013）
         const running = await getAgentRunningState(id);
         let watermark = 0;
-        if (running.running) watermark = running.state.lastSeq;
-        else await resumeAgentSession(id);
+        // 热会话可能正跑着（刷新中途接流）：历史是「静止」的，运行态得显式折进去
+        // （composer 停止态 / 末轮平铺 / 未回填的工具行，见 applyLiveRun）
+        let live: AgentState | null = null;
+        if (running.running) {
+          watermark = running.state.lastSeq;
+          live = running.state;
+        } else {
+          await resumeAgentSession(id);
+        }
         setHistoryCursor({
           oldest: detail.context.oldestEntryId,
           hasMore: detail.context.hasMore,
         });
         const stream = getAgentStream(id);
-        stream.restore(state, watermark);
+        stream.restore(live === null ? state : applyLiveRun(state, live), watermark);
         setCwd(detail.info.cwd);
         switchSession(id);
         return null;
@@ -304,6 +321,19 @@ export function useAgentSession(): UseAgentSessionResult {
     const id = sessionIdRef.current;
     if (id !== null) void revive(id);
   }, [terminated, revive]);
+
+  /**
+   * 未落盘会话补历史（只补一次）：首条 assistant 消息落盘那一刻会话文件才存在，
+   * 重开就能拿回重启前那一段——包括 REST 根本给不出的用户消息与轮锚点。
+   * 仍在跑时不重开（重开会把已 fold 的流式内容冲成历史快照）；确认落盘后本 ref 清空，
+   * 再 404（这轮压根没产生消息）也不会反复重试。
+   */
+  useEffect(() => {
+    const id = sessionIdRef.current;
+    if (storeChat.streaming || id === null || transientRef.current !== id) return;
+    transientRef.current = null;
+    void open(id);
+  }, [storeChat.streaming, open]);
 
   const loadOlder = useCallback(async (): Promise<void> => {
     const id = sessionId;
