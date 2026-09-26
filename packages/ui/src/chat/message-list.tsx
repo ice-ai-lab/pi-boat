@@ -5,8 +5,9 @@ import {
   restoreScrollTop,
   shouldShowScrollToLatest,
 } from '@ice-ai/client';
-import { type RefObject, useCallback, useEffect, useRef } from 'react';
+import { type RefObject, useCallback, useEffect, useRef, useState } from 'react';
 import { cn } from '../utils/cn';
+import { useScrollbarVisibility } from '../utils/use-scrollbar-visibility';
 import { AssistantTurn, UserBubble } from './assistant-turn';
 
 /**
@@ -31,6 +32,9 @@ export interface MessageListProps {
 
 /** 距顶部多少像素内触发自动翻页 */
 const AUTO_LOAD_THRESHOLD_PX = 80;
+
+/** 右侧 minimap 占位宽度（pi-web `CHAT_MINIMAP_WIDTH`，回到底部按钮据此避让） */
+const CHAT_MINIMAP_WIDTH = 36;
 
 export function MessageList({
   chat,
@@ -66,11 +70,14 @@ export function MessageList({
     };
   }, [controllerRef]);
 
+  const [showJump, setShowJump] = useState(false);
+
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
     const el = scrollRef.current;
     if (el === null) return;
     el.scrollTo({ top: el.scrollHeight, behavior });
     attachedRef.current = true;
+    setShowJump(false);
   }, []);
 
   const requestOlder = useCallback(() => {
@@ -79,6 +86,10 @@ export function MessageList({
     pendingAnchorRef.current = captureScrollDistance(el.scrollHeight, el.scrollTop);
     onLoadOlder();
   }, [onLoadOlder]);
+
+  const syncJump = useCallback((el: HTMLDivElement) => {
+    setShowJump(shouldShowScrollToLatest(el.scrollTop, el.clientHeight, el.scrollHeight));
+  }, []);
 
   // 内容变化：优先还原翻页锚点；否则吸附跟随；自己发消息（轮数增加）强制回底
   useEffect(() => {
@@ -95,6 +106,7 @@ export function MessageList({
         if (delta !== 0 && pendingAnchorRef.current === null) el.scrollTop += delta;
       });
       prevTopRef.current = el.scrollTop;
+      syncJump(el);
       return;
     }
     const turnCount = chat.turns.length;
@@ -105,7 +117,8 @@ export function MessageList({
       return;
     }
     if (attachedRef.current) scrollToBottom();
-  }, [chat, scrollToBottom]);
+    syncJump(el);
+  }, [chat, scrollToBottom, syncJump]);
 
   const onScroll = useCallback(() => {
     const el = scrollRef.current;
@@ -118,6 +131,7 @@ export function MessageList({
       el.scrollHeight,
     );
     prevTopRef.current = el.scrollTop;
+    syncJump(el);
     if (
       el.scrollTop < AUTO_LOAD_THRESHOLD_PX &&
       hasOlder &&
@@ -127,61 +141,90 @@ export function MessageList({
     ) {
       requestOlder();
     }
-  }, [hasOlder, loadingOlder, onLoadOlder, requestOlder]);
+  }, [hasOlder, loadingOlder, onLoadOlder, requestOlder, syncJump]);
 
-  const showJump =
-    scrollRef.current !== null &&
-    shouldShowScrollToLatest(
-      scrollRef.current.scrollTop,
-      scrollRef.current.clientHeight,
-      scrollRef.current.scrollHeight,
-    );
+  useScrollbarVisibility(scrollRef);
 
   return (
-    <div className="relative min-h-0 flex-1">
+    <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
       <div
         ref={scrollRef}
         onScroll={onScroll}
-        className="scrollbar-thin mask-fade-top absolute inset-0 overflow-y-auto [overflow-anchor:none]"
+        className="scrollbar-subtle min-w-0 flex-1 overflow-x-hidden overflow-y-auto pt-4 [scrollbar-gutter:stable] [overflow-anchor:none]"
         aria-live="polite"
       >
-        <div className="mx-auto flex w-(--chat-w) max-w-full flex-col gap-7 px-5 pt-6 pb-4">
-          {(hasOlder || loadingOlder) && (
-            <div className="flex justify-center">
-              <button
-                type="button"
-                onClick={requestOlder}
-                disabled={loadingOlder}
-                className={cn(
-                  'sq bg-surface-side px-3 py-1.5 text-[11.5px] text-fg-subtle hover:bg-hover hover:text-fg',
-                  loadingOlder && 'opacity-60',
-                )}
-              >
-                {loadingOlder ? '加载中…' : '加载更早的消息'}
-              </button>
-            </div>
-          )}
-          {chat.turns.map((turn, index) => (
-            <div key={turn.id} data-turn-index={index} className="flex flex-col gap-2.5">
-              {turn.orphan !== true && <UserBubble turn={turn} />}
-              <AssistantTurn turn={turn} streaming={chat.streaming} />
-            </div>
-          ))}
+        {/* 正文列：pi-web `ChatWindow` 的 820px 居中栏 + 16px 列内边距 */}
+        <div style={{ minWidth: 0, padding: '0 16px' }}>
+          <div
+            style={{
+              width: '100%',
+              minWidth: 0,
+              maxWidth: 'var(--chat-content-max-width, 820px)',
+              margin: '0 auto',
+            }}
+          >
+            {(hasOlder || loadingOlder) && (
+              <div className="mb-3 flex justify-center">
+                <button
+                  type="button"
+                  onClick={requestOlder}
+                  disabled={loadingOlder}
+                  className={cn(
+                    'rounded-[5px] border border-border bg-bg px-2.5 py-1 text-[11px] text-text-muted hover:bg-bg-hover hover:text-text',
+                    loadingOlder && 'opacity-60',
+                  )}
+                >
+                  {loadingOlder ? '加载中…' : '加载更早的消息'}
+                </button>
+              </div>
+            )}
+            {chat.turns.map((turn, index) => (
+              <div key={turn.id} data-turn-index={index}>
+                {turn.orphan !== true && <UserBubble turn={turn} />}
+                <AssistantTurn turn={turn} streaming={chat.streaming} />
+              </div>
+            ))}
+            <div style={{ height: 16 }} />
+          </div>
         </div>
       </div>
-      {showJump && (
+      {/* pi-web `ChatWindow.tsx:1325-1349` 的外层 wrapper 定位：贴住消息区底部、居中、避开右侧 minimap */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: CHAT_MINIMAP_WIDTH,
+          display: 'flex',
+          justifyContent: 'center',
+          paddingBottom: 10,
+          pointerEvents: 'none',
+          zIndex: 20,
+        }}
+      >
         <button
           type="button"
           aria-label="回到底部"
+          title="回到底部"
           onClick={() => scrollToBottom('smooth')}
-          className={cn(
-            'sq elev-soft-sm absolute bottom-4 left-1/2 flex h-9 w-9 -translate-x-1/2 items-center justify-center',
-            'bg-menu text-fg-muted backdrop-blur-[40px] hover:text-fg',
-          )}
+          className={`chat-scroll-to-bottom${showJump ? ' is-visible' : ''}`}
         >
-          ↓
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <polyline points="5 12 12 19 19 12" />
+          </svg>
         </button>
-      )}
+      </div>
     </div>
   );
 }

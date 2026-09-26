@@ -125,18 +125,45 @@ export function SidebarPane({
 
   return (
     <>
-      <div className="hairline-b flex shrink-0 gap-1 border-line-2 px-2.5 pt-2.5">
+      <div
+        style={{
+          // L17：品牌行自带 12px 上边距，Sidebar 头部不再叠加顶部内边距
+          padding: '12px 10px 0',
+          flexShrink: 0,
+        }}
+      >
+        <span
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            marginRight: 'auto',
+            // L16：pi-web 品牌字标 = mono / 15px / 700 / letterSpacing -0.01em（无 emoji）
+            fontFamily: 'var(--font-mono)',
+            fontSize: 15,
+            fontWeight: 700,
+            color: 'var(--text)',
+            letterSpacing: '-0.01em',
+            lineHeight: 1.2,
+          }}
+        >
+          PiBoat
+        </span>
         {(['sessions', 'files'] as const).map((candidate) => (
           <button
             key={candidate}
             type="button"
             aria-pressed={tab === candidate}
             onClick={() => setTab(candidate)}
-            className={
-              tab === candidate
-                ? 'sq bg-accent-weak px-2 py-0.5 text-[11.5px] text-accent'
-                : 'sq px-2 py-0.5 text-[11.5px] text-fg-subtle hover:bg-hover hover:text-fg'
-            }
+            style={{
+              height: 26,
+              padding: '0 10px',
+              borderRadius: 6,
+              border: '1px solid var(--border)',
+              background: tab === candidate ? 'var(--bg-selected)' : 'transparent',
+              color: tab === candidate ? 'var(--text)' : 'var(--text-muted)',
+              cursor: 'pointer',
+              fontSize: 12,
+            }}
           >
             {candidate === 'sessions' ? '会话' : '文件'}
           </button>

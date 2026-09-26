@@ -1,26 +1,43 @@
 @import "tailwindcss";
+/* pi-web 用 next/font 自托管 Noto Sans Mono（latin + cyrillic，`--font-noto-mono`）——
+   本仓同字体同轴（fontsource 可变字体），否则等宽文本字形与宽度与 pi-web 不一致 */
+@import "@fontsource-variable/noto-sans-mono";
 @import "@ice-ai/ui/theme.css";
 @import "@ice-ai/ui/utilities.css";
+@import "@ice-ai/ui/pi-web.css";
+@import "@ice-ai/ui/settings.css";
 
 /* Tailwind v4 需显式扫包外源码，否则 ui 的类名会被摇掉（docs/06 §2） */
 @source "../../../packages/ui/src";
 
-body {
-  background: var(--bg-base);
-  color: var(--t1);
-  font-family: var(--font);
-  -webkit-font-smoothing: antialiased;
+/* 基础版式逐字照抄 pi-web app/globals.css（`*` + html + body 三段） */
+* {
+  box-sizing: border-box;
 }
 
-/* MobileGate（docs/06 §9.1）：一期只保大屏；<880px 停止适配（不做重排），给出门禁提示 */
-.mobile-gate {
-  display: none;
+html,
+body {
+  width: 100%;
+  height: 100vh;
+  /* biome-ignore lint/suspicious/noDuplicateProperties: pi-web 的渐进增强三连（vh → dvh → 视口变量） */
+  height: 100dvh;
+  height: var(--app-viewport-height, 100dvh);
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  overscroll-behavior: none;
 }
-@media (width < 880px) {
-  .app-shell {
-    display: none;
-  }
-  .mobile-gate {
-    display: flex;
-  }
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+pre,
+code {
+  font-family: var(--font-mono);
 }

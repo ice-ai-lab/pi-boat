@@ -2,14 +2,14 @@ import { getProjectActivity, type RecentProject } from '@ice-ai/client';
 import type { SessionInfo, WorktreeInfo } from '@ice-ai/protocol';
 import { Plus } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { Button } from '../primitives/button';
 import { ProjectPicker } from './project-picker';
 import { SessionList } from './session-list';
 
 /**
- * Sidebar（docs/06 §4.3）：新建会话 + 项目/worktree 选择器 + 搜索插槽 + 窗口化会话列表。
+ * Sidebar：项目/worktree 选择器 + 新建会话 + 搜索插槽 + 窗口化会话列表。
+ * 视觉照抄 pi-web `SessionSidebar`：页头 `12px 10px 10px` + 1px 分隔线，
+ * 标题行右侧为 32px 高圆角 7 的新建按钮，下面整宽的项目选择按钮。
  * props 驱动、无取数（数据装配在 apps/web；docs/06 §1 边界 2 保持）。
- * 一次只展示选中项目的会话——项目切换走浮层，列表才能真正窗口化。
  */
 export interface SidebarProps {
   /** 当前项目的会话 */
@@ -33,9 +33,11 @@ export interface SidebarProps {
   /** 搜索态：结果平铺，不显示项目头 */
   searching?: boolean;
   emptyHint?: string;
+  /** 标题（页头左侧），默认「会话」 */
+  title?: string;
   /**
    * 内容槽：提供时替换会话列表（侧栏「文件」页签用），
-   * 新建会话按钮 / 项目选择器 / 搜索槽保持不变——切页签不该丢掉切项目的能力。
+   * 项目选择器与搜索槽保持不变——切页签不该丢掉切项目的能力。
    */
   content?: ReactNode;
 }
@@ -60,18 +62,69 @@ export function Sidebar({
   searchSlot,
   searching = false,
   emptyHint = '还没有会话',
+  title = '',
   content,
 }: SidebarProps) {
   const activity = getProjectActivity(sessions, runningSessionIds);
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2 p-2.5">
-      <Button variant="primary" size="sm" onClick={onNewSession}>
-        <Plus size={13} />
-        新会话
-      </Button>
-      {searchSlot !== undefined && <div>{searchSlot}</div>}
-      {!searching && (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div
+        style={{
+          // L17：上边距由品牌行承担（避免两层 12px 叠加）
+          padding: '0 10px 10px',
+          borderBottom: '1px solid var(--border)',
+          flexShrink: 0,
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: title === '' ? 'flex-end' : 'space-between',
+            marginBottom: 10,
+          }}
+        >
+          {title !== '' && (
+            <span
+              style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: 'var(--text)',
+                letterSpacing: '-0.01em',
+              }}
+            >
+              {title}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={onNewSession}
+            title="新建会话"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 5,
+              height: 32,
+              paddingLeft: 10,
+              paddingRight: 12,
+              background: 'var(--bg-hover)',
+              border: '1px solid var(--border)',
+              borderRadius: 7,
+              color: 'var(--text-muted)',
+              cursor: 'pointer',
+              fontSize: 12,
+              fontWeight: 500,
+              letterSpacing: '-0.01em',
+              flexShrink: 0,
+              transition: 'background 0.12s, color 0.12s, border-color 0.12s',
+            }}
+          >
+            <Plus size={12} />
+            新会话
+          </button>
+        </div>
         <ProjectPicker
           projects={projects}
           activeProjectKey={activeProjectKey}
@@ -84,14 +137,22 @@ export function Sidebar({
           onCreateWorktree={onCreateWorktree}
           onRemoveWorktree={onRemoveWorktree}
         />
+      </div>
+
+      {searchSlot !== undefined && (
+        <div
+          style={{ padding: '8px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}
+        >
+          {searchSlot}
+        </div>
       )}
 
       {content !== undefined ? (
         <div className="flex min-h-0 flex-1 flex-col">{content}</div>
       ) : sessions.length === 0 ? (
-        <p className="px-1 py-3 text-[12px] text-fg-faint">
+        <div style={{ padding: '16px 14px', color: 'var(--text-muted)', fontSize: 12 }}>
           {searching ? '无匹配会话' : emptyHint}
-        </p>
+        </div>
       ) : (
         <SessionList
           sessions={sessions}

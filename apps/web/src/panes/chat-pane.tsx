@@ -9,6 +9,8 @@ import {
   extractTurnWrittenFiles,
   filterFileEntries,
   filterSlashCommands,
+  formatCost,
+  formatTokens,
   getFileIndex,
   parseSlashSubmission,
   sessionExportUrl,
@@ -38,8 +40,18 @@ import {
   type ToastItem,
   TurnWrittenFiles,
   toastQueueReducer,
+  useI18n,
 } from '@ice-ai/ui';
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import {
+  type CSSProperties,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from 'react';
 import { useSearchParams } from 'react-router';
 import { useServerHealth } from '../layout/health';
 import { fileTabsStore } from '../services/file-tabs-store';
@@ -48,6 +60,51 @@ import { useCompletionSignal } from '../services/use-notifications';
 import { getLastCwd, setLastCwd } from '../services/workspace-memory';
 import { type ActivePanel, PanelsHost } from './panels-host';
 
+/** 中栏工具条最左侧的侧栏开关（pi-web AppShell 的 36×36 图标按钮） */
+function SidebarToggleButton({ open, onToggle }: { open: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      title={open ? '隐藏侧栏' : '显示侧栏'}
+      aria-label={open ? '隐藏侧栏' : '显示侧栏'}
+      className="flex h-9 w-9 shrink-0 items-center justify-center border-0 border-r border-r-border bg-transparent text-text-muted transition-colors hover:text-text"
+    >
+      {open ? (
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <line x1="9" y1="3" x2="9" y2="21" />
+        </svg>
+      ) : (
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <line x1="3" y1="6" x2="21" y2="6" />
+          <line x1="3" y1="12" x2="21" y2="12" />
+          <line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
 /**
  * ChatPane（F1→F5）：对话主面板。URL `?s=` 是会话的唯一真相（ADR-0019-5）。
  * F5 增补：斜杠命令 / 输入历史 / 排队条 / 压缩与自动命名 / 统计与分支面板 /
@@ -55,6 +112,12 @@ import { type ActivePanel, PanelsHost } from './panels-host';
  */
 export interface ChatPaneProps {
   preferredCwd?: string | null;
+  /** 侧栏开关（页头左侧按钮，结构对齐 pi-web AppShell 的中栏工具条） */
+  sidebarOpen?: boolean;
+  onToggleSidebar?: () => void;
+  /** 项目需要信任但未信任：在工具条上给一个常驻入口 */
+  trustPending?: boolean;
+  onTrustProject?: () => void;
 }
 
 const TOOL_PRESET_OPTIONS = [
@@ -65,7 +128,81 @@ const TOOL_PRESET_OPTIONS = [
   { value: 'full', label: '全部工具' },
 ] as const;
 
-export function ChatPane({ preferredCwd = null }: ChatPaneProps) {
+/**
+ * pi-web 中栏工具条按钮（`AppShell` 的 `renderChatToolbarActions`）：
+ * 2px 顶部描边表示激活态，右侧 1px 分隔线，图标 12–13px + 11px 文案。
+ */
+function TopBarAction({
+  label,
+  title,
+  pressed = false,
+  disabled = false,
+  onClick,
+  icon,
+  trailing,
+  style,
+}: {
+  label?: string;
+  title: string;
+  pressed?: boolean;
+  disabled?: boolean;
+  onClick(): void;
+  icon?: ReactNode;
+  trailing?: ReactNode;
+  style?: CSSProperties;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      aria-label={title}
+      aria-pressed={pressed}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 6,
+        height: '100%',
+        padding: '0 12px',
+        background: pressed ? 'var(--bg-selected)' : 'none',
+        border: 'none',
+        borderTop: `2px solid ${pressed ? 'var(--accent)' : 'transparent'}`,
+        borderRight: '1px solid var(--border)',
+        color: pressed ? 'var(--text)' : 'var(--text-muted)',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.45 : 1,
+        flexShrink: 0,
+        fontSize: 11,
+        whiteSpace: 'nowrap',
+        transition: 'color 0.1s, background 0.1s, opacity 0.1s',
+        ...style,
+      }}
+      onMouseEnter={(event) => {
+        if (disabled) return;
+        event.currentTarget.style.color = 'var(--text)';
+        event.currentTarget.style.background = pressed ? 'var(--bg-selected)' : 'var(--bg-hover)';
+      }}
+      onMouseLeave={(event) => {
+        event.currentTarget.style.color = pressed ? 'var(--text)' : 'var(--text-muted)';
+        event.currentTarget.style.background = pressed ? 'var(--bg-selected)' : 'none';
+      }}
+    >
+      {icon}
+      {label !== undefined && <span>{label}</span>}
+      {trailing}
+    </button>
+  );
+}
+
+export function ChatPane({
+  preferredCwd = null,
+  sidebarOpen = true,
+  onToggleSidebar,
+  trustPending = false,
+  onTrustProject,
+}: ChatPaneProps) {
   const session = useAgentSession();
   const { chat, sessionId } = session;
   const [draft, setDraft] = useState('');
@@ -84,6 +221,7 @@ export function ChatPane({ preferredCwd = null }: ChatPaneProps) {
 
   const history = useInputHistory(sessionId);
   const signal = useCompletionSignal();
+  const { t } = useI18n();
   const detail = useSessionDetailQuery(sessionId);
   const models = useModelsQuery(session.cwd ?? undefined);
   const gitStatus = useGitStatusQuery(session.cwd);
@@ -223,6 +361,17 @@ export function ChatPane({ preferredCwd = null }: ChatPaneProps) {
     [session],
   );
 
+  /** 生成标题（工具条与 composer 工具行共用；实现在一处避免两遍状态机） */
+  const runAutoName = useCallback(() => {
+    setAutoNaming(true);
+    void session.autoName().then((result) => {
+      setAutoNaming(false);
+      if (result.error !== undefined) pushToast(result.error, 'error');
+      else pushToast(`${t('title.updated')}：${result.title ?? ''}`);
+      void detail.refetch();
+    });
+  }, [session, pushToast, detail, t]);
+
   const handleSubmit = useCallback(
     (text: string) => {
       history.remember(text);
@@ -266,6 +415,11 @@ export function ChatPane({ preferredCwd = null }: ChatPaneProps) {
   if (sessionId === null) {
     return (
       <>
+        {onToggleSidebar !== undefined && (
+          <div className="flex h-9 shrink-0 items-center border-b border-border bg-bg-panel">
+            <SidebarToggleButton open={sidebarOpen} onToggle={onToggleSidebar} />
+          </div>
+        )}
         <EmptyState
           onStart={(cwd) => void startSession(cwd)}
           starting={session.starting}
@@ -280,42 +434,273 @@ export function ChatPane({ preferredCwd = null }: ChatPaneProps) {
   const compacting = session.liveState?.isCompacting === true;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="hairline-b flex h-8 shrink-0 items-center gap-2 border-line-1 px-4">
-        <span className="truncate text-[12px] text-fg-subtle">
-          {chat.sessionName ?? sessionId.slice(0, 8)}
-        </span>
-        {health === 'down' && <span className="text-[11px] text-danger">· 服务连接中断</span>}
-        <div className="ml-auto flex items-center gap-0.5">
-          {chat.streaming && <span className="mr-1 text-[11px] text-accent">运行中</span>}
-          {(
-            [
-              ['branches', '分支'],
-              ['system', '系统'],
-              ['tools', '工具'],
-              ['stats', '统计'],
-            ] as const
-          ).map(([panel, label]) => (
+    <div className="chat-content flex min-h-0 flex-1 flex-col">
+      <div className="shrink-0 bg-bg-panel">
+        <div className="hairline-b relative flex h-9 items-center border-border">
+          {onToggleSidebar !== undefined && (
+            <SidebarToggleButton open={sidebarOpen} onToggle={onToggleSidebar} />
+          )}
+          {trustPending && (
             <button
-              key={panel}
               type="button"
-              aria-pressed={activePanel === panel}
+              onClick={onTrustProject}
+              title="该项目有需要信任的资源（skills / 扩展）；未信任则不会加载"
+              className="flex h-full shrink-0 items-center gap-1.5 border-0 border-r border-r-border bg-transparent px-3 text-[11px] text-warn hover:bg-bg-hover"
+            >
+              ⚠ 项目未信任 — 点击信任
+            </button>
+          )}
+          <span className="truncate px-3 text-[12px] text-text-dim">
+            {chat.sessionName ?? sessionId.slice(0, 8)}
+          </span>
+          {health === 'down' && <span className="text-[11px] text-danger">· 服务连接中断</span>}
+          <div className="ml-auto flex h-full items-stretch">
+            {chat.streaming && (
+              <span className="flex items-center px-3 text-[11px] text-accent">
+                {t('chat.thinking')}
+              </span>
+            )}
+            {/* 完整历史（pi-web `handleViewFullHistory`：直接开导出的内联页） */}
+            <TopBarAction
+              title={t('history.full')}
+              label={t('history.label')}
+              onClick={() =>
+                window.open(sessionExportUrl(sessionId), '_blank', 'noopener,noreferrer')
+              }
+              icon={
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M3 3v5h5" />
+                  <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
+                  <path d="M12 7v5l4 2" />
+                </svg>
+              }
+            />
+            {/* 生成标题（pi-web 工具条的 auto-name 按钮） */}
+            <TopBarAction
+              title={t('title.generateSession')}
+              label={t('title.generate')}
+              disabled={autoNaming}
+              onClick={runAutoName}
+              icon={
+                autoNaming ? (
+                  <svg
+                    className="animate-spin"
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden="true"
+                  >
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="9"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      opacity="0.25"
+                    />
+                    <path
+                      d="M21 12a9 9 0 0 0-9-9"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    width="13"
+                    height="13"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="m15 4 5 5L7 22l-5-5Z" />
+                    <path d="m14 5 5 5" />
+                    <path d="M6 4V2M5 3H3M19 19v3M17.5 20.5h3" />
+                  </svg>
+                )
+              }
+            />
+            {/* 分支 / 系统 / 工具：工具条 inline 触发的顶部面板 */}
+            {(
+              [
+                ['branches', t('i18n.branches')],
+                ['system', t('system.label')],
+                ['tools', t('tools.label')],
+              ] as const
+            ).map(([panel, label]) => (
+              <TopBarAction
+                key={panel}
+                label={label}
+                title={label}
+                pressed={activePanel === panel}
+                onClick={() => {
+                  const next = activePanel === panel ? null : panel;
+                  setActivePanel(next);
+                  if (next === 'system') void session.refreshLiveState();
+                  if (next === 'tools') void session.loadTools();
+                }}
+                icon={
+                  panel === 'branches' ? (
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{ color: 'var(--accent)', flexShrink: 0 }}
+                      aria-hidden="true"
+                    >
+                      <line x1="6" y1="3" x2="6" y2="15" />
+                      <circle cx="18" cy="6" r="3" />
+                      <circle cx="6" cy="18" r="3" />
+                      <path d="M18 9a9 9 0 0 1-9 9" />
+                    </svg>
+                  ) : panel === 'system' ? (
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{
+                        color:
+                          session.liveState?.systemPrompt !== null &&
+                          session.liveState?.systemPrompt !== undefined
+                            ? 'var(--accent)'
+                            : 'var(--text-dim)',
+                        flexShrink: 0,
+                      }}
+                      aria-hidden="true"
+                    >
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                      <line x1="8" y1="13" x2="16" y2="13" />
+                      <line x1="8" y1="17" x2="13" y2="17" />
+                    </svg>
+                  ) : (
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{
+                        color: session.tools.some((tool) => tool.active)
+                          ? 'var(--accent)'
+                          : 'var(--text-dim)',
+                        flexShrink: 0,
+                      }}
+                      aria-hidden="true"
+                    >
+                      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9z" />
+                    </svg>
+                  )
+                }
+              />
+            ))}
+            {/* 会话统计（S4：tokens / cost / context 内联显示 + popover 宿主） */}
+            <TopBarAction
+              title={t('session.title')}
+              pressed={activePanel === 'stats'}
               onClick={() => {
-                const next = activePanel === panel ? null : panel;
+                const next = activePanel === 'stats' ? null : 'stats';
                 setActivePanel(next);
                 if (next === 'stats') void session.refreshStats();
-                if (next === 'system') void session.refreshLiveState();
-                if (next === 'tools') void session.loadTools();
               }}
-              className={
-                activePanel === panel
-                  ? 'sq bg-accent-weak px-1.5 py-0.5 text-[11px] text-accent'
-                  : 'sq px-1.5 py-0.5 text-[11px] text-fg-subtle hover:bg-hover hover:text-fg'
+              trailing={
+                <span
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
+                  {statsSummary.input > 0 && (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 10 10"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <line x1="5" y1="8.5" x2="5" y2="1.5" />
+                        <polyline points="2 4 5 1.5 8 4" />
+                      </svg>
+                      {formatTokens(statsSummary.input)}
+                    </span>
+                  )}
+                  {statsSummary.output > 0 && (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 10 10"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        aria-hidden="true"
+                      >
+                        <line x1="5" y1="1.5" x2="5" y2="8.5" />
+                        <polyline points="2 6 5 8.5 8 6" />
+                      </svg>
+                      {formatTokens(statsSummary.output)}
+                    </span>
+                  )}
+                  {statsSummary.cost > 0 && (
+                    <span style={{ color: 'var(--text)', fontWeight: 500 }}>
+                      {formatCost(statsSummary.cost)}
+                    </span>
+                  )}
+                  {contextPct !== null && (
+                    <span
+                      style={{
+                        color:
+                          contextPct > 90
+                            ? '#ef4444'
+                            : contextPct > 70
+                              ? 'rgba(234,179,8,0.95)'
+                              : 'var(--text-muted)',
+                      }}
+                    >
+                      {contextPct.toFixed(0)}%
+                    </span>
+                  )}
+                </span>
               }
-            >
-              {label}
-            </button>
-          ))}
+            />
+          </div>
         </div>
       </div>
 
@@ -349,9 +734,10 @@ export function ChatPane({ preferredCwd = null }: ChatPaneProps) {
           name: tool.name,
           description: tool.description,
           active: tool.active === true,
+          parameters: tool.parameters,
+          promptGuidelines: tool.promptGuidelines,
         }))}
         toolsLoading={false}
-        onReloadTools={() => void session.loadTools()}
         stats={session.stats === null ? null : statsSummary}
         statsInfo={
           detail.data === undefined
@@ -401,11 +787,13 @@ export function ChatPane({ preferredCwd = null }: ChatPaneProps) {
       />
 
       <div className="shrink-0 pb-4">
-        <QueueBar
-          steering={chat.queued.steering}
-          followUp={chat.queued.followUp}
-          onClear={() => void session.clearQueue()}
-        />
+        <div style={{ padding: '0 16px' }}>
+          <QueueBar
+            steering={chat.queued.steering}
+            followUp={chat.queued.followUp}
+            onClear={() => void session.clearQueue()}
+          />
+        </div>
         <Composer
           value={draft}
           onChange={(next) => {
@@ -432,7 +820,10 @@ export function ChatPane({ preferredCwd = null }: ChatPaneProps) {
             history.cursor.index !== -1 ? () => setDraft(history.nextValue(draft)) : undefined
           }
           aboveInput={
-            <div className="mx-auto flex w-(--chat-w) max-w-full items-center gap-1.5 px-5 pb-1">
+            <div
+              className="mx-auto flex items-center gap-1.5 pb-1"
+              style={{ maxWidth: 'var(--chat-content-max-width, 820px)' }}
+            >
               <ComposerToolbar
                 modelLabel={session.liveState?.model?.modelId ?? null}
                 thinkingLevel={session.liveState?.thinkingLevel ?? null}
@@ -457,15 +848,7 @@ export function ChatPane({ preferredCwd = null }: ChatPaneProps) {
                   })
                 }
                 onAbortCompaction={() => void session.abortCompaction()}
-                onAutoName={() => {
-                  setAutoNaming(true);
-                  void session.autoName().then((result) => {
-                    setAutoNaming(false);
-                    if (result.error !== undefined) pushToast(result.error, 'error');
-                    else pushToast(`已命名：${result.title ?? ''}`);
-                    void detail.refetch();
-                  });
-                }}
+                onAutoName={runAutoName}
                 autoNaming={autoNaming}
                 onExport={() => window.open(sessionExportUrl(sessionId), '_blank')}
                 onOpenStats={() => {
