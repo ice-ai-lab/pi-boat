@@ -26,7 +26,7 @@ export {
   type SuggestionMenuProps,
 } from './chat/suggestion-menu';
 export { SystemRowView, ThinkingRowView } from './chat/thinking-row';
-export { ToolRowView, ToolTag, toolTagClass } from './chat/tool-row';
+export { ToolRowView } from './chat/tool-row';
 export { TurnWrittenFiles, type TurnWrittenFilesProps } from './chat/turn-written-files';
 export {
   ExtensionRequestDialog,
@@ -46,6 +46,16 @@ export { FileTabs, type FileTabsProps } from './files/file-tabs';
 export { FileTree, type FileTreeProps, sortEntries } from './files/file-tree';
 export { FileViewer, type FileViewerProps } from './files/file-viewer';
 export { ImagePreview, type ImagePreviewProps, nextZoom } from './files/image-preview';
+// i18n（docs/06 §1 第 5 处 ui 容器例外）
+export {
+  formatRelativeTime,
+  formatUpdatedTime,
+  interpolateMessage,
+  translateMessage,
+} from './i18n/format';
+export { I18nProvider, useI18n } from './i18n/i18n-provider';
+export { getLocalePlugin, getSupportedLocales, resolveBrowserLocale } from './i18n/registry';
+export type { Locale, LocalePlugin, TranslationParams } from './i18n/types';
 // panels 册（docs/06 §4.4）
 export {
   BranchNavigator,
@@ -100,13 +110,42 @@ export {
   type PluginsSectionProps,
 } from './settings/plugins-section';
 export {
+  ProjectTrustDialog,
+  type ProjectTrustDialogProps,
+} from './settings/project-trust-dialog';
+export {
   SettingsNotice,
   SettingsPanel,
   type SettingsPanelProps,
   SettingsRow,
+  SettingsSectionIcon,
   type SettingsSectionItem,
   SettingsSectionTitle,
+  ThemeOptions,
 } from './settings/settings-panel';
+export {
+  ConfigButton,
+  ConfigDetail,
+  ConfigDetailActions,
+  ConfigDetailHeader,
+  ConfigDetailHeaderInfo,
+  ConfigDetailStack,
+  ConfigDetailTitle,
+  ConfigEmptyState,
+  ConfigField,
+  ConfigFooter,
+  ConfigListAction,
+  ConfigPanelShell,
+  ConfigSectionTitle,
+  ConfigSidebar,
+  ConfigSidebarGroupLabel,
+  ConfigSidebarItem,
+  ConfigSidebarList,
+  ConfigSidebarText,
+  ConfigSplitView,
+  ConfigStatusDot,
+  ConfigSwitch,
+} from './settings/settings-ui';
 export {
   type SkillItemView,
   type SkillSearchItemView,
@@ -114,6 +153,7 @@ export {
   type SkillsSectionProps,
   type SkillUpdateView,
 } from './settings/skills-section';
+export { ThemeIcon } from './settings/theme-icon';
 // sidebar 册（docs/06 §4.3）
 export {
   ProjectPicker,
@@ -129,3 +169,4 @@ export {
 } from './sidebar/session-search';
 export { Sidebar, type SidebarProps } from './sidebar/sidebar';
 export { cn } from './utils/cn';
+export { useScrollbarVisibility } from './utils/use-scrollbar-visibility';
