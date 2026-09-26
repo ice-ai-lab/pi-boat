@@ -5,6 +5,15 @@
     "clientKind": "git",
     "useIgnoreFile": true
   },
+  "files": {
+    "includes": [
+      "**",
+      "!**/public/**",
+      "!**/dist/**",
+      "!**/test-results/**",
+      "!**/playwright-report/**"
+    ]
+  },
   "formatter": {
     "enabled": true,
     "indentStyle": "space",
