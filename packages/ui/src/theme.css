@@ -21,6 +21,7 @@
   --bg-selected: #e3e3e8; /* fill-2 */
   --border: rgba(60, 60, 67, 0.11); /* 发丝线 hair */
   --text: #1c1c1e;
+  --text-2: #3c3c43; /* 次级文字（原型 fg-2，比 muted 深一档） */
   --text-muted: #6e6e73;
   --text-dim: #a1a1a6;
   --accent: #0a6cff;
@@ -86,6 +87,7 @@ html.dark,
   --bg-selected: #3a3a3c; /* fill-2 */
   --border: rgba(255, 255, 255, 0.1); /* hair */
   --text: #f2f2f7;
+  --text-2: #e3e3e8; /* fg-2 */
   --text-muted: #98989f;
   --text-dim: #6b6b70;
   --accent: #0a84ff;
@@ -135,6 +137,7 @@ html.dark,
   --color-bg-selected: var(--bg-selected);
   --color-border: var(--border);
   --color-text: var(--text);
+  --color-text-2: var(--text-2);
   --color-text-muted: var(--text-muted);
   --color-text-dim: var(--text-dim);
   --color-accent: var(--accent);

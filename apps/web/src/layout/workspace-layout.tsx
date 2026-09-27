@@ -231,7 +231,7 @@ export function WorkspaceLayout() {
             background: 'none',
             border: 'none',
             borderRadius: 9,
-            color: 'var(--text-muted)',
+            color: 'var(--text-2)',
             cursor: 'pointer',
             fontSize: 12,
             transition: 'background 0.12s, color 0.12s',
@@ -242,7 +242,7 @@ export function WorkspaceLayout() {
           }}
           onMouseLeave={(event) => {
             event.currentTarget.style.background = 'none';
-            event.currentTarget.style.color = 'var(--text-muted)';
+            event.currentTarget.style.color = 'var(--text-2)';
           }}
         >
           <SettingsSectionIcon section="general" size={14} strokeWidth={2} />
