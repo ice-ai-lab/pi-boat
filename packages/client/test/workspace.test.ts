@@ -21,7 +21,11 @@ import {
   getSessionListVisibleRows,
   groupSessionsByDay,
   SESSION_LIST_HEADER_HEIGHT,
+  SESSION_LIST_HEADER_HEIGHT_NARROW,
+  SESSION_LIST_HEIGHTS_NARROW,
   SESSION_LIST_ITEM_HEIGHT,
+  SESSION_LIST_ITEM_HEIGHT_NARROW,
+  SESSION_LIST_OVERSCAN,
 } from '../src/view-models/session-list-window';
 
 const session = (overrides: Partial<SessionInfo> & { id: string }): SessionInfo =>
@@ -162,6 +166,33 @@ describe('session-list-window：分组与窗口化', () => {
     const scrolled = getSessionListVisibleRows(rows, height - 600, 600);
     expect(scrolled[scrolled.length - 1]).toBe(rows.length - 1);
     expect(getSessionListVisibleRows(rows, height - 600, 600, 's0')).toContain(1);
+  });
+
+  it('窄屏列高：行/头按传入组合排版，overscan 按行高折算', () => {
+    const groups = groupSessionsByDay(
+      Array.from({ length: 60 }, (_, index) => at('2026-09-27T08:00:00', `s${index}`)),
+      now,
+    );
+    const { rows, height } = buildSessionListRows(groups, SESSION_LIST_HEIGHTS_NARROW);
+    expect(rows[0]?.height).toBe(SESSION_LIST_HEADER_HEIGHT_NARROW);
+    expect(rows[1]?.top).toBe(SESSION_LIST_HEADER_HEIGHT_NARROW);
+    expect(rows[1]?.height).toBe(SESSION_LIST_ITEM_HEIGHT_NARROW);
+    expect(height).toBe(SESSION_LIST_HEADER_HEIGHT_NARROW + 60 * SESSION_LIST_ITEM_HEIGHT_NARROW);
+
+    // 行更高 → 同一视口 + 同一 overscan 像素下挂载的行更少（窄屏一屏放得下的条目更少）
+    const narrowWindow = getSessionListVisibleRows(rows, 0, 600);
+    const desktopWindow = getSessionListVisibleRows(buildSessionListRows(groups).rows, 0, 600);
+    expect(narrowWindow.length).toBeLessThan(desktopWindow.length);
+
+    // overscan 按行高折算：同样的「10 行」在窄屏下是更多像素 → 多挂几行
+    const widened = getSessionListVisibleRows(
+      rows,
+      0,
+      600,
+      null,
+      SESSION_LIST_OVERSCAN * SESSION_LIST_ITEM_HEIGHT_NARROW,
+    );
+    expect(widened.length).toBeGreaterThan(narrowWindow.length);
   });
 
   it('空列表', () => {

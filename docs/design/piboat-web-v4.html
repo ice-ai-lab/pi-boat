@@ -216,26 +216,30 @@ button:focus-visible,[role="button"]:focus-visible{outline:2px solid color-mix(i
 /* 会话列表：无圆角、紧凑不过挤、左 2px 选中条 */
 .sess-list{flex:1;min-height:0;overflow-y:auto;padding-bottom:8px}
 .day{
-  padding:13px 17px 5px;font-size:10.5px;font-weight:650;
+  padding:9px 17px 3px;font-size:10.5px;font-weight:650;
   letter-spacing:.10em;color:var(--t3);user-select:none;
 }
+/* 单行：标题 + 行尾右对齐 meta（时间/条数定宽，行高 34；窄屏 44 见 sidebar 断点） */
 .sess{
-  height:50px;display:flex;flex-direction:column;justify-content:center;gap:3px;
-  padding:0 14px 0 15px;cursor:pointer;position:relative;
+  height:34px;display:flex;align-items:center;gap:6px;
+  padding:0 4px 0 15px;cursor:pointer;position:relative;
   border-left:2px solid transparent;
   transition:background .12s;
 }
 .sess:hover{background:var(--hover)}
 .sess.on{background:var(--sel);border-left-color:var(--accent)}
 .sess .st{
-  font-size:12.5px;font-weight:520;letter-spacing:-.01em;color:var(--t1);
+  min-width:0;font-size:12.5px;font-weight:400;letter-spacing:-.01em;color:var(--t1);
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  display:flex;align-items:center;gap:6px;
 }
+.sess .grow{flex:1 1 auto;min-width:0}
+.sess .branch{display:flex;align-items:center;color:var(--accent);flex:none}
 .sess .sm{
-  font-size:10.5px;color:var(--t3);display:flex;align-items:center;gap:4px;
-  white-space:nowrap;overflow:hidden;
+  font-size:10.5px;color:var(--t3);display:flex;align-items:center;gap:5px;
+  white-space:nowrap;flex:none;font-variant-numeric:tabular-nums;
 }
+.sess .sm .t{min-width:30px;text-align:right}
+.sess .sm .c{min-width:26px;text-align:right}
 .spin{width:11px;height:11px;flex:none;animation:rot .9s linear infinite}
 .spin circle{fill:none;stroke:var(--accent);stroke-width:2;stroke-linecap:round;stroke-dasharray:22 12}
 @keyframes rot{to{transform:rotate(360deg)}}
@@ -815,33 +819,39 @@ svg.chev{
     <div class="sess-list">
       <div class="day">今天</div>
       <div class="sess on">
-        <div class="st">
+        <span class="st">资金类型统一建模 · 盘点</span>
+        <span class="grow"></span>
+        <span class="sm">
           <svg class="spin" viewBox="0 0 16 16"><circle cx="8" cy="8" r="5.4"/></svg>
-          资金类型统一建模 · 盘点
-        </div>
-        <div class="sm"><span>进行中</span>·<span>12 条消息</span>·<span>billing-service-core</span></div>
+          <span class="t">5m</span><span class="c">12条</span>
+        </span>
       </div>
       <div class="sess">
-        <div class="st">sync-charge-invoice 回放脚本<span class="unread" style="margin-left:auto"></span></div>
-        <div class="sm"><span>18:41</span>·<span>8 条消息</span>·<span>billing-center</span></div>
+        <span class="st">sync-charge-invoice 回放脚本</span>
+        <span class="grow"></span>
+        <span class="sm"><span class="unread"></span><span class="t">18m</span><span class="c">8条</span></span>
       </div>
       <div class="day">昨天</div>
       <div class="sess">
-        <div class="st">GLM-5.3 接入 pi-ai SDK 排障</div>
-        <div class="sm"><span>昨天 21:07</span>·<span>23 条消息</span>·<span>pi-ai</span></div>
+        <span class="st">GLM-5.3 接入 pi-ai SDK 排障</span>
+        <span class="grow"></span>
+        <span class="sm"><span class="t">21h</span><span class="c">23条</span></span>
       </div>
       <div class="sess">
-        <div class="st">account_type.json 字段清洗</div>
-        <div class="sm"><span>昨天 16:52</span>·<span>15 条消息</span>·<span>billing-service-core</span></div>
+        <span class="st">account_type.json 字段清洗</span>
+        <span class="grow"></span>
+        <span class="sm"><span class="t">23h</span><span class="c">15条</span></span>
       </div>
       <div class="day">周三</div>
       <div class="sess">
-        <div class="st">Claude Agent SDK 后端调研</div>
-        <div class="sm"><span>周三 14:20</span>·<span>31 条消息</span>·<span>agent-sdk</span></div>
+        <span class="st">Claude Agent SDK 后端调研</span>
+        <span class="grow"></span>
+        <span class="sm"><span class="t">3d</span><span class="c">31条</span></span>
       </div>
       <div class="sess">
-        <div class="st">ndjson 日志回放器</div>
-        <div class="sm"><span>周三 11:03</span>·<span>9 条消息</span>·<span>tools</span></div>
+        <span class="st">ndjson 日志回放器</span>
+        <span class="grow"></span>
+        <span class="sm"><span class="t">3d</span><span class="c">9条</span></span>
       </div>
     </div>
 

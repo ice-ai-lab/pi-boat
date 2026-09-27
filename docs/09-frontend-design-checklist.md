@@ -630,6 +630,7 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 - [x] **T2-17（新·M5/M6/M7）** `transient` 守卫、`detailsPending` 的 `…`、去掉列表 `pr-1` + 透传 `focusedIndex`、标题补 `title` tooltip。
 - [x] **T2-18** 建 `apps/web/public/icons/catppuccin/{latte,mocha}/`（沿用规范图标），`file-icon.tsx` 改用 `.catppuccin-file-icon`（14px 单色 `--text-dim`）。〔L20 / F14 / T4-10〕
 - [x] **T2-20（新）** 会话列表按「今天 / 昨天 / 更早」分组（本地日历日）；窗口化从「固定 54px 行高」改为「分组头 + 会话行」前缀和布局（`packages/client/src/view-models/session-list-window.ts`，头 34 / 行 54；分组头 11px/700 + 上分隔线）。（2026-09-27 用户拍板）
+- [x] **T2-21（新）** 会话行改**单行**（**有意偏离**规范 A 的两行 54px，对齐 Codex / DeepSeekHarness 的密度）：行高 54 → **34**（窄屏 ≤640px → 44）、分组头 34 → 26（窄屏 30）、`SESSION_LIST_OVERSCAN` 8 → 10 行；meta 从第二行移到行尾右对齐（`[运行/未读] 紧凑时间 {n}条`，时间/条数各定宽 + `tabular-nums` 保证竖向对齐），时间文案改紧凑单位（`40m` / `2h` / `3d`，超过一周给 `M/D`；新增三语 key `sidebar.time{JustNow,Minutes,Hours,Days}`），条数用新增 `sidebar.messagesCountShort`（`697条`；原 `sidebar.messagesCount` 保留以对齐规范 A 的 key 集），**运行/未读指示器不再顶掉时间**，标题**去掉加粗**（原 `600/500` → 常规字重，选中态改由底色 + accent 左边条区分），worktree 分支收成 9px 图标（全名进 tooltip），hover 双图标按钮 32 → 26 且**顶掉 meta**（不再挤标题），行内删除确认按钮 30 → 22 / 重命名输入框 30 → 24 / 确认文案标题截 22 → 12 字。（2026-09-27 用户拍板；`packages/client/src/view-models/session-list-window.ts` + `packages/ui/src/sidebar/sidebar.tsx` + `docs/design/piboat-web-v4.html`）
 - ~~T2-19 会话家族聚簇 / 机器人图标 / 折叠 chevron~~ ⛔ **排除域（会话平铺是终态）**
 
 ### 阶段 3：中栏对话（P0/P1）

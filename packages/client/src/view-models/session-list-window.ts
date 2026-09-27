@@ -8,12 +8,34 @@ import type { SessionInfo } from '@ice-ai/protocol';
  * 与 chat-lazy-load 的滚动距离保持是两套不同用途（这里是「少挂 DOM」，那里是「加内容不跳」）。
  */
 
-/** 会话行固定高（渲染必须与此一致，否则窗口算错） */
-export const SESSION_LIST_ITEM_HEIGHT = 54;
+/** 会话行固定高（单行；渲染必须与此一致，否则窗口算错） */
+export const SESSION_LIST_ITEM_HEIGHT = 34;
 /** 分组头固定高（比会话行矮，但带分隔线与字重，保证与列表有区分度） */
-export const SESSION_LIST_HEADER_HEIGHT = 34;
+export const SESSION_LIST_HEADER_HEIGHT = 26;
+/** 窄屏会话行高：整行即触控目标，34px 太矮（断点同 `@media (max-width: 640px)`） */
+export const SESSION_LIST_ITEM_HEIGHT_NARROW = 44;
+/** 窄屏分组头高（继续保持「头比行矮」的层次） */
+export const SESSION_LIST_HEADER_HEIGHT_NARROW = 30;
 /** 可视区上下各多挂载的行数 */
-export const SESSION_LIST_OVERSCAN = 8;
+export const SESSION_LIST_OVERSCAN = 10;
+
+/** 会话列表的列高组合：行高的唯一来源，桌面 / 窄屏两套 */
+export interface SessionListHeights {
+  /** 会话行高 */
+  item: number;
+  /** 分组头高 */
+  header: number;
+}
+
+export const SESSION_LIST_HEIGHTS_DESKTOP: SessionListHeights = {
+  item: SESSION_LIST_ITEM_HEIGHT,
+  header: SESSION_LIST_HEADER_HEIGHT,
+};
+
+export const SESSION_LIST_HEIGHTS_NARROW: SessionListHeights = {
+  item: SESSION_LIST_ITEM_HEIGHT_NARROW,
+  header: SESSION_LIST_HEADER_HEIGHT_NARROW,
+};
 
 export type SessionListGroupKey = 'today' | 'yesterday' | 'earlier';
 
@@ -72,7 +94,10 @@ export interface SessionListSessionRow {
 export type SessionListRow = SessionListHeaderRow | SessionListSessionRow;
 
 /** 展平分组并算好每行的 `top` 与列表总高（绝对定位 + 窗口化用） */
-export function buildSessionListRows(groups: readonly SessionListGroup[]): {
+export function buildSessionListRows(
+  groups: readonly SessionListGroup[],
+  heights: SessionListHeights = SESSION_LIST_HEIGHTS_DESKTOP,
+): {
   rows: SessionListRow[];
   height: number;
 } {
@@ -84,18 +109,18 @@ export function buildSessionListRows(groups: readonly SessionListGroup[]): {
       key: `header:${group.key}`,
       group: group.key,
       top,
-      height: SESSION_LIST_HEADER_HEIGHT,
+      height: heights.header,
     });
-    top += SESSION_LIST_HEADER_HEIGHT;
+    top += heights.header;
     for (const session of group.sessions) {
       rows.push({
         kind: 'session',
         key: session.id,
         session,
         top,
-        height: SESSION_LIST_ITEM_HEIGHT,
+        height: heights.item,
       });
-      top += SESSION_LIST_ITEM_HEIGHT;
+      top += heights.item;
     }
   }
   return { rows, height: top };
@@ -107,9 +132,9 @@ export function getSessionListVisibleRows(
   scrollTop: number,
   viewportHeight: number,
   focusedSessionKey: string | null = null,
+  overscanPx = SESSION_LIST_OVERSCAN * SESSION_LIST_ITEM_HEIGHT,
 ): number[] {
   if (rows.length === 0) return [];
-  const overscanPx = SESSION_LIST_OVERSCAN * SESSION_LIST_ITEM_HEIGHT;
   const min = scrollTop - overscanPx;
   const max = scrollTop + (viewportHeight || 600) + overscanPx;
   const indices: number[] = [];

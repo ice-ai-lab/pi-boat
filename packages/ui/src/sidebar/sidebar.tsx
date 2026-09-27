@@ -2,7 +2,10 @@ import {
   buildSessionListRows,
   getSessionListVisibleRows,
   groupSessionsByDay,
-  SESSION_LIST_ITEM_HEIGHT,
+  SESSION_LIST_HEIGHTS_DESKTOP,
+  SESSION_LIST_HEIGHTS_NARROW,
+  SESSION_LIST_OVERSCAN,
+  type SessionListHeights,
   type ThemePreference,
 } from '@ice-ai/client';
 import type { SessionInfo } from '@ice-ai/protocol';
@@ -16,8 +19,8 @@ import {
   useRef,
   useState,
 } from 'react';
-import { formatRelativeTime } from '../i18n/format';
 import { useI18n } from '../i18n/i18n-provider';
+import type { Locale, TranslationParams } from '../i18n/types';
 import { DirectoryPicker } from '../settings/directory-picker';
 import { ThemeIcon } from '../settings/theme-icon';
 import { SessionSearch } from './session-search';
@@ -28,6 +31,24 @@ const SESSION_GROUP_LABEL_KEYS = {
   yesterday: 'sidebar.groupYesterday',
   earlier: 'sidebar.groupEarlier',
 } as const;
+
+/**
+ * 会话列表列高：窄屏（≤640px，与 `apps/web` 的布局断点一致）抬起行高。
+ * 34px 的单行在鼠标下没问题，但整行就是触控目标，手指下太矮。
+ */
+function useSessionListHeights(): SessionListHeights {
+  const [heights, setHeights] = useState<SessionListHeights>(SESSION_LIST_HEIGHTS_DESKTOP);
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const media = window.matchMedia('(max-width: 640px)');
+    const sync = () =>
+      setHeights(media.matches ? SESSION_LIST_HEIGHTS_NARROW : SESSION_LIST_HEIGHTS_DESKTOP);
+    sync();
+    media.addEventListener('change', sync);
+    return () => media.removeEventListener('change', sync);
+  }, []);
+  return heights;
+}
 
 /** 设计规范 `SessionSidebar` 的 26×26 工具条图标按钮原语（T2-6） */
 function ToolbarIconButton({
@@ -427,12 +448,40 @@ function showProjectActivity(
   );
 }
 
-/** 会话行（设计规范 `SessionItem`：54px 固定高 + 行内重命名/删除确认 + hover 双图标按钮，T2-7/T2-13） */
+const MINUTE_MS = 60_000;
+const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
+const WEEK_MS = 7 * DAY_MS;
+
+/**
+ * 会话行的时间文案：一周内用紧凑相对单位（`36min` / `2h` / `3d`），更早直接给月/日。
+ * 单位走三语 key；完整时间戳仍挂在行内的 `title` 上（hover 可看）。
+ */
+function formatSessionTime(
+  modified: string,
+  locale: Locale,
+  t: (key: string, params?: TranslationParams) => string,
+): string {
+  const time = Date.parse(modified);
+  if (Number.isNaN(time)) return '';
+  const diff = Date.now() - time;
+  if (diff < MINUTE_MS) return t('sidebar.timeJustNow');
+  if (diff < HOUR_MS) return t('sidebar.timeMinutes', { count: Math.floor(diff / MINUTE_MS) });
+  if (diff < DAY_MS) return t('sidebar.timeHours', { count: Math.floor(diff / HOUR_MS) });
+  if (diff < WEEK_MS) return t('sidebar.timeDays', { count: Math.floor(diff / DAY_MS) });
+  return new Intl.DateTimeFormat(locale, { month: 'numeric', day: 'numeric' }).format(time);
+}
+
+/**
+ * 会话行（T2-21：单行，偏离规范 A 的「54px 两行」——标题 + 行尾右对齐 meta）。
+ * 行高由窗口化的列高组合下发（`itemHeight`），渲染必须与 `row.height` 严格一致。
+ */
 function SessionItem({
   session,
   isSelected,
   isRunning,
   isUnread,
+  itemHeight,
   onClick,
   onRenamed,
   onDeleted,
@@ -443,6 +492,7 @@ function SessionItem({
   isSelected: boolean;
   isRunning?: boolean;
   isUnread?: boolean;
+  itemHeight: number;
   onClick: () => void;
   onRenamed?: () => void;
   onDeleted?: (id: string) => void;
@@ -466,6 +516,7 @@ function SessionItem({
   }, [renaming]);
 
   const title = session.name || session.firstMessage.slice(0, 50) || session.id.slice(0, 12);
+  const timeLabel = formatSessionTime(session.modified, locale, t);
 
   const startRename = useCallback(
     (e: React.MouseEvent) => {
@@ -525,7 +576,7 @@ function SessionItem({
         setHovered(false);
       }}
       style={{
-        height: SESSION_LIST_ITEM_HEIGHT,
+        height: itemHeight,
         display: 'flex',
         alignItems: 'center',
         paddingLeft: 14,
@@ -550,13 +601,13 @@ function SessionItem({
       }}
     >
       {confirmDelete ? (
-        /* ── 删除确认：同高双按钮 ── */
+        /* ── 删除确认：22px 双按钮（塞进单行行高） ── */
         <>
           <div
             style={{
               flex: 1,
               minWidth: 0,
-              fontSize: 12,
+              fontSize: 11.5,
               color: 'var(--text)',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
@@ -564,10 +615,10 @@ function SessionItem({
             }}
           >
             {t('sidebar.deleteSession', {
-              title: `${title.slice(0, 22)}${title.length > 22 ? '…' : ''}`,
+              title: `${title.slice(0, 12)}${title.length > 12 ? '…' : ''}`,
             })}
           </div>
-          <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
+          <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
             <button
               type="button"
               onClick={(e) => {
@@ -578,23 +629,23 @@ function SessionItem({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: 4,
-                height: 30,
-                padding: '0 11px',
+                gap: 3,
+                height: 22,
+                padding: '0 9px',
                 background: '#ef4444',
                 border: 'none',
                 borderRadius: 6,
                 color: '#fff',
                 cursor: 'pointer',
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: 600,
                 whiteSpace: 'nowrap',
               }}
             >
               <svg
                 aria-hidden="true"
-                width="12"
-                height="12"
+                width="11"
+                height="11"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -619,14 +670,14 @@ function SessionItem({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                height: 30,
-                padding: '0 11px',
+                height: 22,
+                padding: '0 9px',
                 background: 'var(--bg)',
                 border: '1px solid var(--border)',
                 borderRadius: 6,
                 color: 'var(--text-muted)',
                 cursor: 'pointer',
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: 500,
                 whiteSpace: 'nowrap',
               }}
@@ -636,7 +687,7 @@ function SessionItem({
           </div>
         </>
       ) : renaming ? (
-        /* ── 重命名：输入框填满同一行 ── */
+        /* ── 重命名：24px 输入框填满同一行 ── */
         <input
           ref={inputRef}
           value={renameValue}
@@ -650,106 +701,65 @@ function SessionItem({
           autoFocus
           style={{
             flex: 1,
-            fontSize: 12,
-            padding: '5px 8px',
+            fontSize: 12.5,
+            padding: '0 8px',
             border: `1px solid ${renameError ? '#ef4444' : 'var(--accent)'}`,
             borderRadius: 5,
             outline: 'none',
             background: 'var(--bg)',
             color: 'var(--text)',
-            height: 30,
+            height: 24,
           }}
         />
       ) : (
-        /* ── 常规视图 ── */
+        /* ── 常规视图：单行（标题 + 行尾右对齐 meta；hover 时 meta 换成行内操作） ── */
         <>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div
+          <span
+            style={{
+              minWidth: 0,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              fontSize: 12.5,
+              color: 'var(--text)',
+            }}
+            title={title}
+          >
+            {title}
+          </span>
+          {session.isWorktree && session.branch && (
+            <span
+              title={`Worktree: ${session.branch} · ${session.cwd}`}
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 5,
-                minWidth: 0,
-                fontSize: 12,
-                fontWeight: isSelected ? 500 : 400,
-                lineHeight: 1.4,
-                color: 'var(--text)',
+                color: 'var(--accent)',
+                flexShrink: 0,
               }}
-              title={title}
             >
-              <span
-                style={{
-                  flex: 1,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  minWidth: 0,
-                }}
+              <svg
+                aria-hidden="true"
+                width="9"
+                height="9"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               >
-                {title}
-              </span>
-            </div>
-            <div
-              style={{
-                marginTop: 2,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                color: 'var(--text-dim)',
-                fontSize: 11,
-                minWidth: 0,
-              }}
-            >
-              {isRunning ? (
-                <RunningSessionIndicator />
-              ) : isUnread ? (
-                <UnreadSessionIndicator />
-              ) : (
-                <span title={session.modified}>{formatRelativeTime(session.modified, locale)}</span>
-              )}
-              <span>{t('sidebar.messagesCount', { count: session.messageCount })}</span>
-              {session.isWorktree && session.branch && (
-                <span
-                  title={`Worktree: ${session.cwd}`}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 3,
-                    color: 'var(--accent)',
-                    minWidth: 0,
-                    overflow: 'hidden',
-                  }}
-                >
-                  <svg
-                    aria-hidden="true"
-                    width="9"
-                    height="9"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    style={{ flexShrink: 0 }}
-                  >
-                    <line x1="6" y1="3" x2="6" y2="15" />
-                    <circle cx="18" cy="6" r="3" />
-                    <circle cx="6" cy="18" r="3" />
-                    <path d="M18 9a9 9 0 0 1-9 9" />
-                  </svg>
-                  <span
-                    style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-                  >
-                    {session.branch}
-                  </span>
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* hover 操作：两个 32×32 图标按钮（T2-13） */}
-          {hovered && !session.transient && (
-            <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                <line x1="6" y1="3" x2="6" y2="15" />
+                <circle cx="18" cy="6" r="3" />
+                <circle cx="6" cy="18" r="3" />
+                <path d="M18 9a9 9 0 0 1-9 9" />
+              </svg>
+            </span>
+          )}
+          {/* 占位：把 meta/操作顶到行尾。basis 为 0，标题过长时它先缩到 0，不抢标题的宽度 */}
+          <span style={{ flex: '1 1 auto', minWidth: 0 }} />
+          {hovered && !session.transient ? (
+            /* hover 操作：两个 26×26 图标按钮（对齐工具栏图标原语 T2-6），顶掉 meta 而不是挤标题 */
+            <span style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
               <button
                 type="button"
                 onClick={startRename}
@@ -758,12 +768,12 @@ function SessionItem({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  width: 32,
-                  height: 32,
+                  width: 26,
+                  height: 26,
                   padding: 0,
                   background: 'var(--bg-hover)',
                   border: '1px solid var(--border)',
-                  borderRadius: 7,
+                  borderRadius: 6,
                   color: 'var(--text-muted)',
                   cursor: 'pointer',
                   flexShrink: 0,
@@ -782,8 +792,8 @@ function SessionItem({
               >
                 <svg
                   aria-hidden="true"
-                  width="14"
-                  height="14"
+                  width="13"
+                  height="13"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -802,12 +812,12 @@ function SessionItem({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  width: 32,
-                  height: 32,
+                  width: 26,
+                  height: 26,
                   padding: 0,
                   background: 'var(--bg-hover)',
                   border: '1px solid var(--border)',
-                  borderRadius: 7,
+                  borderRadius: 6,
                   color: 'var(--text-muted)',
                   cursor: 'pointer',
                   flexShrink: 0,
@@ -826,8 +836,8 @@ function SessionItem({
               >
                 <svg
                   aria-hidden="true"
-                  width="14"
-                  height="14"
+                  width="13"
+                  height="13"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -841,7 +851,36 @@ function SessionItem({
                   <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
                 </svg>
               </button>
-            </div>
+            </span>
+          ) : (
+            /* meta：运行/未读指示器 + 紧凑时间 + 条数；两列定宽 + tabular-nums，各行竖向对齐 */
+            <span
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                flexShrink: 0,
+                color: 'var(--text-dim)',
+                fontSize: 11,
+              }}
+            >
+              {isRunning ? (
+                <RunningSessionIndicator />
+              ) : isUnread ? (
+                <UnreadSessionIndicator />
+              ) : null}
+              <span
+                title={session.modified}
+                style={{ minWidth: 30, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+              >
+                {timeLabel}
+              </span>
+              <span
+                style={{ minWidth: 26, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+              >
+                {t('sidebar.messagesCountShort', { count: session.messageCount })}
+              </span>
+            </span>
           )}
         </>
       )}
@@ -1035,9 +1074,10 @@ export function Sidebar(props: SidebarProps) {
     }
   }, [props]);
 
+  const sessionListHeights = useSessionListHeights();
   const sessionListRows = useMemo(
-    () => buildSessionListRows(groupSessionsByDay(props.sessions)),
-    [props.sessions],
+    () => buildSessionListRows(groupSessionsByDay(props.sessions), sessionListHeights),
+    [props.sessions, sessionListHeights],
   );
   const visibleListRows = useMemo(
     () =>
@@ -1046,8 +1086,9 @@ export function Sidebar(props: SidebarProps) {
         listScrollTop,
         listViewportH,
         focusedSessionId,
+        SESSION_LIST_OVERSCAN * sessionListHeights.item,
       ),
-    [focusedSessionId, listScrollTop, listViewportH, sessionListRows],
+    [focusedSessionId, listScrollTop, listViewportH, sessionListRows, sessionListHeights],
   );
 
   return (
@@ -1647,6 +1688,7 @@ export function Sidebar(props: SidebarProps) {
                         isSelected={session.id === props.selectedSessionId}
                         isRunning={props.runningSessionIds.has(session.id)}
                         isUnread={props.unreadSessionIds.has(session.id)}
+                        itemHeight={row.height}
                         onClick={() => props.onSelectSession(session)}
                         onRenameSession={props.onRenameSession}
                         onDeleteSession={props.onDeleteSession}

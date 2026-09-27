@@ -249,10 +249,15 @@ export {
   getSessionListVisibleRows,
   groupSessionsByDay,
   SESSION_LIST_HEADER_HEIGHT,
+  SESSION_LIST_HEADER_HEIGHT_NARROW,
+  SESSION_LIST_HEIGHTS_DESKTOP,
+  SESSION_LIST_HEIGHTS_NARROW,
   SESSION_LIST_ITEM_HEIGHT,
+  SESSION_LIST_ITEM_HEIGHT_NARROW,
   SESSION_LIST_OVERSCAN,
   type SessionListGroup,
   type SessionListGroupKey,
+  type SessionListHeights,
   type SessionListRow,
 } from './view-models/session-list-window';
 export {
