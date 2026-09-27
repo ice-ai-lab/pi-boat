@@ -1,0 +1,21 @@
+/* —— Catppuccin 文件图标（T2-18） —— */
+.catppuccin-file-icon {
+  display: block;
+  flex-shrink: 0;
+  background: center / contain no-repeat var(--catppuccin-icon-light);
+}
+html.dark .catppuccin-file-icon {
+  background-image: var(--catppuccin-icon-dark);
+}
+@supports (mask-image: url("mask.svg")) or (-webkit-mask-image: url("mask.svg")) {
+  .catppuccin-file-icon {
+    background: var(--text-dim);
+    mask: center / contain no-repeat var(--catppuccin-icon-light);
+    -webkit-mask: center / contain no-repeat var(--catppuccin-icon-light);
+  }
+  html.dark .catppuccin-file-icon {
+    background: var(--text-dim);
+    mask-image: var(--catppuccin-icon-dark);
+    -webkit-mask-image: var(--catppuccin-icon-dark);
+  }
+}

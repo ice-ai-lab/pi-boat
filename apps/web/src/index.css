@@ -4,8 +4,21 @@
 @import "@fontsource-variable/noto-sans-mono";
 @import "@ice-ai/ui/theme.css";
 @import "@ice-ai/ui/utilities.css";
-@import "@ice-ai/ui/web-ui.css";
-@import "@ice-ai/ui/settings.css";
+/* 以下顺序复刻原 web-ui.css / settings.css 的级联顺序（2026 按域拆分，勿乱序） */
+@import "@ice-ai/ui/extension.css";
+@import "@ice-ai/ui/markdown.css";
+@import "@ice-ai/ui/image-preview.css";
+@import "@ice-ai/ui/mermaid.css";
+@import "@ice-ai/ui/file-viewer.css";
+@import "@ice-ai/ui/chat.css";
+@import "@ice-ai/ui/directory-picker.css";
+@import "@ice-ai/ui/resize-handles.css";
+@import "./layout/workspace.css";
+@import "@ice-ai/ui/file-icon.css";
+@import "@ice-ai/ui/config-ui.css";
+@import "@ice-ai/ui/models.css";
+@import "@ice-ai/ui/skills.css";
+@import "@ice-ai/ui/settings-panel.css";
 
 /* Tailwind v4 需显式扫包外源码，否则 ui 的类名会被摇掉（docs/06 §2） */
 @source "../../../packages/ui/src";

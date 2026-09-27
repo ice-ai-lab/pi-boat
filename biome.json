@@ -41,7 +41,7 @@
   },
   "overrides": [
     {
-      "includes": ["packages/ui/src/styles/web-ui.css", "packages/ui/src/styles/settings.css"],
+      "includes": ["packages/ui/src/**/*.css", "apps/web/src/**/*.css"],
       "formatter": { "enabled": false },
       "linter": {
         "rules": {

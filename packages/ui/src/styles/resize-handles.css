@@ -1,0 +1,54 @@
+/* 面板/侧栏拖拽手柄（panel-resize-handle / sidebar-section-resize-handle；原 web-ui.css 拆分） */
+
+/* Keep the panel border as the idle separator; this element only expands the hit target. */
+.panel-resize-handle {
+  position: relative;
+  z-index: 220;
+  width: 12px;
+  margin: 0 -6px;
+  flex: 0 0 12px;
+  cursor: col-resize;
+  touch-action: none;
+  outline: none;
+}
+
+.panel-resize-handle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 5px;
+  width: 2px;
+  pointer-events: none;
+  background: transparent;
+  transition: background 0.12s ease;
+}
+
+.panel-resize-handle:hover::after,
+.panel-resize-handle:focus-visible::after,
+.panel-resize-handle.is-resizing::after {
+  background: color-mix(in srgb, var(--text-muted) 70%, var(--border));
+}
+
+.sidebar-section-resize-handle {
+  outline: none;
+}
+
+.sidebar-section-resize-handle::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 5px;
+  height: 1px;
+  pointer-events: none;
+  background: transparent;
+  transition: background 0.12s ease;
+}
+
+.sidebar-section-resize-handle:hover::after,
+.sidebar-section-resize-handle:focus-visible::after,
+.sidebar-section-resize-handle.is-resizing::after {
+  background: color-mix(in srgb, var(--text-muted) 70%, var(--border));
+}
+

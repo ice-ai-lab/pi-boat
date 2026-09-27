@@ -34,7 +34,9 @@
   + 组件内联样式/类名。组件层结构与样式逐条对齐（口径见 ADR-0020）。
   旧原型 `docs/design/piboat-web-v3.html` 退役：其 0.5px hairline、superellipse、`#4176E6`、毛玻璃浮层**不再保留**。
 - **token 单一来源**：`packages/ui/src/theme.css`（规范变量 `:root` + `[data-theme="dark"]` 两套）
-  + `packages/ui/src/styles/web-ui.css`（组件级类，口径见 ADR-0020）
+  + 组件级 CSS 已按域就近拆分（2026）：`chat/`、`files/`、`extension/`、`panels/`、
+    `settings/` 各域目录下的 `*.css` + `styles/utilities.css`、`styles/resize-handles.css`，
+    由 `apps/web/src/index.css` 按原级联顺序聚合（口径见 ADR-0020）
   - 形状：`@import 'tailwindcss'` 之前用 `:root` / `[data-theme="dark"]` 定义变量，再用
     `@theme inline { --color-surface: var(--surface); … }` 暴露给 Tailwind
   - **暗色不能写死在 `@theme` 里**（`@theme` 是编译期常量，写死则切主题失效）
@@ -219,9 +221,15 @@ AppShell 三栏布局 + 拖拽/折叠（`makeDrag`）、主题切换、路由、
 
 ### 8.4 内容宽度把手（`ContentWidthControls`）
 
-按参照稿 `ConversationWidthControls` 规格：双侧整列高热区、位于内容列边缘外 24px、
-hover/拖动显示 2px 光条、光条跟随指针 Y（`--mh-y`）、±36px 渐隐、滚轮落在把手条上转发给滚动区、
-持久化 key `CHAT_W_KEY`（`localStorage`）。默认宽度按列宽比例（原型：90%，上限 1180）。
+✅ **已实现（2026-09-27）**：`packages/ui/src/chat/content-width-handles.tsx`（组件）+
+`chat/chat.css` 的 `.chat-width-handle` + `apps/web/src/panes/chat-pane.tsx` 接线。
+
+实现口径（参照 deepseek-harness `ConversationWidthControls`）：双侧全高 12px 热区（`div role="separator"`），
+位于内容列边缘外 24px；hover / 拖动显示 2px 光条（`linear-gradient`，`--chat-handle-y` 跟随指针 Y，±36px 渐隐）；
+拖动一侧对称改宽（总宽 = 指针位移 × 2）；滚轮落在把手上转发给 `[data-chat-scroll]`。
+宽度偏好与设置页共用 `--chat-content-max-width` / `piboat:chat-content-width`（`CHAT_CONTENT_WIDTH_MIN = 640`）；
+实际宽按 `列宽 - CHAT_CONTENT_EDGE_BUDGET(80)` 夹取，保证把手始终有可点位置（列宽不足时热区收窄到 0）。
+拖动中只写 CSS 变量，松手才落盘。
 
 ### 8.5 侧栏/右栏拖拽
 

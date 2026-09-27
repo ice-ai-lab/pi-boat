@@ -83,3 +83,109 @@
     transform: translateY(-7px) rotate(2deg);
   }
 }
+/* 滚动条与文件图标基类（原 web-ui.css 1–116 行，2026 拆分） */
+.catppuccin-file-icon {
+  display: block;
+  flex-shrink: 0;
+  background: center / contain no-repeat var(--catppuccin-icon-light);
+}
+
+/* Use the SVG alpha channel as a mask so file icons follow the app's
+   restrained text palette instead of Catppuccin's language-specific colors. */
+@supports (mask-image: url("mask.svg")) or (-webkit-mask-image: url("mask.svg")) {
+    .catppuccin-file-icon {
+      background: var(--text-dim);
+      mask: center / contain no-repeat var(--catppuccin-icon-light);
+      -webkit-mask: center / contain no-repeat var(--catppuccin-icon-light);
+    }
+
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+}
+
+/*
+ * Chromium-only scrollbars. Firefox renders its native ones, which the standard
+ * `scrollbar-width` / `scrollbar-color` properties would only make thinner and
+ * flatter, so this block stays webkit-prefixed on purpose.
+ * The 10px box remains the grab target, but subtle scrollbars stay transparent
+ * until their scroll container is active. This keeps long panels usable without
+ * leaving a permanent rule down the side of every panel.
+ */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--text-dim) 45%, transparent);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+  border-radius: 5px;
+}
+
+/* Only ever set background-color here: the `background` shorthand resets
+   background-clip and would snap the thumb to the full 10px on hover. */
+::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--text-dim) 72%, transparent);
+}
+
+::-webkit-scrollbar-thumb:active {
+  background-color: var(--text-dim);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.scrollbar-subtle::-webkit-scrollbar-thumb {
+  background-color: transparent;
+}
+
+/*
+ * 不需要滚动条的容器（会话列表等）：保留滚动能力，但去掉全局 10px 轨道占位。
+ * `.scrollbar-subtle` 只是把 thumb 设成透明，而在「始终显示滚动条」的平台上
+ * 那 10px 的轨道依旧占位，看着就是右侧一条空白 padding。
+ */
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.scrollbar-subtle.scrollbar-visible::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--text-dim) 45%, transparent);
+}
+
+.scrollbar-subtle.scrollbar-visible::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--text-dim) 72%, transparent);
+}
+
+.scrollbar-subtle.scrollbar-visible::-webkit-scrollbar-thumb:active {
+  background-color: var(--text-dim);
+}
+
+/* A touch screen scrolls by dragging the content, so the extra width buys
+   nothing there and a phone has none to spare. */
+@media (pointer: coarse) {
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      border-width: 1px;
+      border-radius: 3px;
+    }
+
+}
+
