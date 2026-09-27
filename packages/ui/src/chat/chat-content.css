@@ -1,0 +1,5 @@
+/* 聊天内容列字号偏移钩子（全局类，跨面板复用；markdown 排版见 markdown.module.css） */
+/* react-markdown output styles */
+.chat-content {
+  --chat-font-size-offset: calc(var(--chat-content-font-size, 14px) - 14px);
+}

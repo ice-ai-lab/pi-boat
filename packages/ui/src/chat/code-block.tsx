@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { highlightToHtml, shikiLanguageFor } from './code-highlight';
+import styles from './markdown.module.css';
 
 /** 代码块正文底/内边距 ——按设计规范 `CodeBlock` 的 customStyle */
 const PRE_STYLE = {
@@ -53,13 +54,11 @@ export function CodeBlock({
   };
 
   return (
-    <div className="markdown-code-block">
-      <div className="markdown-code-header">
-        <span className="markdown-code-lang">
-          {lang !== undefined && lang !== '' ? lang : 'text'}
-        </span>
-        <div className="markdown-code-actions">
-          <button type="button" onClick={copy} className="markdown-code-action">
+    <div className={styles.codeBlock}>
+      <div className={styles.codeHeader}>
+        <span className={styles.codeLang}>{lang !== undefined && lang !== '' ? lang : 'text'}</span>
+        <div className={styles.codeActions}>
+          <button type="button" onClick={copy} className={styles.codeAction}>
             {copied ? '已复制' : '复制'}
           </button>
         </div>

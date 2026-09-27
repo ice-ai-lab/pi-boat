@@ -2,15 +2,16 @@ import { memo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { CodeBlock } from './code-block';
+import styles from './markdown.module.css';
 
 /**
  * MarkdownView：流式增量 markdown（react-markdown + gfm，ADR-0009）。
- * 排版类名/结构按设计规范 + `.markdown-body`（ADR-0020）；
+ * 排版类名/结构按设计规范 + `.body`（markdown.module.css，ADR-0020）；
  * 代码块走 CodeBlock（复制 + 语言标）。
  */
 export const MarkdownView = memo(function MarkdownView({ markdown }: { markdown: string }) {
   return (
-    <div className="markdown-body">
+    <div className={styles.body}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -21,7 +22,7 @@ export const MarkdownView = memo(function MarkdownView({ markdown }: { markdown:
             const isBlock = className?.includes('language-') === true || raw.includes('\n');
             if (!isBlock) {
               return (
-                <code className="markdown-inline-code" {...rest}>
+                <code className={styles.inlineCode} {...rest}>
                   {children}
                 </code>
               );
@@ -29,7 +30,7 @@ export const MarkdownView = memo(function MarkdownView({ markdown }: { markdown:
             return <CodeBlock code={raw.replace(/\n$/, '')} lang={lang} />;
           },
           table: ({ children }) => (
-            <div className="markdown-table-wrap">
+            <div className={styles.tableWrap}>
               <table>{children}</table>
             </div>
           ),
@@ -46,7 +47,7 @@ export const MarkdownView = memo(function MarkdownView({ markdown }: { markdown:
   );
 });
 
-/** markdown 排版容器（设计规范的 `className` 由调用方叠加：markdown-user-message 等） */
+/** markdown 排版容器（`className` 由调用方叠加，如 MarkdownView 外层再加 userMessage） */
 export function MarkdownBody({ markdown, className }: { markdown: string; className?: string }) {
   return (
     <div className={className}>

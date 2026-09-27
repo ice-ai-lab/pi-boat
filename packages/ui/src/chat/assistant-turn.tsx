@@ -2,7 +2,9 @@ import type { Turn } from '@ice-ai/client';
 import { groupTrail, isLiveTail } from '@ice-ai/client';
 import type { Usage } from '@ice-ai/protocol';
 import { memo } from 'react';
+import { cn } from '../utils/cn';
 import { ChatImageList } from './chat-image';
+import styles from './markdown.module.css';
 import { MarkdownView } from './markdown-view';
 import { ProcessGroup } from './process-group';
 import { SystemRowView, ThinkingRowView } from './thinking-row';
@@ -59,7 +61,7 @@ export function UserBubble({ turn }: { turn: Turn }) {
             <ChatImageList sources={turn.user.images} />
           </div>
         )}
-        <div className="markdown-body markdown-user-message">
+        <div className={cn(styles.body, styles.userMessage)}>
           <MarkdownView markdown={turn.user.text} />
         </div>
       </div>
