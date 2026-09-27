@@ -40,14 +40,24 @@ ADR-0020 把视觉基准定为统一 Web 设计规范后，组件级样式集中
    - `styles/resize-handles.css`：`panel-resize-handle` / `sidebar-section-resize-handle`
      被 ui 与 web 布局同时消费的跨包原语；
    - `chat/chat-content.css`：`.chat-content` 字号钩子，跨多个面板复用；
-   - `*/unwired.css`：**未接线**的设计规范类（组件尚未消费），接线时并入对应 module 或删除。
+   - ~~`*/unwired.css`：未接线规范类~~ —— **2026 当天废弃**：零消费的样式一律直接删除（见「决策 7」）。
 5. **构建产物的适配**：`packages/ui` 用 `tsc` 出 `dist`，需在 build 脚本中把 `src/**/*.module.css`
    复制到 `dist` 同路径（`apps/web` 经 `dist` 消费 ui）；ui 无 vite 依赖，自持
    `src/css-modules.d.ts` 声明 `*.module.css`（等价 `vite/client`）。
+7. **零消费样式一律删除，不留「备着」的表**（2026 当天追加，取代最初的 `*/unwired.css` 方案）：
+   未接线的设计规范类（mermaid 全家、`enabled-models-*`/`models-sidebar-*`、`image-preview-dialog`、
+   `markdown-custom/compaction-message`、`compaction-file-*`、frontmatter、`linenumber`/Prism token 修正等
+   共约 770 行）已删除；同时清理零消费 token（`--l3/--l4/--t1..t4/--k-*/--seg-*/--pw-*/--bubble/--code-*`、
+   `--elev-soft*`、`--sb-w/--rb-w/--chat-w`、`--font-sans` 等 36 个变量与 26 条 `@theme` 映射）、
+   零消费 utility 类（`.elev-soft*`、`.hairline-l/-r/-t`）、以及**无任何 CSS 规则的 className 钩子**
+   （`file-viewer-shell`、`model-selector is-toolbar`、`sidebar-resize-handle`、directory-picker 的
+   `backdrop/panel/list`）。理由：规范类留成全局表反而制造「类已备、组件未接」的假象（`docs/09` 的
+   主要问题），需要时按 ADR-0020 的类名口径重新写一遍即可，成本低于长期维护死代码。
+   例外：`--font`（字标内联用）、`--l1/--l2/--menu/--accent-weak` 等**仍被消费**的旧别名保留。
 6. **host 侧同样模块化**：`apps/web/src/layout/workspace.module.css`（sidebar/right-panel/file-panel 布局）
    随 `workspace-layout.tsx`、`files-pane.tsx` import；其间原本被该表顺带覆盖的 ui 规则已按归属迁回
    （`panel-resize-handle` → `ui/styles/resize-handles.css`、`directory-picker-*` → `ui/settings/directory-picker.module.css`、
-   `chat-input-textarea` → `ui/chat/chat.module.css`、`chat-stats-center` → `ui/chat/unwired.css`）。
+   `chat-input-textarea` → `ui/chat/chat.module.css`）。
    迁移后 `apps/web/src/index.css` 只 import ui 的全局表，不再有 host 侧全局样式。
 
 ## 备选方案
@@ -63,11 +73,12 @@ ADR-0020 把视觉基准定为统一 Web 设计规范后，组件级样式集中
 ## 影响
 
 - **正面**：组件与样式同行同目录；类名作用域隔离，冲突从「靠前缀约定」变为「编译期保证」；
-  死代码被物理隔离到 `*/unwired.css`，清单可直接对照 `docs/09`；新增样式无「写哪个大文件」的选择成本。
+  零消费样式随审计直接删除（不留停放表），新增样式无「写哪个大文件」的选择成本。
 - **代价**：类名变更使以类名做断言的测试需改为模块类（如 `_icon_`）；`switch (className)` 式的外部
-  查类名需要模块导出；`packages/ui` build 需拷贝 module.css。
+  查类名需要模块导出；`packages/ui` build 需拷贝 module.css。**已删的规范类在需要时要重写**
+  （以 ADR-0020 的类名口径 + 设计规范为源，不做长期停放）。
 - **迁移节奏**：按域分批（panels → files → chat/extension → markdown → settings），
   每批独立跑 build / test / lint / typecheck / E2E；`.markdown-body p` 这类第三方产物的后代
   排版仍在 module 内（`.body p`），不拆成两份。
 - **风险**：全局规则与 module 规则共存期间的级联顺序靠 `apps/web/src/index.css` 的 import 顺序维持，
-  该文件顶部已注明「勿乱序」；`*/unwired.css` 与 module 规则同选择器不同作用域不会互相覆盖（类名不同）。
+  该文件顶部已注明「勿乱序」。

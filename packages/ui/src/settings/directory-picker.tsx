@@ -119,7 +119,6 @@ export function DirectoryPicker({
 
   return createPortal(
     <div
-      className={styles.backdrop}
       role="dialog"
       aria-modal="true"
       aria-label={t('directoryPicker.selectDirectory')}
@@ -140,7 +139,6 @@ export function DirectoryPicker({
       }}
     >
       <div
-        className={styles.panel}
         style={{
           width: 520,
           maxWidth: 'calc(100vw - 16px)',
@@ -304,10 +302,7 @@ export function DirectoryPicker({
           </button>
         </form>
 
-        <div
-          className={styles.list}
-          style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '8px 10px' }}
-        >
+        <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '8px 10px' }}>
           {loading ? (
             <div style={{ padding: 8, color: 'var(--text-dim)', fontSize: 11 }}>
               {t('directoryPicker.loadingDirectories')}

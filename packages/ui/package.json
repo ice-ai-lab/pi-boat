@@ -14,10 +14,7 @@
     "./theme.css": "./src/theme.css",
     "./utilities.css": "./src/styles/utilities.css",
     "./resize-handles.css": "./src/styles/resize-handles.css",
-    "./chat-content.css": "./src/chat/chat-content.css",
-    "./chat-unwired.css": "./src/chat/unwired.css",
-    "./settings-unwired.css": "./src/settings/unwired.css",
-    "./unwired.css": "./src/files/unwired.css"
+    "./chat-content.css": "./src/chat/chat-content.css"
   },
   "files": [
     "dist"

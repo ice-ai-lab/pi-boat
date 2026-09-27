@@ -41,8 +41,9 @@
     - `styles/utilities.css`（全局滚动条等基础 utility）、`styles/resize-handles.css`
       （`panel-resize-handle` / `sidebar-section-resize-handle`，被 ui 与 web 布局同时消费的跨包原语）
     - `chat/chat-content.css`（`.chat-content` 字号钩子，跨多个面板复用）
-    - `*/unwired.css`（`files/`、`chat/`、`settings/`）——**未接线**的设计规范类，
-      组件尚未消费，接线时并入对应 module 或删除；内容清点见 `docs/09` §死 CSS
+    - **零消费样式一律删除**（2026 定案，取代早期的 `*/unwired.css` 停放方案）：未接线的规范类、
+      零消费 token / utility / className 钩子都直接删；需要时按 ADR-0020 的类名口径重写，
+      不留「类已备、组件未接」的死代码
   - 第三方渲染产物的类（react-markdown 的 `.task-list-item`、KaTeX 的 `.katex`）在 module 里用 `:global(...)` 保留
   - `apps/web/src/index.css` 只聚合上述全局表（顺序勿乱）；host 侧布局样式（`apps/web/src/layout/workspace.module.css`）
     同样是 module，随 `workspace-layout.tsx` / `files-pane.tsx` import

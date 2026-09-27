@@ -6,21 +6,13 @@
  * `.scrollbar-subtle` / `.scrollbar-visible`（`useScrollbarVisibility`）。
  */
 
-/* 全站描边为 1px 实线（旧原型是 0.5px hairline，已废弃宽字重） */
+/* 全站描边为 1px 实线（旧原型是 0.5px hairline，已废弃宽字重）；
+   `.hairline-l/-r/-t` 零消费已删（2026），只留在用的 `.hairline` / `.hairline-b` */
 .hairline {
   border-width: 1px;
 }
-.hairline-t {
-  border-top-width: 1px;
-}
-.hairline-r {
-  border-right-width: 1px;
-}
 .hairline-b {
   border-bottom-width: 1px;
-}
-.hairline-l {
-  border-left-width: 1px;
 }
 
 /* 旧原型的 superellipse 形状类：规范一律普通圆角，这里退化为 6px 兜底；
@@ -29,15 +21,9 @@
   border-radius: 6px;
 }
 
-/* 三档阴影（token 见 theme.css） */
+/* 阴影 token 见 theme.css；`.elev-soft` / `.elev-soft-sm` 零消费已删（2026） */
 .elev-panel {
   box-shadow: var(--elev-panel);
-}
-.elev-soft {
-  box-shadow: var(--elev-soft);
-}
-.elev-soft-sm {
-  box-shadow: var(--elev-soft-sm);
 }
 
 /* 流式思考行扫光 */

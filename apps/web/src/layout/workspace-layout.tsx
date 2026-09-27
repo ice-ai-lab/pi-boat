@@ -55,7 +55,7 @@ if (typeof window !== 'undefined') {
  * 三栏工作区：左栏会话/项目、中栏对话、右栏文件。
  * **结构按设计规范 `AppShell`**（ADR-0020）：
  * 根容器（视口高度 + safe-area 内边距）→ `workspace.sidebarBackdrop` → `workspace.sidebar`
- * → `panel-resize-handle sidebar-resize-handle` → 中栏 → `workspace.rightPanelBackdrop`
+ * → `panel-resize-handle` → 中栏 → `workspace.rightPanelBackdrop`
  * → `panel-resize-handle workspace.rightPanelResizeHandle` → `workspace.rightPanel`。
  * 布局类在 `workspace.module.css`（web 自有）；`panel-resize-handle` 是 ui 的全局原语。
  * 宽度走 CSS 变量 `--sidebar-width` / `--right-panel-width`（由拖拽写入，见 use-resizable-panel）。
@@ -369,7 +369,7 @@ export function WorkspaceLayout() {
           {...sidebarResizer.separatorProps}
           inert={rightPanelExpanded}
           aria-controls="session-sidebar"
-          className={`panel-resize-handle sidebar-resize-handle${sidebarResizer.isResizing ? ' is-resizing' : ''}`}
+          className={cn('panel-resize-handle', sidebarResizer.isResizing && 'is-resizing')}
           data-resize-handle="sidebar"
           title="调整侧栏宽度：拖拽或方向键（双击复位）"
         />

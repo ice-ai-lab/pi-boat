@@ -120,7 +120,6 @@ export function FileViewer({
 
   return (
     <div
-      className="file-viewer-shell"
       style={{
         display: 'flex',
         flexDirection: 'column',

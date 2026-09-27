@@ -115,7 +115,6 @@ export function ModelSelector({
     // biome-ignore lint/a11y/noStaticElementInteractions: 按设计规范，Esc 关面板挂在根容器上
     <div
       ref={rootRef}
-      className={`model-selector is-toolbar${locked ? ' is-disabled' : ''}`}
       style={{ position: 'relative', minWidth: 0 }}
       onKeyDown={(event) => {
         if (event.key !== 'Escape' || !open) return;

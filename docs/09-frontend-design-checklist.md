@@ -20,9 +20,9 @@
 **CSS 已经基本到位，卡在「组件没用这些 CSS」这一步。**
 
 > **2026 更新（ADR-0028）**：组件级 CSS 已按域拆到 `packages/ui/src/*/**.module.css`，
-> 原 `styles/web-ui.css` / `styles/settings.css` 已不存在；本文提到的「死 CSS」清单现在物理集中在
-> `files/unwired.css`、`chat/unwired.css`、`settings/unwired.css`（未接线规范类），
-> 下文的文件名与「缺 N 条」口径按当时的全局表快照记录，未回填。
+> 原 `styles/web-ui.css` / `styles/settings.css` 已不存在；**本文列出的「死 CSS」已全部删除**
+> （早期曾停在 `*/unwired.css`，随后按「零消费即删」定案清空），需要时按设计规范口径重写。
+> 下文的文件名与「缺 N 条」统计按当时的全局表快照记录，不再回填。
 
 规则层差集基本归零：globals 缺 48 条（其中 31 条是排除域 + token 基础版式），settings.css 缺 12 条（全为 `.agents-*` 排除域）。
 但 **3 个样式文件共 264 个类名里，有 115 个零消费方（43.6%）** —— 这些"类已备、组件未接"的规则，正是并排看"不像"的直接来源。
