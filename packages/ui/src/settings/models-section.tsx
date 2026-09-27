@@ -1,6 +1,7 @@
 import type { CatalogModel, ProviderUsageResponse } from '@ice-ai/protocol';
 import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../i18n/i18n-provider';
+import styles from './config-ui.module.css';
 import { ProviderIcon } from './provider-icon';
 import { ProviderUsageSummary } from './provider-usage-summary';
 import { SettingsNotice } from './settings-panel';
@@ -1114,7 +1115,9 @@ export function ModelsSection({
                   onClick={() => setSelection({ type: 'auth', id: provider.id })}
                 >
                   <ProviderIcon id={provider.id} size={16} />
-                  <ConfigSidebarText className="is-grow">{provider.displayName}</ConfigSidebarText>
+                  <ConfigSidebarText className={styles.isGrow}>
+                    {provider.displayName}
+                  </ConfigSidebarText>
                   <ConfigStatusDot active />
                 </ConfigSidebarItem>
               );
@@ -1152,7 +1155,7 @@ export function ModelsSection({
                       <rect x="4" y="4" width="16" height="16" rx="2" />
                       <rect x="9" y="9" width="6" height="6" />
                     </svg>
-                    <ConfigSidebarText className="is-grow">{name}</ConfigSidebarText>
+                    <ConfigSidebarText className={styles.isGrow}>{name}</ConfigSidebarText>
                   </ConfigSidebarItem>
                 );
               })
@@ -1164,7 +1167,7 @@ export function ModelsSection({
         </ConfigSidebar>
 
         <ConfigDetail>
-          <ConfigDetailStack className="is-fill">
+          <ConfigDetailStack className={styles.isFill}>
             {detail ?? <ConfigEmptyState>{t('i18n.selectProviderModel')}</ConfigEmptyState>}
           </ConfigDetailStack>
         </ConfigDetail>

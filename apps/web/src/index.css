@@ -8,13 +8,9 @@
 @import "@ice-ai/ui/chat-content.css";
 @import "@ice-ai/ui/unwired.css";
 @import "@ice-ai/ui/chat-unwired.css";
-@import "@ice-ai/ui/directory-picker.css";
+@import "@ice-ai/ui/settings-unwired.css";
 @import "@ice-ai/ui/resize-handles.css";
 @import "./layout/workspace.css";
-@import "@ice-ai/ui/config-ui.css";
-@import "@ice-ai/ui/models.css";
-@import "@ice-ai/ui/skills.css";
-@import "@ice-ai/ui/settings-panel.css";
 
 /* Tailwind v4 需显式扫包外源码，否则 ui 的类名会被摇掉（docs/06 §2） */
 @source "../../../packages/ui/src";

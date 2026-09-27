@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../i18n/i18n-provider';
+import { cn } from '../utils/cn';
+import styles from './config-ui.module.css';
 import {
   ConfigButton,
   ConfigDetail,
@@ -21,6 +23,7 @@ import {
   ConfigStatusDot,
   ConfigSwitch,
 } from './settings-ui';
+import skillStyles from './skills.module.css';
 
 /**
  * SkillsSection（docs/06 §4.4；对齐 参考实现 SkillsConfig 的主从布局）：
@@ -140,10 +143,10 @@ function SkillDetail({
 
   return (
     <ConfigDetailStack>
-      <div className="skill-detail-heading">
+      <div className={skillStyles.detailHeading}>
         <ConfigDetailHeader>
           <ConfigDetailHeaderInfo>
-            <span className={`config-scope-tag${label === 'project' ? ' is-project' : ''}`}>
+            <span className={cn(styles.scopeTag, label === 'project' && styles.isProject)}>
               {t(
                 label === 'global'
                   ? 'skills.scope.global'
@@ -152,7 +155,7 @@ function SkillDetail({
                     : 'skills.scope.path',
               )}
             </span>
-            <span className="config-detail-path" title={skill.filePath}>
+            <span className={styles.detailPath} title={skill.filePath}>
               {displayPath(skill, cwd)}
             </span>
           </ConfigDetailHeaderInfo>
@@ -165,7 +168,7 @@ function SkillDetail({
             />
           </ConfigDetailActions>
         </ConfigDetailHeader>
-        <div className="skill-detail-status-row">
+        <div className={skillStyles.detailStatusRow}>
           {!enabled && (
             <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>
               {t('i18n.hiddenButInvocable')}
@@ -175,11 +178,11 @@ function SkillDetail({
       </div>
 
       <ConfigField label={t('i18n.name')}>
-        <span className="skill-name-value">{skill.name}</span>
+        <span className={skillStyles.nameValue}>{skill.name}</span>
       </ConfigField>
 
       <ConfigField label={t('i18n.description')}>
-        <span className="skill-description">{skill.description}</span>
+        <span className={skillStyles.description}>{skill.description}</span>
       </ConfigField>
     </ConfigDetailStack>
   );
@@ -222,7 +225,7 @@ function AddSkillPanel({
     scope === 'global' ? '~/.pi/agent/skills/' : `${shortenPath(cwd ?? '')}/.pi/skills/`;
 
   return (
-    <ConfigDetailStack className="is-fill">
+    <ConfigDetailStack className={styles.isFill}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 12 }}>
         <ConfigDetailTitle>{t('i18n.addSkill')}</ConfigDetailTitle>
 
@@ -514,7 +517,7 @@ export function SkillsSection({
       ) : (
         <>
           {!projectResourcesLoaded && (
-            <div role="status" className="config-trust-notice">
+            <div role="status" className={styles.trustNotice}>
               {t('trust.skillsNotLoaded')}
             </div>
           )}
@@ -522,12 +525,14 @@ export function SkillsSection({
             <ConfigSidebar>
               <ConfigSidebarList>
                 {loading ? (
-                  <div className="config-sidebar-message">{t('i18n.loading')}</div>
+                  <div className={styles.sidebarMessage}>{t('i18n.loading')}</div>
                 ) : skills.length === 0 ? (
-                  <div className="config-sidebar-message is-empty">{t('i18n.noSkills')}</div>
+                  <div className={cn(styles.sidebarMessage, styles.isEmpty)}>
+                    {t('i18n.noSkills')}
+                  </div>
                 ) : (
                   groups.map((group) => (
-                    <div key={group.label} className="config-sidebar-group">
+                    <div key={group.label} className={styles.sidebarGroup}>
                       <ConfigSidebarGroupLabel>{group.label}</ConfigSidebarGroupLabel>
                       {orderSkillsByDormancy(group.skills).map((skill) => {
                         const isSelected = !addMode && selected === skill.filePath;
@@ -542,7 +547,9 @@ export function SkillsSection({
                             }}
                           >
                             <ConfigStatusDot active={!disabled} />
-                            <ConfigSidebarText className={`is-grow${disabled ? ' is-muted' : ''}`}>
+                            <ConfigSidebarText
+                              className={cn(styles.isGrow, disabled && styles.isMuted)}
+                            >
                               {skill.name}
                             </ConfigSidebarText>
                           </ConfigSidebarItem>
@@ -553,7 +560,7 @@ export function SkillsSection({
                 )}
                 {diagnostics.length > 0 && (
                   <div
-                    className="config-sidebar-message is-error"
+                    className={cn(styles.sidebarMessage, styles.isError)}
                     title={diagnostics.map((d) => d.message).join('\n')}
                   >
                     {diagnostics.length} ⚠
@@ -571,7 +578,7 @@ export function SkillsSection({
             </ConfigSidebar>
 
             <ConfigDetail>
-              <ConfigDetailStack className="is-fill">
+              <ConfigDetailStack className={styles.isFill}>
                 {addMode ? (
                   <AddSkillPanel
                     cwd={cwd}

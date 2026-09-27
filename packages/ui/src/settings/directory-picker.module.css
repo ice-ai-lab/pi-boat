@@ -1,6 +1,7 @@
+/* 目录选择器（directory-picker-*；CSS Modules，阶段二批次 5）：.path */
 /* 目录选择器（directory-picker-*；原 web-ui.css 拆分） */
 
-.directory-picker-path:focus-visible {
+.path:focus-visible {
   border-color: var(--accent) !important;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
 }
@@ -23,4 +24,3 @@
     }
 
 }
-

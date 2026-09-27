@@ -1,6 +1,8 @@
 import { type ReactNode, useEffect, useState } from 'react';
 import { useI18n } from '../i18n/i18n-provider';
 import { cn } from '../utils/cn';
+import configStyles from './config-ui.module.css';
+import styles from './settings-panel.module.css';
 import { ConfigSectionTitle } from './settings-ui';
 
 /**
@@ -72,19 +74,19 @@ export function SettingsPanel({
         role="dialog"
         aria-modal="true"
         aria-label={resolvedTitle}
-        className="settings-dialog-backdrop"
+        className={styles.dialogBackdrop}
         onClick={(event) => {
           if (event.target === event.currentTarget) onClose();
         }}
       >
-        <div className="settings-dialog-surface">
-          <div className="settings-dialog-header">
-            <strong className="settings-dialog-title">{resolvedTitle}</strong>
+        <div className={styles.dialogSurface}>
+          <div className={styles.dialogHeader}>
+            <strong className={styles.dialogTitle}>{resolvedTitle}</strong>
             <select
               aria-label={resolvedTitle}
               value={activeSection}
               onChange={(event) => activateSection(event.target.value)}
-              className="settings-mobile-section-picker"
+              className={styles.mobileSectionPicker}
             >
               {sections.map((section) => (
                 <option key={section.id} value={section.id} disabled={section.disabled === true}>
@@ -92,7 +94,7 @@ export function SettingsPanel({
                 </option>
               ))}
             </select>
-            <nav aria-label={resolvedTitle} className="settings-section-tabs">
+            <nav aria-label={resolvedTitle} className={styles.sectionTabs}>
               {sections.map((section) => {
                 const selected = section.id === activeSection;
                 const disabled = section.disabled === true;
@@ -100,7 +102,7 @@ export function SettingsPanel({
                   <button
                     key={section.id}
                     type="button"
-                    className="settings-section-tab"
+                    className={styles.sectionTab}
                     disabled={disabled}
                     title={disabled ? resolvedHint : section.label}
                     aria-current={selected ? 'page' : undefined}
@@ -117,19 +119,19 @@ export function SettingsPanel({
               onClick={onClose}
               title={t('i18n.close')}
               aria-label={t('i18n.close')}
-              className="config-close-button settings-dialog-close"
+              className={cn(configStyles.closeButton, styles.dialogClose)}
             >
               ×
             </button>
           </div>
-          <main className="settings-dialog-main">
+          <main className={styles.dialogMain}>
             {sections
               .filter((section) => mountedSections.has(section.id))
               .map((section) => (
                 <div
                   key={section.id}
                   hidden={activeSection !== section.id}
-                  className="settings-section-host"
+                  className={styles.sectionHost}
                 >
                   {renderSection(section.id)}
                 </div>
@@ -161,7 +163,7 @@ export function SettingsSectionIcon({
     strokeLinecap: 'round' as const,
     strokeLinejoin: 'round' as const,
     'aria-hidden': true,
-    className: 'settings-section-icon',
+    className: styles.sectionIcon,
   };
 
   if (section === 'general') {

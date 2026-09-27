@@ -16,12 +16,8 @@
     "./resize-handles.css": "./src/styles/resize-handles.css",
     "./chat-content.css": "./src/chat/chat-content.css",
     "./chat-unwired.css": "./src/chat/unwired.css",
-    "./unwired.css": "./src/files/unwired.css",
-    "./directory-picker.css": "./src/settings/directory-picker.css",
-    "./config-ui.css": "./src/settings/config-ui.css",
-    "./models.css": "./src/settings/models.css",
-    "./skills.css": "./src/settings/skills.css",
-    "./settings-panel.css": "./src/settings/settings-panel.css"
+    "./settings-unwired.css": "./src/settings/unwired.css",
+    "./unwired.css": "./src/files/unwired.css"
   },
   "files": [
     "dist"

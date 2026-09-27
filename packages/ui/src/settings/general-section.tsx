@@ -8,6 +8,8 @@ import {
   type ChatAppearance,
 } from '@ice-ai/client';
 import { useI18n } from '../i18n/i18n-provider';
+import { cn } from '../utils/cn';
+import styles from './settings-panel.module.css';
 import { ConfigButton, ConfigSwitch } from './settings-ui';
 
 /**
@@ -30,13 +32,13 @@ export function GeneralSection({ chat }: GeneralSectionProps) {
   const { locale, setLocale, supportedLocales, t } = useI18n();
 
   return (
-    <div className="settings-general">
-      <h2 className="settings-general-title">{t('settings.general')}</h2>
+    <div className={styles.general}>
+      <h2 className={styles.generalTitle}>{t('settings.general')}</h2>
 
-      <section className="settings-general-section">
-        <h3 className="settings-general-heading">{t('settings.chat')}</h3>
-        <div className="settings-chat-options">
-          <div className="settings-chat-option settings-chat-switch-option">
+      <section className={styles.generalSection}>
+        <h3 className={styles.generalHeading}>{t('settings.chat')}</h3>
+        <div className={styles.chatOptions}>
+          <div className={cn(styles.chatOption, styles.chatSwitchOption)}>
             <span>{t('settings.thinkingExpandedDefault')}</span>
             <ConfigSwitch
               checked={chat.thinkingExpanded}
@@ -44,14 +46,14 @@ export function GeneralSection({ chat }: GeneralSectionProps) {
               onChange={chat.onThinkingExpandedChange}
             />
           </div>
-          <div className="settings-chat-option settings-chat-range-option">
-            <div className="settings-chat-range-header">
+          <div className={cn(styles.chatOption, styles.chatRangeOption)}>
+            <div className={styles.chatRangeHeader}>
               <label htmlFor="settings-chat-content-width">{t('settings.chatContentWidth')}</label>
               <output htmlFor="settings-chat-content-width">{chat.width}px</output>
               <ConfigButton
                 variant="ghost"
                 size="small"
-                className="settings-chat-reset"
+                className={styles.chatReset}
                 title={t('settings.resetChatContentWidth')}
                 aria-label={t('settings.resetChatContentWidth')}
                 disabled={chat.width === CHAT_CONTENT_WIDTH_DEFAULT}
@@ -82,8 +84,8 @@ export function GeneralSection({ chat }: GeneralSectionProps) {
               onChange={(event) => chat.onWidthChange(Number(event.target.value))}
             />
           </div>
-          <div className="settings-chat-option settings-chat-range-option">
-            <div className="settings-chat-range-header">
+          <div className={cn(styles.chatOption, styles.chatRangeOption)}>
+            <div className={styles.chatRangeHeader}>
               <label htmlFor="settings-chat-content-font-size">
                 {t('settings.chatContentFontSize')}
               </label>
@@ -91,7 +93,7 @@ export function GeneralSection({ chat }: GeneralSectionProps) {
               <ConfigButton
                 variant="ghost"
                 size="small"
-                className="settings-chat-reset"
+                className={styles.chatReset}
                 title={t('settings.resetChatContentFontSize')}
                 aria-label={t('settings.resetChatContentFontSize')}
                 disabled={chat.fontSize === CHAT_CONTENT_FONT_SIZE_DEFAULT}
@@ -125,13 +127,9 @@ export function GeneralSection({ chat }: GeneralSectionProps) {
         </div>
       </section>
 
-      <section className="settings-general-section">
-        <h3 className="settings-general-heading">{t('common.language')}</h3>
-        <div
-          role="radiogroup"
-          aria-label={t('common.language')}
-          className="settings-language-options"
-        >
+      <section className={styles.generalSection}>
+        <h3 className={styles.generalHeading}>{t('common.language')}</h3>
+        <div role="radiogroup" aria-label={t('common.language')} className={styles.languageOptions}>
           {supportedLocales.map((plugin) => {
             const selected = locale === plugin.id;
             return (
@@ -142,13 +140,13 @@ export function GeneralSection({ chat }: GeneralSectionProps) {
                 role="radio"
                 aria-checked={selected}
                 onClick={() => setLocale(plugin.id)}
-                className="settings-language-option"
+                className={styles.languageOption}
               >
-                <span className="settings-language-radio">
-                  {selected && <span className="settings-language-radio-dot" />}
+                <span className={styles.languageRadio}>
+                  {selected && <span className={styles.languageRadioDot} />}
                 </span>
-                <span className="settings-language-label">{plugin.label}</span>
-                <span className="settings-language-code">{plugin.id}</span>
+                <span className={styles.languageLabel}>{plugin.label}</span>
+                <span className={styles.languageCode}>{plugin.id}</span>
               </button>
             );
           })}

@@ -2,6 +2,7 @@ import { browseCwd } from '@ice-ai/client';
 import { type FormEvent, useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useI18n } from '../i18n/i18n-provider';
+import styles from './directory-picker.module.css';
 
 interface DirectoryEntry {
   name: string;
@@ -255,7 +256,7 @@ export function DirectoryPicker({
             {t('directoryPicker.directoryPath')}
           </label>
           <input
-            className="directory-picker-path"
+            className={styles.path}
             id="directory-path"
             type="text"
             value={pathInput}

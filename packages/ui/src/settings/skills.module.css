@@ -1,12 +1,13 @@
+/* 技能设置（skill-*；CSS Modules，阶段二批次 5）：去掉 skill- 前缀 + camelCase；source-link* 未接线，见 unwired.css */
 /* 技能设置（skill-*；原 settings.css 拆分） */
 
-.skill-detail-heading {
+.detailHeading {
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 
-.skill-detail-status-row {
+.detailStatusRow {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -16,73 +17,54 @@
   text-align: right;
 }
 
-.skill-source-link {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: fit-content;
-  max-width: 100%;
-  color: var(--accent);
-  text-decoration: none;
-}
-
-.skill-source-link-text {
-  overflow: hidden;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.skill-version-row {
+.versionRow {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
 }
 
-.skill-version-value,
-.skill-name-value {
+.versionValue,
+.nameValue {
   color: var(--text-muted);
   font-family: var(--font-mono);
   font-size: 12px;
 }
 
-.skill-version-value.is-update,
-.skill-update-indicator {
+.versionValue.isUpdate,
+.updateIndicator {
   color: var(--accent);
 }
 
-.skill-name-value {
+.nameValue {
   color: var(--text);
 }
 
-.skill-update-status {
+.updateStatus {
   color: var(--text-dim);
   font-size: 12px;
 }
 
-.skill-update-status.is-checking {
+.updateStatus.isChecking {
   color: var(--accent);
 }
 
-.skill-update-status.is-success {
+.updateStatus.isSuccess {
   color: #16a34a;
 }
 
-.skill-update-status.is-error {
+.updateStatus.isError {
   color: #ef4444;
 }
 
-.skill-description {
+.description {
   color: var(--text-muted);
   font-size: 12px;
   line-height: 1.5;
 }
 
-.skill-update-indicator {
+.updateIndicator {
   flex-shrink: 0;
   font-size: 13px;
   line-height: 1;
 }
-

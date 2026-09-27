@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../i18n/i18n-provider';
+import { cn } from '../utils/cn';
+import styles from './config-ui.module.css';
 import {
   ConfigButton,
   ConfigDetail,
@@ -23,6 +25,7 @@ import {
   ConfigStatusDot,
   ConfigSwitch,
 } from './settings-ui';
+import skillStyles from './skills.module.css';
 import type { SkillUpdateView } from './skills-section';
 
 /**
@@ -301,7 +304,7 @@ function PackageDetail({
 
   return (
     <ConfigDetailStack>
-      <ConfigDetailHeader className="is-top-aligned">
+      <ConfigDetailHeader className={styles.isTopAligned}>
         <ConfigDetailHeaderInfo>
           <ScopeTag scope={scopeKey(pkg.scope)} />
           {pkg.status === 'disabled' && (
@@ -407,15 +410,20 @@ function PackageDetail({
         </div>
         <div style={{ color: 'var(--text-dim)' }}>{t('i18n.version')}</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
-          <div className="skill-version-row">
-            <span className="skill-version-value">{versionSummary(pkg, t)}</span>
+          <div className={skillStyles.versionRow}>
+            <span className={skillStyles.versionValue}>{versionSummary(pkg, t)}</span>
             {updateAvailable && (
-              <span className="skill-version-value is-update" title={updateStatus?.latestVersion}>
+              <span
+                className={cn(skillStyles.versionValue, skillStyles.isUpdate)}
+                title={updateStatus?.latestVersion}
+              >
                 {t('i18n.updateAvailable')}
               </span>
             )}
             {canCheckForUpdates && checkingUpdate && (
-              <span className="skill-update-status is-checking">{t('i18n.checking')}</span>
+              <span className={cn(skillStyles.updateStatus, skillStyles.isChecking)}>
+                {t('i18n.checking')}
+              </span>
             )}
           </div>
         </div>
@@ -520,7 +528,7 @@ function AddPluginPanel({
   ];
 
   return (
-    <ConfigDetailStack className="is-fill">
+    <ConfigDetailStack className={styles.isFill}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
         <ConfigDetailTitle>{t('i18n.addPlugin')}</ConfigDetailTitle>
         <div
@@ -600,7 +608,7 @@ function AddPluginPanel({
           variant="primary"
           onClick={install.onInstall}
           disabled={install.busy || install.source.trim() === ''}
-          className="is-pushed-right"
+          className={styles.isPushedRight}
         >
           {install.busy ? t('i18n.installing') : t('i18n.install')}
         </ConfigButton>
@@ -734,7 +742,7 @@ export function PluginsSection({
       ) : (
         <>
           {!projectResourcesLoaded && (
-            <div role="status" className="config-trust-notice">
+            <div role="status" className={styles.trustNotice}>
               {t('trust.pluginsNotLoaded')}
             </div>
           )}
@@ -742,13 +750,15 @@ export function PluginsSection({
             <ConfigSidebar>
               <ConfigSidebarList>
                 {loading ? (
-                  <div className="config-sidebar-message">{t('i18n.loading')}</div>
+                  <div className={styles.sidebarMessage}>{t('i18n.loading')}</div>
                 ) : packages.length === 0 && standaloneExtensions.length === 0 ? (
-                  <div className="config-sidebar-message is-empty">{t('i18n.noPlugins')}</div>
+                  <div className={cn(styles.sidebarMessage, styles.isEmpty)}>
+                    {t('i18n.noPlugins')}
+                  </div>
                 ) : (
                   <>
                     {standaloneExtensions.length > 0 && (
-                      <div className="config-sidebar-group">
+                      <div className={styles.sidebarGroup}>
                         <ConfigSidebarGroupLabel>{t('i18n.extensions')}</ConfigSidebarGroupLabel>
                         {standaloneExtensions.map((extension) => {
                           const key = extensionKeyOf(extension);
@@ -764,7 +774,7 @@ export function PluginsSection({
                             >
                               <ConfigStatusDot active={extension.enabled} />
                               <ConfigSidebarText
-                                className={`is-grow${extension.enabled ? '' : ' is-muted'}`}
+                                className={cn(styles.isGrow, !extension.enabled && styles.isMuted)}
                               >
                                 {extension.name}
                               </ConfigSidebarText>
@@ -774,7 +784,7 @@ export function PluginsSection({
                       </div>
                     )}
                     {grouped.map((group) => (
-                      <div key={group.scope} className="config-sidebar-group">
+                      <div key={group.scope} className={styles.sidebarGroup}>
                         <ConfigSidebarGroupLabel>
                           {t(
                             group.scope === 'project'
@@ -800,14 +810,14 @@ export function PluginsSection({
                                 color={statusColor(pkg.status)}
                               />
                               <ConfigSidebarText
-                                className={`is-grow${pkg.enabled ? '' : ' is-muted'}`}
+                                className={cn(styles.isGrow, !pkg.enabled && styles.isMuted)}
                               >
                                 {pkg.source}
                               </ConfigSidebarText>
                               {hasUpdate && (
                                 <span
                                   title={t('i18n.updateAvailable')}
-                                  className="skill-update-indicator"
+                                  className={skillStyles.updateIndicator}
                                 >
                                   ↑
                                 </span>
@@ -831,7 +841,7 @@ export function PluginsSection({
             </ConfigSidebar>
 
             <ConfigDetail>
-              <ConfigDetailStack className="is-fill">
+              <ConfigDetailStack className={styles.isFill}>
                 {addMode ? (
                   <AddPluginPanel
                     cwd={cwd}

@@ -1,12 +1,26 @@
 import type { ButtonHTMLAttributes, CSSProperties, HTMLAttributes, ReactNode } from 'react';
+import { cn } from '../utils/cn';
+import styles from './config-ui.module.css';
 
 type ConfigButtonVariant = 'primary' | 'secondary' | 'danger' | 'ghost';
 type ConfigButtonSize = 'small' | 'default';
 
+// CSS Modules 索引签名在 noUncheckedIndexedAccess 下为 string | undefined，故此处放宽（键仍强约束）
+const BUTTON_VARIANT_CLASS: Record<ConfigButtonVariant, string | undefined> = {
+  primary: styles.buttonPrimary,
+  secondary: styles.buttonSecondary,
+  danger: styles.buttonDanger,
+  ghost: styles.buttonGhost,
+};
+const BUTTON_SIZE_CLASS: Record<ConfigButtonSize, string | undefined> = {
+  small: styles.buttonSmall,
+  default: styles.buttonDefault,
+};
+
 /**
  * SettingsUi（T2-8）：按设计规范 全族。
  * 只把 `"use client"` 去掉、缺省文案改为英文（真正的文案由调用方走 i18n）。
- * CSS 单一来源是 `styles/settings.css` 的 `.config-*` 规则。
+ * CSS 单一来源是 `config-ui.module.css`（原 `.config-*` 全局类，2026 模块化）。
  */
 interface ConfigPanelShellProps {
   embedded: boolean;
@@ -45,23 +59,23 @@ export function ConfigPanelShell({
         role={embedded ? undefined : 'dialog'}
         aria-modal={embedded ? undefined : 'true'}
         aria-label={title}
-        className={`config-panel-root ${embedded ? 'is-embedded' : 'is-modal'}`}
+        className={cn(styles.panelRoot, embedded ? styles.isEmbedded : styles.isModal)}
         onClick={(event) => {
           if (!embedded && event.target === event.currentTarget) onClose();
         }}
       >
-        <div className="config-panel-surface" style={panelStyle}>
+        <div className={styles.panelSurface} style={panelStyle}>
           {!embedded && (
-            <div className="config-panel-header">
-              <strong className="config-panel-title">{title}</strong>
+            <div className={styles.panelHeader}>
+              <strong className={styles.panelTitle}>{title}</strong>
               {subtitle !== undefined && (
-                <code className="config-panel-subtitle" title={subtitle}>
+                <code className={styles.panelSubtitle} title={subtitle}>
                   {subtitle}
                 </code>
               )}
               <button
                 type="button"
-                className="config-close-button"
+                className={styles.closeButton}
                 onClick={onClose}
                 title={closeLabel}
                 aria-label={closeLabel}
@@ -78,19 +92,19 @@ export function ConfigPanelShell({
 }
 
 export function ConfigSplitView({ children }: { children: ReactNode }) {
-  return <div className="config-split-view">{children}</div>;
+  return <div className={styles.splitView}>{children}</div>;
 }
 
 export function ConfigSidebar({ children }: { children: ReactNode }) {
-  return <aside className="config-sidebar">{children}</aside>;
+  return <aside className={styles.sidebar}>{children}</aside>;
 }
 
 export function ConfigSidebarList({ children }: { children: ReactNode }) {
-  return <div className="config-sidebar-list">{children}</div>;
+  return <div className={styles.sidebarList}>{children}</div>;
 }
 
 export function ConfigSidebarGroupLabel({ children }: { children: ReactNode }) {
-  return <div className="config-sidebar-group-label">{children}</div>;
+  return <div className={styles.sidebarGroupLabel}>{children}</div>;
 }
 
 export function ConfigSidebarItem({
@@ -104,7 +118,7 @@ export function ConfigSidebarItem({
       type="button"
       {...props}
       aria-current={active ? 'page' : undefined}
-      className={['config-sidebar-item', className].filter(Boolean).join(' ')}
+      className={[styles.sidebarItem, className].filter(Boolean).join(' ')}
     >
       {children}
     </button>
@@ -112,44 +126,33 @@ export function ConfigSidebarItem({
 }
 
 export function ConfigSidebarText({ className, ...props }: HTMLAttributes<HTMLSpanElement>) {
-  return (
-    <span {...props} className={['config-sidebar-text', className].filter(Boolean).join(' ')} />
-  );
+  return <span {...props} className={[styles.sidebarText, className].filter(Boolean).join(' ')} />;
 }
 
 export function ConfigDetailStack({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div {...props} className={['config-detail-stack', className].filter(Boolean).join(' ')} />
-  );
+  return <div {...props} className={[styles.detailStack, className].filter(Boolean).join(' ')} />;
 }
 
 export function ConfigDetailHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div {...props} className={['config-detail-header', className].filter(Boolean).join(' ')} />
-  );
+  return <div {...props} className={[styles.detailHeader, className].filter(Boolean).join(' ')} />;
 }
 
 export function ConfigDetailHeaderInfo({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
-    <div
-      {...props}
-      className={['config-detail-header-info', className].filter(Boolean).join(' ')}
-    />
+    <div {...props} className={[styles.detailHeaderInfo, className].filter(Boolean).join(' ')} />
   );
 }
 
 export function ConfigDetailActions({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div {...props} className={['config-detail-actions', className].filter(Boolean).join(' ')} />
-  );
+  return <div {...props} className={[styles.detailActions, className].filter(Boolean).join(' ')} />;
 }
 
 export function ConfigDetailTitle({ children }: { children: ReactNode }) {
-  return <div className="config-detail-title">{children}</div>;
+  return <div className={styles.detailTitle}>{children}</div>;
 }
 
 export function ConfigSectionTitle({ children }: { children: ReactNode }) {
-  return <div className="config-section-title">{children}</div>;
+  return <div className={styles.sectionTitle}>{children}</div>;
 }
 
 export function ConfigField({
@@ -162,20 +165,20 @@ export function ConfigField({
   style?: CSSProperties;
 }) {
   return (
-    <div className="config-field" style={style}>
-      <span className="config-field-label">{label}</span>
+    <div className={styles.field} style={style}>
+      <span className={styles.fieldLabel}>{label}</span>
       {children}
     </div>
   );
 }
 
 export function ConfigEmptyState({ children }: { children: ReactNode }) {
-  return <div className="config-empty-state">{children}</div>;
+  return <div className={styles.emptyState}>{children}</div>;
 }
 
 export function ConfigDetail({ children, style }: { children: ReactNode; style?: CSSProperties }) {
   return (
-    <div className="config-detail" style={style}>
+    <div className={styles.detail} style={style}>
       {children}
     </div>
   );
@@ -183,9 +186,9 @@ export function ConfigDetail({ children, style }: { children: ReactNode; style?:
 
 export function ConfigFooter({ status, children }: { status?: ReactNode; children?: ReactNode }) {
   return (
-    <footer className="config-footer">
-      <div className="config-footer-status">{status}</div>
-      <div className="config-footer-actions">{children}</div>
+    <footer className={styles.footer}>
+      <div className={styles.footerStatus}>{status}</div>
+      <div className={styles.footerActions}>{children}</div>
     </footer>
   );
 }
@@ -204,9 +207,12 @@ export function ConfigButton({
     <button
       type="button"
       {...props}
-      className={['config-button', `config-button-${variant}`, `config-button-${size}`, className]
-        .filter(Boolean)
-        .join(' ')}
+      className={cn(
+        styles.button,
+        BUTTON_VARIANT_CLASS[variant],
+        BUTTON_SIZE_CLASS[size],
+        className,
+      )}
     >
       {children}
     </button>
@@ -236,10 +242,10 @@ export function ConfigSwitch({
       aria-label={label}
       title={label}
       disabled={inactive}
-      className={`config-switch${loading ? ' is-loading' : ''}`}
+      className={cn(styles.switch, loading && styles.isLoading)}
       onClick={() => onChange(!checked)}
     >
-      <span className="config-switch-knob" aria-hidden="true" />
+      <span className={styles.switchKnob} aria-hidden="true" />
     </button>
   );
 }
@@ -251,12 +257,12 @@ export function ConfigListAction({
   ...props
 }: ButtonHTMLAttributes<HTMLButtonElement> & { active?: boolean }) {
   return (
-    <div className="config-list-action">
+    <div className={styles.listAction}>
       <button
         type="button"
         {...props}
         aria-current={active ? 'page' : undefined}
-        className={['config-list-action-button', className].filter(Boolean).join(' ')}
+        className={[styles.listActionButton, className].filter(Boolean).join(' ')}
       >
         <svg
           width="13"
@@ -281,7 +287,11 @@ export function ConfigStatusDot({ active, color }: { active?: boolean; color?: s
   return (
     <span
       aria-hidden="true"
-      className={`config-status-dot${active ? ' is-active' : active === false ? ' is-inactive' : ''}`}
+      className={cn(
+        styles.statusDot,
+        active && styles.isActive,
+        active === false && styles.isInactive,
+      )}
       style={color ? { backgroundColor: color } : undefined}
     />
   );

@@ -1,3 +1,5 @@
+/* 设置域共用件（config-*；CSS Modules，阶段二批次 5）：去掉 config- 前缀 + camelCase。
+   模板方法 keyframes saved-pop/saved-check-draw 与移动端规则从 settings-panel.css 并入（同本模块规则引用）。 */
 /**
  * 设置域共用件样式（config-*；原 settings.css 拆分，ADR-0020 决策 3）。
  *
@@ -6,18 +8,18 @@
  */
 
 /* Shared settings and configuration surfaces. */
-.config-panel-root {
+.panelRoot {
   min-width: 0;
   min-height: 0;
 }
 
-.config-panel-root.is-embedded {
+.panelRoot.isEmbedded {
   display: flex;
   width: 100%;
   height: 100%;
 }
 
-.config-panel-root.is-modal {
+.panelRoot.isModal {
   position: fixed;
   inset: 0;
   z-index: 1000;
@@ -27,7 +29,7 @@
   background: rgba(0, 0, 0, 0.35);
 }
 
-.config-panel-surface {
+.panelSurface {
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -36,7 +38,7 @@
   background: var(--bg);
 }
 
-.config-panel-root.is-embedded > .config-panel-surface {
+.panelRoot.isEmbedded > .panelSurface {
   width: 100%;
   height: 100%;
   border: 0;
@@ -44,7 +46,7 @@
   box-shadow: none;
 }
 
-.config-panel-root.is-modal > .config-panel-surface {
+.panelRoot.isModal > .panelSurface {
   width: min(var(--config-panel-width), calc(100vw - 16px));
   height: min(var(--config-panel-height), calc(100dvh - 16px));
   border: 1px solid var(--border);
@@ -52,7 +54,7 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
 }
 
-.config-panel-header {
+.panelHeader {
   display: flex;
   flex-shrink: 0;
   align-items: center;
@@ -62,12 +64,12 @@
   border-bottom: 1px solid var(--border);
 }
 
-.config-panel-title {
+.panelTitle {
   color: var(--text);
   font-size: 15px;
 }
 
-.config-panel-subtitle {
+.panelSubtitle {
   min-width: 0;
   overflow: hidden;
   color: var(--text-dim);
@@ -77,7 +79,7 @@
   white-space: nowrap;
 }
 
-.config-close-button {
+.closeButton {
   display: grid;
   place-items: center;
   width: 30px;
@@ -93,14 +95,14 @@
   line-height: 1;
 }
 
-.config-close-button:hover,
-.config-close-button:focus-visible {
+.closeButton:hover,
+.closeButton:focus-visible {
   background: var(--bg-hover);
   color: var(--text);
   outline: none;
 }
 
-.config-split-view {
+.splitView {
   display: flex;
   flex: 1;
   flex-direction: row;
@@ -108,7 +110,7 @@
   overflow: hidden;
 }
 
-.config-sidebar {
+.sidebar {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
@@ -118,18 +120,18 @@
   background: var(--bg-panel);
 }
 
-.config-sidebar-list {
+.sidebarList {
   flex: 1;
   min-height: 0;
   padding: 8px 6px;
   overflow-y: auto;
 }
 
-.config-sidebar-group {
+.sidebarGroup {
   margin-bottom: 6px;
 }
 
-.config-sidebar-group-label {
+.sidebarGroupLabel {
   padding: 4px 8px 3px;
   color: var(--text-dim);
   font-family: inherit;
@@ -140,7 +142,7 @@
   text-transform: uppercase;
 }
 
-.config-sidebar-item {
+.sidebarItem {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -161,27 +163,27 @@
   transition: background-color 0.12s ease, color 0.12s ease;
 }
 
-.config-sidebar-item:not(:disabled):hover,
-.config-sidebar-item:not(:disabled):focus-visible {
+.sidebarItem:not(:disabled):hover,
+.sidebarItem:not(:disabled):focus-visible {
   background: var(--bg-hover);
 }
 
-.config-sidebar-item:focus-visible {
+.sidebarItem:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 
-.config-sidebar-item[aria-current="page"] {
+.sidebarItem[aria-current="page"] {
   background: var(--bg-selected);
   font-weight: 600;
 }
 
-.config-sidebar-item:disabled {
+.sidebarItem:disabled {
   cursor: default;
   opacity: 0.5;
 }
 
-.config-sidebar-text {
+.sidebarText {
   display: block;
   min-width: 0;
   overflow: hidden;
@@ -192,29 +194,29 @@
   white-space: nowrap;
 }
 
-.config-sidebar-text.is-grow {
+.sidebarText.isGrow {
   flex: 1;
 }
 
-.config-sidebar-text.is-muted {
+.sidebarText.isMuted {
   color: var(--text-dim);
 }
 
-.config-sidebar-message {
+.sidebarMessage {
   padding: 10px 8px;
   color: var(--text-muted);
   font-size: 12px;
 }
 
-.config-sidebar-message.is-error {
+.sidebarMessage.isError {
   color: #ef4444;
 }
 
-.config-sidebar-message.is-empty {
+.sidebarMessage.isEmpty {
   color: var(--text-dim);
 }
 
-.config-detail {
+.detail {
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -225,7 +227,7 @@
   line-height: 1.5;
 }
 
-.config-detail-stack {
+.detailStack {
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -233,15 +235,15 @@
   min-width: 0;
 }
 
-.config-detail-stack.is-fill {
+.detailStack.isFill {
   min-height: 100%;
 }
 
-.config-detail-stack.is-full-height {
+.detailStack.isFullHeight {
   height: 100%;
 }
 
-.config-detail-header {
+.detailHeader {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -250,11 +252,11 @@
   min-height: 28px;
 }
 
-.config-detail-header.is-top-aligned {
+.detailHeader.isTopAligned {
   align-items: flex-start;
 }
 
-.config-detail-header-info {
+.detailHeaderInfo {
   display: flex;
   flex: 1 1 160px;
   align-items: center;
@@ -262,7 +264,7 @@
   min-width: 0;
 }
 
-.config-detail-actions {
+.detailActions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -273,14 +275,14 @@
   margin-left: auto;
 }
 
-.config-detail-title {
+.detailTitle {
   color: var(--text);
   font-size: 14px;
   font-weight: 600;
   line-height: 1.35;
 }
 
-.config-section-title {
+.sectionTitle {
   color: var(--text-dim);
   font-size: 11px;
   font-weight: 600;
@@ -289,21 +291,21 @@
   text-transform: uppercase;
 }
 
-.config-field {
+.field {
   display: flex;
   flex-direction: column;
   gap: 5px;
   min-width: 0;
 }
 
-.config-field-label {
+.fieldLabel {
   color: var(--text-muted);
   font-size: 11px;
   font-weight: 500;
   line-height: 1.35;
 }
 
-.config-empty-state {
+.emptyState {
   display: grid;
   flex: 1;
   place-items: center;
@@ -314,7 +316,7 @@
   text-align: center;
 }
 
-.config-detail-path {
+.detailPath {
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -325,7 +327,7 @@
   white-space: nowrap;
 }
 
-.config-scope-tag {
+.scopeTag {
   flex-shrink: 0;
   padding: 1px 5px;
   border-radius: 3px;
@@ -334,12 +336,12 @@
   font-size: 10px;
 }
 
-.config-scope-tag.is-project {
+.scopeTag.isProject {
   background: rgba(99, 102, 241, 0.12);
   color: rgba(99, 102, 241, 0.8);
 }
 
-.config-trust-notice {
+.trustNotice {
   padding: 8px 18px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-panel);
@@ -347,7 +349,7 @@
   font-size: 12px;
 }
 
-.config-footer {
+.footer {
   display: flex;
   flex-shrink: 0;
   align-items: center;
@@ -357,7 +359,7 @@
   border-top: 1px solid var(--border);
 }
 
-.config-footer-status {
+.footerStatus {
   flex: 1;
   min-width: 0;
   overflow: hidden;
@@ -365,7 +367,7 @@
   font-size: 11px;
 }
 
-.config-footer-actions {
+.footerActions {
   display: flex;
   flex-shrink: 0;
   align-items: center;
@@ -373,11 +375,11 @@
   gap: 8px;
 }
 
-.config-footer-actions .config-button-default {
+.footerActions .buttonDefault {
   min-width: 96px;
 }
 
-.config-button {
+.button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -393,87 +395,82 @@
   transition: background-color 0.14s ease, border-color 0.14s ease, color 0.14s ease, box-shadow 0.14s ease;
 }
 
-.config-button-default {
+.buttonDefault {
   height: 32px;
   padding: 0 14px;
   font-size: 12px;
 }
 
-.config-button-small {
+.buttonSmall {
   height: 28px;
   padding: 0 10px;
   font-size: 11px;
 }
 
-.config-button-primary {
+.buttonPrimary {
   border-color: var(--accent);
   background: var(--accent);
   color: var(--accent-contrast);
   font-weight: 600;
 }
 
-.config-button-secondary {
+.buttonSecondary {
   border-color: var(--border);
   background: transparent;
   color: var(--text-muted);
 }
 
-.config-button-danger {
+.buttonDanger {
   border-color: rgba(239, 68, 68, 0.35);
   background: rgba(239, 68, 68, 0.06);
   color: #ef4444;
 }
 
-.config-button-ghost {
+.buttonGhost {
   border-color: transparent;
   background: transparent;
   color: var(--text-muted);
 }
 
-.config-button-primary:not(:disabled):hover {
+.buttonPrimary:not(:disabled):hover {
   border-color: var(--accent-hover);
   background: var(--accent-hover);
 }
 
-.config-button-secondary:not(:disabled):hover,
-.config-button-ghost:not(:disabled):hover {
+.buttonSecondary:not(:disabled):hover,
+.buttonGhost:not(:disabled):hover {
   border-color: var(--border);
   background: var(--bg-hover);
   color: var(--text);
 }
 
-.config-button-danger:not(:disabled):hover {
+.buttonDanger:not(:disabled):hover {
   border-color: rgba(239, 68, 68, 0.5);
   background: rgba(239, 68, 68, 0.12);
 }
 
-.config-button:focus-visible {
+.button:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-.config-button:disabled {
+.button:disabled {
   cursor: default;
   opacity: 0.5;
 }
 
-.config-button-primary.is-success {
+.buttonPrimary.isSuccess {
   border-color: #16a34a;
   background: #16a34a;
   animation: saved-pop 0.45s ease;
 }
 
-.config-button-success-icon {
-  flex-shrink: 0;
-  stroke-dasharray: 18;
-  animation: saved-check-draw 0.35s ease forwards;
-}
 
-.config-button.is-pushed-right {
+.button.isPushedRight {
   margin-left: auto;
 }
 
-.config-switch {
+.switch {
   position: relative;
   flex-shrink: 0;
   width: 32px;
@@ -486,36 +483,36 @@
   transition: background 0.15s, border-color 0.15s;
 }
 
-.config-switch[aria-checked="true"] {
+.switch[aria-checked="true"] {
   border-color: var(--accent);
   background: var(--accent);
 }
 
-.config-switch:not(:disabled):hover {
+.switch:not(:disabled):hover {
   border-color: var(--text-muted);
 }
 
-.config-switch[aria-checked="true"]:not(:disabled):hover {
+.switch[aria-checked="true"]:not(:disabled):hover {
   border-color: var(--accent-hover);
   background: var(--accent-hover);
 }
 
-.config-switch::before {
+.switch::before {
   content: "";
   position: absolute;
   inset: -5px -3px;
 }
 
-.config-switch:disabled {
+.switch:disabled {
   cursor: default;
   opacity: 0.55;
 }
 
-.config-switch.is-loading:disabled {
+.switch.isLoading:disabled {
   cursor: wait;
 }
 
-.config-switch-knob {
+.switchKnob {
   position: absolute;
   top: 2px;
   left: 2px;
@@ -526,23 +523,23 @@
   transition: transform 0.15s, background 0.15s;
 }
 
-.config-switch[aria-checked="true"] .config-switch-knob {
+.switch[aria-checked="true"] .switchKnob {
   transform: translateX(14px);
   background: var(--bg);
 }
 
-.config-switch:focus-visible {
+.switch:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
-.config-list-action {
+.listAction {
   flex-shrink: 0;
   padding: 8px 6px;
   border-top: 1px solid var(--border);
 }
 
-.config-list-action-button {
+.listActionButton {
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -559,24 +556,24 @@
   font-size: 12px;
 }
 
-.config-list-action-button:not(:disabled):hover,
-.config-list-action-button:not(:disabled):focus-visible {
+.listActionButton:not(:disabled):hover,
+.listActionButton:not(:disabled):focus-visible {
   background: var(--bg-hover);
   color: var(--text-muted);
   outline: none;
 }
 
-.config-list-action-button[aria-current="page"] {
+.listActionButton[aria-current="page"] {
   background: var(--bg-selected);
   color: var(--accent);
 }
 
-.config-list-action-button:disabled {
+.listActionButton:disabled {
   cursor: default;
   opacity: 0.5;
 }
 
-.config-status-dot {
+.statusDot {
   flex-shrink: 0;
   width: 7px;
   height: 7px;
@@ -584,11 +581,43 @@
   background: var(--text-dim);
 }
 
-.config-status-dot.is-active {
+.statusDot.isActive {
   background: var(--accent);
 }
 
-.config-status-dot.is-inactive {
+.statusDot.isInactive {
   opacity: 0.7;
 }
 
+@keyframes saved-pop {
+  0%   { transform: scale(1); box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.55); }
+  40%  { transform: scale(1.08); box-shadow: 0 0 0 6px rgba(74, 222, 128, 0.25); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(74, 222, 128, 0); }
+}
+
+@keyframes saved-check-draw {
+  from { stroke-dashoffset: 18; opacity: 0; }
+  to   { stroke-dashoffset: 0;  opacity: 1; }
+}
+
+@media (max-width: 640px) {
+    .panelRoot.isModal > .panelSurface {
+      width: calc(100vw - 16px);
+      height: calc(100dvh - 16px);
+    }
+
+    .splitView {
+      flex-direction: column;
+    }
+
+    .sidebar {
+      width: 100%;
+      height: 190px;
+      border-right: 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .detail {
+      padding: 14px;
+    }
+}

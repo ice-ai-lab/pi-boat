@@ -1,4 +1,5 @@
-/* 模型设置（models-sidebar-* / enabled-models-*；原 settings.css 拆分） */
+/* 设置域未接线规范类（阶段二批次 5 归拢）：组件尚未消费，接线时转 module 或删除。
+   models-sidebar-* / enabled-models-* 整表未接线（T5-x）。 */
 
 .models-sidebar-indented-item {
   padding-left: 26px;
@@ -179,3 +180,56 @@
   font-size: 9px;
 }
 
+.skill-source-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.skill-source-link-text {
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-general-description {
+  margin: 0 0 12px;
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.settings-general-error {
+  margin: 8px 0 0;
+  color: #ef4444;
+  font-size: 11px;
+}
+
+
+.settings-shell-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  max-width: 420px;
+  min-height: 44px;
+  padding: 0 10px;
+  border-radius: 5px;
+  background: var(--bg-panel);
+  color: var(--text);
+  font-size: 12px;
+}
+
+/* 成功态勾选图标（.config-button-success-icon）：无消费方 */
+.config-button-success-icon {
+  flex-shrink: 0;
+  stroke-dasharray: 18;
+  animation: saved-check-draw 0.35s ease forwards;
+}
