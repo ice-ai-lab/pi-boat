@@ -722,6 +722,7 @@ function SessionItem({
               whiteSpace: 'nowrap',
               fontSize: 12.5,
               color: 'var(--text)',
+              fontWeight: isSelected ? 500 : undefined,
             }}
             title={title}
           >
