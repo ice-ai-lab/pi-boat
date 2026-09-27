@@ -48,8 +48,17 @@ export function autoNameSession(
     .then((res) => res.data);
 }
 
-/** GET /api/sessions/:id/export —— HTML 导出（inline=1 浏览器内预览，否则附件下载） */
-export function sessionExportUrl(sessionId: string, inline = false): string {
-  const qs = inline ? '?inline=1' : '';
-  return `/api/sessions/${encodeURIComponent(sessionId)}/export${qs}`;
+/**
+ * GET /api/sessions/:id/export?inline=1 —— 完整历史（自包含 HTML）。
+ *
+ * 恒带 `inline=1`：唯一的消费方是顶栏「完整历史」，它把这串 URL 交给
+ * `window.open` 期待**浏览器内打开**；漏掉这个参数服务端会回
+ * `Content-Disposition: attachment`，新标签页还没来得及渲染就变成一次下载
+ * （2026-09-27 实测：点了按钮只下到 `session (1).html`）。
+ *
+ * ⚠️ 同 `entryImageUrl`：结果直接进浏览器地址栏，**不经过 axios 的 baseURL**，
+ * `/api` 前缀由本函数自带。
+ */
+export function sessionExportUrl(sessionId: string): string {
+  return `/api/sessions/${encodeURIComponent(sessionId)}/export?inline=1`;
 }
