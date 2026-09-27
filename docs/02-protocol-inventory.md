@@ -120,7 +120,7 @@
 | 模型/思考 | `set_model {provider, modelId}` → `ModelRef`（`{provider, modelId}`，与 `AgentState.model` 同形）；`set_thinking_level {level}` |
 | 压缩 | `compact {customInstructions?}`；`abort_compaction`；`set_auto_compaction {enabled}`；`set_auto_retry {enabled}` |
 | 分支 | `fork {entryId}` → `{cancelled, newSessionId}`（**破坏性原地替换**，见概要设计 §8-1）；`fork_branch {entryId}` → 新会话不改当前；`clone {leafId?}`；`navigate_tree {targetId}` → `{cancelled, editorText?}` |
-| 工具 | `get_tools` → ToolInfo[]（含 active）；`set_tools {toolNames? \| preset?}`（两者恰给一个，core 校验）→ **双路径**：只需换激活名单时走 switch 返回 null；`preset:'none'`（纯聊天边界）或 `preset:'configured'`（撤销钉住）要换 resource loader ⇒ 重建 runtime，data 为 `{sessionId, recreated}` |
+| 工具 | `get_tools` → ToolInfo[]（含 active）；`set_tools {toolNames? \| preset?}`（两者恰给一个，core 校验）→ **双路径**：只需换激活名单时走 switch 返回 null；跨纯聊天边界（进：空名单；出：空 runtime 无从激活）要换 resource loader ⇒ 重建 runtime，**SDK 会派生新会话 id**，data 为 `{sessionId, recreated}` 并广播 `session_replaced {reason:'tools'}` |
 | 命令面板 | `get_commands` → `{commands: SlashCommandInfo[]}` |
 | 会话管理 | `set_session_name {name}` → null（空白名报错）；`reload` → null（重绑扩展并重载资源）；`ensure_session`（仅 `agent/new` 的 type 值：只建 runtime 不发首条消息，供客户端预查命令） |
 | 扩展 UI | `extension_ui_response`（~~`extension_ui_input`~~ 不存在，见 ADR-0012） |

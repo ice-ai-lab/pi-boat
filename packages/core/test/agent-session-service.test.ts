@@ -664,7 +664,7 @@ describe('AgentSessionService：工具预设与纯聊天边界（G2-9/G2-10）',
     expect(fake.session.setActiveToolsByName).toHaveBeenCalledWith(['read', 'grep', 'find', 'ls']);
   });
 
-  it('preset=none（纯聊天）：整 runtime 重建并返回 {sessionId, recreated:true}', async () => {
+  it('preset=chat-only（纯聊天）：整 runtime 重建并返回 {sessionId, recreated:true}', async () => {
     const fake = fakeAgentSession();
     const rebuilt = fakeAgentSession({ sessionId: 'sess-1' });
     const calls: Array<{ sessionFile?: string; chatOnly?: boolean }> = [];
@@ -677,19 +677,37 @@ describe('AgentSessionService：工具预设与纯聊天边界（G2-9/G2-10）',
     });
     await service.create({ cwd: '/tmp', type: 'ensure_session' });
 
-    const result = await service.send('sess-1', { type: 'set_tools', preset: 'none' });
+    const result = await service.send('sess-1', { type: 'set_tools', preset: 'chat-only' });
     expect(result).toEqual({ sessionId: 'sess-1', recreated: true });
     expect(calls.at(-1)).toMatchObject({ sessionFile: '/tmp/sess-1.jsonl', chatOnly: true });
     expect(service.isResident('sess-1')).toBe(true);
   });
 
-  it('preset=configured：未钉住时是 no-op；已钉住则重建回默认', async () => {
-    const fake = fakeAgentSession();
-    const { service } = serviceWith(fake);
+  it('set_tools：跨出纯聊天边界也要重建（空 runtime 激活无从谈起），激活名单在重建后应用', async () => {
+    const first = fakeAgentSession().session; // sess-1
+    const chatOnlySession = fakeAgentSession({ sessionId: 'sess-2' }).session;
+    (chatOnlySession as { getAllTools: () => unknown[] }).getAllTools = () => [];
+    const full = fakeAgentSession({ sessionId: 'sess-3' }).session;
+    const runtimes = [first, chatOnlySession, full];
+    const calls: Array<{ chatOnly?: boolean; tools?: string[] | undefined }> = [];
+    const service = new AgentSessionService({
+      createRuntime: async (input) => {
+        calls.push({ chatOnly: input.chatOnly, tools: input.tools });
+        return fakeRuntime(runtimes[calls.length - 1] ?? full);
+      },
+      findSessionFile: async () => null,
+    });
     await service.create({ cwd: '/tmp', type: 'ensure_session' });
 
-    // manager.getEntries() 恒 []（fake）⇒ 未钉住 ⇒ 无需重建
-    expect(await service.send('sess-1', { type: 'set_tools', preset: 'configured' })).toBeNull();
+    // 进纯聊天：重建，注册名单为空
+    await service.send('sess-1', { type: 'set_tools', preset: 'chat-only' });
+    expect(calls[1]).toMatchObject({ chatOnly: true, tools: [] });
+
+    // 跨出：当前 runtime 没注册任何工具，必须重建（注册全量）并重建后激活名单
+    const result = await service.send('sess-2', { type: 'set_tools', preset: 'read-only' });
+    expect(calls[2]).toMatchObject({ chatOnly: false, tools: undefined });
+    expect(result).toEqual({ sessionId: 'sess-3', recreated: true });
+    expect(full.setActiveToolsByName).toHaveBeenCalledWith(['read', 'grep', 'find', 'ls']);
   });
 
   it('agent/new 带空 toolNames：直接按纯聊天建会话', async () => {

@@ -20,7 +20,7 @@ import {
   useModelsQuery,
   useSessionDetailQuery,
 } from '@ice-ai/client/react';
-import { TOOL_PRESETS } from '@ice-ai/protocol';
+import { presetForToolNames, TOOL_PRESETS } from '@ice-ai/protocol';
 import {
   BranchNavigator,
   ChatMinimap,
@@ -230,7 +230,7 @@ export interface ChatPaneProps {
 
 /**
  * 工具预设候选（T2-6）：与设计规范一致——标签就是预设 id，含义由面板右侧的描述行承担
- * （`chat.configuredTools` / `chat.chatOnly` / …，见 ComposerMenus）。值域单一来源是 protocol 的
+ * （`chat.chatOnly` / `chat.readOnlyTools` / …，见 ComposerMenus）。值域单一来源是 protocol 的
  * `TOOL_PRESETS`，不再手写第二份中文标签。
  */
 const TOOL_PRESET_OPTIONS = TOOL_PRESETS.map((value) => ({ value, label: value }));
@@ -646,6 +646,17 @@ export function ChatPane({
     [models.data],
   );
 
+  /**
+   * 工具预设回显：按**当前生效工具集**反查（`presetForToolNames` 的勾选口径），
+   * 而不是「上次点了哪一项」。没匹配上（settings 被改过 / 扩展塞进了工具）则四项
+   * 都不勾、按钮只剩图标——设计如此，不是 bug。无会话时不回显。
+   * ⚠️ 不能拿 `tools.length > 0` 当门槛：chat-only 的 get_tools 本身就是空表。
+   */
+  const toolPreset =
+    sessionId !== null
+      ? presetForToolNames(session.tools.filter((tool) => tool.active).map((tool) => tool.name))
+      : null;
+
   /** 拖拽图片到窗口任意处即可附加（T2-2）：depth 计数避开子元素 dragleave 抖动 */
   const dragDepthRef = useRef(0);
   const dragHandlers = {
@@ -802,7 +813,7 @@ export function ChatPane({
                 if (error !== null) pushToast(error, 'error');
               })
             }
-            toolPreset={null}
+            toolPreset={toolPreset}
             toolPresets={[...TOOL_PRESET_OPTIONS]}
             onToolPresetChange={(preset) =>
               void session.setTools(preset as never).then((error) => {

@@ -330,7 +330,6 @@ export const jaLocale: LocalePlugin = {
     'chat.shell': 'シェル',
     'chat.outputLocal': '出力はローカルに留まります',
     'chat.outputModel': '出力はモデルに送信されます',
-    'chat.configuredTools': 'settings.json の defaultTools より',
     'chat.chatOnly': 'チャットのみ',
     'chat.readOnlyTools': '{count} 個の読み取り専用組み込みツール',
     'chat.builtInTools': '{count} 個の組み込みツール',

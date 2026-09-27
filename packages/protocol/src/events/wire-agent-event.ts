@@ -26,12 +26,12 @@ export type SessionShutdownReason = 'idle' | 'server_shutdown' | 'error';
 
 /**
  * 会话运行时被替换的原因（`session_replaced` 事件）。
- * 这四种都会让**会话 id 改变**，因此必须在下发 `session_shutdown` 之前告知客户端新 id，
+ * 这五种都会让**会话 id 改变**，因此必须在下发 `session_shutdown` 之前告知客户端新 id，
  * 否则观看中的标签页只能重连到一个已不存在的旧 id（fork 的原地替换语义，docs/01 §8-1）。
  *
  * ⚠️ `navigate_tree` **不在**此列：它只是在同一文件里换叶节点，会话 id 不变。
  */
-export type SessionReplacedReason = 'new' | 'fork' | 'clone' | 'resume';
+export type SessionReplacedReason = 'new' | 'fork' | 'clone' | 'resume' | 'tools';
 
 /**
  * 宿主主动关闭扩展对话框的原因（`extension_ui_closed` 事件）。

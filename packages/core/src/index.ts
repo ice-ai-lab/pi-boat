@@ -54,7 +54,6 @@ export {
   type WireAgentEventListener,
 } from './agent/session-entry';
 export {
-  clearedToolSelection,
   readSessionToolSelection,
   TOOL_SELECTION_CUSTOM_TYPE,
   writeToolSelection,

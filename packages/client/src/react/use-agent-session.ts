@@ -490,15 +490,22 @@ export function useAgentSession(): UseAgentSessionResult {
       if (id === null) return '没有活动会话';
       try {
         const result = await setAgentTools(id, preset);
-        // 冷会话路径会换 runtime（可能换 sessionId）：交给上层重新 open
-        if (result !== null && result.sessionId !== id) return `会话已重建（${result.sessionId}）`;
+        if (result !== null && result.sessionId !== id) {
+          // 纯聊天边界重建会换会话 id（core 广播 session_replaced 后重 key）：
+          // 跟到新 id 重建本地状态（同 fork 的重绑三件套）
+          disposeAgentStream(id);
+          initializedRef.current = result.sessionId;
+          switchSession(result.sessionId);
+          setHistoryCursor({ hasMore: false });
+          return null;
+        }
         await loadTools();
         return null;
       } catch (error) {
         return errorMessage(error);
       }
     },
-    [requireSession, loadTools],
+    [requireSession, loadTools, switchSession],
   );
 
   const autoName = useCallback(

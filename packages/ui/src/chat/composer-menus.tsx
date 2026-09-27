@@ -29,10 +29,14 @@ const THINKING_DESC_KEYS: Record<string, string> = {
   max: 'chat.thinkingMax',
 };
 
-/** 预设描述 key（设计规范 ChatInput 的 `TOOL_PRESETS` 分支） */
+/**
+ * 预设描述 key。键 = protocol `TOOL_PRESETS` 的值（即菜单项 value）。
+ * count 硬编码对照 protocol `TOOL_PRESET_NAMES`：read-only 4 个（read/grep/find/ls）、
+ * default 4 个（read/bash/edit/write）；名单变更须同步（ui 只依赖 protocol 类型，
+ * 不能运行时引用该表求长度）。
+ */
 const TOOL_PRESET_DESC: Record<string, { key: string; count?: number }> = {
-  configured: { key: 'chat.configuredTools' },
-  none: { key: 'chat.chatOnly' },
+  'chat-only': { key: 'chat.chatOnly' },
   'read-only': { key: 'chat.readOnlyTools', count: 4 },
   default: { key: 'chat.builtInTools', count: 4 },
   full: { key: 'chat.allBuiltInTools' },
@@ -116,10 +120,7 @@ export function ComposerMenus({
   }, [streaming]);
 
   const thinkingLabel = thinkingLevel ?? thinkingLevels[0] ?? '';
-  const toolPresetLabel =
-    toolPresets.find((preset) => preset.value === toolPreset)?.label ??
-    toolPresets.find((preset) => preset.value === 'configured')?.label ??
-    '';
+  const toolPresetLabel = toolPresets.find((preset) => preset.value === toolPreset)?.label ?? '';
 
   const button = (
     open: boolean,
@@ -248,7 +249,7 @@ export function ComposerMenus({
           {toolOpen && (
             <div role="listbox" style={{ ...PANEL, minWidth: 140 }}>
               {toolPresets.map((preset) => {
-                const active = (toolPreset ?? 'configured') === preset.value;
+                const active = toolPreset === preset.value;
                 const desc = TOOL_PRESET_DESC[preset.value];
                 return (
                   <button

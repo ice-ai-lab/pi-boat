@@ -329,7 +329,6 @@ export const enLocale: LocalePlugin = {
     'chat.shell': 'Shell',
     'chat.outputLocal': 'output stays local',
     'chat.outputModel': 'output sent to model',
-    'chat.configuredTools': 'From settings.json defaultTools',
     'chat.chatOnly': 'Chat only',
     'chat.readOnlyTools': '{count} read-only built-in tools',
     'chat.builtInTools': '{count} built-in tools',

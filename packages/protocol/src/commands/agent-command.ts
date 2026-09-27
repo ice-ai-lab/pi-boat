@@ -48,7 +48,7 @@ export const AgentCommandSchema = z.discriminatedUnion('type', [
   /**
    * set_tools 双形态（`toolNames` 与 `preset` 恰好给一个，由 core 校验后报 400）：
    * - `toolNames`：显式名单（前端高级模式）
-   * - `preset`：预设（G2-9）；`configured` = 撤销钉住，回到 settings.json 的 defaultTools
+   * - `preset`：预设（G2-9）；`chat-only` 即纯聊天边界，其余预设各钉一份固定名单
    * 两个字段都可选、由 core 做互斥校验：判别联合的成员必须是普通 ZodObject，
    * 挂 ZodUnion/ZodEffects 会让 outside-in 的判别提取失败。
    */

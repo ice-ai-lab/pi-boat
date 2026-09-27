@@ -125,7 +125,8 @@ export class SessionRegistryEntry {
   /**
    * 换掉**整个 runtime**（同一会话文件、不同 resource loader / session 选项）。
    * 与 `rebind()` 的区别：那个是同一 runtime 内换了会话（fork）；这里是连 runtime
-   * 都换掉（chat-only 的纯聊天边界、冷会话的 set_tools 重建）。会话 id 通常不变。
+   * 都换掉（set_tools 的纯聊天边界重建、冷会话恢复）。⚠️ SDK 0.87 重建后会派生
+   * 新会话 id，收口（重 key + 广播）由调用方走 `afterReplacement` 完成。
    */
   async replaceRuntime(runtime: AgentSessionRuntime): Promise<void> {
     if (this.disposed) {

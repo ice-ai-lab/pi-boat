@@ -41,7 +41,6 @@ import {
 } from '../read/dir-scan';
 import { SessionRegistryEntry, type WireAgentEventListener } from './session-entry';
 import {
-  clearedToolSelection,
   readSessionToolSelection,
   TOOL_SELECTION_CUSTOM_TYPE,
   writeToolSelection,
@@ -117,12 +116,14 @@ export interface CreateRuntimeInput {
   /** 显式模型（已解析好的 SDK Model） */
   model?: AgentSession['model'];
   thinkingLevel?: ThinkingLevel;
-  /** 工具名 allowlist（显式名单或预设展开结果） */
+  /** 工具注册名单：仅纯聊天传 []（什么都不注册）；不传 = SDK 按设置注册全量目录，
+   * 激活子集由调用方在 runtime 建好后用 setActiveToolsByName 应用（窄注册会让
+   * 后续切预设静默失效：未注册的工具激活不了） */
   tools?: string[];
   /**
    * 纯聊天（G2-9 边界）：关掉扩展/技能/模板/主题（没有工具可执行，加载了也用不上）。
    * 系统提示词不特殊处理，交给 pi 按默认结构化段落组装（ADR-0015）。
-   * 由 `set_tools {preset:'none'}` 或 `agent/new {toolNames:[]}` 触发。
+   * 由 `set_tools {preset:'chat-only'}` 或 `agent/new {toolNames:[]}` 触发。
    */
   chatOnly?: boolean;
 }
@@ -190,11 +191,14 @@ export class AgentSessionService {
     }
 
     // 显式模型：在 runtime 建好之后按 provider/modelId 解析（需要 ModelRuntime）
+    // 注册全量目录（不传 tools），激活子集在 runtime 建好后应用——否则窄注册的
+    // runtime 后续切到未注册的工具时 setActiveToolsByName 静默无效（SDK 语义）
+    const chatOnly = toolNames !== undefined && toolNames.length === 0;
     const runtime = await this.createRuntime({
       cwd,
       thinkingLevel,
-      tools: toolNames,
-      chatOnly: toolNames !== undefined && toolNames.length === 0,
+      tools: chatOnly ? [] : undefined,
+      chatOnly,
     });
 
     const entry = await this.register(makeEntry(runtime));
@@ -211,9 +215,10 @@ export class AgentSessionService {
       await session.setModel(model);
     }
 
-    // 显式工具名单/预设：钉住并持久化（否则下次恢复又回到 settings.json 默认）
+    // 显式工具名单/预设：钉住并持久化 + 按名单激活（否则下次恢复又回到 settings.json 默认）
     if (toolNames !== undefined) {
       this.persistToolSelection(entry, toolNames);
+      if (toolNames.length > 0) session.setActiveToolsByName(toolNames);
     }
 
     // ensure_session：只建 runtime 不发首条消息（供客户端预查命令/工具）
@@ -241,18 +246,19 @@ export class AgentSessionService {
     const hit = await this.findSessionFile(sessionId);
     if (hit === null) throw new SessionNotFoundError(sessionId);
 
-    // 该会话自己钉过的工具选择要一并恢复（G2-9 持久化）
+    // 该会话自己钉过的工具选择要一并恢复（G2-9 持久化）；注册全量目录、激活钉住子集
     const manager = this.openSessionManager(hit.path);
     const pinned = readSessionToolSelection(manager.getEntries());
-    const tools = pinned === undefined ? undefined : pinned;
+    const chatOnly = pinned !== undefined && pinned.length === 0;
 
     const runtime = await this.createRuntime({
       cwd: hit.cwd,
       sessionFile: hit.path,
-      tools,
-      chatOnly: pinned !== undefined && pinned.length === 0,
+      tools: chatOnly ? [] : undefined,
+      chatOnly,
     });
     const entry = await this.register(makeEntry(runtime));
+    if (pinned !== undefined && pinned.length > 0) entry.session.setActiveToolsByName(pinned);
     return this.okEnvelope(entry);
   }
 
@@ -610,9 +616,10 @@ export class AgentSessionService {
   /**
    * 两形态 + 两路径：
    * - `toolNames`（含空数组 = 纯聊天）/ `preset` 展开后的名单
-   * - **纯聊天边界需要整 runtime 重建**（resource loader 要换：关扩展/技能、换系统提示词），
-   *   其余预设只需 `setActiveToolsByName` 即时生效
-   * - `configured` 是「撤销钉住」：追加一条 cleared 条目并重建 runtime 回到默认
+   * - **纯聊天边界（双向）需要整 runtime 重建**：进纯聊天要换 resource loader
+   *   （关扩展/技能）；出纯聊天时 runtime 没注册任何工具，激活无从谈起。
+   *   重建会换会话 id（见 rebuildRuntime），返回 `{sessionId, recreated}`；
+   *   其余切换只需 `setActiveToolsByName` 即时生效，返回 null
    */
   private async setTools(
     entry: SessionRegistryEntry,
@@ -627,24 +634,18 @@ export class AgentSessionService {
     const requestedNames = hasNames
       ? command.toolNames
       : toolNamesForPreset(command.preset as ToolPreset);
-    // `configured` = 不下发覆盖：撤销钉住并回到 settings.json 的 defaultTools
-    const chatOnly = requestedNames !== undefined && requestedNames.length === 0;
-
+    // 不可达：上方互斥校验后必有名单（toolNames 直给或 preset 展开），仅为收窄类型
     if (requestedNames === undefined) {
-      // 撤销钉住：只在会话确实钉过时才需要重建
-      const pinned = readSessionToolSelection(entry.session.sessionManager.getEntries());
-      if (pinned === undefined) return null;
-      this.assertNotBusy(entry, 'set_tools');
-      clearedToolSelection(entry.session.sessionManager);
-      await this.rebuildRuntime(entry, { preset: 'configured' });
-      return { sessionId: entry.sessionId, recreated: true };
+      throw new UserInputError('set_tools requires exactly one of toolNames or preset');
     }
 
-    if (chatOnly) {
-      // 纯聊天边界：runtime 重建（resource loader 级别变化）
+    if (requestedNames.length === 0 || entry.session.getAllTools().length === 0) {
+      // 纯聊天边界（**双向**都是 resource loader 级变化，都要重建）：进纯聊天要关
+      // 扩展/技能；出纯聊天时 runtime 里一个工具都没注册，setActiveToolsByName
+      // 无从激活（2026-09-27 实测：chat-only 后切 read-only，get_tools 仍为空）
       this.assertNotBusy(entry, 'set_tools');
       this.persistToolSelection(entry, requestedNames);
-      await this.rebuildRuntime(entry, { preset: 'none' });
+      await this.rebuildRuntime(entry, { tools: requestedNames });
       return { sessionId: entry.sessionId, recreated: true };
     }
 
@@ -658,24 +659,31 @@ export class AgentSessionService {
     writeToolSelection(entry.session.sessionManager, toolNames);
   }
 
-  /** 用当前会话文件重建 runtime（同一会话 id），并可选换预设/纯聊天 */
+  /**
+   * 用当前会话文件重建 runtime（resource loader / 工具集变化，G2-9 纯聊天边界）。
+   *
+   * ⚠️ 实测 SDK 0.87：重建后的 runtime 会派生**新会话 id**（同一份 .jsonl 也一样），
+   * 与 `resume()` 同款收口——afterReplacement 重 key 注册表并广播
+   * `session_replaced {reason:'tools'}`，客户端跟到新 id。
+   */
   private async rebuildRuntime(
     entry: SessionRegistryEntry,
-    options: { preset: ToolPreset },
+    options: { tools: readonly string[] },
   ): Promise<void> {
     const sessionFile = entry.session.sessionFile;
     if (sessionFile === undefined) {
       throw new UserInputError('Session is not persisted yet; cannot rebuild its runtime');
     }
-    const toolNames = toolNamesForPreset(options.preset);
+    const chatOnly = options.tools.length === 0;
     const runtime = await this.createRuntime({
       cwd: entry.session.sessionManager.getCwd(),
       sessionFile,
-      tools: toolNames,
-      chatOnly: toolNames !== undefined && toolNames.length === 0,
+      tools: chatOnly ? [] : undefined,
+      chatOnly,
     });
     await entry.replaceRuntime(runtime);
-    await this.bindExtensions(entry);
+    if (!chatOnly) entry.session.setActiveToolsByName([...options.tools]);
+    await this.afterReplacement(entry, 'tools');
   }
 
   private async reloadSession(entry: SessionRegistryEntry): Promise<void> {

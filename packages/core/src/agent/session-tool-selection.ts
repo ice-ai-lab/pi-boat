@@ -14,7 +14,8 @@ import type { SessionEntry, SessionManager } from '@earendil-works/pi-coding-age
  * 别的宿主各有各的标记，互不识别，这不是兼容性缺口而是有意为之：会话级钉住
  * 本来就只对写下它的宿主有意义）：
  * - `{version: 1, tools: string[]}`：钉住这些工具
- * - `{version: 1, cleared: true}`：撤销钉住，回到 settings.json 的 defaultTools
+ * - `{version: 1, cleared: true}`：撤销钉住（**已退役**：`configured` 预设随 protocol
+ *   改名移除后不再写入；读取保留——旧会话文件里的 cleared 条目仍按「未钉住」解析）
  *
  * 会话日志只追加，所以「撤销」只能靠**更新的**一条条目表达——没有它，最早的钉住
  * 会永远生效。
@@ -26,11 +27,6 @@ export const TOOL_SELECTION_CUSTOM_TYPE = 'piboat:tool-selection';
 export interface SessionToolSelectionData {
   version: 1;
   tools: string[];
-}
-
-export interface ClearedSessionToolSelectionData {
-  version: 1;
-  cleared: true;
 }
 
 const CLEARED = Symbol('cleared-tool-selection');
@@ -63,11 +59,5 @@ export function readSessionToolSelection(entries: readonly SessionEntry[]): stri
 /** 钉住一组工具名（追加一条 custom 条目） */
 export function writeToolSelection(manager: SessionManager, toolNames: readonly string[]): void {
   const data: SessionToolSelectionData = { version: 1, tools: [...toolNames] };
-  manager.appendCustomEntry(TOOL_SELECTION_CUSTOM_TYPE, data);
-}
-
-/** 撤销钉住（追加一条 cleared 条目；日志只追加，故必须显式作废） */
-export function clearedToolSelection(manager: SessionManager): void {
-  const data: ClearedSessionToolSelectionData = { version: 1, cleared: true };
   manager.appendCustomEntry(TOOL_SELECTION_CUSTOM_TYPE, data);
 }
