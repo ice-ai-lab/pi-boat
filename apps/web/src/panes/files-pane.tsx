@@ -2,6 +2,7 @@ import { fileByteUrl, getFileName, getRelativeFilePath, isImagePath } from '@ice
 import { useGitStatusQuery } from '@ice-ai/client/react';
 import { FileTabs, FileViewer, useI18n } from '@ice-ai/ui';
 import { useCallback, useMemo } from 'react';
+import workspace from '../layout/workspace.module.css';
 import { fileTabsStore } from '../services/file-tabs-store';
 import { insertMention } from '../services/mention-bus';
 import { useFileContent } from '../services/use-file-content';
@@ -85,7 +86,7 @@ export function FilesPane({
         </div>
         <button
           type="button"
-          className="file-panel-expand-button"
+          className={workspace.filePanelExpandButton}
           onClick={onToggleExpand}
           aria-controls="file-panel"
           aria-pressed={expanded}

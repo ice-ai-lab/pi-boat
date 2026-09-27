@@ -269,3 +269,8 @@
 .compaction-file-list li + li {
   margin-top: 3px;
 }
+
+/* 移动端隐藏会话统计区（原 web workspace.css 迁入；无消费方，组件从不加该类） */
+.chat-stats-center {
+  display: none !important;
+}

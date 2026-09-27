@@ -119,7 +119,7 @@ export function DirectoryPicker({
 
   return createPortal(
     <div
-      className="directory-picker-backdrop"
+      className={styles.backdrop}
       role="dialog"
       aria-modal="true"
       aria-label={t('directoryPicker.selectDirectory')}
@@ -140,7 +140,7 @@ export function DirectoryPicker({
       }}
     >
       <div
-        className="directory-picker-panel"
+        className={styles.panel}
         style={{
           width: 520,
           maxWidth: 'calc(100vw - 16px)',
@@ -203,7 +203,7 @@ export function DirectoryPicker({
           }}
         >
           <button
-            className="directory-picker-back"
+            className={styles.back}
             type="button"
             onClick={() => void navigateTo(parentDirectory ?? undefined)}
             disabled={loading || !canNavigateUp}
@@ -284,7 +284,7 @@ export function DirectoryPicker({
             }}
           />
           <button
-            className="directory-picker-action"
+            className={styles.action}
             type="submit"
             disabled={loading || !pathInput.trim()}
             title={t('directoryPicker.goToDirectory')}
@@ -305,7 +305,7 @@ export function DirectoryPicker({
         </form>
 
         <div
-          className="directory-picker-list"
+          className={styles.list}
           style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '8px 10px' }}
         >
           {loading ? (
@@ -317,7 +317,7 @@ export function DirectoryPicker({
               drives.map((drive) => (
                 <button
                   key={drive.path}
-                  className="directory-picker-entry"
+                  className={styles.entry}
                   type="button"
                   onClick={() => void navigateTo(drive.path)}
                   title={drive.path}
@@ -351,7 +351,7 @@ export function DirectoryPicker({
             directories.map((entry) => (
               <button
                 key={entry.path}
-                className="directory-picker-entry"
+                className={styles.entry}
                 type="button"
                 onClick={() => void navigateTo(entry.path)}
                 title={entry.path}
@@ -393,7 +393,7 @@ export function DirectoryPicker({
         </div>
 
         <div
-          className="directory-picker-footer"
+          className={styles.footer}
           style={{
             display: 'flex',
             justifyContent: 'flex-end',
@@ -405,7 +405,7 @@ export function DirectoryPicker({
           }}
         >
           <button
-            className="directory-picker-action"
+            className={styles.action}
             type="button"
             onClick={onCancel}
             disabled={busy}
@@ -422,7 +422,7 @@ export function DirectoryPicker({
             {t('i18n.cancel')}
           </button>
           <button
-            className="directory-picker-action"
+            className={styles.action}
             type="button"
             onClick={() => onSelect(currentPath)}
             disabled={!canSelect}

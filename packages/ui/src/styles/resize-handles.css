@@ -52,3 +52,9 @@
   background: color-mix(in srgb, var(--text-muted) 70%, var(--border));
 }
 
+/* 移动端隐藏面板拖拽手柄（原 web workspace.css 迁入） */
+@media (max-width: 640px) {
+  .panel-resize-handle {
+    display: none;
+  }
+}

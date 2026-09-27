@@ -24,3 +24,35 @@
     }
 
 }
+
+/* 移动端触控目标（原 web workspace.css 的 mobile 块迁入） */
+@media (max-width: 640px) {
+    .back,
+    .entry,
+    .action {
+      min-height: 44px !important;
+    }
+    .back {
+      min-width: 44px !important;
+    }
+    .footer {
+      flex-wrap: wrap;
+      padding-bottom: max(10px, env(safe-area-inset-bottom)) !important;
+    }
+}
+
+/* 移动端触控目标（原 web workspace.css 的 mobile 块迁入） */
+@media (max-width: 640px) {
+    .back,
+    .entry,
+    .action {
+      min-height: 44px !important;
+    }
+    .back {
+      min-width: 44px !important;
+    }
+    .footer {
+      flex-wrap: wrap;
+      padding-bottom: max(10px, env(safe-area-inset-bottom)) !important;
+    }
+}

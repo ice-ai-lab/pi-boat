@@ -7,6 +7,7 @@ import {
 } from 'react';
 import { useI18n } from '../i18n/i18n-provider';
 import { Textarea } from '../primitives/textarea';
+import styles from './chat.module.css';
 import { type SuggestionItem, SuggestionMenu } from './suggestion-menu';
 
 /**
@@ -217,7 +218,7 @@ export function Composer({
         padding: '0 16px 8px',
       }}
     >
-      <div style={{ maxWidth: 'var(--chat-content-max-width, 820px)', margin: '0 auto' }}>
+      <div style={{ maxWidth: 'var(--chat-content-max-width, 1150px)', margin: '0 auto' }}>
         {aboveInput}
         {hasImages && (
           <div style={{ display: 'flex', gap: 6, marginBottom: 6, flexWrap: 'wrap' }}>
@@ -450,7 +451,7 @@ export function Composer({
               placeholder={placeholder}
               disabled={disabled}
               rows={1}
-              className="chat-input-textarea"
+              className={styles.inputTextarea}
               style={{
                 flex: 1,
                 minWidth: 0,

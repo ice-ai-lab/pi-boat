@@ -44,8 +44,11 @@ ADR-0020 把视觉基准定为统一 Web 设计规范后，组件级样式集中
 5. **构建产物的适配**：`packages/ui` 用 `tsc` 出 `dist`，需在 build 脚本中把 `src/**/*.module.css`
    复制到 `dist` 同路径（`apps/web` 经 `dist` 消费 ui）；ui 无 vite 依赖，自持
    `src/css-modules.d.ts` 声明 `*.module.css`（等价 `vite/client`）。
-6. **例外说明**：`apps/web/src/layout/workspace.css` 是 web 自有的工作区布局样式，
-   待其消费方（`workspace-layout.tsx`）的改动落地后同样转 module。
+6. **host 侧同样模块化**：`apps/web/src/layout/workspace.module.css`（sidebar/right-panel/file-panel 布局）
+   随 `workspace-layout.tsx`、`files-pane.tsx` import；其间原本被该表顺带覆盖的 ui 规则已按归属迁回
+   （`panel-resize-handle` → `ui/styles/resize-handles.css`、`directory-picker-*` → `ui/settings/directory-picker.module.css`、
+   `chat-input-textarea` → `ui/chat/chat.module.css`、`chat-stats-center` → `ui/chat/unwired.css`）。
+   迁移后 `apps/web/src/index.css` 只 import ui 的全局表，不再有 host 侧全局样式。
 
 ## 备选方案
 

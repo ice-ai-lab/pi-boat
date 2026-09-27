@@ -9,9 +9,11 @@ import {
   SIDEBAR_DEFAULT_WIDTH,
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
+  type ThemePreference,
 } from '@ice-ai/client';
 import { useProjectTrustQuery, useUpdateProjectTrustMutation } from '@ice-ai/client/react';
 import {
+  cn,
   ProjectTrustDialog,
   SettingsSectionIcon,
   ToastHost,
@@ -26,10 +28,11 @@ import { FilesPane } from '../panes/files-pane';
 import { SettingsHost } from '../panes/settings-host';
 import { SidebarPane } from '../panes/sidebar-pane';
 import { setLastSettingsSection } from '../services/settings-navigation';
-import { type ThemePreference, useTheme } from '../services/theme';
+import { useTheme } from '../services/theme';
 import { useFileTabs } from '../services/use-file-tabs';
 import { useGlobalKeyboardShortcuts } from '../services/use-keyboard-shortcuts';
 import { useResizablePanel } from '../services/use-resizable-panel';
+import workspace from './workspace.module.css';
 
 /** 侧栏宽度持久化 key */
 const SIDEBAR_WIDTH_STORAGE_KEY = 'piboat:sidebar-width';
@@ -51,9 +54,10 @@ if (typeof window !== 'undefined') {
 /**
  * 三栏工作区：左栏会话/项目、中栏对话、右栏文件。
  * **结构按设计规范 `AppShell`**（ADR-0020）：
- * 根容器（视口高度 + safe-area 内边距）→ `sidebar-overlay-backdrop` → `sidebar-container`
- * → `panel-resize-handle sidebar-resize-handle` → 中栏 → `right-panel-overlay-backdrop`
- * → `panel-resize-handle right-panel-resize-handle` → `right-panel-container`。
+ * 根容器（视口高度 + safe-area 内边距）→ `workspace.sidebarBackdrop` → `workspace.sidebar`
+ * → `panel-resize-handle sidebar-resize-handle` → 中栏 → `workspace.rightPanelBackdrop`
+ * → `panel-resize-handle workspace.rightPanelResizeHandle` → `workspace.rightPanel`。
+ * 布局类在 `workspace.module.css`（web 自有）；`panel-resize-handle` 是 ui 的全局原语。
  * 宽度走 CSS 变量 `--sidebar-width` / `--right-panel-width`（由拖拽写入，见 use-resizable-panel）。
  * URL `?s=` 是当前会话的唯一真相——侧栏与对话面板都只改它（ADR-0019-5）。
  */
@@ -87,7 +91,7 @@ export function WorkspaceLayout() {
   const { preference: themePreference, setPreference } = useTheme();
   const cycleTheme = useCallback(() => {
     const cycle: ThemePreference[] = ['light', 'dark', 'auto'];
-    const next = cycle[(cycle.indexOf(themePreference) + 1) % cycle.length];
+    const next = cycle[(cycle.indexOf(themePreference) + 1) % cycle.length] ?? 'auto';
     setPreference(next);
   }, [themePreference, setPreference]);
   const { t } = useI18n();
@@ -321,7 +325,7 @@ export function WorkspaceLayout() {
           biome-ignore lint/a11y/noStaticElementInteractions: 按设计规范的遮罩层（纯鼠标交互的装饰元素）
           biome-ignore lint/a11y/useKeyWithClickEvents: 同上——键盘用户由 Esc / 侧栏开关按钮提供等价操作 */}
       <div
-        className="sidebar-overlay-backdrop"
+        className={workspace.sidebarBackdrop}
         onClick={() => setSidebarOpen(false)}
         style={{
           position: 'fixed',
@@ -339,7 +343,11 @@ export function WorkspaceLayout() {
         ref={sidebarResizer.panelRef}
         id="session-sidebar"
         inert={rightPanelExpanded}
-        className={`sidebar-container${sidebarOpen ? ' sidebar-open' : ' sidebar-closed'}${sidebarResizer.isResizing ? ' sidebar-resizing' : ''}`}
+        className={cn(
+          workspace.sidebar,
+          sidebarOpen ? workspace.isOpen : workspace.isClosed,
+          sidebarResizer.isResizing && workspace.isResizing,
+        )}
         style={
           {
             '--sidebar-width': `${sidebarResizer.width}px`,
@@ -394,7 +402,7 @@ export function WorkspaceLayout() {
 
       <div
         aria-hidden="true"
-        className={`right-panel-overlay-backdrop${rightPanelOpen ? ' is-open' : ''}`}
+        className={cn(workspace.rightPanelBackdrop, rightPanelOpen && workspace.isOpen)}
         onClick={() => setRightPanelOpen(false)}
       />
       {rightPanelOpen && (
@@ -402,7 +410,11 @@ export function WorkspaceLayout() {
           {...rightPanelResizer.separatorProps}
           inert={rightPanelExpanded}
           aria-controls="file-panel"
-          className={`panel-resize-handle right-panel-resize-handle${rightPanelResizer.isResizing ? ' is-resizing' : ''}`}
+          className={cn(
+            'panel-resize-handle',
+            workspace.rightPanelResizeHandle,
+            rightPanelResizer.isResizing && 'is-resizing',
+          )}
           data-resize-handle="right-panel"
           title="调整文件面板宽度：拖拽或方向键（双击复位）"
         />
@@ -412,7 +424,12 @@ export function WorkspaceLayout() {
       <div
         ref={rightPanelResizer.panelRef}
         id="file-panel"
-        className={`right-panel-container${rightPanelOpen ? ' right-panel-open' : ' right-panel-closed'}${rightPanelFullWidth ? ' right-panel-full-width' : ''}${rightPanelResizer.isResizing ? ' right-panel-resizing' : ''}`}
+        className={cn(
+          workspace.rightPanel,
+          rightPanelOpen ? workspace.isOpen : workspace.isClosed,
+          rightPanelFullWidth && workspace.isFullWidth,
+          rightPanelResizer.isResizing && workspace.isResizing,
+        )}
         style={
           {
             '--right-panel-width': `${rightPanelResizer.width}px`,

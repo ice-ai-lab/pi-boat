@@ -136,3 +136,9 @@
 
 }
 
+/* 移动端输入框字号（原 web workspace.css 迁入；composer.tsx 消费） */
+@media (max-width: 640px) {
+  .inputTextarea {
+    font-size: max(16px, var(--chat-content-font-size, 14px)) !important;
+  }
+}
