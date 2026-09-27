@@ -2,7 +2,7 @@
      role="img" aria-label="PiBoat">
   <defs>
     <linearGradient id="rb" x1="0.0" y1="0.0" x2="512.0" y2="512.0" gradientUnits="userSpaceOnUse">
-      <stop offset="0.0000" stop-color="#f9a006"/>
+      <stop offset="0.0000" stop-color="#f5a623"/>
       <stop offset="0.0500" stop-color="#f9a308"/>
       <stop offset="0.1000" stop-color="#f9a50a"/>
       <stop offset="0.1500" stop-color="#f9a80c"/>

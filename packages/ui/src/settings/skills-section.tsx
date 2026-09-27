@@ -303,7 +303,7 @@ function AddSkillPanel({
         </div>
 
         {search.error !== null && (
-          <div style={{ fontSize: 12, color: '#f87171' }}>{search.error}</div>
+          <div style={{ fontSize: 12, color: 'var(--red)' }}>{search.error}</div>
         )}
       </div>
 
@@ -399,7 +399,7 @@ function AddSkillPanel({
             {updates.updating ? t('i18n.updating') : t('i18n.update')}
           </ConfigButton>
           {pendingCount > 0 && (
-            <span style={{ fontSize: 11, color: '#d97706' }}>
+            <span style={{ fontSize: 11, color: 'var(--amber)' }}>
               {pendingCount} {t('i18n.updates')}
             </span>
           )}

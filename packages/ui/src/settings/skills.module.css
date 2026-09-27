@@ -50,11 +50,11 @@
 }
 
 .updateStatus.isSuccess {
-  color: #16a34a;
+  color: var(--green);
 }
 
 .updateStatus.isError {
-  color: #ef4444;
+  color: var(--red);
 }
 
 .description {

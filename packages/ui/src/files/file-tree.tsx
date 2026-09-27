@@ -7,7 +7,7 @@ import { FileIcon } from './file-icon';
 /**
  * FileTree（T2-16：行几何 / git 徽标 / 行内「提及·下载」逐条按设计规范 `FileExplorer`）：
  * - 行：`paddingLeft: 8 + depth*14` / `height:24` / `gap:4` / `radius:4` / 文字 `var(--text)`
- * - git 徽标：14×14 / mono 11 / 600 / untracked 绿 `#4ade80` / **仅未 hover 显示**
+ * - git 徽标：14×14 / mono 11 / 600 / untracked 绿（var(--green)） / **仅未 hover 显示**
  * - hover 时右侧出现「提及」（`@`）与「下载」
  */
 export interface FileTreeProps {
@@ -40,11 +40,11 @@ export function sortEntries(entries: readonly FileListEntry[]): FileListEntry[] 
 /** git 徽标色（设计规范 `GIT_STATUS_COLORS`） */
 const GIT_STATUS_COLORS: Record<GitFileStatusKind, string> = {
   modified: '#d6a84b',
-  added: '#4ade80',
-  deleted: '#f87171',
-  renamed: '#60a5fa',
-  untracked: '#4ade80',
-  conflict: '#f87171',
+  added: 'var(--green)',
+  deleted: 'var(--red)',
+  renamed: 'var(--accent)',
+  untracked: 'var(--green)',
+  conflict: 'var(--red)',
 };
 
 const GIT_STATUS_CODES: Record<GitFileStatusKind, string> = {

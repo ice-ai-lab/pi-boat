@@ -525,7 +525,7 @@ function SessionItem({
               ? 'var(--bg-hover)'
               : 'transparent',
         borderLeft: confirmDelete
-          ? '2px solid #ef4444'
+          ? '2px solid var(--red)'
           : isSelected
             ? '2px solid var(--accent)'
             : '2px solid transparent',
@@ -567,7 +567,7 @@ function SessionItem({
                 gap: 3,
                 height: 22,
                 padding: '0 9px',
-                background: '#ef4444',
+                background: 'var(--red)',
                 border: 'none',
                 borderRadius: 6,
                 color: '#fff',
@@ -638,7 +638,7 @@ function SessionItem({
             flex: 1,
             fontSize: 12.5,
             padding: '0 8px',
-            border: `1px solid ${renameError ? '#ef4444' : 'var(--accent)'}`,
+            border: `1px solid ${renameError ? 'var(--red)' : 'var(--accent)'}`,
             borderRadius: 5,
             outline: 'none',
             background: 'var(--bg)',
@@ -761,7 +761,7 @@ function SessionItem({
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.background = 'rgba(239,68,68,0.08)';
-                  e.currentTarget.style.color = '#ef4444';
+                  e.currentTarget.style.color = 'var(--red)';
                   e.currentTarget.style.borderColor = 'rgba(239,68,68,0.35)';
                 }}
                 onMouseLeave={(e) => {
@@ -1537,7 +1537,7 @@ export function Sidebar(props: SidebarProps) {
               </div>
             )}
             {props.error && (
-              <div style={{ padding: '12px 14px', color: '#f87171', fontSize: 12 }}>
+              <div style={{ padding: '12px 14px', color: 'var(--red)', fontSize: 12 }}>
                 {props.error}
               </div>
             )}

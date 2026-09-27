@@ -381,7 +381,7 @@ export function DirectoryPicker({
             </div>
           )}
           {(loadError || error) && (
-            <div style={{ padding: '8px', color: '#dc2626', fontSize: 11 }}>
+            <div style={{ padding: '8px', color: 'var(--red)', fontSize: 11 }}>
               {loadError ?? error}
             </div>
           )}

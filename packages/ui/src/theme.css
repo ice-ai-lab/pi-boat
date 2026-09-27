@@ -14,35 +14,48 @@
 [data-theme="light"] {
   color-scheme: light;
 
-  /* ---- 规范运行变量 ---- */
-  --bg: #ffffff;
-  --bg-panel: #f5f5f5;
-  --bg-hover: #eeeeee;
-  --bg-selected: #e8e8e8;
-  --border: #e0e0e0;
-  --text: #1a1a1a;
-  --text-muted: #515c6b;
-  --text-dim: #5e6673;
-  --accent: #245bce;
-  --accent-hover: #1d4ed8;
+  /* ---- 规范运行变量（视觉基准 = 原型「玻璃 Glass」iOS 色板） ---- */
+  --bg: #ffffff; /* card-solid */
+  --bg-panel: #f4f5f7; /* 环境底色 bg-ambient */
+  --bg-hover: #f1f1f3; /* fill rgba(120,120,128,.10) 落在白底 */
+  --bg-selected: #e3e3e8; /* fill-2 */
+  --border: rgba(60, 60, 67, 0.11); /* 发丝线 hair */
+  --text: #1c1c1e;
+  --text-muted: #6e6e73;
+  --text-dim: #a1a1a6;
+  --accent: #0a6cff;
+  --accent-hover: #3a8bff;
   --accent-contrast: #ffffff;
-  /* 品牌黄：字标 `Boat` / 应用图标同色，主题无关（各主题继承 :root） */
-  --brand: #f9a006;
-  --user-bg: #eff6ff;
+  /* 品牌黄：字标 `Boat` / 应用图标同色（暗色在下方覆盖为亮一档的 #ffb340） */
+  --brand: #f5a623;
+  --user-bg: rgba(10, 108, 255, 0.1); /* accent-bg */
+
+  /* ---- 玻璃材质（原型 v5「玻璃 Glass」：环境光柔光 + 半透明栏位） ---- */
+  /* 工作区底：两团柔光落在环境底色上（原型 body::before + bg-ambient） */
+  --app-bg:
+    radial-gradient(62% 58% at 4% 0%, rgba(10, 108, 255, 0.1), transparent 70%),
+    radial-gradient(58% 52% at 100% 102%, rgba(48, 176, 199, 0.08), transparent 68%),
+    #f4f5f7;
+  /* 侧栏 / 右栏毛玻璃面板（配合 backdrop-filter 使用；不支持的浏览器回落近实色仍可读） */
+  --glass-pane: rgba(250, 250, 252, 0.72);
+  /* 顶栏灰调（原型 glass-3） */
+  --bar-tint: rgba(120, 120, 128, 0.08);
+  /* 行内代码 / 代码块底（原型 code-bg） */
+  --code-bg: rgba(118, 118, 128, 0.07);
   --bg-subtle: rgba(0, 0, 0, 0.03);
   --chat-content-max-width: 1150px;
   --chat-content-font-size: 14px;
 
-  /* ---- 语义色（内联色值收敛为变量） ---- */
-  --green: #16a34a;
-  --green-bg: color-mix(in srgb, #16a34a 10%, transparent);
-  --red: #dc2626;
-  --red-bg: color-mix(in srgb, #dc2626 8%, transparent);
-  --amber: #d97706;
-  --amber-bg: color-mix(in srgb, #d97706 8%, transparent);
+  /* ---- 语义色（iOS system colors，可读档） ---- */
+  --green: #248a3d;
+  --green-bg: color-mix(in srgb, #34c759 12%, transparent);
+  --red: #d70015;
+  --red-bg: color-mix(in srgb, #ff3b30 10%, transparent);
+  --amber: #c93400;
+  --amber-bg: color-mix(in srgb, #ff9500 12%, transparent);
 
   /* ---- 阴影（浮层用；`.elev-soft*` / `--shadow-soft*` 零消费已删 2026） ---- */
-  --elev-panel: 0 10px 28px rgba(0, 0, 0, 0.1);
+  --elev-panel: 0 2px 6px rgba(0, 0, 0, 0.06), 0 18px 44px -18px rgba(0, 0, 0, 0.26);
 
   /* ---- 字体（`--font` 供字标等少数内联用例；`font-sans` utility 零消费已删 2026） ---- */
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -59,34 +72,44 @@
   --l1: color-mix(in srgb, var(--border) 55%, transparent);
   --l2: var(--border);
   --accent-weak: color-mix(in srgb, var(--accent) 10%, transparent);
-  --menu: color-mix(in srgb, var(--bg-panel) 94%, transparent);
+  --menu: rgba(255, 255, 255, 0.88); /* 原型 menu：毛玻璃弹层底（暗色在下方覆盖） */
 }
 
 html.dark,
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg: #1a1a1a;
-  --bg-panel: #242424;
-  --bg-hover: #2e2e2e;
-  --bg-selected: #383838;
-  --border: #454545;
-  --text: #e8e8e8;
-  --text-muted: #b7b7b7;
-  --text-dim: #a4a4a4;
-  --accent: #a4c2f4;
-  --accent-hover: #c3d8fa;
-  --accent-contrast: #182234;
-  --user-bg: #292929;
-  --bg-subtle: rgba(255, 255, 255, 0.04);
+  --bg: #1c1c1e; /* card-solid */
+  --bg-panel: #232326; /* glass 落在 #0e0e10 环境底上的等效实色 */
+  --bg-hover: #2c2c2e; /* fill */
+  --bg-selected: #3a3a3c; /* fill-2 */
+  --border: rgba(255, 255, 255, 0.1); /* hair */
+  --text: #f2f2f7;
+  --text-muted: #98989f;
+  --text-dim: #6b6b70;
+  --accent: #0a84ff;
+  --accent-hover: #4aa3ff;
+  --accent-contrast: #ffffff;
+  --brand: #ffb340;
+  --user-bg: rgba(10, 132, 255, 0.18); /* accent-bg */
+  --bg-subtle: rgba(255, 255, 255, 0.06);
 
-  --green: #4ade80;
-  --green-bg: color-mix(in srgb, #4ade80 14%, transparent);
-  --red: #f87171;
-  --red-bg: color-mix(in srgb, #f87171 14%, transparent);
-  --amber: #fbbf24;
-  --amber-bg: color-mix(in srgb, #fbbf24 14%, transparent);
+  --app-bg:
+    radial-gradient(62% 58% at 4% 0%, rgba(10, 132, 255, 0.13), transparent 70%),
+    radial-gradient(58% 52% at 100% 102%, rgba(64, 200, 224, 0.1), transparent 68%),
+    #0e0e10;
+  --glass-pane: rgba(30, 30, 32, 0.7);
+  --bar-tint: rgba(255, 255, 255, 0.06);
+  --code-bg: rgba(255, 255, 255, 0.06);
+  --menu: rgba(38, 38, 40, 0.92);
 
-  --elev-panel: 0 10px 28px rgba(0, 0, 0, 0.45);
+  --green: #30d158;
+  --green-bg: color-mix(in srgb, #30d158 16%, transparent);
+  --red: #ff453a;
+  --red-bg: color-mix(in srgb, #ff453a 16%, transparent);
+  --amber: #ff9f0a;
+  --amber-bg: color-mix(in srgb, #ff9f0a 16%, transparent);
+
+  --elev-panel: 0 2px 8px rgba(0, 0, 0, 0.45), 0 22px 50px -20px rgba(0, 0, 0, 0.7);
 }
 
 /* WebKit 在已安装的桌面/主屏应用里用 dvh/innerHeight 会少掉状态栏那一条；standalone 下没有
@@ -134,7 +157,7 @@ html.dark,
   --color-danger-soft: var(--red-bg);
   --color-warn: var(--amber);
   --color-warn-soft: var(--amber-bg);
-  --color-code-bg: var(--bg);
+  --color-code-bg: var(--code-bg);
   /* 字面量而非 var(--font-mono)：@theme 与运行时变量同名会自我引用 */
   --font-mono:
     "Noto Sans Mono Variable", "JetBrains Mono", "Fira Code", "Consolas", ui-monospace,

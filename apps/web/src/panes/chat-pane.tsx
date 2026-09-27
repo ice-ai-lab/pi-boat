@@ -736,7 +736,7 @@ export function ChatPane({
   let desktopContextText: string | null = null;
   if (contextUsage?.contextWindow) {
     const percent = contextUsage.percent;
-    if (percent !== null && percent > 90) contextColor = '#ef4444';
+    if (percent !== null && percent > 90) contextColor = 'var(--red)';
     else if (percent !== null && percent > 70) contextColor = 'rgba(234,179,8,0.95)';
     desktopContextText =
       percent !== null
@@ -877,7 +877,7 @@ export function ChatPane({
   );
 
   const toolbar = (
-    <div ref={topBarRef} style={{ flexShrink: 0, background: 'var(--bg-panel)' }}>
+    <div ref={topBarRef} style={{ flexShrink: 0, background: 'var(--bar-tint)' }}>
       <div
         style={{
           display: 'flex',
@@ -908,7 +908,7 @@ export function ChatPane({
               background: 'none',
               border: 'none',
               borderRight: '1px solid var(--border)',
-              color: '#d97706',
+              color: 'var(--amber)',
               cursor: 'pointer',
               flexShrink: 0,
               fontSize: 11,
@@ -988,7 +988,7 @@ export function ChatPane({
                 borderTop: '2px solid transparent',
                 borderRight: '1px solid var(--border)',
                 color: autoNameIsError
-                  ? '#dc2626'
+                  ? 'var(--red)'
                   : autoNameIsSuccess
                     ? 'var(--accent)'
                     : autoNameDisabled
@@ -1003,12 +1003,12 @@ export function ChatPane({
               }}
               onMouseEnter={(event) => {
                 if (autoNameDisabled) return;
-                event.currentTarget.style.color = autoNameIsError ? '#dc2626' : 'var(--text)';
+                event.currentTarget.style.color = autoNameIsError ? 'var(--red)' : 'var(--text)';
                 event.currentTarget.style.background = 'var(--bg-hover)';
               }}
               onMouseLeave={(event) => {
                 event.currentTarget.style.color = autoNameIsError
-                  ? '#dc2626'
+                  ? 'var(--red)'
                   : autoNameIsSuccess
                     ? 'var(--accent)'
                     : autoNameDisabled

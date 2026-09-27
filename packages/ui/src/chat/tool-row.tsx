@@ -12,7 +12,7 @@ export function ToolRowView({ row }: { row: ToolRowModel }) {
   const [expanded, setExpanded] = useState(false);
   const errored = row.isError || row.status === 'error';
   const running = row.status === 'running';
-  const accent = errored ? '#f87171' : running ? 'var(--accent)' : '#16a34a';
+  const accent = errored ? 'var(--red)' : running ? 'var(--accent)' : 'var(--green)';
 
   return (
     <div

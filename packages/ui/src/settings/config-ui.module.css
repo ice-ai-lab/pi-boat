@@ -209,7 +209,7 @@
 }
 
 .sidebarMessage.isError {
-  color: #ef4444;
+  color: var(--red);
 }
 
 .sidebarMessage.isEmpty {
@@ -423,7 +423,7 @@
 .buttonDanger {
   border-color: rgba(239, 68, 68, 0.35);
   background: rgba(239, 68, 68, 0.06);
-  color: #ef4444;
+  color: var(--red);
 }
 
 .buttonGhost {
@@ -460,8 +460,8 @@
 }
 
 .buttonPrimary.isSuccess {
-  border-color: #16a34a;
-  background: #16a34a;
+  border-color: var(--green);
+  background: var(--green);
   animation: saved-pop 0.45s ease;
 }
 

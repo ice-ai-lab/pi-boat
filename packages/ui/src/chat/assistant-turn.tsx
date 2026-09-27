@@ -156,7 +156,7 @@ export const AssistantTurn = memo(function AssistantTurn({
               border: '1px solid rgba(239,68,68,0.3)',
               borderRadius: 6,
               background: 'rgba(239,68,68,0.07)',
-              color: '#ef4444',
+              color: 'var(--red)',
               fontFamily: 'var(--font-mono)',
               fontSize: 12,
               lineHeight: 1.5,

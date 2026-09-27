@@ -141,7 +141,7 @@ export function ProviderUsageSummary({
             padding: 0,
             background: 'none',
             border: 'none',
-            color: refreshDone ? '#4ade80' : 'var(--text-dim)',
+            color: refreshDone ? 'var(--green)' : 'var(--text-dim)',
             cursor: enabled && !querying ? 'pointer' : 'default',
             borderRadius: 5,
             flexShrink: 0,
@@ -155,7 +155,7 @@ export function ProviderUsageSummary({
               height="14"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="#4ade80"
+              stroke="var(--green)"
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -196,7 +196,7 @@ export function ProviderUsageSummary({
           {t('providerUsage.notQueried')}
         </span>
       )}
-      {error !== null && <span style={{ fontSize: 12, color: '#f87171' }}>{error}</span>}
+      {error !== null && <span style={{ fontSize: 12, color: 'var(--red)' }}>{error}</span>}
       {snapshot !== null && (
         <div
           style={{

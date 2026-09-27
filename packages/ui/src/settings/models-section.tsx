@@ -273,14 +273,14 @@ function ApiKeyDetail({
                 width: 7,
                 height: 7,
                 borderRadius: '50%',
-                background: provider.configured ? '#4ade80' : 'var(--border)',
+                background: provider.configured ? 'var(--green)' : 'var(--border)',
                 display: 'inline-block',
               }}
             />
             <span
               style={{
                 fontSize: 11,
-                color: provider.configured ? '#4ade80' : 'var(--text-dim)',
+                color: provider.configured ? 'var(--green)' : 'var(--text-dim)',
               }}
             >
               {t(provider.configured ? 'i18n.configured' : 'i18n.notConfigured')}
@@ -321,7 +321,7 @@ function ApiKeyDetail({
           style={{
             padding: '6px 14px',
             background: savedOk
-              ? '#16a34a'
+              ? 'var(--green)'
               : key.trim() !== ''
                 ? 'var(--accent)'
                 : 'var(--bg-panel)',
@@ -359,7 +359,7 @@ function ApiKeyDetail({
           {savedOk ? t('i18n.saved') : apiKey.saving ? t('i18n.saving') : t('i18n.save')}
         </button>
       </div>
-      {error !== null && <p style={{ margin: 0, fontSize: 12, color: '#f87171' }}>{error}</p>}
+      {error !== null && <p style={{ margin: 0, fontSize: 12, color: 'var(--red)' }}>{error}</p>}
 
       <ProviderUsageSummary
         providerId={provider.id}
@@ -1176,7 +1176,7 @@ export function ModelsSection({
       <ConfigFooter
         status={
           (config.error !== null || config.parseError !== null) && (
-            <span style={{ color: '#f87171' }}>
+            <span style={{ color: 'var(--red)' }}>
               {config.error !== null
                 ? t('models.configUnreadable', { error: config.error })
                 : `${t('models.parseErrorTitle')}: ${config.parseError ?? ''}`}

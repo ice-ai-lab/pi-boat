@@ -112,7 +112,7 @@ export function FilesPane({
           flexShrink: 0,
           height: 'calc(36px + env(safe-area-inset-top))',
           paddingTop: 'env(safe-area-inset-top)',
-          background: 'var(--bg-panel)',
+          background: 'var(--bar-tint)',
           borderBottom: '1px solid var(--border)',
         }}
       >
@@ -137,7 +137,7 @@ export function FilesPane({
             paddingLeft: 12,
             paddingRight: 12,
             borderRight: '1px solid var(--border)',
-            background: treeActive ? 'var(--bg)' : 'var(--bg-panel)',
+            background: treeActive ? 'var(--bg)' : 'transparent',
             cursor: 'pointer',
             fontSize: 12,
             color: treeActive ? 'var(--text)' : 'var(--text-muted)',
@@ -337,7 +337,7 @@ export function FilesPane({
               onClick={refreshExplorer}
               title={t('sidebar.refreshExplorer')}
               skipHover={refreshDone}
-              color={refreshDone ? '#4ade80' : 'var(--text-dim)'}
+              color={refreshDone ? 'var(--green)' : 'var(--text-dim)'}
               background={refreshDone ? 'rgba(74,222,128,0.18)' : 'none'}
             >
               {refreshDone ? (
@@ -347,7 +347,7 @@ export function FilesPane({
                   height="13"
                   viewBox="0 0 24 24"
                   fill="none"
-                  stroke="#4ade80"
+                  stroke="var(--green)"
                   strokeWidth="2.5"
                   strokeLinecap="round"
                   strokeLinejoin="round"

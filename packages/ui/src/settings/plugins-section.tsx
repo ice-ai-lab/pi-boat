@@ -111,7 +111,7 @@ function statusColor(status: PluginPackageView['status']): string {
   if (status === 'loaded') return 'var(--accent)';
   if (status === 'installed') return '#f59e0b';
   if (status === 'disabled') return 'var(--text-dim)';
-  return '#ef4444';
+  return 'var(--red)';
 }
 
 function versionSummary(
@@ -327,7 +327,7 @@ function PackageDetail({
                 padding: '1px 5px',
                 borderRadius: 3,
                 background: 'rgba(245,158,11,0.12)',
-                color: '#d97706',
+                color: 'var(--amber)',
               }}
             >
               {t('i18n.filtered')}
@@ -442,7 +442,7 @@ function PackageDetail({
         <div style={{ color: 'var(--text-dim)' }}>{t('i18n.installedPath')}</div>
         <div
           style={{
-            color: pkg.installedPath !== undefined ? 'var(--text-muted)' : '#ef4444',
+            color: pkg.installedPath !== undefined ? 'var(--text-muted)' : 'var(--red)',
             fontFamily: 'var(--font-mono)',
             overflowWrap: 'anywhere',
           }}

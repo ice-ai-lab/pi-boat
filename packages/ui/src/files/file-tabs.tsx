@@ -33,7 +33,7 @@ export function FileTabs({
       style={{
         display: 'flex',
         alignItems: 'flex-end',
-        background: 'var(--bg-panel)',
+        background: 'var(--bar-tint)',
         overflowX: 'auto',
         flexShrink: 0,
         height: 36,
@@ -65,7 +65,7 @@ export function FileTabs({
               paddingLeft: 12,
               paddingRight: 6,
               borderRight: '1px solid var(--border)',
-              background: active ? 'var(--bg)' : 'var(--bg-panel)',
+              background: active ? 'var(--bg)' : 'transparent',
               cursor: 'pointer',
               fontSize: 12,
               color: active ? 'var(--text)' : 'var(--text-muted)',

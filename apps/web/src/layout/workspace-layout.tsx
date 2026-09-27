@@ -280,7 +280,7 @@ export function WorkspaceLayout() {
         paddingLeft: 'env(safe-area-inset-left)',
         paddingRight: 'env(safe-area-inset-right)',
         overflow: 'hidden',
-        background: 'var(--bg)',
+        background: 'var(--app-bg)',
       }}
     >
       {/* 移动端遮罩（设计规范同款；宽屏下 CSS 已 display:none，桌面语义下保留结构）
@@ -313,7 +313,9 @@ export function WorkspaceLayout() {
         style={
           {
             '--sidebar-width': `${sidebarResizer.width}px`,
-            background: 'var(--bg-panel)',
+            background: 'var(--glass-pane)',
+            WebkitBackdropFilter: 'blur(30px) saturate(150%)',
+            backdropFilter: 'blur(30px) saturate(150%)',
             borderRight: '1px solid var(--border)',
             display: 'flex',
             flexDirection: 'column',
@@ -398,7 +400,9 @@ export function WorkspaceLayout() {
             display: 'flex',
             flexDirection: 'column',
             borderLeft: '1px solid var(--border)',
-            background: 'var(--bg)',
+            background: 'var(--glass-pane)',
+            WebkitBackdropFilter: 'blur(30px) saturate(150%)',
+            backdropFilter: 'blur(30px) saturate(150%)',
           } as React.CSSProperties
         }
       >

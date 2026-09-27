@@ -176,17 +176,17 @@ export function ComposerToolbar({
             style={{
               ...BAR_BUTTON,
               background: compacting ? 'rgba(239,68,68,0.08)' : 'none',
-              color: compacting ? '#ef4444' : 'var(--text-muted)',
+              color: compacting ? 'var(--red)' : 'var(--text-muted)',
             }}
             onMouseEnter={(event) => {
               event.currentTarget.style.background = compacting
                 ? 'rgba(239,68,68,0.16)'
                 : 'var(--bg-hover)';
-              event.currentTarget.style.color = compacting ? '#ef4444' : 'var(--text)';
+              event.currentTarget.style.color = compacting ? 'var(--red)' : 'var(--text)';
             }}
             onMouseLeave={(event) => {
               event.currentTarget.style.background = compacting ? 'rgba(239,68,68,0.08)' : 'none';
-              event.currentTarget.style.color = compacting ? '#ef4444' : 'var(--text-muted)';
+              event.currentTarget.style.color = compacting ? 'var(--red)' : 'var(--text-muted)';
             }}
           >
             {compacting ? (
@@ -232,7 +232,7 @@ export function ComposerToolbar({
               background: 'rgba(239,68,68,0.08)',
               border: '1px solid rgba(239,68,68,0.3)',
               borderRadius: 9,
-              color: '#ef4444',
+              color: 'var(--red)',
               cursor: 'pointer',
               fontSize: 12,
               fontWeight: 600,

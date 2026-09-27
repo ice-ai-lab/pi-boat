@@ -45,11 +45,11 @@ export interface FileExplorerHandle {
 /** git 状态色（设计规范 `GIT_STATUS_COLORS`） */
 const GIT_STATUS_COLORS: Record<string, string> = {
   modified: '#e2b34d',
-  added: '#4ade80',
-  deleted: '#f87171',
-  renamed: '#a78bfa',
-  untracked: '#4ade80',
-  conflict: '#f87171',
+  added: 'var(--green)',
+  deleted: 'var(--red)',
+  renamed: 'var(--accent)',
+  untracked: 'var(--green)',
+  conflict: 'var(--red)',
 };
 
 export const FileExplorerPane = forwardRef<FileExplorerHandle, FileExplorerPaneProps>(
@@ -364,7 +364,10 @@ export const FileExplorerPane = forwardRef<FileExplorerHandle, FileExplorerPaneP
                   </div>
                 )}
                 {!searchLoading && searchError && (
-                  <div role="alert" style={{ padding: '6px 2px', fontSize: 10, color: '#f87171' }}>
+                  <div
+                    role="alert"
+                    style={{ padding: '6px 2px', fontSize: 10, color: 'var(--red)' }}
+                  >
                     {t('i18n.networkError')}
                   </div>
                 )}
