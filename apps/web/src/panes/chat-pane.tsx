@@ -649,13 +649,15 @@ export function ChatPane({
   /**
    * 工具预设回显：按**当前生效工具集**反查（`presetForToolNames` 的勾选口径），
    * 而不是「上次点了哪一项」。没匹配上（settings 被改过 / 扩展塞进了工具）则四项
-   * 都不勾、按钮只剩图标——设计如此，不是 bug。无会话时不回显。
+   * 都不勾、按钮只剩图标——设计如此，不是 bug。
    * ⚠️ 不能拿 `tools.length > 0` 当门槛：chat-only 的 get_tools 本身就是空表。
+   * 空态：用户已选 pending 预设则回显；否则回 `default`——core 建会话不传
+   * toolNames 时走 pi settings.json 默认工具集，即 `default` 预设的口径。
    */
   const toolPreset =
     sessionId !== null
       ? presetForToolNames(session.tools.filter((tool) => tool.active).map((tool) => tool.name))
-      : null;
+      : (session.pendingToolPreset ?? 'default');
 
   /** 拖拽图片到窗口任意处即可附加（T2-2）：depth 计数避开子元素 dragleave 抖动 */
   const dragDepthRef = useRef(0);
@@ -806,7 +808,7 @@ export function ChatPane({
               })
             }
             modelBusy={false}
-            thinkingLevel={session.liveState?.thinkingLevel ?? null}
+            thinkingLevel={session.liveState?.thinkingLevel ?? session.pendingThinkingLevel}
             thinkingLevels={thinkingLevels}
             onThinkingLevelChange={(level) =>
               void session.setThinkingLevel(level as never).then((error) => {
@@ -821,6 +823,7 @@ export function ChatPane({
               })
             }
             compacting={compacting}
+            showCompact={sessionId !== null}
             onCompact={() =>
               void session.compact().then((error) => {
                 if (error !== null) pushToast(error, 'error');

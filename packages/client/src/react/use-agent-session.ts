@@ -83,6 +83,10 @@ export interface UseAgentSessionResult {
   cwd: string | null;
   /** 空态（尚未建会话）下已选待生效的模型；建会话后由 liveState.model 取代 */
   pendingModel: { provider: string; modelId: string } | null;
+  /** 空态下已选待生效的思考档位；建会话后由 liveState.thinkingLevel 取代 */
+  pendingThinkingLevel: ThinkingLevel | null;
+  /** 空态下已选待生效的工具预设；建会话后由工具查询结果取代 */
+  pendingToolPreset: ToolPreset | null;
   /** 视图模型快照（未建会话时为空态） */
   chat: ChatState;
   /** 建会话 / 历史加载进行中 */
@@ -144,6 +148,11 @@ export function useAgentSession(): UseAgentSessionResult {
   const [pendingModel, setPendingModel] = useState<{ provider: string; modelId: string } | null>(
     null,
   );
+  // 同 pendingModel：空态下先记住思考档位 / 工具预设，建会话后立即应用
+  const pendingThinkingLevelRef = useRef<ThinkingLevel | null>(null);
+  const [pendingThinkingLevel, setPendingThinkingLevel] = useState<ThinkingLevel | null>(null);
+  const pendingToolPresetRef = useRef<ToolPreset | null>(null);
+  const [pendingToolPreset, setPendingToolPreset] = useState<ToolPreset | null>(null);
 
   /** 切会话的唯一入口：ref 与 state 必须同时更新，只改其中一个就是上面那个 bug */
   const switchSession = useCallback((id: string | null): void => {
@@ -198,6 +207,24 @@ export function useAgentSession(): UseAgentSessionResult {
         setHistoryCursor({ hasMore: false });
         setCwd(cwd);
         switchSession(id);
+        // 空态下记住的思考档位 / 工具预设，此刻会话已建，立即补上（失败不阻塞建会话）
+        const pendingLevel = pendingThinkingLevelRef.current;
+        if (pendingLevel !== null) {
+          pendingThinkingLevelRef.current = null;
+          setPendingThinkingLevel(null);
+          await sendAgentCommand(id, { type: 'set_thinking_level', level: pendingLevel }).catch(
+            () => null,
+          );
+        }
+        const pendingPreset = pendingToolPresetRef.current;
+        if (pendingPreset !== null) {
+          pendingToolPresetRef.current = null;
+          setPendingToolPreset(null);
+          await setAgentTools(id, pendingPreset).catch(() => null);
+        }
+        if (pendingLevel !== null || pendingPreset !== null) {
+          setLiveState(await getAgentStateLight(id).catch(() => null));
+        }
         return null;
       } catch (error) {
         return errorMessage(error);
@@ -432,7 +459,12 @@ export function useAgentSession(): UseAgentSessionResult {
   const setThinkingLevel = useCallback(
     async (level: ThinkingLevel): Promise<string | null> => {
       const id = requireSession();
-      if (id === null) return '没有活动会话';
+      // 空态（尚未建会话）：先记住选择，建会话时由 start() 生效（同 pendingModel）
+      if (id === null) {
+        pendingThinkingLevelRef.current = level;
+        setPendingThinkingLevel(level);
+        return null;
+      }
       try {
         await sendAgentCommand(id, { type: 'set_thinking_level', level });
         await refreshLiveState();
@@ -487,7 +519,12 @@ export function useAgentSession(): UseAgentSessionResult {
   const setTools = useCallback(
     async (preset: ToolPreset): Promise<string | null> => {
       const id = requireSession();
-      if (id === null) return '没有活动会话';
+      // 空态（尚未建会话）：先记住选择，建会话时由 start() 生效（同 pendingModel）
+      if (id === null) {
+        pendingToolPresetRef.current = preset;
+        setPendingToolPreset(preset);
+        return null;
+      }
       try {
         const result = await setAgentTools(id, preset);
         if (result !== null && result.sessionId !== id) {
@@ -647,6 +684,8 @@ export function useAgentSession(): UseAgentSessionResult {
     sessionId,
     cwd,
     pendingModel,
+    pendingThinkingLevel,
+    pendingToolPreset,
     commands,
     tools,
     stats,

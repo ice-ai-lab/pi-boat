@@ -46,8 +46,9 @@ export interface ComposerToolbarProps {
   toolPreset: string | null;
   toolPresets: { value: string; label: string }[];
   onToolPresetChange(preset: string): void;
-  /** 右区：压缩 */
+  /** 右区：压缩（`showCompact` 为 false 时整块隐藏——空态没有会话上下文可压缩） */
   compacting: boolean;
+  showCompact?: boolean;
   onCompact(): void;
   onAbortCompaction(): void;
   /** 右-7：流式中的红色停止 */
@@ -72,6 +73,7 @@ export function ComposerToolbar({
   toolPresets,
   onToolPresetChange,
   compacting,
+  showCompact = true,
   onCompact,
   onAbortCompaction,
   streaming,
@@ -165,7 +167,7 @@ export function ComposerToolbar({
           streaming={streaming}
         />
 
-        {!streaming && (
+        {!streaming && showCompact && (
           <button
             type="button"
             title={compacting ? t('chat.stopCompaction') : t('chat.compactContext')}
