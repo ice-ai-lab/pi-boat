@@ -108,6 +108,8 @@ export function displayCwd(cwd: string, homeDir?: string): string {
   return homeDir && cwd.startsWith(homeDir) ? `~${cwd.slice(homeDir.length)}` : cwd;
 }
 
+/** 工作区选择器显示**完整路径**（家目录缩为 `~`）；过长时由 PathLabel 左侧省略保住目录名 */
+
 /**
  * 左省略路径标签（设计规范 `PathLabel`）：rtl 容器把省略号挪到左缘，
  * 内层 plaintext 双向隔离保证路径本身严格从左到右渲染。
@@ -275,11 +277,14 @@ function BrandTitle({ versionLabel }: { versionLabel: string }) {
         padding: 0,
         cursor: 'default',
         fontWeight: 700,
-        fontSize: 15,
+        fontSize: 14,
         letterSpacing: '-0.01em',
         color: showVersion ? 'var(--accent)' : 'var(--text)',
         fontFamily: 'var(--font-mono)',
         minWidth: '6ch',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        whiteSpace: 'nowrap',
       }}
     >
       {display}
@@ -876,14 +881,6 @@ function SessionItem({
   );
 }
 
-export interface SidebarWorktreeState {
-  projectKey: string;
-  isGit: boolean;
-  isTopLevel: boolean;
-  currentWorktreePath: string | null;
-  worktrees: { path: string; branch: string | null; isMain: boolean }[];
-}
-
 export interface SidebarProject {
   key: string;
   root: string;
@@ -891,8 +888,8 @@ export interface SidebarProject {
 
 /**
  * 侧栏（T2 全量重排，结构按设计规范 `SessionSidebar`）：
- * 头部（PiBoat 字标 + 新建 + 搜索图标）→ 项目下拉（筛选/对勾/活动徽标/默认目录/自定义路径）
- * → worktree 行（或只读引导态）→ 会话列表（窗口化）→ `.sidebar-section-resize-handle`
+ * 品牌行（应用图标 + 字标）→ 动作行（新会话 + 搜索）→ 搜索输入（展开时插在动作行下方）
+ * → 工作区行（目录名 + 下拉；不展示分支）→ 会话列表（窗口化）→ `.sidebar-section-resize-handle`
  * → EXPLORER（可折叠标题 + 26×26 图标行 + 文件树内容）。
  * 数据与动作全部由宿主注入（ui 保持纯展示）。
  */
@@ -910,8 +907,6 @@ export interface SidebarProps {
   homeDir: string;
   /** BrandTitle 点击后显示的版本串（如 `0.1.0p0.87.1`） */
   versionLabel: string;
-  worktreeState: SidebarWorktreeState | null;
-  worktreeLoading: boolean;
   /** EXPLORER 区是否显示（选中了项目才显示，设计规范同款） */
   showExplorer: boolean;
   explorerOpen: boolean;
@@ -941,13 +936,6 @@ export interface SidebarProps {
   onUseDefaultDirectory(): Promise<string | null>;
   /** 「自定义路径…」选中目录后验证；失败返回错误文案 */
   onCommitCustomPath(path: string): Promise<string | null>;
-  onSelectWorktree(path: string): void;
-  onCreateWorktree(branch: string): Promise<string | null>;
-  /** 删除 worktree；dirty 冲突时宿主返回 { dirty: true } */
-  onRemoveWorktree(
-    path: string,
-    force: boolean,
-  ): Promise<{ error?: string; dirty?: boolean } | null>;
   onRenameSession(id: string, name: string): Promise<void>;
   onDeleteSession(id: string): Promise<void>;
   /** 行内重命名/删除成功后的列表刷新（宿主 refetch） */
@@ -961,20 +949,13 @@ export function Sidebar(props: SidebarProps) {
   const { t } = useI18n();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [projectFilter, setProjectFilter] = useState('');
-  const [wtFilter, setWtFilter] = useState('');
   const [customPathOpen, setCustomPathOpen] = useState(false);
   const [customPathValue, setCustomPathValue] = useState(props.lastCustomCwd);
   const [customPathError, setCustomPathError] = useState<string | null>(null);
   const [customPathValidating, setCustomPathValidating] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [wtDropdownOpen, setWtDropdownOpen] = useState(false);
-  const [wtNewOpen, setWtNewOpen] = useState(false);
-  const [wtNewBranch, setWtNewBranch] = useState('');
-  const [wtError, setWtError] = useState<string | null>(null);
-  const [wtBusy, setWtBusy] = useState(false);
-  const [wtConfirmRemove, setWtConfirmRemove] = useState<string | null>(null);
-  const wtDropdownRef = useRef<HTMLDivElement>(null);
-  const wtNewInputRef = useRef<HTMLInputElement>(null);
+  const sessionSearchRef = useRef<HTMLDivElement>(null);
+  const sessionSearchButtonRef = useRef<HTMLButtonElement>(null);
   const [sessionSearchOpen, setSessionSearchOpen] = useState(false);
   const [sessionSearchQuery, setSessionSearchQuery] = useState('');
 
@@ -1013,20 +994,21 @@ export function Sidebar(props: SidebarProps) {
     return () => ro.disconnect();
   }, []);
 
-  // 外点关闭两个下拉
+  // 外点关闭项目下拉与搜索框
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (dropdownRef.current && !dropdownRef.current.contains(target)) {
         setDropdownOpen(false);
         setProjectFilter('');
       }
-      if (wtDropdownRef.current && !wtDropdownRef.current.contains(e.target as Node)) {
-        setWtDropdownOpen(false);
-        setWtNewOpen(false);
-        setWtNewBranch('');
-        setWtError(null);
-        setWtConfirmRemove(null);
-        setWtFilter('');
+      // 搜索框收起时容器不在 DOM 里（ref 为 null），自然跳过；点开关按钮不算外点
+      if (
+        sessionSearchRef.current &&
+        !sessionSearchRef.current.contains(target) &&
+        !sessionSearchButtonRef.current?.contains(target)
+      ) {
+        setSessionSearchOpen(false);
       }
     };
     document.addEventListener('mousedown', handler);
@@ -1050,41 +1032,6 @@ export function Sidebar(props: SidebarProps) {
       ),
     [props.projectActivity, props.selectedProject?.key],
   );
-
-  const worktreeState = props.worktreeState;
-
-  const showWorktreeSwitcher = Boolean(
-    worktreeState?.isGit &&
-      worktreeState.isTopLevel &&
-      props.selectedCwd &&
-      props.selectedProject?.key === worktreeState.projectKey,
-  );
-  const worktreeGuide =
-    props.selectedCwd &&
-    worktreeState !== null &&
-    props.selectedProject?.key === worktreeState.projectKey &&
-    !showWorktreeSwitcher
-      ? worktreeState.isGit
-        ? { label: t('sidebar.openRepoRoot'), title: t('sidebar.openRepoRootTitle') }
-        : { label: t('sidebar.gitRepoRootOnly'), title: t('sidebar.gitRepoRootOnlyTitle') }
-      : null;
-  const worktreeLoading = props.worktreeLoading && !showWorktreeSwitcher;
-  const inactiveWorktreeSelector =
-    worktreeGuide ??
-    (worktreeLoading
-      ? { label: t('sidebar.worktrees'), title: t('sidebar.checkingWorktrees') }
-      : null);
-
-  const currentWorktree = worktreeState
-    ? (worktreeState.worktrees.find((worktree) => worktree.path === props.selectedCwd) ??
-      (worktreeState.currentWorktreePath
-        ? worktreeState.worktrees.find(
-            (worktree) => worktree.path === worktreeState.currentWorktreePath,
-          )
-        : undefined) ??
-      worktreeState.worktrees.find((worktree) => worktree.isMain))
-    : undefined;
-  const currentWorktreePath = currentWorktree?.path ?? null;
 
   const commitCustomPath = useCallback(
     async (candidate?: string) => {
@@ -1121,42 +1068,6 @@ export function Sidebar(props: SidebarProps) {
     }
   }, [props]);
 
-  const handleCreateWorktree = useCallback(async () => {
-    const branch = wtNewBranch.trim();
-    if (!branch || wtBusy) return;
-    setWtBusy(true);
-    setWtError(null);
-    const error = await props.onCreateWorktree(branch);
-    setWtBusy(false);
-    if (error !== null) {
-      setWtError(error);
-      return;
-    }
-    setWtNewOpen(false);
-    setWtNewBranch('');
-    setWtDropdownOpen(false);
-  }, [wtNewBranch, wtBusy, props]);
-
-  const handleRemoveWorktree = useCallback(
-    async (path: string, force: boolean) => {
-      if (wtBusy) return;
-      setWtBusy(true);
-      setWtError(null);
-      const result = await props.onRemoveWorktree(path, force);
-      setWtBusy(false);
-      if (result?.dirty && !force) {
-        setWtConfirmRemove(path);
-        return;
-      }
-      if (result?.error) {
-        setWtError(result.error);
-        return;
-      }
-      setWtConfirmRemove(null);
-    },
-    [wtBusy, props],
-  );
-
   const virtualIndices = useMemo(
     () =>
       getSessionListIndices(
@@ -1185,155 +1096,261 @@ export function Sidebar(props: SidebarProps) {
       {/* 头部 */}
       <div
         style={{
-          padding: '12px 10px 10px',
           borderBottom: '1px solid var(--border)',
           flexShrink: 0,
         }}
       >
+        {/* 品牌行：图标 + 字标 */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 10,
+            gap: 9,
+            height: 44,
+            padding: '0 10px 0 17px',
           }}
         >
+          <img src="/favicon.svg" width={20} height={20} alt="" style={{ flexShrink: 0 }} />
           <BrandTitle versionLabel={props.versionLabel} />
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button
-              type="button"
-              onClick={props.onNewSession}
-              disabled={!props.selectedCwd}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 5,
-                background: 'var(--bg-hover)',
-                border: '1px solid var(--border)',
-                color: props.selectedCwd ? 'var(--text-muted)' : 'var(--text-dim)',
-                cursor: props.selectedCwd ? 'pointer' : 'not-allowed',
-                height: 32,
-                paddingLeft: 10,
-                paddingRight: 12,
-                borderRadius: 7,
-                fontSize: 12,
-                fontWeight: 500,
-                letterSpacing: '-0.01em',
-                flexShrink: 0,
-                transition: 'background 0.12s, color 0.12s, border-color 0.12s',
-              }}
-              title={
-                props.selectedCwd
-                  ? t('sidebar.newSessionTitle', { path: props.selectedCwd })
-                  : t('sidebar.selectProject')
-              }
-              onMouseEnter={(e) => {
-                if (!props.selectedCwd) return;
-                e.currentTarget.style.background = 'var(--bg-selected)';
-                e.currentTarget.style.color = 'var(--accent)';
-                e.currentTarget.style.borderColor = 'rgba(37,99,235,0.35)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'var(--bg-hover)';
-                e.currentTarget.style.color = props.selectedCwd
-                  ? 'var(--text-muted)'
-                  : 'var(--text-dim)';
-                e.currentTarget.style.borderColor = 'var(--border)';
-              }}
-            >
-              <svg
-                aria-hidden="true"
-                width="12"
-                height="12"
-                viewBox="0 0 12 12"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-              >
-                <line x1="6" y1="1" x2="6" y2="11" />
-                <line x1="1" y1="6" x2="11" y2="6" />
-              </svg>
-              {t('sidebar.new')}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setSessionSearchOpen((open) => !open);
-                setWtDropdownOpen(false);
-              }}
-              title={t('sidebar.toggleSessionSearch')}
-              aria-label={t('sidebar.toggleSessionSearch')}
-              aria-expanded={sessionSearchOpen}
-              aria-controls="session-search-input"
-              className={`flex h-[32px] w-[32px] shrink-0 cursor-pointer items-center justify-center rounded-[7px] border border-border hover:bg-bg-selected focus-visible:outline-2 focus-visible:outline-accent ${sessionSearchOpen ? 'bg-bg-selected text-accent' : 'bg-bg-hover text-text-muted'}`}
-            >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <circle cx="11" cy="11" r="7" />
-                <path d="m20 20-4-4" />
-              </svg>
-            </button>
-          </div>
         </div>
 
-        {/* 项目选择 */}
-        <div ref={dropdownRef} style={{ position: 'relative' }}>
+        {/* 动作行：新会话（正文按钮，样式保持）+ 搜索 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '0 12px 9px' }}>
+          <button
+            type="button"
+            onClick={props.onNewSession}
+            disabled={!props.selectedCwd}
+            aria-label={t('sidebar.new')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              flex: 1,
+              height: 31,
+              minWidth: 0,
+              padding: '0 16px',
+              background: 'var(--bg)',
+              border: '1px solid var(--border)',
+              borderRadius: 6,
+              color: props.selectedCwd ? 'var(--text)' : 'var(--text-dim)',
+              cursor: props.selectedCwd ? 'pointer' : 'not-allowed',
+              fontFamily: 'var(--font)',
+              fontSize: 12,
+              fontWeight: 400,
+              letterSpacing: '-0.01em',
+              transition: 'background 0.12s',
+            }}
+            title={
+              props.selectedCwd
+                ? t('sidebar.newSessionTitle', { path: props.selectedCwd })
+                : t('sidebar.selectProject')
+            }
+            onMouseEnter={(e) => {
+              if (!props.selectedCwd) return;
+              e.currentTarget.style.background = 'var(--bg-hover)';
+            }}
+            onMouseLeave={(e) => {
+              if (!props.selectedCwd) return;
+              e.currentTarget.style.background = 'var(--bg)';
+            }}
+          >
+            <svg
+              aria-hidden="true"
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ flexShrink: 0 }}
+            >
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            <span
+              style={{
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                minWidth: 0,
+              }}
+            >
+              {t('sidebar.new')}
+            </span>
+          </button>
+          <button
+            ref={sessionSearchButtonRef}
+            type="button"
+            onClick={() => setSessionSearchOpen((open) => !open)}
+            title={t('sidebar.toggleSessionSearch')}
+            aria-label={t('sidebar.toggleSessionSearch')}
+            aria-expanded={sessionSearchOpen}
+            aria-controls="session-search-input"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 26,
+              height: 26,
+              flexShrink: 0,
+              padding: 0,
+              background: sessionSearchOpen ? 'var(--bg-selected)' : 'none',
+              border: 'none',
+              borderRadius: 6,
+              color: sessionSearchOpen ? 'var(--accent)' : 'var(--text-muted)',
+              cursor: 'pointer',
+              transition: 'background 0.14s, color 0.14s',
+            }}
+            onMouseEnter={(e) => {
+              if (sessionSearchOpen) return;
+              e.currentTarget.style.background = 'var(--bg-hover)';
+              e.currentTarget.style.color = 'var(--text)';
+            }}
+            onMouseLeave={(e) => {
+              if (sessionSearchOpen) return;
+              e.currentTarget.style.background = 'none';
+              e.currentTarget.style.color = 'var(--text-muted)';
+            }}
+          >
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" />
+            </svg>
+          </button>
+        </div>
+
+        {/* 搜索输入：展开时就地替换工作区行（不插行顶列表） */}
+        {sessionSearchOpen && (
+          <div ref={sessionSearchRef} style={{ margin: '0 12px 9px', position: 'relative' }}>
+            <svg
+              aria-hidden="true"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{
+                position: 'absolute',
+                left: 9,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: 'var(--text-dim)',
+                pointerEvents: 'none',
+              }}
+            >
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" />
+            </svg>
+            <input
+              id="session-search-input"
+              type="search"
+              // biome-ignore lint/a11y/noAutofocus: 按设计规范（点开搜索即聚焦）
+              autoFocus
+              value={sessionSearchQuery}
+              maxLength={200}
+              aria-label={t('sidebar.searchSessions')}
+              placeholder={t('sidebar.searchSessions')}
+              onChange={(event) => setSessionSearchQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.stopPropagation();
+                  setSessionSearchQuery('');
+                }
+              }}
+              style={{
+                width: '100%',
+                height: 35,
+                boxSizing: 'border-box',
+                padding: '0 9px 0 28px',
+                border: '1px solid var(--border)',
+                borderRadius: 8,
+                outline: 'none',
+                background: 'var(--bg)',
+                color: 'var(--text)',
+                fontSize: 12,
+              }}
+            />
+          </div>
+        )}
+
+        {/* 工作区行：目录名 + 下拉（不展示分支）；搜索展开时让位给搜索框 */}
+        <div
+          ref={dropdownRef}
+          style={{
+            position: 'relative',
+            margin: '0 12px 9px',
+            display: sessionSearchOpen ? 'none' : undefined,
+          }}
+        >
           <button
             type="button"
             onClick={() => setDropdownOpen((v) => !v)}
             title={props.selectedProject?.root ?? props.selectedCwd ?? ''}
             style={{
               width: '100%',
+              height: 35,
+              boxSizing: 'border-box',
               display: 'flex',
               alignItems: 'center',
-              padding: '6px 10px',
-              background: props.selectedCwd ? 'var(--bg-hover)' : 'rgba(37,99,235,0.06)',
-              border: props.selectedCwd
-                ? '1px solid var(--border)'
-                : '1px solid rgba(37,99,235,0.4)',
-              borderRadius: 7,
+              gap: 7,
+              padding: '0 10px',
+              background: 'none',
+              border: 'none',
+              borderRadius: 8,
               cursor: 'pointer',
               fontSize: 12,
               color: 'var(--text)',
               textAlign: 'left',
-              transition: 'border-color 0.15s, background 0.15s',
+              transition: 'background 0.14s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'var(--bg-hover)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'none';
             }}
           >
+            <svg
+              aria-hidden="true"
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{ flexShrink: 0, color: 'var(--text-dim)' }}
+            >
+              <path d="M4 6a2 2 0 0 1 2-2h3l2 3h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z" />
+            </svg>
             {props.selectedCwd ? (
               <PathLabel
                 text={displayCwd(props.selectedProject?.root ?? props.selectedCwd, props.homeDir)}
                 style={{
                   flex: 1,
                   fontFamily: 'var(--font-mono)',
-                  fontSize: 11,
-                  color: 'var(--text)',
+                  fontWeight: 400,
+                  letterSpacing: '-0.01em',
                 }}
               />
             ) : (
-              <span
-                style={{
-                  flex: 1,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 11,
-                  color: 'var(--text-dim)',
-                }}
-              >
-                {t('sidebar.selectProject')}
-              </span>
+              <span style={{ color: 'var(--text-dim)' }}>{t('sidebar.selectProject')}</span>
             )}
             {hasOtherWorkspaceActivity && (
               <span
@@ -1345,11 +1362,28 @@ export function Sidebar(props: SidebarProps) {
                   height: 8,
                   borderRadius: '50%',
                   flexShrink: 0,
-                  marginLeft: 6,
                   background: 'var(--accent)',
                 }}
               />
             )}
+            <svg
+              aria-hidden="true"
+              width="11"
+              height="11"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{
+                flexShrink: 0,
+                color: 'var(--text-dim)',
+                transform: 'rotate(90deg)',
+              }}
+            >
+              <path d="m9 5 7 7-7 7" />
+            </svg>
           </button>
 
           <AnimatedDropdown
@@ -1541,545 +1575,6 @@ export function Sidebar(props: SidebarProps) {
             </button>
           </AnimatedDropdown>
         </div>
-
-        {sessionSearchOpen && (
-          <input
-            id="session-search-input"
-            type="search"
-            // biome-ignore lint/a11y/noAutofocus: 按设计规范（点开搜索即聚焦）
-            autoFocus
-            value={sessionSearchQuery}
-            maxLength={200}
-            aria-label={t('sidebar.searchSessions')}
-            placeholder={t('sidebar.searchSessions')}
-            onChange={(event) => setSessionSearchQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Escape') {
-                event.stopPropagation();
-                setSessionSearchQuery('');
-              }
-            }}
-            className="mt-[6px] block h-[29px] w-full min-w-0 rounded-[7px] border border-border bg-bg px-[10px] text-xs text-text focus:outline-2 focus:outline-accent"
-          />
-        )}
-
-        {/* worktree 切换行（T2-4） */}
-        {!sessionSearchOpen &&
-          showWorktreeSwitcher &&
-          worktreeState != null &&
-          (() => {
-            const state = worktreeState;
-            const showWtFilter = state.worktrees.length >= 8;
-            const visibleWorktrees =
-              showWtFilter && wtFilter.trim()
-                ? state.worktrees.filter((w) =>
-                    (w.branch ?? displayCwd(w.path, props.homeDir))
-                      .toLowerCase()
-                      .includes(wtFilter.trim().toLowerCase()),
-                  )
-                : state.worktrees;
-            return (
-              <div ref={wtDropdownRef} style={{ position: 'relative', marginTop: 6 }}>
-                <button
-                  type="button"
-                  onClick={() => setWtDropdownOpen((v) => !v)}
-                  title={
-                    currentWorktree
-                      ? t('sidebar.switchWorktreeTitle', { path: currentWorktree.path })
-                      : t('sidebar.switchWorktree')
-                  }
-                  style={{
-                    width: '100%',
-                    height: 29,
-                    boxSizing: 'border-box',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 6,
-                    padding: '0 10px',
-                    background: 'var(--bg-hover)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 7,
-                    cursor: 'pointer',
-                    fontSize: 11,
-                    lineHeight: 1.35,
-                    color: 'var(--text-muted)',
-                    textAlign: 'left',
-                  }}
-                >
-                  <svg
-                    aria-hidden="true"
-                    width="11"
-                    height="11"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    style={{
-                      flexShrink: 0,
-                      color:
-                        currentWorktree && !currentWorktree.isMain
-                          ? 'var(--accent)'
-                          : 'var(--text-dim)',
-                    }}
-                  >
-                    <line x1="6" y1="3" x2="6" y2="15" />
-                    <circle cx="18" cy="6" r="3" />
-                    <circle cx="6" cy="18" r="3" />
-                    <path d="M18 9a9 9 0 0 1-9 9" />
-                  </svg>
-                  <PathLabel
-                    text={
-                      currentWorktree
-                        ? (currentWorktree.branch ??
-                          displayCwd(currentWorktree.path, props.homeDir))
-                        : '…'
-                    }
-                    style={{ flex: 1, fontFamily: 'var(--font-mono)', color: 'var(--text)' }}
-                  />
-                  {currentWorktree?.isMain && (
-                    <span style={{ flexShrink: 0, color: 'var(--text-dim)', fontSize: 10 }}>
-                      {t('sidebar.main')}
-                    </span>
-                  )}
-                  {state.worktrees.length > 1 && (
-                    <span style={{ flexShrink: 0, color: 'var(--text-dim)', fontSize: 10 }}>
-                      {state.worktrees.length}
-                    </span>
-                  )}
-                  <svg
-                    aria-hidden="true"
-                    width="9"
-                    height="9"
-                    viewBox="0 0 10 10"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    style={{ flexShrink: 0 }}
-                  >
-                    <polyline points="2 3.5 5 6.5 8 3.5" />
-                  </svg>
-                </button>
-
-                <AnimatedDropdown
-                  open={wtDropdownOpen}
-                  style={{
-                    position: 'absolute',
-                    top: 'calc(100% + 4px)',
-                    left: 0,
-                    right: 0,
-                    zIndex: 100,
-                    background: 'var(--bg)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 8,
-                    boxShadow: '0 6px 20px rgba(0,0,0,0.10)',
-                    overflow: 'hidden',
-                  }}
-                >
-                  {showWtFilter && (
-                    <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)' }}>
-                      <input
-                        value={wtFilter}
-                        onChange={(e) => setWtFilter(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Escape') {
-                            setWtFilter('');
-                            setWtDropdownOpen(false);
-                          }
-                        }}
-                        placeholder={t('sidebar.filterWorktrees')}
-                        // biome-ignore lint/a11y/noAutofocus: 按设计规范（下拉展开即聚焦筛选框）
-                        autoFocus
-                        style={{
-                          width: '100%',
-                          fontSize: 11,
-                          fontFamily: 'var(--font-mono)',
-                          padding: '5px 8px',
-                          border: '1px solid var(--border)',
-                          borderRadius: 5,
-                          outline: 'none',
-                          background: 'var(--bg)',
-                          color: 'var(--text)',
-                          boxSizing: 'border-box',
-                        }}
-                      />
-                    </div>
-                  )}
-                  <div style={{ maxHeight: 'min(40vh, 300px)', overflowY: 'auto' }}>
-                    {visibleWorktrees.map((wt) => {
-                      const isCurrent = wt.path === currentWorktreePath;
-                      if (wtConfirmRemove === wt.path) {
-                        return (
-                          <div
-                            key={wt.path}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 6,
-                              padding: '7px 10px',
-                              borderBottom: '1px solid var(--border)',
-                              background: 'rgba(239,68,68,0.06)',
-                            }}
-                          >
-                            <span
-                              style={{
-                                flex: 1,
-                                fontSize: 11,
-                                color: 'var(--text)',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
-                              }}
-                            >
-                              {t('sidebar.forceRemoveCheckout')}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => void handleRemoveWorktree(wt.path, true)}
-                              disabled={wtBusy}
-                              style={{
-                                padding: '3px 9px',
-                                background: '#ef4444',
-                                border: 'none',
-                                borderRadius: 5,
-                                color: '#fff',
-                                fontSize: 11,
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                                flexShrink: 0,
-                              }}
-                            >
-                              {t('sidebar.force')}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setWtConfirmRemove(null)}
-                              style={{
-                                padding: '3px 9px',
-                                background: 'var(--bg-hover)',
-                                border: '1px solid var(--border)',
-                                borderRadius: 5,
-                                color: 'var(--text-muted)',
-                                fontSize: 11,
-                                cursor: 'pointer',
-                                flexShrink: 0,
-                              }}
-                            >
-                              {t('sidebar.cancel')}
-                            </button>
-                          </div>
-                        );
-                      }
-                      return (
-                        <div
-                          key={wt.path}
-                          className="wt-row"
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            borderBottom: '1px solid var(--border)',
-                          }}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => {
-                              props.onSelectWorktree(wt.path);
-                              setWtDropdownOpen(false);
-                              setWtError(null);
-                              setWtFilter('');
-                            }}
-                            title={wt.path}
-                            style={{
-                              flex: 1,
-                              minWidth: 0,
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 7,
-                              padding: '8px 10px',
-                              background: 'var(--bg)',
-                              border: 'none',
-                              color: isCurrent ? 'var(--text)' : 'var(--text-muted)',
-                              cursor: 'pointer',
-                              textAlign: 'left',
-                              fontSize: 11,
-                              fontFamily: 'var(--font-mono)',
-                            }}
-                          >
-                            {isCurrent ? (
-                              <svg
-                                aria-hidden="true"
-                                width="10"
-                                height="10"
-                                viewBox="0 0 10 10"
-                                fill="none"
-                                stroke="var(--accent)"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                style={{ flexShrink: 0 }}
-                              >
-                                <polyline points="1.5 5 4 7.5 8.5 2.5" />
-                              </svg>
-                            ) : (
-                              <span style={{ width: 10, flexShrink: 0 }} />
-                            )}
-                            <PathLabel
-                              text={wt.branch ?? displayCwd(wt.path, props.homeDir)}
-                              style={{ flex: 1 }}
-                            />
-                            {wt.isMain && (
-                              <span
-                                style={{ flexShrink: 0, color: 'var(--text-dim)', fontSize: 10 }}
-                              >
-                                {t('sidebar.main')}
-                              </span>
-                            )}
-                          </button>
-                          {!wt.isMain && (
-                            <button
-                              type="button"
-                              onClick={() => void handleRemoveWorktree(wt.path, false)}
-                              disabled={wtBusy}
-                              title={t('sidebar.removeWorktreeTitle', { path: wt.path })}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                width: 34,
-                                height: 28,
-                                padding: 0,
-                                marginRight: 4,
-                                background: 'none',
-                                border: 'none',
-                                color: 'var(--text-dim)',
-                                cursor: 'pointer',
-                                borderRadius: 5,
-                                flexShrink: 0,
-                                transition: 'color 0.12s, background 0.12s',
-                              }}
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.color = '#ef4444';
-                                e.currentTarget.style.background = 'rgba(239,68,68,0.08)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.color = 'var(--text-dim)';
-                                e.currentTarget.style.background = 'none';
-                              }}
-                            >
-                              <svg
-                                aria-hidden="true"
-                                width="12"
-                                height="12"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
-                                <polyline points="3 6 5 6 21 6" />
-                                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-                                <path d="M10 11v6M14 11v6" />
-                                <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-                              </svg>
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                    {showWtFilter && visibleWorktrees.length === 0 && wtFilter.trim() && (
-                      <div style={{ padding: '8px 10px', fontSize: 11, color: 'var(--text-dim)' }}>
-                        {t('sidebar.noMatchingWorktrees')}
-                      </div>
-                    )}
-                  </div>
-
-                  {!wtNewOpen ? (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setWtNewOpen(true);
-                        setWtError(null);
-                        setTimeout(() => wtNewInputRef.current?.focus(), 0);
-                      }}
-                      title={t('sidebar.createWorktreeTitle')}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 7,
-                        width: '100%',
-                        padding: '8px 10px',
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--text-muted)',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                        fontSize: 11,
-                      }}
-                    >
-                      <svg
-                        aria-hidden="true"
-                        width="10"
-                        height="10"
-                        viewBox="0 0 10 10"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.1"
-                        strokeLinecap="round"
-                        style={{ flexShrink: 0 }}
-                      >
-                        <line x1="5" y1="1" x2="5" y2="9" />
-                        <line x1="1" y1="5" x2="9" y2="5" />
-                      </svg>
-                      <span>{t('sidebar.newWorktree')}</span>
-                    </button>
-                  ) : (
-                    <div style={{ padding: '6px 8px' }}>
-                      <input
-                        ref={wtNewInputRef}
-                        value={wtNewBranch}
-                        onChange={(e) => {
-                          setWtNewBranch(e.target.value);
-                          setWtError(null);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            void handleCreateWorktree();
-                          }
-                          if (e.key === 'Escape') {
-                            setWtNewOpen(false);
-                            setWtNewBranch('');
-                            setWtError(null);
-                          }
-                        }}
-                        placeholder={t('sidebar.branchName')}
-                        style={{
-                          width: '100%',
-                          fontSize: 11,
-                          fontFamily: 'var(--font-mono)',
-                          padding: '5px 8px',
-                          border: '1px solid var(--accent)',
-                          borderRadius: 5,
-                          outline: 'none',
-                          background: 'var(--bg)',
-                          color: 'var(--text)',
-                          boxSizing: 'border-box',
-                        }}
-                      />
-                      <div style={{ display: 'flex', gap: 5, marginTop: 5 }}>
-                        <button
-                          type="button"
-                          onClick={() => void handleCreateWorktree()}
-                          disabled={wtBusy || !wtNewBranch.trim()}
-                          style={{
-                            flex: 1,
-                            padding: '4px 0',
-                            background: 'var(--accent)',
-                            border: 'none',
-                            borderRadius: 5,
-                            color: 'var(--accent-contrast)',
-                            fontSize: 11,
-                            fontWeight: 600,
-                            cursor: wtBusy || !wtNewBranch.trim() ? 'not-allowed' : 'pointer',
-                            opacity: wtBusy || !wtNewBranch.trim() ? 0.65 : 1,
-                          }}
-                        >
-                          {wtBusy ? t('sidebar.creating') : t('sidebar.create')}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setWtNewOpen(false);
-                            setWtNewBranch('');
-                            setWtError(null);
-                          }}
-                          style={{
-                            flex: 1,
-                            padding: '4px 0',
-                            background: 'var(--bg-hover)',
-                            border: '1px solid var(--border)',
-                            borderRadius: 5,
-                            color: 'var(--text-muted)',
-                            fontSize: 11,
-                            cursor: 'pointer',
-                          }}
-                        >
-                          {t('sidebar.cancel')}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  {wtError && (
-                    <div
-                      style={{
-                        padding: '5px 10px 8px',
-                        color: '#dc2626',
-                        fontSize: 11,
-                        lineHeight: 1.35,
-                        overflowWrap: 'anywhere',
-                      }}
-                    >
-                      {wtError}
-                    </div>
-                  )}
-                </AnimatedDropdown>
-              </div>
-            );
-          })()}
-        {!sessionSearchOpen && inactiveWorktreeSelector && (
-          <button
-            type="button"
-            aria-disabled="true"
-            tabIndex={-1}
-            title={inactiveWorktreeSelector.title}
-            style={{
-              width: '100%',
-              height: 29,
-              boxSizing: 'border-box',
-              marginTop: 6,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '0 10px',
-              border: '1px solid var(--border)',
-              borderRadius: 7,
-              background: 'var(--bg-hover)',
-              color: 'var(--text-dim)',
-              fontSize: 11,
-              lineHeight: 1.35,
-              whiteSpace: 'nowrap',
-              textAlign: 'left',
-              cursor: 'default',
-              opacity: 0.82,
-            }}
-          >
-            <svg
-              aria-hidden="true"
-              width="11"
-              height="11"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              style={{ flexShrink: 0 }}
-            >
-              <line x1="6" y1="3" x2="6" y2="15" />
-              <circle cx="18" cy="6" r="3" />
-              <circle cx="6" cy="18" r="3" />
-              <path d="M18 9a9 9 0 0 1-9 9" />
-            </svg>
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {inactiveWorktreeSelector.label}
-            </span>
-          </button>
-        )}
       </div>
 
       {/* 会话列表 */}

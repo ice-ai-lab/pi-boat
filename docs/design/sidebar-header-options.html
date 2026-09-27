@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PiBoat 侧栏头部设计提案 · 四档对照</title>
+<style>
+:root,[data-theme="light"]{
+  color-scheme:light;
+  --bg:#ffffff;--bg-panel:#f5f5f5;--bg-hover:#eeeeee;--bg-selected:#e8e8e8;--border:#e0e0e0;
+  --text:#1a1a1a;--text-muted:#515c6b;--text-dim:#5e6673;--accent:#245bce;--accent-contrast:#ffffff;
+  --l1:color-mix(in srgb,var(--border) 55%,transparent);
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang SC","Microsoft YaHei",sans-serif;
+  --font-mono:"Noto Sans Mono Variable","JetBrains Mono",ui-monospace,"PingFang SC",monospace;
+}
+[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#1a1a1a;--bg-panel:#242424;--bg-hover:#2e2e2e;--bg-selected:#383838;--border:#454545;
+  --text:#e8e8e8;--text-muted:#b7b7b7;--text-dim:#a4a4a4;--accent:#a4c2f4;--accent-contrast:#182234;
+}
+[data-theme="mist"]{color-scheme:light;--bg:#f4f8f7;--bg-panel:#e9f0ee;--bg-hover:#e0eae7;--bg-selected:#d7e4df;--border:#afc4ba;--text:#202e2b;--text-muted:#455f56;--text-dim:#52685f;--accent:#1e6559;--accent-contrast:#ffffff}
+[data-theme="rose"]{color-scheme:light;--bg:#fcf7f8;--bg-panel:#f3edef;--bg-hover:#eee3e7;--bg-selected:#e8dce1;--border:#cdb5bf;--text:#34282e;--text-muted:#65505a;--text-dim:#705b65;--accent:#914360;--accent-contrast:#ffffff}
+[data-theme="pine"]{color-scheme:dark;--bg:#19201f;--bg-panel:#212b28;--bg-hover:#2b3632;--bg-selected:#35433c;--border:#4a5f52;--text:#e6ede8;--text-muted:#c3d0c6;--text-dim:#afc2b5;--accent:#acccb7;--accent-contrast:#182b20}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;line-height:1.6;transition:background .2s}
+.wrap{max-width:1180px;margin:0 auto;padding:36px 24px 72px}
+h1{font-size:21px;font-weight:650;letter-spacing:-.01em;margin:0 0 8px}
+h2{font-size:14px;font-weight:600;margin:0;letter-spacing:-.01em}
+h3{font-size:14px;font-weight:600;margin:40px 0 12px}
+.sub{color:var(--text-muted);font-size:13px;margin:0 0 8px;max-width:760px}
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:22px 0 4px;padding-bottom:20px;border-bottom:1px solid var(--border)}
+.toolbar label{font-size:12px;color:var(--text-muted)}
+select{font:inherit;font-size:12px;padding:5px 9px;border:1px solid var(--border);border-radius:7px;background:var(--bg);color:var(--text)}
+.hint{font-size:12px;color:var(--text-dim);margin-left:auto}
+.scroller{overflow-x:auto;padding-bottom:10px}
+.grid{display:grid;grid-template-columns:repeat(4,260px);gap:24px;min-width:1112px;align-items:start}
+.col-h{display:flex;align-items:baseline;gap:8px;margin:26px 0 10px;flex-wrap:wrap}
+.col-h .tag{font-size:11px;font-weight:600;color:var(--accent);border:1px solid var(--accent);border-radius:99px;padding:1px 7px}
+.col-h .tag.plain{color:var(--text-dim);border-color:var(--border)}
+.col-h .h{font-family:var(--font-mono);font-size:11px;color:var(--text-dim);margin-left:auto}
+
+.mock{width:260px;height:440px;background:var(--bg-panel);border:1px solid var(--l1);display:flex;flex-direction:column;overflow:hidden;user-select:none}
+.hdr{flex:none;border-bottom:1px solid var(--border)}
+.hdr.hidden{display:none}
+
+.brand-row{height:54px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 10px 0 17px}
+.brand-row.r48{height:48px}
+.brand{font-family:var(--font-mono);font-size:14px;font-weight:700;letter-spacing:-.01em;color:var(--text);background:none;border:0;padding:0;cursor:default}
+.brand.muted{font-size:12px;font-weight:600;color:var(--text-muted)}
+.hdr-acts{display:flex;align-items:center;gap:4px;min-width:0}
+
+.btn-new{display:flex;align-items:center;gap:6px;height:31px;padding:0 16px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font:inherit;font-size:12px;font-weight:550;cursor:pointer;transition:background .12s}
+.btn-new:hover{background:var(--bg-hover)}
+.btn-ghost{display:flex;align-items:center;gap:5px;height:26px;padding:0 9px;background:none;border:0;border-radius:6px;color:var(--text-muted);font:inherit;font-size:12px;font-weight:500;cursor:pointer;transition:background .12s,color .12s}
+.btn-ghost:hover{background:var(--bg-hover);color:var(--text)}
+.ic{display:flex;align-items:center;justify-content:center;padding:0;background:none;border:0;color:var(--text-muted);cursor:pointer;flex:none;transition:background .12s,color .12s}
+.ic:hover{background:var(--bg-hover);color:var(--text)}
+.ic.s30{width:30px;height:30px;border-radius:8px}
+.ic.s26{width:26px;height:26px;border-radius:6px}
+.ic.on{background:var(--bg-selected);color:var(--accent)}
+
+.ws{display:flex;align-items:center;gap:7px;height:35px;width:calc(100% - 24px);margin:0 12px 9px;padding:0 10px;background:none;border:0;border-radius:8px;color:var(--text);font:inherit;font-size:12px;text-align:left;cursor:pointer;transition:background .14s}
+.ws:hover{background:var(--bg-hover)}
+.ws .fname{font-weight:550;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.ws .br{display:flex;align-items:center;gap:3px;margin-left:auto;font-family:var(--font-mono);font-size:10px;color:var(--text-dim);flex:none}
+.ws .chev{margin-left:0;color:var(--text-dim);flex:none}
+.ws .chev.push{margin-left:auto}
+
+.hdr-c{height:46px;display:flex;align-items:center;gap:6px;padding:0 10px 0 12px}
+.brand-mini{font-family:var(--font-mono);font-size:12px;font-weight:600;color:var(--text-dim);flex:none}
+.vdiv{width:1px;height:14px;background:var(--border);flex:none}
+.ws-inline{display:flex;align-items:center;gap:6px;flex:1;min-width:0;height:34px;padding:0 6px;background:none;border:0;border-radius:7px;color:var(--text);font:inherit;font-size:12px;text-align:left;cursor:pointer;transition:background .14s}
+.ws-inline:hover{background:var(--bg-hover)}
+.ws-inline .fname{font-weight:550;letter-spacing:-.01em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.search-row{height:46px;display:flex;align-items:center;padding:0 12px;gap:8px}
+.search-row .field{display:flex;align-items:center;gap:7px;flex:1;height:30px;padding:0 9px;background:var(--bg);border:1px solid var(--accent);border-radius:8px;color:var(--text-dim)}
+.search-row input{flex:1;min-width:0;border:0;outline:0;background:none;color:var(--text);font:inherit;font-size:12px;padding:0}
+.search-row .esc{font-size:11px;color:var(--text-dim);font-family:var(--font-mono)}
+
+.list{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.day{flex:none;padding:11px 17px 4px;font-size:10.5px;font-weight:650;letter-spacing:.10em;color:var(--text-dim)}
+.row{flex:none;height:54px;display:flex;align-items:center;gap:6px;padding:0 8px 0 14px;border-left:2px solid transparent;cursor:pointer;transition:background .1s}
+.row:hover{background:var(--bg-hover)}
+.row.on{background:var(--bg-selected);border-left-color:var(--accent)}
+.row-main{flex:1;min-width:0}
+.row-title{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:400;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row.on .row-title{font-weight:500}
+.row-meta{display:flex;align-items:center;gap:8px;margin-top:2px;font-size:11px;color:var(--text-dim);min-width:0;white-space:nowrap;overflow:hidden}
+.row-meta .accent{display:flex;align-items:center;gap:4px;color:var(--accent)}
+.row-meta .cyan{display:flex;align-items:center;gap:4px;color:#0891b2}
+.row-meta .wt{display:flex;align-items:center;gap:3px;color:var(--accent);min-width:0;overflow:hidden}
+.row-acts{display:flex;gap:4px;flex:none;opacity:0;transition:opacity .1s}
+.row:hover .row-acts,.row.forceshow .row-acts{opacity:1}
+.row-acts button{width:32px;height:32px;display:flex;align-items:center;justify-content:center;padding:0;background:var(--bg-hover);border:1px solid var(--border);border-radius:7px;color:var(--text-muted);cursor:pointer;transition:background .12s,color .12s,border-color .12s}
+.row.unified .row-acts button{width:26px;height:26px;border-radius:6px}
+.row-acts button:hover{background:var(--bg-selected);color:var(--accent);border-color:color-mix(in srgb,var(--accent) 35%,transparent)}
+.row-acts button.del:hover{background:color-mix(in srgb,#ef4444 10%,transparent);color:#ef4444;border-color:color-mix(in srgb,#ef4444 35%,transparent)}
+
+.mock.searching .day{display:none}
+.mock.searching .row{display:none}
+.mock.searching .row.hit{display:flex}
+.mock.searching .hdr-main{display:none}
+
+.spin{animation:rot .9s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+.pulse{animation:pul 1.6s ease-in-out infinite}
+@keyframes pul{0%,100%{opacity:.35;transform:scale(.8)}50%{opacity:1;transform:scale(1.15)}}
+
+.notes{list-style:none;margin:14px 0 0;padding:0;font-size:12px;color:var(--text-muted);line-height:1.65}
+.notes li{padding-left:12px;position:relative;margin-bottom:6px}
+.notes li::before{content:"";position:absolute;left:0;top:8px;width:4px;height:4px;border-radius:50%;background:var(--text-dim)}
+.notes li strong{color:var(--text);font-weight:600}
+.notes .k{font-family:var(--font-mono);font-size:11px;background:var(--bg-panel);border:1px solid var(--border);border-radius:4px;padding:0 4px}
+
+table{width:100%;border-collapse:collapse;font-size:12px;margin-top:12px}
+th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:top}
+th{font-weight:600;font-size:11px;letter-spacing:.04em;color:var(--text-dim);text-transform:uppercase}
+td code{font-family:var(--font-mono);font-size:11px;background:var(--bg-panel);border-radius:4px;padding:1px 5px}
+footer{margin-top:48px;padding-top:20px;border-top:1px solid var(--border);font-size:12px;color:var(--text-dim)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>侧栏头部设计提案 · 四档对照</h1>
+  <p class="sub">目标是让左上角这块回答三个问题：我该在哪个项目里干活、怎么开一个新的、怎么找回旧的。四档改法只差「要不要动 v4 规范的三段结构」，其余全部按现有 token 渲染，可直接对照 <code style="font-family:var(--font-mono);font-size:11px">docs/design/piboat-web-v4.html</code>。</p>
+  <p class="sub" style="color:var(--text-dim)">鼠标移到会话行上可看 hover 出图标的几何；方案 2 / 3 点头部的放大镜可试「就地替换」的搜索态。</p>
+
+  <div class="toolbar">
+    <label for="theme">主题</label>
+    <select id="theme">
+      <option value="light">浅色 light</option>
+      <option value="dark">深色 dark</option>
+      <option value="mist">薄雾 mist</option>
+      <option value="rose">玫瑰 rose</option>
+      <option value="pine">松 pine</option>
+    </select>
+    <span class="hint">全部 mock 尺寸 1:1，侧栏宽 260px（--sb-w）</span>
+  </div>
+
+  <div class="scroller">
+    <div class="grid">
+      <div class="col">
+        <div class="col-h"><h2>现状</h2><span class="h">98px</span></div>
+        <div class="mock" id="m-now"></div>
+        <ul class="notes">
+          <li>品牌行 <span class="k">54px</span> 只放 <strong>6 个字符 + 1 个按钮</strong></li>
+          <li>全侧栏唯一的实体按钮（白底 + 描边）是<strong>低频动作</strong></li>
+          <li>品牌 <span class="k">14px</span> 与项目名 <span class="k">12px</span> 上下紧贴 → 两个标题互抢</li>
+          <li>四套图标几何：<span class="k">31</span> / <span class="k">30×30 r8</span> / <span class="k">26×26 r5</span> / <span class="k">32×32 r7</span></li>
+          <li>头部 98px 之后直接进列表：无分组、无锚点</li>
+        </ul>
+      </div>
+
+      <div class="col">
+        <div class="col-h"><h2>方案 1 · 同族化</h2><span class="tag plain">规范成本 0</span><span class="h">88px</span></div>
+        <div class="mock" id="m-a"></div>
+        <ul class="notes">
+          <li>三段结构不动，只统一几何：图标按钮全 <span class="k">26×26 / r6 / icon 13</span></li>
+          <li>「新会话」去白底描边 → ghost 胶囊，hover 才出底</li>
+          <li>品牌降为 <span class="k">12px / text-muted</span>，层级让给项目名</li>
+          <li>工作区行 <span class="k">35 → 34</span>，上间距 <span class="k">9 → 6</span></li>
+          <li>仍可逐条对回 v4 规范，无需豁免</li>
+        </ul>
+      </div>
+
+      <div class="col">
+        <div class="col-h"><h2>方案 2 · 合并身份行</h2><span class="tag">推荐</span><span class="h">46px</span></div>
+        <div class="mock" id="m-b"></div>
+        <ul class="notes">
+          <li>品牌行 + 工作区行合成单行：<strong>项目选择器（主）+ [+] + [⌕]</strong></li>
+          <li><span class="k">+</span> 贴住项目名 = 动作带上作用域，对齐 ADR-0026</li>
+          <li>分支移进下拉，hover 项目名时以 title 显示</li>
+          <li>点 <span class="k">⌕</span> <strong>就地替换整行</strong>，不再插行把列表顶下去</li>
+          <li>省下 52px ≈ 列表多显示一行</li>
+        </ul>
+      </div>
+
+      <div class="col">
+        <div class="col-h"><h2>方案 3 · 列表升格</h2><span class="tag plain">方案 2 + 分组</span><span class="h">46 + 26</span></div>
+        <div class="mock" id="m-c"></div>
+        <ul class="notes">
+          <li>日期分组头：今天 / 昨天 / 本周 / 更早（<span class="k">10.5px 650 ls .10em</span>）</li>
+          <li>meta 状态优先：<span class="k">⟳ 运行中 → ● 未读 → 时间</span></li>
+          <li>「313 条消息」降为 title tooltip，meta 只留状态</li>
+          <li>技术前提：窗口化由「固定 54px 行高」改为<strong>前缀和高度映射</strong></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <h3>落地清单</h3>
+  <table>
+    <thead><tr><th style="width:26%">位置</th><th style="width:26%">现状</th><th style="width:34%">改成</th><th>方案</th></tr></thead>
+    <tbody>
+      <tr><td><code>sidebar.tsx:1092-1225</code><br>头部容器</td><td>品牌行 54 + 工作区行 35 + 9 margin</td><td>合并为单行 46px：品牌字标（12px mono text-dim）+ 1px 竖分隔 + 工作区选择器 + 动作簇</td><td>2 / 3</td></tr>
+      <tr><td><code>sidebar.tsx:1115-1175</code><br>新会话按钮</td><td>白底 1px 描边，h31 r6 padding 0 16</td><td>26×26 / r6 图标按钮，紧贴项目名右侧（<code>title="在 pi-boat 新建会话"</code>）</td><td>2 / 3</td></tr>
+      <tr><td><code>sidebar.tsx:1176-1223</code><br>搜索按钮</td><td>30×30 / r8 / icon 17</td><td>26×26 / r6 / icon 13，与 EXPLORER 工具条同族</td><td>1 / 2 / 3</td></tr>
+      <tr><td><code>sidebar.tsx:1227-1280</code><br>搜索展开行</td><td>额外插入一行 h30，margin 0 12 8</td><td>就地替换身份行（同 46px），Esc 关闭并还原焦点</td><td>2 / 3</td></tr>
+      <tr><td><code>sidebar.tsx:1283-1303</code><br>工作区选择器</td><td>h35，margin 0 12 9，占独立一行</td><td>并入身份行，flex:1 撑满；分支移入下拉项</td><td>2 / 3</td></tr>
+      <tr><td><code>sidebar.tsx:787-882</code><br>会话行 hover 按钮</td><td>32×32 / r7 / icon 14</td><td>26×26 / r6 / icon 13</td><td>1 / 2 / 3</td></tr>
+      <tr><td><code>sidebar.tsx:20-38</code><br><code>getSessionListIndices</code></td><td>按固定 <code>SESSION_LIST_ITEM_HEIGHT = 54</code> 切片</td><td>改为前缀和高度数组（分组头 26 + 行 54），<code>top</code> 由前缀和求</td><td>3</td></tr>
+      <tr><td><code>sidebar.tsx:729-784</code><br>会话行 meta</td><td>时间/运行/未读 + 「N 条消息」+ worktree</td><td>状态优先；条数移入 <code>title</code></td><td>3</td></tr>
+      <tr><td><code>sidebar.tsx:276-297</code><br><code>BrandTitle</code></td><td>点击切版本，cursor:default 且无提示</td><td>补 <code>title</code>；或把版本收进设置页，字标不再兼任按钮</td><td>可选</td></tr>
+      <tr><td><code>i18n</code></td><td>已有 <code>sidebar.*</code></td><td>新增 <code>sidebar.dayToday / dayYesterday / dayThisWeek / dayEarlier</code></td><td>3</td></tr>
+    </tbody>
+  </table>
+
+  <footer>
+    渲染取自 <code style="font-family:var(--font-mono);font-size:11px">packages/ui/src/theme.css</code> 的运行期 token，五套主题全部生效。示意图非真实组件，仅用于确认版式与几何。
+  </footer>
+</div>
+
+<script>
+const I = {
+  plus:'<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  search:'<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  folder:'<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6a2 2 0 0 1 2-2h3l2 3h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/></svg>',
+  branch:'<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="5" r="2.2"/><circle cx="6" cy="19" r="2.2"/><circle cx="18" cy="8" r="2.2"/><path d="M6 7.2v9.6M18 10.2c0 4-4 4.8-8.5 4.8"/></svg>',
+  chev:'<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate(90deg)"><path d="m9 5 7 7-7 7"/></svg>',
+  spin:'<svg class="spin" viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-3.8-7.4"/></svg>',
+  dot:'<span class="pulse" style="width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block"></span>',
+  pencil:'<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>'
+};
+
+function row(o){
+  const cls = ['row'];
+  if (o.state) cls.push(o.state);
+  if (o.unified) cls.push('unified');
+  if (o.force) cls.push('forceshow');
+  const acts = o.acts
+    ? '<div class="row-acts"><button title="重命名">'+I.pencil+'</button><button class="del" title="删除（Shift 直接删）">'+I.trash+'</button></div>'
+    : '';
+  return '<div class="'+cls.join(' ')+'"><div class="row-main"><div class="row-title">'+o.title+'</div>'+
+    '<div class="row-meta">'+o.meta+'</div></div>'+acts+'</div>';
+}
+
+const flatRows = [
+  {state:'on', title:'把 pi-boat 的新建按钮改成如图所示，空间文件…',
+   meta:'<span>4分钟前</span><span>313 条消息</span>'},
+  {title:'TurnWrittenFiles 改为内联 chip 形态', meta:'<span>24分钟前</span><span>732 条消息</span>'},
+  {title:'1. 新建会话时，切换思考强度和模式，会提示没有…', meta:'<span>1小时前</span><span>94 条消息</span>'},
+  {title:'你好', meta:'<span>2小时前</span><span>3 条消息</span>'},
+  {title:'去掉 models.json 这个连接，然后，DeepSeek…', meta:'<span>2小时前</span><span>131 条消息</span>'}
+];
+
+const mixedRows = {
+  running:{state:'on unified', title:'把 pi-boat 的新建按钮改成如图…',
+    meta:'<span class="accent">'+I.spin+'进行中</span><span>12 条消息</span>'},
+  hover:{unified:true, force:true, acts:true, title:'TurnWrittenFiles 改为内联 chip 形态', meta:'<span>24分钟前</span>'},
+  unread:{title:'1. 新建会话时，切换思考强度和模式…',
+    meta:'<span class="cyan">'+I.dot+'2 分钟前</span>'},
+  worktree:{title:'侧栏头部改版 + 分组头窗口化',
+    meta:'<span class="wt">'+I.branch+'feat/sidebar-header</span><span>· 昨天 21:07</span>'}
+};
+
+const hdrBrand = (right, h) => '<div class="brand-row'+(h?' '+h:'')+'"><button class="brand">PiBoat</button><div class="hdr-acts">'+right+'</div></div>';
+const hdrWs = (chevPush) => '<button class="ws">'+I.folder+'<span class="fname">pi-boat</span>'+
+  '<span class="br">'+I.branch+'main</span><span class="chev'+(chevPush?' push':'')+'">'+I.chev+'</span></button>';
+
+function hdrInline(id){
+  return '<div class="hdr hdr-main hdr-c"><span class="brand-mini">PiBoat</span><span class="vdiv"></span>'+
+    '<button class="ws-inline">'+I.folder+'<span class="fname">pi-boat</span>'+I.chev+'</button>'+
+    '<button class="ic s26" title="在 pi-boat 新建会话">'+I.plus+'</button>'+
+    '<button class="ic s26" data-search="'+id+'" title="搜索会话">'+I.search+'</button></div>'+
+    '<div class="hdr search-row hidden" data-searchrow="'+id+'">'+
+    '<span class="field">'+I.search+'<input placeholder="搜索 pi-boat 的会话…"><span class="esc">Esc</span></span></div>';
+}
+
+function build(id, headerHtml, listHtml){
+  document.getElementById(id).innerHTML = headerHtml + '<div class="list">' + listHtml + '</div>';
+}
+
+const hdrThreeRows = '<div class="hdr">'+
+  hdrBrand('<button class="btn-ghost">'+I.plus+'新会话</button><button class="ic s26">'+I.search+'</button>','r48')+
+  hdrWs(true).replace('class="ws"', 'class="ws" style="height:34px;margin-bottom:6px"')+'</div>';
+
+const flatUnified = flatRows.map(r => row(Object.assign({}, r, {unified:true}))).join('');
+const grouped = '<div class="day">今天</div>'+row(mixedRows.running)+row(mixedRows.hover)+
+  '<div class="day">昨天</div>'+row(mixedRows.unread)+row(mixedRows.worktree);
+
+build('m-now',
+  '<div class="hdr">'+hdrBrand('<button class="btn-new">'+I.plus+'新会话</button><button class="ic s30">'+I.search+'</button>')+hdrWs(true)+'</div>',
+  flatRows.map(row).join(''));
+
+build('m-a', hdrThreeRows, flatUnified);
+build('m-b', hdrInline('b'), flatUnified);
+build('m-c', hdrInline('c'), grouped);
+
+document.addEventListener('click', (e)=>{
+  const btn = e.target.closest('[data-search]');
+  if(!btn) return;
+  const id = btn.getAttribute('data-search');
+  const mock = btn.closest('.mock');
+  mock.classList.toggle('searching');
+  const rowEl = mock.querySelector('[data-searchrow="'+id+'"]');
+  rowEl.classList.toggle('hidden');
+  if (mock.classList.contains('searching')) rowEl.querySelector('input').focus();
+  else rowEl.querySelector('input').value = '';
+});
+
+document.getElementById('theme').addEventListener('change', (e)=>{
+  document.documentElement.setAttribute('data-theme', e.target.value);
+});
+
+document.querySelectorAll('.row').forEach((r)=>{
+  r.addEventListener('mouseenter', ()=> r.classList.remove('forceshow'));
+});
+</script>
+</body>
+</html>

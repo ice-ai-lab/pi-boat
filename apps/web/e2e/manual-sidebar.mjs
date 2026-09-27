@@ -31,7 +31,7 @@ const ok = (label, value) => console.log(`${value ? '✓' : '✗'} ${label}`);
 
 // —— 侧栏 + 项目选择器
 await page.goto('http://127.0.0.1:9528/');
-await page.waitForSelector('aside button:has-text("新会话")');
+await page.waitForSelector('aside button[aria-label="新会话"]');
 await page.click('aside button[aria-label="项目与 worktree"]');
 await page.waitForTimeout(400);
 ok('项目选择器浮层可开', (await page.locator('div[role="dialog"] button').count()) > 1);
@@ -77,7 +77,7 @@ ok(`分页轮数增加（${before.turns} → ${after.turns}）`, after.turns > b
 ok('分页视口不跳动（参考线内容不变）', before.text === after.text && before.text.length > 0);
 
 // —— 新建 → EmptyState
-await page.click('aside button:has-text("新会话")');
+await page.click('aside button[aria-label="新会话"]');
 await page.waitForTimeout(500);
 ok('新会话 → EmptyState', await page.locator('text=输入一个工作目录').isVisible());
 

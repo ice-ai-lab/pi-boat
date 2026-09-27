@@ -5,21 +5,17 @@ import {
   getProjectActivity,
   projectKeyForCwd,
   validateCwd,
-  workspaceKeyOf,
 } from '@ice-ai/client';
 import {
-  useCreateWorktreeMutation,
   useCwdProjectQuery,
   useDeleteSessionMutation,
   useGitStatusQuery,
   useProjectsQuery,
-  useRemoveWorktreeMutation,
   useRenameSessionMutation,
   useSessionsQuery,
-  useWorktreesQuery,
 } from '@ice-ai/client/react';
 import type { ProjectInfo, SessionInfo } from '@ice-ai/protocol';
-import { Sidebar, type SidebarProject, type SidebarWorktreeState } from '@ice-ai/ui';
+import { Sidebar, type SidebarProject } from '@ice-ai/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { insertMention } from '../services/mention-bus';
 import { useResizablePanel } from '../services/use-resizable-panel';
@@ -27,7 +23,7 @@ import { type FileExplorerHandle, FileExplorerPane } from './file-explorer-pane'
 
 /**
  * SidebarPane（T2 重排）：侧栏数据装配——项目/工作区选择、会话列表、未读与运行指示、
- * 自定义目录选择、worktree 管理与 EXPLORER 区。
+ * 自定义目录选择与 EXPLORER 区。不做分支展示与切换（分支只按会话行自己的 worktree 标记呈现）。
  * 结构与动作口径逐条按设计规范 `SessionSidebar`；展示全部交给 `@ice-ai/ui` 的 `Sidebar`。
  */
 export interface SidebarPaneProps {
@@ -108,8 +104,6 @@ export function SidebarPane({
   const projectsQuery = useProjectsQuery();
   const renameMutation = useRenameSessionMutation();
   const deleteMutation = useDeleteSessionMutation();
-  const createWorktreeMutation = useCreateWorktreeMutation();
-  const removeWorktreeMutation = useRemoveWorktreeMutation();
 
   // 项目清单来自 /api/projects（ADR-0008）：目录元数据扫描 + 每目录一次首行头，
   // 不解析会话正文也不依赖会话列表（含未落盘内存会话的 cwd）
@@ -164,40 +158,10 @@ export function SidebarPane({
     setSelectedCwd(first.projectRoot);
   }, [projects, selectedCwd]);
 
-  // —— worktree 数据 ——
-  const worktreesQuery = useWorktreesQuery(selectedCwd);
-  const worktreeState: SidebarWorktreeState | null = useMemo(() => {
-    const data = worktreesQuery.data;
-    if (data === undefined) return null;
-    return {
-      projectKey: data.projectKey,
-      isGit: data.isGit,
-      isTopLevel: data.isTopLevel,
-      currentWorktreePath: data.currentWorktreePath,
-      // B 的 worktree 列表用 bare 标记主检出；主检出 = 路径等于仓库根
-      worktrees: data.worktrees.map((worktree) => ({
-        path: worktree.path,
-        branch: worktree.branch,
-        isMain: worktree.path === data.projectRoot,
-      })),
-    };
-  }, [worktreesQuery.data]);
-
-  // —— 项目身份（与设计规范 `projectFor` 同口径：worktree → cwd 校验 → 项目清单 → cwd 兜底） ——
-  // 不查会话列表：会话列表按项目取数后，它已无法回答“这个 cwd 属于哪个项目”
+  // —— 项目身份（权威来源：cwd/validate 的 git 归一点，worktree/子目录都归到项目根，与 `?projectKey=` 过滤同源） ——
   const cwdProjectQuery = useCwdProjectQuery(selectedCwd);
   const selectedProject: SidebarProject | null = useMemo(() => {
     if (selectedCwd === null) return null;
-    if (worktreeState !== null) {
-      const belongs = worktreeState.worktrees.some((worktree) => worktree.path === selectedCwd);
-      if (belongs || worktreesQuery.data?.currentWorktreePath === selectedCwd) {
-        return {
-          key: worktreeState.projectKey,
-          root: worktreesQuery.data?.projectRoot ?? selectedCwd,
-        };
-      }
-    }
-    // 权威来源：cwd/validate 的 git 归一点（与 ?projectKey= 过滤同源）
     const validated = cwdProjectQuery.data;
     if (validated?.success === true && validated.cwd === selectedCwd) {
       return { key: validated.projectKey, root: validated.projectRoot };
@@ -209,7 +173,7 @@ export function SidebarPane({
     return match !== undefined
       ? { key: match.projectKey, root: match.projectRoot }
       : { key: selectedCwd, root: selectedCwd };
-  }, [selectedCwd, worktreeState, worktreesQuery.data, cwdProjectQuery.data, projects]);
+  }, [selectedCwd, cwdProjectQuery.data, projects]);
 
   // —— 会话列表：按项目取数（服务端 `?projectKey=` 把过滤下推到扫描层，ADR-0008） ——
   const sessionsQuery = useSessionsQuery(selectedProject?.key ?? null);
@@ -346,40 +310,6 @@ export function SidebarPane({
     }
   }, []);
 
-  const createWorktree = useCallback(
-    async (branch: string): Promise<string | null> => {
-      if (selectedProject === null) return '未选择项目';
-      try {
-        const created = await createWorktreeMutation.mutateAsync({
-          cwd: selectedProject.root,
-          branch,
-        });
-        setSelectedCwd(created.path);
-        return null;
-      } catch (caught) {
-        return caught instanceof Error ? caught.message : String(caught);
-      }
-    },
-    [selectedProject, createWorktreeMutation],
-  );
-
-  const removeWorktree = useCallback(
-    async (path: string, force: boolean): Promise<{ error?: string; dirty?: boolean } | null> => {
-      if (selectedProject === null) return { error: '未选择项目' };
-      try {
-        await removeWorktreeMutation.mutateAsync({ cwd: selectedProject.root, path, force });
-        if (selectedCwd === path) setSelectedCwd(selectedProject.root);
-        return null;
-      } catch (caught) {
-        const message = caught instanceof Error ? caught.message : String(caught);
-        return message.toLowerCase().includes('409') || message.toLowerCase().includes('dirty')
-          ? { dirty: true }
-          : { error: message };
-      }
-    },
-    [selectedProject, selectedCwd, removeWorktreeMutation],
-  );
-
   const renameSession = useCallback(
     async (id: string, name: string) => {
       await renameMutation.mutateAsync({ sessionId: id, name });
@@ -423,8 +353,6 @@ export function SidebarPane({
       projectActivity={projectActivity}
       homeDir={homeDir}
       versionLabel={CLIENT_VERSION}
-      worktreeState={worktreeState}
-      worktreeLoading={worktreesQuery.isLoading}
       showExplorer={selectedCwd !== null}
       explorerOpen={explorerOpen}
       onToggleExplorer={toggleExplorer}
@@ -487,9 +415,6 @@ export function SidebarPane({
       }}
       onUseDefaultDirectory={useDefaultDirectory}
       onCommitCustomPath={commitCustomPath}
-      onSelectWorktree={(path) => setSelectedCwd(path)}
-      onCreateWorktree={createWorktree}
-      onRemoveWorktree={removeWorktree}
       onRenameSession={renameSession}
       onDeleteSession={deleteSession}
       onSessionsChanged={() => void sessionsQuery.refetch()}

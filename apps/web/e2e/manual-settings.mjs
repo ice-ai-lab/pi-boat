@@ -51,7 +51,7 @@ const sessions = await fetch('http://127.0.0.1:9527/api/sessions').then((r) => r
 const repoRoot = path.resolve(import.meta.dirname, '../../..');
 const repo = sessions.sessions.find((s) => s.cwd === repoRoot);
 await page.goto(`http://127.0.0.1:9528/?s=${repo.id}`);
-await page.waitForSelector('aside button:has-text("新会话")', { timeout: 20_000 });
+await page.waitForSelector('aside button[aria-label="新会话"]', { timeout: 20_000 });
 await page.waitForTimeout(3000);
 await page.click('header button:has-text("设置")');
 await page.waitForSelector('div[role="dialog"][aria-label="设置"]');

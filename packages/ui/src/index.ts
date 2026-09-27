@@ -189,7 +189,6 @@ export {
   Sidebar,
   type SidebarProject,
   type SidebarProps,
-  type SidebarWorktreeState,
 } from './sidebar/sidebar';
 export { cn } from './utils/cn';
 export { useScrollbarVisibility } from './utils/use-scrollbar-visibility';
