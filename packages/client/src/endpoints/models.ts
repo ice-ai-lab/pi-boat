@@ -97,7 +97,7 @@ export function getEnabledModels(cwd?: string): Promise<ModelsEnabledResponse> {
 }
 
 /**
- * PUT /api/models/enabled —— 最小编辑（toggle 只动一个模型）/ prune / resync。
+ * PUT /api/models/enabled —— 最小编辑（只动一个模型；ADR-0027 后只剩 toggle）。
  * 禁用最后一个模型 → 409 reason:'last-model'；项目 shadow → 409 reason:'project-shadow'。
  */
 export function updateEnabledModels(update: ModelsEnabledUpdate): Promise<ModelsEnabledResponse> {

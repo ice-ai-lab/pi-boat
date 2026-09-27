@@ -240,7 +240,7 @@
 | `POST /api/models-config/discover` | `{providerName, provider:{baseUrl, api, apiKey?}}` → 按 /models 端点发现模型列表（20s 超时） |
 | `POST /api/models-config/test` | `{providerName, provider, model:{id}}` → `{ok, error?, …}` 真实补全请求测连通（临时 models.json，20s 超时） |
 | `GET /api/models-config/catalog?q` | → models.dev 目录（1h 缓存，服务端代理） |
-| `GET/PUT /api/models/enabled` | 模型可见范围（`enabledModels`，ADR-0011）。GET → `{patterns, models, scope:'global'\|'project', settingsPath, canWrite, warnings[]}`（`scope:'project'` = 项目 `.pi/settings.json` shadow，面板只读）；PUT 最小编辑 `{op:'toggle'\|'prune'\|'resync', providerId?, modelId?, enabled?, cwd?}`；禁用最后一个模型/项目 shadow/已无可见模型 → **409 + `reason`**（`last-model` / `project-shadow` / `no-enabled-models`） |
+| `GET/PUT /api/models/enabled` | 模型可见范围（`enabledModels`，ADR-0011）。GET → `{patterns, models, catalog, scope:'global'\|'project', settingsPath, canWrite, warnings[]}`（`models` = 可见集，`catalog` = runtime 完整目录——面板要靠它把**关掉的模型**留在列表里，否则关掉即消失、再也打不开；`scope:'project'` = 项目 `.pi/settings.json` shadow，面板只读）；PUT = **只做 toggle** `{providerId, modelId, enabled, cwd?}`（最小编辑：其余 pattern 原样保留，ADR-0027 删掉了 `prune` / `resync`）；禁用最后一个模型/项目 shadow → **409 + `reason`**（`last-model` / `project-shadow`） |
 | `POST /api/models/refresh` | 按需拉取远端 provider 目录 → `{ok, changed, reason?, errors?}`（不联网是常态，只有用户显式请求才联网——ADR-0011③；`reason: offline\|no-refreshable-provider\|error`） |
 | `GET /api/models/auth-providers` | 可用 API Key 登录的 provider 清单 → `{providers: [{id, displayName, configured, source?, modelCount, supportsOAuth}]}`（本地读；ADR-0025） |
 | `PUT /api/models/api-key` | `{provider, apiKey}` → `{success}`（写 `~/.pi/agent/auth.json`；不触发目录联网刷新；不支持的 provider → 400；ADR-0025） |

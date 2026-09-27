@@ -533,12 +533,8 @@ export const zhCNLocale: LocalePlugin = {
     'models.enabledStale': '{count} 条失配',
     'models.enabledStaleHint':
       '模型可用的前提是它所属的 provider 有可用凭证。凭证缺失、模型被改名或删除、配置是给别的机器写的，都会让条目匹配不到任何模型。',
-    'models.enabledPrune': '清理无效条目',
-    'models.enabledPruneHint': '删除匹配不到任何可用模型的配置条目，其余保持不变。',
     'models.enabledClear': '启用全部模型',
     'models.enabledClearHint': '清除所有 provider 的模型筛选。',
-    'models.enabledResync': '修复改名残留',
-    'models.enabledResyncHint': '按当前目录修复改名残留的配置条目。',
     'models.apiKeyHint': '输入 {provider} 的 API Key，启用其 {count} 个模型。',
     'models.replaceKey': '输入新 Key 以替换…',
     'models.parseErrorTitle': '解析失败',

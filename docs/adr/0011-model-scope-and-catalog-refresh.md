@@ -1,9 +1,9 @@
 # ADR-0011：模型可见范围（enabledModels）与目录刷新
 
 - 日期：2026-01
-- 状态：已接受（Accepted）
+- 状态：已接受（Accepted；**① 的 `prune` / `resync` 两个修复操作已被 [ADR-0027](0027-drop-model-scope-prune-resync.md) 删除**）
 - 关联文档：`docs/02-protocol-inventory.md` §6.4；`docs/07-backend-capability-gap.md` §2 G2-2 / G2-3、§3.4、§6 B3
-- 关联决策：ADR-0005 / ADR-0006（protocol 是唯一契约，形状进 protocol）；ADR-0007（**GET 不得有副作用**——本能力写设置，只能 PUT/POST）
+- 关联决策：ADR-0005 / ADR-0006（protocol 是唯一契约，形状进 protocol）；ADR-0007（**GET 不得有副作用**——本能力写设置，只能 PUT/POST）；**ADR-0027（修订①：删除批量修复操作，只留 toggle）**
 
 ## 背景
 
@@ -29,7 +29,7 @@
 - **不得用 `getAvailable()` 枚举 provider 的模型**（不能只算"当前鉴权通过的"）：判断"是否全覆盖该 provider"要用 `getModels()` 的完整目录，否则缺凭据的模型会被误判为"不需要"而静默丢条目
 - 一个 provider 被完全启用且条目 ≥ 2 时**收敛回一个 glob**（枚举列表会随模型改名腐烂，glob 会自愈）
 - 禁用到最后一个模型 → `409 { reason: "last-model" }`（空列表在 pi 里等于「全开」，语义相反）
-- 提供 `op: "prune"`（丢弃匹配不到的条目）与 `op: "resync"`（按新目录修复改名残留）两类**显式**修复操作；普通开关永不隐式重写未触碰的条目
+- ~~提供 `op: "prune"`（丢弃匹配不到的条目）与 `op: "resync"`（按新目录修复改名残留）两类**显式**修复操作~~ → **已删除（ADR-0027）**：`prune` 的判定口径把「暂时不可用」当「无效」且无 last-model 保护（会把选择清成「全部可用」），`resync` 的收益已被 toggle 重写与 catalog 列表覆盖；当前只保留 toggle 一种写入
 
 ### ② 写入位置：全局可写，项目级只读
 
@@ -84,9 +84,17 @@
 B3 已落地（2026-02），验证记录：
 - 最小编辑单测：嵌套 id（全开收敛 `provider/**`、部分选中逐条写）、provider 改名 resync、`:level` 后缀保留、
   未匹配项默认保留（`prune` 才丢）、幂等（已在期望状态时原样返回）、新片段插在原 provider 片段处
+  （其中 resync / prune 四项已随 ADR-0027 删除）
 - `models.json` 读写：BOM/注释/尾逗号宽容解析、坏文件**拒写**（`ModelsConfigReadError`）、cost 组补零、0600 原子写
 - 路由层：`last-model` → 409 + `reason`、`project-shadow` → 409、离线 `reason:'offline'`、`force` 不覆盖 `PI_OFFLINE`
 - 并发刷新合并（`refreshInFlight`）、变更检测比 id/name 不比存储字节
+
+修正（2026-09-27）：面板的「可用模型」列表改为按 `enabled.catalog`（`getModels()` 完整目录）渲染，
+`enabled.models`（可见集）只用于点亮开关——此前按可见集渲染，**关掉一条模型它就从面板消失**，
+用户再也点不回来，与本文「必须区分未启用 / 缺凭据 / 目录里没有」的后果条款相悖。见 `docs/02` §6.4。
+
+删除（2026-09-27）：① 的 `prune` / `resync` 与对应面板按钮已删除，理由与实测证据见 [ADR-0027](0027-drop-model-scope-prune-resync.md)；
+本文其余部分（最小编辑、全局可写/项目只读、仅手动刷新目录）全部照旧。
 
 ⚠️ 实现期修正（2026-02）：本文原写"`SettingsManager` 没有 `setEnabledModels()`"——**是错的**，
 该方法存在（见上表）。`withLock` 也确实存在，但在 `SettingsStorage` 上而不是 `SettingsManager` 上。

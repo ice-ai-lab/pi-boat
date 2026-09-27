@@ -31,8 +31,8 @@ import {
  * 左侧 provider 清单（已配置 API Key 的 provider + models.json 自定义 provider +
  * 「添加 Provider」），右侧所选条目的详情；底部保存条写整份 models.json。
  *
- * 可见范围（enabledModels）的引擎在 core（ADR-0011）：这里只发 toggle / prune /
- * resync，不自己算 pattern 命中。
+ * 可见范围（enabledModels）的引擎在 core（ADR-0011）：这里只发 toggle，
+ * 不自己算 pattern 命中。
  */
 
 export interface AuthProviderView {
@@ -67,8 +67,6 @@ export interface ModelsSectionProps {
     hint: string | null;
     warnings: string[];
     onToggle(modelId: string, enabled: boolean): void;
-    onPrune(): void;
-    onResync(): void;
   };
   /** models.json 草稿（原文是单一事实来源，所有编辑都落到这段文本上） */
   config: {
@@ -403,20 +401,6 @@ function EnabledModelsBlock({
         >
           {t('models.enabledCount', { enabled: enabledCount, total: models.length })}
         </span>
-        <ConfigButton
-          size="small"
-          disabled={!enabled.canWrite || enabled.busy}
-          onClick={enabled.onPrune}
-        >
-          {t('models.enabledPrune')}
-        </ConfigButton>
-        <ConfigButton
-          size="small"
-          disabled={!enabled.canWrite || enabled.busy}
-          onClick={enabled.onResync}
-        >
-          {t('models.enabledResync')}
-        </ConfigButton>
       </div>
       {enabled.warnings.length > 0 && (
         <SettingsNotice tone="warn">{enabled.warnings.join('；')}</SettingsNotice>
@@ -444,7 +428,8 @@ function EnabledModelsBlock({
                 borderTop: index === 0 ? 'none' : '1px solid var(--border)',
               }}
             >
-              <span style={{ minWidth: 0, flex: 1 }}>
+              {/* 关掉的条目**留在列表里**（只是变淡 + 开关关闭）：删掉的话用户再也点不回来 */}
+              <span style={{ minWidth: 0, flex: 1, opacity: model.enabled ? 1 : 0.5 }}>
                 <span
                   style={{
                     display: 'block',

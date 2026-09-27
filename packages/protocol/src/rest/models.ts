@@ -128,6 +128,14 @@ export type ModelsEnabledResponse = {
   patterns: string[];
   /** 解析结果（选择器实际可见的模型） */
   models: ModelListItem[];
+  /**
+   * 该 runtime 的**完整目录**（含当前不可见的模型；`getModels()`，不看鉴权）。
+   *
+   * 面板要能显示「关掉的模型」并允许再打开（ADR-0011 后果：必须区分「未启用」/
+   * 「缺凭据」/「目录里没有」）——只给 `models` 的话，关掉一条它就从列表消失了，
+   * 用户再也点不回来。`input` 与 `models` 同形状，前端可直接合并成一张表。
+   */
+  catalog: ModelListItem[];
   scope: ModelsEnabledScope;
   /** 生效的 settings.json 路径（前端要告诉用户"改的是哪个文件"） */
   settingsPath: string;
@@ -136,26 +144,23 @@ export type ModelsEnabledResponse = {
   warnings: string[];
 };
 
-export const MODELS_ENABLED_OPS = ['toggle', 'prune', 'resync'] as const;
-export const ModelsEnabledOpSchema = z.enum(MODELS_ENABLED_OPS);
 /**
  * PUT /api/models/enabled
  *
- * - `toggle`（缺省）：只改**这一个模型**的可见性，其余 pattern 原样保留
- *   （最小编辑：匹配不到的项、`:level` 后缀、用户手写的具名列表都不动）
- * - `prune`：丢弃匹配不到任何模型的 pattern（显式修复操作，普通开关永不隐式重写）
- * - `resync`：按当前目录修复改名残留（模型改名 / provider 前缀不再覆盖）
+ * 只改**这一个模型**的可见性，其余 pattern 原样保留（最小编辑：匹配不到的项、
+ * `:level` 后缀、用户手写的具名列表都不动）。
  *
  * ⚠️ 禁用最后一个模型 → **409 + reason:'last-model'**：空列表在 pi 里等于"全开"，
  * 与用户意图相反（ADR-0011）。
+ *
+ * 没有 `prune` / `resync`（ADR-0027）：先把"不可用"与"目录里没有"混为一谈的
+ * 批量修复操作删掉，只留面板开关这一条写入路径。
  */
 export const ModelsEnabledUpdateSchema = z.object({
   cwd: z.string().optional(),
-  op: ModelsEnabledOpSchema.optional(),
-  /** `prune` / `resync` 下可省（它们作用于整份列表） */
-  providerId: z.string().optional(),
-  modelId: z.string().optional(),
-  enabled: z.boolean().optional(),
+  providerId: z.string().min(1),
+  modelId: z.string().min(1),
+  enabled: z.boolean(),
 });
 export type ModelsEnabledUpdate = z.infer<typeof ModelsEnabledUpdateSchema>;
 

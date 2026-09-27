@@ -13,7 +13,6 @@ import {
   useInstallSkillMutation,
   useModelCatalogMutation,
   useModelsConfigQuery,
-  useModelsQuery,
   usePatchSkillMutation,
   usePluginActionMutation,
   usePluginsQuery,
@@ -29,6 +28,7 @@ import {
 } from '@ice-ai/client/react';
 import {
   GeneralSection,
+  type ModelItemView,
   ModelsSection,
   PluginsSection,
   SettingsPanel,
@@ -86,7 +86,6 @@ export function SettingsHost({ projectRoot, sessionId, onClose, onNotice }: Sett
   const resourceCwd = projectRoot;
 
   // —— 模型：provider 清单 / 可见范围 / models.json 草稿 / 目录 ——
-  const models = useModelsQuery(projectRoot ?? undefined);
   const enabled = useEnabledModelsQuery(projectRoot ?? undefined);
   const updateEnabled = useUpdateEnabledModelsMutation(projectRoot ?? undefined);
   const config = useModelsConfigQuery();
@@ -113,27 +112,33 @@ export function SettingsHost({ projectRoot, sessionId, onClose, onNotice }: Sett
     JSON.stringify(parseResult.value) !== JSON.stringify(config.data.config);
 
   const modelItems = useMemo(() => {
-    // 服务端 enabled.models 的 id 是**裸 id**（provider 在旁字段）——必须按 provider:id 组合
-    // 与 models 的 modelList 对齐，否则勾选态永远错位（会误导用户反向操作）
-    const enabledIds = new Set(
-      (enabled.data?.models ?? []).map((model) => `${model.provider}:${model.id}`),
-    );
-    const list = models.data?.modelList ?? [];
-    const items = list.map((model) => ({
-      id: `${model.provider}:${model.id}`,
-      name: model.name,
-      provider: model.provider,
-      enabled: enabledIds.has(`${model.provider}:${model.id}`),
-    }));
-    return items.length > 0
-      ? items
-      : [...enabledIds].map((id) => ({
-          id,
-          name: id,
-          provider: id.split(':')[0] ?? '',
-          enabled: true,
-        }));
-  }, [models.data, enabled.data]);
+    // 服务端 id 是**裸 id**（provider 在旁字段）——必须按 provider:id 组合，否则
+    // 勾选态永远错位（会误导用户反向操作）。
+    // 列表以 **catalog（完整目录）** 为底、enabled（可见集）只用来点亮开关：
+    // 只用可见集的话，关掉一条模型它就从面板消失了，用户再也没法打开（ADR-0011 后果）。
+    const key = (model: { provider: string; id: string }) => `${model.provider}:${model.id}`;
+    const enabledIds = new Set((enabled.data?.models ?? []).map(key));
+    const items = new Map<string, ModelItemView>();
+    for (const model of enabled.data?.catalog ?? []) {
+      items.set(key(model), {
+        id: key(model),
+        name: model.name,
+        provider: model.provider,
+        enabled: enabledIds.has(key(model)),
+      });
+    }
+    // 可见但不在目录里的模型（理论上不该发生，但少了它开关态就丢）
+    for (const model of enabled.data?.models ?? []) {
+      if (items.has(key(model))) continue;
+      items.set(key(model), {
+        id: key(model),
+        name: model.name,
+        provider: model.provider,
+        enabled: true,
+      });
+    }
+    return [...items.values()];
+  }, [enabled.data]);
 
   const enabledCount = modelItems.filter((model) => model.enabled).length;
 
@@ -155,10 +160,9 @@ export function SettingsHost({ projectRoot, sessionId, onClose, onNotice }: Sett
 
   const toggleEnabled = useCallback(
     (modelId: string, nextEnabled: boolean) => {
-      const [providerId, ...rest] = modelId.split(':');
+      const [providerId = '', ...rest] = modelId.split(':');
       updateEnabled.mutate(
         {
-          op: 'toggle',
           providerId,
           modelId: rest.join(':'),
           enabled: nextEnabled,
@@ -226,22 +230,6 @@ export function SettingsHost({ projectRoot, sessionId, onClose, onNotice }: Sett
                   : null,
             warnings: enabled.data?.warnings ?? [],
             onToggle: toggleEnabled,
-            onPrune: () =>
-              updateEnabled.mutate(
-                { op: 'prune' },
-                {
-                  onSuccess: () => onNotice('已清理匹配不到模型的项'),
-                  onError: (error) => onNotice(`prune 失败：${error.message}`, 'error'),
-                },
-              ),
-            onResync: () =>
-              updateEnabled.mutate(
-                { op: 'resync' },
-                {
-                  onSuccess: () => onNotice('已按当前目录修复改名残留'),
-                  onError: (error) => onNotice(`resync 失败：${error.message}`, 'error'),
-                },
-              ),
           }}
           config={{
             modelsPath: config.data?.modelsPath ?? '',

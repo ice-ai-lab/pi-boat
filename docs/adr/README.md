@@ -15,7 +15,7 @@
 | [0008](0008-project-grouping-and-list-cache.md) | 项目分组（projectKey 归一）与会话列表缓存——列表性能分层 | 已接受 | 2026-09-22 |
 | [0009](0009-frontend-stack.md) | 前端技术栈与分层（client / ui / web）——Tailwind v4 / Axios / TanStack Query 边界 / 不引外部 skills | 已接受 | 2026-09-22 |
 | [0010](0010-sdk-0-87-alignment.md) | pi SDK 从 0.85.x 对齐到 0.87.x（含 system / usage / context_edit 三类新记录的处理） | 已接受 | 2026-01 |
-| [0011](0011-model-scope-and-catalog-refresh.md) | 模型可见范围（enabledModels）与目录刷新——完整引擎 + 全局可写/项目只读 + 仅手动刷新 | 已接受 | 2026-01 |
+| [0011](0011-model-scope-and-catalog-refresh.md) | 模型可见范围（enabledModels）与目录刷新——完整引擎 + 全局可写/项目只读 + 仅手动刷新 | 已接受（① 的 prune / resync 被 0027 删除） | 2026-01 |
 | [0012](0012-extension-ui-channel.md) | 扩展 UI 双向通道——采用 SDK RPC 面的 9 个 method，不引入 TUI 渲染 | 已接受 | 2026-01 |
 | [0013](0013-session-resume-and-external-write-detection.md) | 冷会话恢复走显式 `POST /resume`；外部写入检测只在全量读路径做 | 已接受 | 2026-01 |
 | [0014](0014-phase-one-scope-exclusions.md) | 一期范围排除与延后（鉴权 / 登录 / 终端 / 内建子代理运行时）；部分取代 0007 | 已接受 | 2026-01 |
@@ -31,3 +31,4 @@
 | [0024](0024-defer-media-images.md) | 图片惰性化（`deferMedia`）——空 data 占位 + 按坐标取字节，端点收拢为 `/entries/:entryId/image` | 已接受 | 2026-09-26 |
 | [0025](0025-settings-master-detail-provider-auth.md) | 设置面板主从化——恢复「Web 内管理 API Key」与 provider 用量查询（部分取代 0014 §2）；插件 disable 改为保留来源清空过滤器 | 已接受 | 2026-01 |
 | [0026](0026-project-scoped-session-list.md) | 会话列表按项目取数——`projectKey` 下推到扫描层 + 按范围缓存 + 运行态会话随列表带回 cwd（`runningSessionIds` → `runningSessions`，提交标注 `!`） | 已接受 | 2026-09-27 |
+| [0027](0027-drop-model-scope-prune-resync.md) | 删除可见范围的 prune / resync 批量修复操作——只留 toggle（修订 0011①） | 已接受 | 2026-09-27 |

@@ -541,13 +541,8 @@ export const enLocale: LocalePlugin = {
     'models.enabledStale': '{count} unmatched',
     'models.enabledStaleHint':
       'A model is available when its provider has a usable credential. An entry matches nothing when that credential is missing, when the model was renamed or deleted, or when the entry was written for another machine.',
-    'models.enabledPrune': 'Remove unmatched entries',
-    'models.enabledPruneHint':
-      'Delete the configured entries that match no available model. Everything else stays as it is.',
     'models.enabledClear': 'Enable all models',
     'models.enabledClearHint': 'Remove the model filter for every provider.',
-    'models.enabledResync': 'Resync',
-    'models.enabledResyncHint': 'Fix renamed models against the current catalog.',
     'models.apiKeyHint': 'Enter your {provider} API key to enable {count} models.',
     'models.replaceKey': 'Enter new key to replace…',
     'models.parseErrorTitle': 'Parse error',

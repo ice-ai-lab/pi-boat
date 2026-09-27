@@ -203,7 +203,7 @@ export function registerModelRoutes(app: Hono, deps: ModelRouteDeps): void {
     return c.json(await configService.enabled(cwd));
   });
 
-  // PUT /api/models/enabled —— 最小编辑开关 / prune / resync（ADR-0011①）
+  // PUT /api/models/enabled —— 最小编辑开关（ADR-0011①，只剩 toggle；ADR-0027）
   app.put('/api/models/enabled', async (c) => {
     const raw = await c.req.json().catch(() => null);
     const parsed = ModelsEnabledUpdateSchema.safeParse(raw);

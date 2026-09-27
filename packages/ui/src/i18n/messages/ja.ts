@@ -545,13 +545,8 @@ export const jaLocale: LocalePlugin = {
     'models.enabledStale': '{count} 件が未一致',
     'models.enabledStaleHint':
       'モデルはプロバイダーに有効な資格情報がある場合に利用できます。資格情報が欠けている場合、モデルの名前が変更または削除された場合、または別のマシン用にエントリが書き込まれた場合、エントリは何にも一致しません。',
-    'models.enabledPrune': '未一致のエントリを削除',
-    'models.enabledPruneHint':
-      '利用可能なモデルに一致しない構成済みエントリを削除します。それ以外はそのまま残ります。',
     'models.enabledClear': 'すべてのモデルを有効化',
     'models.enabledClearHint': 'すべてのプロバイダーのモデルフィルターを削除します。',
-    'models.enabledResync': '改名残りを修復',
-    'models.enabledResyncHint': '現行カタログに合わせて改名済みモデルの設定を修復します。',
     'models.apiKeyHint': '{provider} の API キーを入力して {count} 個のモデルを有効にします。',
     'models.replaceKey': '新しいキーを入力して置き換え…',
     'models.parseErrorTitle': '解析エラー',

@@ -3,8 +3,6 @@ import { describe, expect, it } from 'vitest';
 import {
   LastModelRejectionError,
   parsePattern,
-  prunePatterns,
-  resyncPatterns,
   toggleModelInPatterns,
 } from '../src/config/model-scope';
 
@@ -163,44 +161,6 @@ describe('model-scope：toggle 的最小编辑', () => {
       visible: [scoped('aaa', 'one'), scoped('anthropic', 'claude-b'), scoped('zzz', 'two')],
     });
     expect(next).toEqual(['aaa/one', 'anthropic/claude-a', 'anthropic/claude-b', 'zzz/two']);
-  });
-});
-
-describe('model-scope：显式修复操作', () => {
-  const noMatch = (pattern: string) => `[no-match] No models matched pattern "${pattern}"`;
-
-  it('prune：只丢匹配不到的 pattern', () => {
-    expect(prunePatterns(['good/a', 'ghost/none', 'good/b:high'], [noMatch('ghost/none')])).toEqual(
-      ['good/a', 'good/b:high'],
-    );
-  });
-
-  it('resync：按唯一候选修复改名残留，并保留 :level 后缀', () => {
-    const available = [
-      { provider: 'anthropic', id: 'claude-x-v2' },
-      { provider: 'openai', id: 'gpt-5' },
-    ];
-    expect(
-      resyncPatterns(
-        ['anthropic/claude-x', 'anthropic/claude-x:high'],
-        [noMatch('anthropic/claude-x'), noMatch('anthropic/claude-x:high')],
-        available,
-      ),
-    ).toEqual(['anthropic/claude-x-v2', 'anthropic/claude-x-v2:high']);
-  });
-
-  it('resync：候选不唯一时保持原样（宁可不修，不可乱改）', () => {
-    const available = [
-      { provider: 'anthropic', id: 'claude-x-v2' },
-      { provider: 'anthropic', id: 'claude-x-v3' },
-    ];
-    expect(
-      resyncPatterns(['anthropic/claude-x'], [noMatch('anthropic/claude-x')], available),
-    ).toEqual(['anthropic/claude-x']);
-  });
-
-  it('resync：无诊断的 pattern 一律不动', () => {
-    expect(resyncPatterns(['ok/a'], [], [{ provider: 'ok', id: 'b' }])).toEqual(['ok/a']);
   });
 });
 

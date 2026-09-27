@@ -220,6 +220,11 @@ function fakeConfigService() {
   const enabledResponse = {
     patterns: ['anthropic/claude-*'],
     models: [{ id: 'claude-x', name: 'Claude X', provider: 'anthropic', input: ['text'] }],
+    // 完整目录（含未启用项）：面板据此把「关掉的模型」仍然渲染成可再打开的条目
+    catalog: [
+      { id: 'claude-x', name: 'Claude X', provider: 'anthropic', input: ['text'] },
+      { id: 'claude-old', name: 'Claude Old', provider: 'anthropic', input: ['text'] },
+    ],
     scope: 'global' as const,
     settingsPath: '/tmp/agent/settings.json',
     canWrite: true,
@@ -1110,15 +1115,18 @@ describe('模型域路由', () => {
     expect(configService.catalog).toHaveBeenCalledWith('gpt');
   });
 
-  it('GET /api/models/enabled：只读范围（scope / canWrite / settingsPath）', async () => {
+  it('GET /api/models/enabled：只读范围（scope / canWrite / settingsPath / catalog）', async () => {
     const { app } = makeApp();
     const res = await request(app, '/api/models/enabled?cwd=/tmp');
     expect(res.status).toBe(200);
-    expect(await res.json()).toMatchObject({
+    const body = (await res.json()) as { catalog: { id: string }[] };
+    expect(body).toMatchObject({
       patterns: ['anthropic/claude-*'],
       scope: 'global',
       canWrite: true,
     });
+    // 目录必须原样透传（含未可见项）：前端靠它把关掉的模型留在列表里
+    expect(body.catalog.map((model) => model.id)).toEqual(['claude-x', 'claude-old']);
   });
 
   it('PUT /api/models/enabled：最后一个模型 → 409 reason=last-model', async () => {

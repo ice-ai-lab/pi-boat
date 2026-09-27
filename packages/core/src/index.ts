@@ -72,9 +72,7 @@ export {
   LastModelRejectionError,
   modelKey,
   parsePattern,
-  prunePatterns,
   resolveVisibleModels,
-  resyncPatterns,
   toggleModelInPatterns,
   type VisibleScope,
 } from './config/model-scope';

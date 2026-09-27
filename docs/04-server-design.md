@@ -77,7 +77,7 @@
 | `PUT /api/models/api-key` | `ConfigService` | 保存 API Key：走 provider 自己的 `auth.apiKey.login()` 拿标准凭据，再用 proper-lockfile 写 `~/.pi/agent/auth.json`（**不**触发目录联网刷新）；不支持的 provider → 400 |
 | `DELETE /api/models/api-key?provider=` | `ConfigService` | 只删 `api_key` 型凭据；OAuth 凭据回 200 + `type_mismatch` |
 | `POST /api/models/usage` | `ConfigService` | 查 provider 用量/余额（白名单 provider + 官方 origin 校验；**用户点「刷新」才联网**） |
-| `GET/PUT /api/models/enabled` | `ConfigService` + `model-scope` | 可见范围编辑引擎（ADR-0011）：最小编辑 / `prune` / `resync`；项目 shadow → 只读；最后一个模型 → 409 |
+| `GET/PUT /api/models/enabled` | `ConfigService` + `model-scope` | 可见范围编辑引擎（ADR-0011）：最小编辑 toggle（ADR-0027 后只剩这一种写入）；项目 shadow → 只读；最后一个模型 → 409 |
 | `POST /api/models/refresh` | `ConfigService` | 按需拉远端目录（只有用户显式请求才联网） |
 
 ### 3.4 文件 / Git / Worktree 域（12）——`routes/system.ts`

@@ -3,7 +3,7 @@ import type { ModelListItem, ModelsEnabledResponse } from '@ice-ai/protocol';
 /**
  * 模型设置面板的展示派生（纯函数）。
  *
- * ⚠️ **不重写可见范围引擎**：glob 解析、最小编辑、prune/resync 全在 core
+ * ⚠️ **不重写可见范围引擎**：glob 解析、最小编辑全在 core
  * （ADR-0011 / G2-2），前端只做分组与护栏。这里刻意不实现"自己算哪些 pattern 命中"——
  * 那是第二份实现，两边一旦分叉就是 bug（ADR-0017 同款理由）。
  */

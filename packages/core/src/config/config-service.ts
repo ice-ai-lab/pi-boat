@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { getSupportedThinkingLevels } from '@earendil-works/pi-ai';
+import { type Api, getSupportedThinkingLevels, type Model } from '@earendil-works/pi-ai';
 import {
   CONFIG_DIR_NAME,
   createAgentSessionServices,
@@ -14,6 +14,7 @@ import type {
   AuthProvidersResponse,
   CatalogModel,
   DiscoveredModel,
+  ModelListItem,
   ModelsConfigDiscoverRequest,
   ModelsConfigTestRequest,
   ModelsConfigTestResponse,
@@ -30,9 +31,7 @@ import { removeStoredCredentialIfType, storeProviderCredential } from './auth-st
 import {
   LastModelRejectionError,
   modelKey,
-  prunePatterns,
   resolveVisibleModels,
-  resyncPatterns,
   toggleModelInPatterns,
 } from './model-scope';
 import { modelsConfigPath, readModelsConfig, writeModelsConfig } from './models-config-store';
@@ -62,6 +61,11 @@ interface RuntimeHandle {
   modelRuntime: ModelRuntime;
   settingsManager: SettingsManager;
   diagnostics: string[];
+}
+
+/** 选择器条目（`/api/models` 与 `/api/models/enabled` 共用一份形状） */
+function toModelListItem(model: Model<Api>): ModelListItem {
+  return { id: model.id, name: model.name, provider: model.provider, input: [...model.input] };
 }
 
 export class ConfigService {
@@ -94,12 +98,7 @@ export class ConfigService {
             Object.entries(map).map(([level, value]) => [level, value ?? null]),
           );
         }
-        return {
-          id: model.id,
-          name: model.name,
-          provider: model.provider,
-          input: [...model.input],
-        };
+        return toModelListItem(model);
       })
       .sort(
         (a, b) =>
@@ -176,14 +175,21 @@ export class ConfigService {
       patterns.length === 0 ? undefined : patterns,
     );
 
+    const catalog = modelRuntime
+      .getModels()
+      .map(toModelListItem)
+      .sort(
+        (a, b) =>
+          a.provider.localeCompare(b.provider) ||
+          a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }) ||
+          a.id.localeCompare(b.id),
+      );
+
     return {
       patterns: [...patterns],
-      models: scope.visible.map((scoped) => ({
-        id: scoped.model.id,
-        name: scoped.model.name,
-        provider: scoped.model.provider,
-        input: [...scoped.model.input],
-      })),
+      models: scope.visible.map((scoped) => toModelListItem(scoped.model)),
+      // 完整目录（含关掉的条目）：面板据此把不可见模型仍然列出来（开关可再打开）
+      catalog,
       scope: shadowed ? 'project' : 'global',
       settingsPath: shadowed
         ? join(cwd, CONFIG_DIR_NAME, 'settings.json')
@@ -194,9 +200,9 @@ export class ConfigService {
   }
 
   /**
-   * 应用一次可见范围修改（ADR-0011①）。
+   * 应用一次可见范围修改（ADR-0011①）：**只有 toggle 一种写入**（ADR-0027）。
    *
-   * 三种 op 都走**最小编辑**：只重写被切换的那一个 provider 的片段，其余 pattern
+   * 走**最小编辑**：只重写被切换的那一个 provider 的片段，其余 pattern
    * （含匹配不到的项、`:level` 后缀）原样保留。
    *
    * ⚠️ 用 `getModels()`（完整目录）而不是 `getAvailable()` 来枚举 provider 的模型：
@@ -209,25 +215,6 @@ export class ConfigService {
       throw new ProjectShadowedError(
         `Model scope is defined by ${current.settingsPath}; edit that file instead`,
       );
-    }
-
-    if (input.op === 'prune' || input.op === 'resync') {
-      const handle = await this.createHandle(cwd);
-      const all = handle.modelRuntime.getModels();
-      const next =
-        input.op === 'prune'
-          ? prunePatterns(current.patterns, current.warnings)
-          : resyncPatterns(current.patterns, current.warnings, all);
-      await this.persistEnabled(handle.settingsManager, next);
-      return this.enabled(cwd);
-    }
-
-    if (
-      input.providerId === undefined ||
-      input.modelId === undefined ||
-      input.enabled === undefined
-    ) {
-      throw new InvalidScopeEditError('toggle requires providerId, modelId and enabled');
     }
 
     const handle = await this.createHandle(cwd);

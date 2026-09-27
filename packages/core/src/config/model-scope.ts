@@ -17,6 +17,8 @@ import type { SdkModelRef } from '../agent/sdk-types';
  *   是否等于该 provider 的全部模型，而不是看 pattern 长得像不像
  * - **不得整表重写**：`getAvailable()` 只列**当前鉴权通过**的 provider，整表重写会
  *    静默删掉缺凭据 provider 的条目
+ *
+ * 写入路径只有面板开关（toggle）这一条：没有批量修复操作（ADR-0027）。
  */
 
 /** 一个 provider 在「全开」时用的 glob（`**` 才跨 `/`） */
@@ -211,55 +213,4 @@ export function toggleModelInPatterns(input: ToggleInput): string[] {
   );
   if (firstIndex === -1) return [...kept, ...encoded];
   return [...kept.slice(0, firstIndex), ...encoded, ...kept.slice(firstIndex)];
-}
-
-/**
- * 丢弃**匹配不到任何模型**的 pattern（显式修复操作，`op:'prune'`）。
- * 普通开关永不隐式重写未触碰的条目——用户可能是为将来准备的（ADR-0011）。
- */
-export function prunePatterns(patterns: readonly string[], warnings: readonly string[]): string[] {
-  const unmatched = new Set<string>();
-  for (const warning of warnings) {
-    // 诊断文本格式：[no-match] No models matched pattern "xxx"
-    const match = /pattern "([^"]+)"/.exec(warning);
-    if (match?.[1] !== undefined && warning.includes('no-match')) unmatched.add(match[1]);
-  }
-  return patterns.filter((pattern) => !unmatched.has(pattern));
-}
-
-/**
- * 修复改名残留（`op:'resync'`）。
- *
- * 两件事：
- * 1. 匹配不到的 `provider/model`：若同 provider 下有模型 id 以该 model 部分**结尾**
- *    （README → README-v2 这类改名），改写成新 id
- * 2. provider 前缀不再覆盖某模型（改名后 `provider/*` 漏了嵌套 id）：无法从 pattern
- *    本身推断"曾经覆盖过谁"，因此只在能匹配到同 provider 的**唯一**前缀候选时才动
- */
-export function resyncPatterns(
-  patterns: readonly string[],
-  warnings: readonly string[],
-  available: readonly SdkModelRef[],
-): string[] {
-  const unmatched = new Set<string>();
-  for (const warning of warnings) {
-    const match = /pattern "([^"]+)"/.exec(warning);
-    if (match?.[1] !== undefined && warning.includes('no-match')) unmatched.add(match[1]);
-  }
-  return patterns.map((pattern) => {
-    if (!unmatched.has(pattern)) return pattern;
-    const parsed = parsePattern(pattern);
-    const { providerId, modelId } = parsed;
-    if (providerId === undefined || modelId === undefined) return pattern;
-    const candidates = available.filter(
-      (model) =>
-        model.provider === providerId &&
-        (model.id === modelId || model.id.endsWith(modelId) || model.id.startsWith(modelId)),
-    );
-    if (candidates.length !== 1) return pattern;
-    const only = candidates[0];
-    if (only === undefined) return pattern;
-    const replacement = `${providerId}/${only.id}`;
-    return parsed.level === undefined ? replacement : `${replacement}:${parsed.level}`;
-  });
 }

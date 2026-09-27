@@ -55,4 +55,31 @@ describe('ConfigService（模型面板主路径）', () => {
     expect(config.providers).toEqual({});
     expect(service.writeConfig({ providers: {} }).modelsPath).toBe(modelsPath);
   });
+
+  /** 放在最后：本用例会往临时 models.json 里塞一个自定义 provider（不清理，交给 afterAll 删目录） */
+  it('enabled()：catalog 是完整目录（关掉的模型仍在列表里，面板可再打开）', async () => {
+    const service = new ConfigService();
+    service.writeConfig({
+      providers: {
+        acme: {
+          baseUrl: 'http://127.0.0.1:1/v1',
+          api: 'openai-completions',
+          models: [
+            { id: 'acme-one', name: 'Acme One' },
+            { id: 'acme-two', name: 'Acme Two' },
+          ],
+        },
+      },
+    });
+
+    const response = await service.enabled(process.cwd());
+    const keys = new Set(response.catalog.map((model) => `${model.provider}:${model.id}`));
+    // 完整目录不看鉴权也不看可见范围：两条都必须拿到
+    expect(keys.has('acme:acme-one')).toBe(true);
+    expect(keys.has('acme:acme-two')).toBe(true);
+    // 可见集必须是目录的子集（面板按 catalog 渲染、按 models 点亮开关）
+    for (const model of response.models) {
+      expect(keys.has(`${model.provider}:${model.id}`)).toBe(true);
+    }
+  });
 });

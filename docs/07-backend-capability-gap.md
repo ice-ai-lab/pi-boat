@@ -51,7 +51,7 @@
 
 | # | 能力 | 落地时的关键细节（防重复踩坑） | 落点 |
 |---|---|---|---|
-| G2-2 | **模型可见范围（enabledModels）** | glob/fuzzy/`:thinkingLevel` 后缀语法、最小编辑（不整表重写）、`provider/*` vs `provider/**` 的 minimatch 陷阱、项目 `.pi/settings.json` shadow 只读、`prune` / `resync` 两种修复操作、禁用最后一个模型返回 409 | `core/src/config/model-scope.ts` + `config-service.ts`（ADR-0011） |
+| G2-2 | **模型可见范围（enabledModels）** | glob/fuzzy/`:thinkingLevel` 后缀语法、最小编辑（不整表重写）、`provider/*` vs `provider/**` 的 minimatch 陷阱、项目 `.pi/settings.json` shadow 只读、禁用最后一个模型返回 409（ADR-0027 删除了 `prune` / `resync` 两种批量修复操作） | `core/src/config/model-scope.ts` + `config-service.ts`（ADR-0011） |
 | G2-3 | **模型目录刷新** | 远端 catalog overlay 落 `~/.pi/agent/models-store.json`、常规读取走离线态（不联网）、只有用户显式点按钮才联网、按 provider 合并并发刷新、变更检测比 id/name 不比字节 | `core/src/config/config-service.ts` + `models-config-store.ts` |
 | G2-4 | **扩展 UI 通道本体** | 按 SDK RPC 面实现 **9 个 method**（无 `custom`）；硬件级细节：**阻塞型请求的默认超时**（SDK 不兜）、会话终止时未决请求结清、widgets/status 按 key 的**代际管理与 reload 清理** | `core/src/agent/extension-ui-bridge.ts`（ADR-0012） |
 | G2-5 | **会话文件外部写入检测** | 终端 pi CLI 与 server 同时写同一 `.jsonl` 时，内存 runtime 会读到旧索引；**仅在全量读（挂载 / `force=1`）时**探测磁盘并重建 runtime（回 `wrapperRebuilt`），run 期间不检测；不用文件锁（锁解决不了内存索引与磁盘内容的一致性） | `agent-session-service` + `server/src/routes/sessions.ts`（ADR-0013b） |
@@ -137,7 +137,7 @@
 | `GET /api/models-config/catalog?q` | ✅ | 远端目录（1h 缓存，服务端代理） |
 | `POST /api/models-config/discover` | ✅ | 按 provider `/models` 端点发现（20s 超时） |
 | `POST /api/models-config/test` | ✅ | 真实补全测连通（临时 models.json，20s 超时） |
-| `GET/PUT /api/models/enabled` | ✅ | G2-2 已落地（ADR-0011）：最小编辑引擎 + 项目 shadow 只读 + `prune`/`resync` + 最后一个模型 409 |
+| `GET/PUT /api/models/enabled` | ✅ | G2-2 已落地（ADR-0011）：最小编辑引擎 + 项目 shadow 只读 + 最后一个模型 409；`prune`/`resync` 已按 ADR-0027 删除 |
 | `POST /api/models/refresh` | ✅ | G2-3 已落地（ADR-0011③） |
 | catalog overlay / models-store | ✅ | `config/models-config-store.ts`（`~/.pi/agent/models-store.json`） |
 | 启动偏好落盘（G2-11） | ⏸ | **仍缺口（非阻塞）**：显式模型/思考档只作用于会话，不写 settings.json `defaultModel`；一期由前端 localStorage 绕过（ADR-0019） |

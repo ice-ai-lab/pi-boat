@@ -50,7 +50,7 @@ core 是 pi SDK 之上的**传输无关**业务层，补齐 SDK 没有的三件�
 | 文件 | 职责 | 测试 |
 |---|---|---|
 | `config/config-service.ts` | models.json 读写、provider 发现/连通测试、目录刷新（仅手动联网，ADR-0011③） | `model-scope.test.ts`（同域） |
-| `config/model-scope.ts` | 可见范围编辑引擎：glob/fuzzy 解析、最小编辑、`prune`/`resync`、最后一个模型拒绝（ADR-0011） | `model-scope.test.ts` |
+| `config/model-scope.ts` | 可见范围编辑引擎：glob/fuzzy 解析、最小编辑（toggle）、最后一个模型拒绝（ADR-0011 / ADR-0027） | `model-scope.test.ts` |
 | `config/models-config-store.ts` | models-store overlay 与 cost 归一 | `models-config-store.test.ts` |
 
 ### 2.4 resources / system（资源与宿主能力）

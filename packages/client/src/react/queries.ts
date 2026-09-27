@@ -295,7 +295,7 @@ export function useEnabledModelsQuery(cwd?: string) {
 }
 
 /**
- * 可见范围编辑：toggle（最小编辑）/ prune / resync。
+ * 可见范围编辑：toggle（最小编辑）。
  * 409 的两种 reason（last-model / project-shadow）由调用方按 ApiError 处理。
  */
 export function useUpdateEnabledModelsMutation(cwd?: string) {
