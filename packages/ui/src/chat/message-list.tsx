@@ -1,11 +1,12 @@
 import type { ChatState } from '@ice-ai/client';
 import {
   captureScrollDistance,
+  extractTurnWrittenFiles,
   getLiveFollowAttached,
   restoreScrollTop,
   shouldShowScrollToLatest,
 } from '@ice-ai/client';
-import { type RefObject, useCallback, useEffect, useRef, useState } from 'react';
+import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../utils/cn';
 import { useScrollbarVisibility } from '../utils/use-scrollbar-visibility';
 import { AssistantTurn, UserBubble } from './assistant-turn';
@@ -34,6 +35,8 @@ export interface MessageListProps {
     clientHeight: number;
     scrollHeight: number;
   }): void;
+  /** 助手消息末尾的「本轮改动」chip 点击（宿主在右栏打开该文件） */
+  onOpenWrittenFile(path: string): void;
 }
 
 /** 距顶部多少像素内触发自动翻页 */
@@ -49,6 +52,7 @@ export function MessageList({
   onLoadOlder,
   controllerRef,
   onViewportChange,
+  onOpenWrittenFile,
 }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const attachedRef = useRef(true);
@@ -167,6 +171,13 @@ export function MessageList({
 
   useScrollbarVisibility(scrollRef);
 
+  // 每轮写出的文件（docs/10 C14）：在助手消息末尾内联 chip，故按 turnId 索引
+  const writtenByTurn = useMemo(() => {
+    const byTurn = new Map<string, string[]>();
+    for (const group of extractTurnWrittenFiles(chat.turns)) byTurn.set(group.turnId, group.paths);
+    return byTurn;
+  }, [chat.turns]);
+
   return (
     <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden">
       <div
@@ -203,7 +214,12 @@ export function MessageList({
             {chat.turns.map((turn, index) => (
               <div key={turn.id} data-turn-index={index}>
                 {turn.orphan !== true && <UserBubble turn={turn} />}
-                <AssistantTurn turn={turn} streaming={chat.streaming} />
+                <AssistantTurn
+                  turn={turn}
+                  streaming={chat.streaming}
+                  writtenPaths={writtenByTurn.get(turn.id) ?? []}
+                  onOpenFile={onOpenWrittenFile}
+                />
               </div>
             ))}
             <div style={{ height: 16 }} />

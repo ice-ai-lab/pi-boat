@@ -5,7 +5,6 @@ import {
   buildMinimapBars,
   extractAtQuery,
   extractSlashQuery,
-  extractTurnWrittenFiles,
   filterFileEntries,
   filterSlashCommands,
   getFileIndex,
@@ -37,7 +36,6 @@ import {
   type SuggestionItem,
   ToastHost,
   type ToastItem,
-  TurnWrittenFiles,
   toastQueueReducer,
   useI18n,
   WorkspacePlaceholder,
@@ -611,11 +609,15 @@ export function ChatPane({
     [draft, attachments, session, pushToast],
   );
 
-  const lastTurnId = chat.turns[chat.turns.length - 1]?.id;
-  const writtenPaths = useMemo(() => {
-    const groups = extractTurnWrittenFiles(chat.turns);
-    return groups.find((group) => group.turnId === lastTurnId)?.paths ?? [];
-  }, [chat.turns, lastTurnId]);
+  // 助手消息末尾的「本轮改动」chip（docs/10 C14）：脏文件直接进 diff 视图
+  const openWrittenFile = useCallback(
+    (path: string) => {
+      const relative = shortPath(path, session.cwd);
+      const status = gitStatus.data?.files.find((file) => file.path === relative);
+      fileTabsStore.open(path, status !== undefined && status.kind !== 'untracked');
+    },
+    [session.cwd, gitStatus.data],
+  );
 
   // T0-1：minimap 视口区间由 MessageList 回传（替换硬编码 0,1,1）
   const minimapBars = useMemo(
@@ -1392,23 +1394,13 @@ export function ChatPane({
           onLoadOlder={() => void session.loadOlder()}
           controllerRef={minimapController}
           onViewportChange={setViewport}
+          onOpenWrittenFile={openWrittenFile}
         />
         <ChatMinimap
           bars={minimapBars}
           onJump={(index) => minimapController.current?.scrollToTurn(index)}
         />
       </div>
-
-      <TurnWrittenFiles
-        paths={writtenPaths}
-        className="mx-auto w-(--chat-w) max-w-full px-5 pb-1"
-        displayPath={(path) => shortPath(path, session.cwd)}
-        onOpen={(path) => {
-          const relative = shortPath(path, session.cwd);
-          const status = gitStatus.data?.files.find((file) => file.path === relative);
-          fileTabsStore.open(path, status !== undefined && status.kind !== 'untracked');
-        }}
-      />
 
       {composerElement}
 

@@ -469,6 +469,10 @@ globals.css    A=288  B=271  仅 A 有 47：
 - [ ] **T3-4** 新建 `chat/image-preview.tsx` 灯箱（`<dialog class="image-preview-dialog">`）；markdown `img` 注册；用户气泡渲染 `images`；工具行结果图片。〔C12/C15〕
 - [ ] **T3-5** 用户气泡 `maxHeight:300` + hover 行 + 时间戳 + 去多余 `markdown-body` 嵌套；工具行入参/结果分开 + `maxHeight:400` + `(no output)` + split diff。〔C12/C15〕
 - [ ] **T3-6** 助手底部补 cache W + `$cost` + 复制 + 时间戳 + 截断告警；`TurnWrittenFiles` 内联 chip。〔C13〕
+  - ✅ 2026-09-27：`TurnWrittenFiles` 已改内联 chip 并移入 `AssistantTurn`（一行 chip：mono 12 /
+    `--bg-subtle` / 1px 描边 / 圆角 6 / 12px 文件图标 / 显示**文件名**，完整路径只进 `title`；
+    容器 `aria-label` 用已有的 `chat.filesWritten`、chip 用 `chat.openWrittenFile`，旧「本轮改动 N 个文件」
+    标题行与 `chat-pane.tsx` 的独立区块一并删掉）。剩余 cache W / `$cost` / 复制 / 时间戳 / 截断告警仍未做。
 - [ ] **T3-7** 运行态 phase 文案 + `animate-pulse`；新建 `notice-shelf.tsx`（右上角页内通知）替换底部 toast。〔C18/C19〕
 - [ ] **T3-8** 过程组去耗时后缀；用量行改 A 语序；补流式 `↓ est` + 彩色 `t/s` 徽标。〔D20/D21〕
 - [ ] **T3-9** 收尾：加载更早纯文字哨兵 / 排队条（已并入 T2-12）/ 代码块 mermaid 切换 / 思考行 / 各类 banner / `data-message-role` 锚点。〔C20-C33〕

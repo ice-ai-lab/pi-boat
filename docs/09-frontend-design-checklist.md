@@ -470,7 +470,7 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 | C11 | 输入历史浮层 | ↑ 开浮层（序号 + 时钟图标头 + active 底） | 直接替换 textarea 内容（`chat-pane.tsx`） | P1 |
 | C12 | 用户气泡 | `maxHeight:300` 内滚 + 渲染 `images`（240×240 + 点击放大）+ hover「复制/从此编辑/新会话」+ 时间戳 | 无 maxHeight、**不渲染图片**、无 hover 行、无时间戳；`markdown-body` 嵌套两层（`assistant-turn.tsx`） | P1 |
 | C13 | 助手底部 | 用量含 **cache W** 与 **$cost** + 复制 + 时间戳 + 截断告警块 | 只有 `in/out/cache R`（无 cache W / 无 cost）+「生成中…」（`assistant-turn.tsx`） | P1 |
-| C14 | TurnWrittenFiles | 内联在助手消息末尾，一行 chip（mono 12 / `bg-subtle` / 描边 / 圆角 6 + 文件图标） | 移到 MessageList 与 composer 之间的独立区块、纵向、无边框（`chat-pane.tsx`） | P1 |
+| C14 | TurnWrittenFiles | 内联在助手消息末尾，一行 chip（mono 12 / `bg-subtle` / 描边 / 圆角 6 + 文件图标） | 移到 MessageList 与 composer 之间的独立区块、纵向、无边框（`chat-pane.tsx`）〔2026-09-27 已补做，见 T3-11 注〕 | P1 |
 | C15 | 工具行展开体 | 入参/结果**分开** + 结果独立配色 + `maxHeight:400` + 空结果 `(no output)` 斜体 + **split diff** + 结果图片 | 入参与输出用 `\n` 拼在同一 `<pre>`；无 diff、无结果图片（`tool-row.tsx`） | P1 |
 | C16 | 图片预览 | `<dialog class="image-preview-dialog">` 灯箱（72% 黑背板） | 同名件是右栏风格内联缩放；markdown `img` 未覆盖 → **消息内图片无法放大** | P1 |
 | C17 | markdown 能力 | katex 公式 + mermaid + `img`→灯箱 + 本地文件链接拦截 + `MAX_MARKDOWN_CHARS=100_000` 保护 | 只有 `remark-gfm`；公式/mermaid/灯箱/本地链接/超大保护**全缺**（`markdown-view.tsx`） | P1 |
@@ -631,6 +631,10 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 - [ ] **T3-9** 新建 `chat/image-preview.tsx` 灯箱（`<dialog class="image-preview-dialog">`）；`markdown-view.tsx` 注册 `img` → 灯箱；用户气泡渲染 `images`；工具行结果图片。〔C12/C15/C16〕
 - [x] **T3-10** 用户气泡：`maxHeight:300` + hover 操作行 + 时间戳 + 去掉多余 `markdown-body` 嵌套。〔C12〕
 - [x] **T3-11** 助手底部：cache W + `$cost` + 复制 + 时间戳 + 截断告警；`TurnWrittenFiles` 改内联 chip 并移入 `AssistantTurn`。〔C13/C14〕
+  - ⚠️ 2026-09-27 复查：勾选时 **C14 部分实际未落地**（旧实现仍是 `chat-pane.tsx` 里「本轮改动 N 个文件」
+    + 竖排路径列表的独立区块）；同日补做 —— chip 形态 + 移入 `AssistantTurn`，回归锁
+    `packages/ui/test/turn-written-files.test.tsx`。C13 部分仍以 `docs/10` C13 为准（cache W / `$cost` /
+    复制 / 时间戳 / 截断告警未做）。
 - [ ] **T3-12** 运行态 phase 文案行。〔C18〕
   - ⚠️ 2026-09-27 复查：**实际未落地**（`chat.runningNamedTool` / `chat.waitingModel` 等 key 零消费方，
     只有 `assistant-turn.tsx` 的「生成中…」）。回退勾选，以 `docs/10` C18 为准；参考实现见

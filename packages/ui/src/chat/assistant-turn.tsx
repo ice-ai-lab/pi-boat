@@ -7,6 +7,7 @@ import { MarkdownView } from './markdown-view';
 import { ProcessGroup } from './process-group';
 import { SystemRowView, ThinkingRowView } from './thinking-row';
 import { ToolRowView } from './tool-row';
+import { TurnWrittenFiles } from './turn-written-files';
 
 /**
  * 轨迹项的 React key：trail 是**仅追加**列表（流式补丁就地替换、从不重排），
@@ -75,10 +76,15 @@ export function UserBubble({ turn }: { turn: Turn }) {
 export const AssistantTurn = memo(function AssistantTurn({
   turn,
   streaming,
+  writtenPaths,
+  onOpenFile,
 }: {
   turn: Turn;
   /** 会话整体是否仍在跑（决定末轮 isLiveTail） */
   streaming: boolean;
+  /** 本轮写出的文件（空数组即不渲染 chip 行） */
+  writtenPaths: string[];
+  onOpenFile(path: string): void;
 }) {
   const liveTail = turn.status === 'streaming' && streaming;
   const grouped = groupTrail(turn.trail, liveTail);
@@ -157,6 +163,7 @@ export const AssistantTurn = memo(function AssistantTurn({
             本轮出错（详见处理详情）
           </div>
         )}
+        {writtenPaths.length > 0 && <TurnWrittenFiles paths={writtenPaths} onOpen={onOpenFile} />}
         {turn.usage !== null && !liveTail && <UsageLine usage={turn.usage} />}
       </div>
     </div>
