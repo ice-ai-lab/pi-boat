@@ -26,7 +26,7 @@ import { FilesPane } from '../panes/files-pane';
 import { SettingsHost } from '../panes/settings-host';
 import { SidebarPane } from '../panes/sidebar-pane';
 import { setLastSettingsSection } from '../services/settings-navigation';
-import { useTheme } from '../services/theme';
+import { type ThemePreference, useTheme } from '../services/theme';
 import { useFileTabs } from '../services/use-file-tabs';
 import { useGlobalKeyboardShortcuts } from '../services/use-keyboard-shortcuts';
 import { useResizablePanel } from '../services/use-resizable-panel';
@@ -83,8 +83,13 @@ export function WorkspaceLayout() {
   useEffect(() => {
     if (!rightPanelOpen) setRightPanelExpanded(false);
   }, [rightPanelOpen]);
-  // 订阅主题（设计规范的 AppShell 也常驻订阅，保证 auto 跟随系统时改配色能即时生效）
-  useTheme();
+  // 订阅主题（auto 跟随系统时改配色能即时生效）；切换入口在侧栏品牌行的循环按钮
+  const { preference: themePreference, setPreference } = useTheme();
+  const cycleTheme = useCallback(() => {
+    const cycle: ThemePreference[] = ['light', 'dark', 'auto'];
+    const next = cycle[(cycle.indexOf(themePreference) + 1) % cycle.length];
+    setPreference(next);
+  }, [themePreference, setPreference]);
   const { t } = useI18n();
   const [toasts, dispatchToast] = useReducer(toastQueueReducer, [] as ToastItem[]);
   const pushToast = useCallback((message: string, tone: ToastItem['tone'] = 'info') => {
@@ -173,6 +178,8 @@ export function WorkspaceLayout() {
       <SidebarPane
         activeSessionId={activeSessionId}
         activeSessionCwd={activeSessionCwd}
+        themePreference={themePreference}
+        onCycleTheme={cycleTheme}
         onProjectRootChange={setProjectRoot}
         onSelectSession={(id) => setSearchParams({ s: id })}
         onNewSession={(cwd) => {

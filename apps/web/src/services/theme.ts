@@ -19,9 +19,6 @@ const STORAGE_KEY = 'piboat:theme';
 
 type ThemeState = { preference: ThemePreference; theme: ResolvedTheme };
 
-/** 圆形揭示的圆心（点击位置），缺省是视口中心 */
-export type ToggleOrigin = { x: number; y: number };
-
 const SNAPSHOT_FALLBACK: ThemeState = { preference: 'auto', theme: 'light' };
 
 const listeners = new Set<() => void>();
@@ -104,46 +101,14 @@ export function useTheme(): {
   preference: ThemePreference;
   theme: ResolvedTheme;
   isDark: boolean;
-  setPreference(next: ThemePreference, origin?: ToggleOrigin): void;
+  setPreference(next: ThemePreference): void;
 } {
   const snapshot = useSyncExternalStore(subscribe, ensureState, () => SNAPSHOT_FALLBACK);
 
-  const setPreference = useCallback((next: ThemePreference, origin?: ToggleOrigin) => {
+  const setPreference = useCallback((next: ThemePreference) => {
     const current = ensureState();
     if (current.preference === next) return;
-    const theme = resolveTheme(next, systemTheme() === 'dark');
-    const apply = () => setThemeState(next, theme, true);
-
-    const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false;
-    if (typeof document.startViewTransition !== 'function' || reduceMotion) {
-      apply();
-      return;
-    }
-
-    const x = origin?.x ?? window.innerWidth / 2;
-    const y = origin?.y ?? window.innerHeight / 2;
-    const endRadius = Math.hypot(
-      Math.max(x, window.innerWidth - x),
-      Math.max(y, window.innerHeight - y),
-    );
-
-    const transition = document.startViewTransition(apply);
-    transition.ready
-      .then(() => {
-        document.documentElement.animate(
-          {
-            clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${endRadius}px at ${x}px ${y}px)`],
-          },
-          {
-            duration: 450,
-            easing: 'cubic-bezier(0.22, 0.61, 0.36, 1)',
-            pseudoElement: '::view-transition-new(root)',
-          },
-        );
-      })
-      .catch(() => {
-        // 过渡被取消：忽略
-      });
+    setThemeState(next, resolveTheme(next, systemTheme() === 'dark'), true);
   }, []);
 
   return {

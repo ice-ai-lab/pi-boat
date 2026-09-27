@@ -11,6 +11,10 @@ export { CodeBlock } from './chat/code-block';
 export { Composer, type ComposerProps } from './chat/composer';
 export { ComposerMenus, type ComposerMenusProps } from './chat/composer-menus';
 export { ComposerToolbar, type ComposerToolbarProps } from './chat/composer-toolbar';
+export {
+  ContentWidthHandles,
+  type ContentWidthHandlesProps,
+} from './chat/content-width-handles';
 export { EmptyState, type EmptyStateProps } from './chat/empty-state';
 export { MarkdownBody, MarkdownView } from './chat/markdown-view';
 export { MessageList, type MessageListProps } from './chat/message-list';
@@ -140,7 +144,6 @@ export {
   SettingsSectionIcon,
   type SettingsSectionItem,
   SettingsSectionTitle,
-  ThemeOptions,
 } from './settings/settings-panel';
 export {
   ConfigButton,

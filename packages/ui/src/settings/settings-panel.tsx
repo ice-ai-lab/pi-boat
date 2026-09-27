@@ -1,9 +1,7 @@
-import type { ThemePreference } from '@ice-ai/client';
 import { type ReactNode, useEffect, useState } from 'react';
 import { useI18n } from '../i18n/i18n-provider';
 import { cn } from '../utils/cn';
 import { ConfigSectionTitle } from './settings-ui';
-import { ThemeIcon } from './theme-icon';
 
 /**
  * SettingsPanel（T5-1）：按设计规范 的外壳——
@@ -196,44 +194,6 @@ export function SettingsSectionIcon({
     <svg {...common} aria-hidden="true">
       <path d="M9 7V2M15 7V2M6 13V8a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v5a6 6 0 0 1-12 0ZM12 19v3" />
     </svg>
-  );
-}
-
-/**
- * 外观（主题）选择：按设计规范 的 GeneralSettings 外观段。
- * 档案与标签单一来源是 `@ice-ai/client` 的 `THEME_OPTIONS`（与设计规范同序）。
- */
-export function ThemeOptions({
-  options,
-  preference,
-  onSelect,
-  ariaLabel = 'Appearance',
-}: {
-  options: readonly { id: ThemePreference; label: string }[];
-  preference: ThemePreference;
-  onSelect(preference: ThemePreference, origin?: { x: number; y: number }): void;
-  ariaLabel?: string;
-}) {
-  return (
-    <div role="radiogroup" aria-label={ariaLabel} className="settings-theme-options">
-      {options.map((option) => (
-        <label key={option.id} className="settings-theme-option">
-          <input
-            type="radio"
-            name="theme"
-            value={option.id}
-            checked={preference === option.id}
-            onChange={(event) => {
-              const rect = event.currentTarget.getBoundingClientRect();
-              onSelect(option.id, { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
-            }}
-            className="sr-only"
-          />
-          <ThemeIcon preference={option.id} />
-          <span className="settings-theme-option-label">{option.label}</span>
-        </label>
-      ))}
-    </div>
   );
 }
 

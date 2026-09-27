@@ -3,7 +3,6 @@ import {
   parseModelsConfigDraft,
   sendAgentCommand,
   setThinkingExpandedByDefault,
-  THEME_OPTIONS,
 } from '@ice-ai/client';
 import {
   useAuthProvidersQuery,
@@ -42,7 +41,6 @@ import {
   type SettingsSection as SectionId,
   setLastSettingsSection,
 } from '../services/settings-navigation';
-import { useTheme } from '../services/theme';
 import { useChatAppearance } from '../services/use-chat-appearance';
 
 /**
@@ -81,7 +79,6 @@ export function SettingsHost({ projectRoot, sessionId, onClose, onNotice }: Sett
     setSection('general');
   }, [projectRoot, section]);
 
-  const theme = useTheme();
   /** 项目级资源的 cwd：没有项目就没有项目域资源（与禁用口径同一判据，K5） */
   const resourceCwd = projectRoot;
 
@@ -193,11 +190,6 @@ export function SettingsHost({ projectRoot, sessionId, onClose, onNotice }: Sett
     if (id === 'general') {
       return (
         <GeneralSection
-          theme={{
-            options: THEME_OPTIONS,
-            preference: theme.preference,
-            onSelect: theme.setPreference,
-          }}
           chat={{
             width: chatAppearance.width,
             fontSize: chatAppearance.fontSize,

@@ -186,45 +186,33 @@ describe('本轮改动文件', () => {
 });
 
 describe('主题', () => {
-  it('偏好是调色板 id（与设计规范 THEME_OPTIONS 同序）', () => {
-    expect(THEME_OPTIONS.map((option) => option.id)).toEqual([
-      'light',
-      'dark',
-      'mist',
-      'rose',
-      'pine',
-      'auto',
-    ]);
-    expect(isThemePreference('mist')).toBe(true);
+  it('偏好是三态 id（light/dark/auto）', () => {
+    expect(THEME_OPTIONS.map((option) => option.id)).toEqual(['light', 'dark', 'auto']);
     expect(isThemePreference('system')).toBe(false);
+    expect(isThemePreference('mist')).toBe(false);
   });
 
   it('auto 跟随系统；其余原样', () => {
     expect(resolveTheme('auto', true)).toBe('dark');
     expect(resolveTheme('auto', false)).toBe('light');
     expect(resolveTheme('dark', false)).toBe('dark');
-    expect(resolveTheme('pine', false)).toBe('pine');
   });
 
-  it('dark 与 pine 都算暗色', () => {
+  it('dark 算暗色', () => {
     expect(isDarkTheme('dark')).toBe(true);
-    expect(isDarkTheme('pine')).toBe(true);
-    expect(isDarkTheme('mist')).toBe(false);
+    expect(isDarkTheme('light')).toBe(false);
   });
 
-  it('标签取自设计规范 zh-CN', () => {
+  it('标签', () => {
     expect(themeLabel('auto')).toBe('跟随系统');
-    expect(themeLabel('mist')).toBe('雾青');
-    expect(themeLabel('pine')).toBe('松夜');
+    expect(themeLabel('dark')).toBe('深色');
+    expect(themeLabel('light')).toBe('浅色');
   });
 
   it('applyTheme 写 data-theme 与 dark class', () => {
     const root = document.createElement('div');
     applyTheme('dark', root);
     expect(root.dataset['theme']).toBe('dark');
-    expect(root.classList.contains('dark')).toBe(true);
-    applyTheme('pine', root);
-    expect(root.dataset['theme']).toBe('pine');
     expect(root.classList.contains('dark')).toBe(true);
     applyTheme('light', root);
     expect(root.classList.contains('dark')).toBe(false);

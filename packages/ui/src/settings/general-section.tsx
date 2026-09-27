@@ -6,27 +6,18 @@ import {
   CHAT_CONTENT_WIDTH_MAX,
   CHAT_CONTENT_WIDTH_MIN,
   type ChatAppearance,
-  type ThemePreference,
 } from '@ice-ai/client';
 import { useI18n } from '../i18n/i18n-provider';
-import { ThemeOptions } from './settings-panel';
 import { ConfigButton, ConfigSwitch } from './settings-ui';
 
 /**
  * GeneralSection（T5-3 / T8-4）：按设计规范 的 `GeneralSettings`。
  *
- * 节顺序与设计规范一致：外观 → 对话 → (Shell，仅 Windows，属排除域) → 语言。
+ * 节顺序：对话 → 语言（外观已精简为三态循环切换，入口移到侧栏品牌行）。
  * 「项目信任」按 T5-4 移出，改由 `ProjectTrustDialog` 承担；设计规范的推送 / Web 鉴权两节
  * 属排除域（ADR-0014/0016），不补。
  */
-export interface ThemeSetting {
-  options: readonly { id: ThemePreference; label: string }[];
-  preference: ThemePreference;
-  onSelect(preference: ThemePreference, origin?: { x: number; y: number }): void;
-}
-
 export interface GeneralSectionProps {
-  theme: ThemeSetting;
   chat: ChatAppearance & {
     thinkingExpanded: boolean;
     onThinkingExpandedChange(expanded: boolean): void;
@@ -35,35 +26,12 @@ export interface GeneralSectionProps {
   };
 }
 
-/** 主题 id → i18n key（设计规范的 `THEME_OPTIONS[].label` 本身就是 key） */
-const THEME_LABEL_KEY: Record<ThemePreference, string> = {
-  light: 'settings.themeLight',
-  dark: 'settings.themeDark',
-  mist: 'settings.themeMist',
-  rose: 'settings.themeRose',
-  pine: 'settings.themePine',
-  auto: 'settings.themeSystem',
-};
-
-export function GeneralSection({ theme, chat }: GeneralSectionProps) {
+export function GeneralSection({ chat }: GeneralSectionProps) {
   const { locale, setLocale, supportedLocales, t } = useI18n();
 
   return (
     <div className="settings-general">
       <h2 className="settings-general-title">{t('settings.general')}</h2>
-
-      <section className="settings-general-section">
-        <h3 className="settings-general-heading">{t('settings.appearance')}</h3>
-        <ThemeOptions
-          ariaLabel={t('settings.appearance')}
-          options={theme.options.map((option) => ({
-            id: option.id,
-            label: t(THEME_LABEL_KEY[option.id]),
-          }))}
-          preference={theme.preference}
-          onSelect={theme.onSelect}
-        />
-      </section>
 
       <section className="settings-general-section">
         <h3 className="settings-general-heading">{t('settings.chat')}</h3>

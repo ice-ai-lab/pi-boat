@@ -15,24 +15,22 @@
     <meta name="application-name" content="PiBoat" />
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1a1a1a" />
-    <!-- 首帧前应用已保存的主题（设计规范 layout.tsx 的 THEME_INIT_SCRIPT）。
+    <!-- 首帧前应用已保存的主题。
          调色板清单与 storage key 必须与 @ice-ai/client 的 THEME_OPTIONS / THEME_INIT_SCRIPT 一致，
-         一致性由 apps/web/test/theme-init.test.ts 锁。 -->
+         一致性由 apps/web/src/services/theme-init.test.ts 锁。 -->
     <script>
       (() => {
         let stored = null;
         try {
           stored = localStorage.getItem('piboat:theme');
         } catch {}
-        let theme = ['light', 'dark', 'mist', 'rose', 'pine', 'auto'].includes(stored)
-          ? stored
-          : 'auto';
+        let theme = ['light', 'dark', 'auto'].includes(stored) ? stored : 'auto';
         if (theme === 'auto') {
           theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
         }
         const root = document.documentElement;
         root.dataset.theme = theme;
-        root.classList.toggle('dark', theme === 'dark' || theme === 'pine');
+        root.classList.toggle('dark', theme === 'dark');
       })();
     </script>
   </head>

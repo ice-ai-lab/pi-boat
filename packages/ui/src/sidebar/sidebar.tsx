@@ -3,6 +3,7 @@ import {
   getSessionListVisibleRows,
   groupSessionsByDay,
   SESSION_LIST_ITEM_HEIGHT,
+  type ThemePreference,
 } from '@ice-ai/client';
 import type { SessionInfo } from '@ice-ai/protocol';
 import {
@@ -18,6 +19,7 @@ import {
 import { formatRelativeTime } from '../i18n/format';
 import { useI18n } from '../i18n/i18n-provider';
 import { DirectoryPicker } from '../settings/directory-picker';
+import { ThemeIcon } from '../settings/theme-icon';
 import { SessionSearch } from './session-search';
 
 /** 分组头文案 key（分组键来自 `@ice-ai/client` 的 `groupSessionsByDay`） */
@@ -209,6 +211,51 @@ function BrandTitle({ versionLabel }: { versionLabel: string }) {
         v{versionLabel}
       </span>
     </span>
+  );
+}
+
+/** 主题循环切换按钮（浮动到品牌行最右侧；浅色 → 深色 → 跟随系统） */
+function ThemeCycleButton({
+  preference,
+  onCycle,
+}: {
+  preference: ThemePreference;
+  onCycle(): void;
+}) {
+  const { t } = useI18n();
+  return (
+    <button
+      type="button"
+      onClick={onCycle}
+      title={t(`theme.${preference}`)}
+      aria-label={t(`theme.${preference}`)}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: 26,
+        height: 26,
+        padding: 0,
+        marginLeft: 'auto',
+        flexShrink: 0,
+        background: 'none',
+        border: 'none',
+        borderRadius: 6,
+        color: 'var(--text-muted)',
+        cursor: 'pointer',
+        transition: 'background 0.12s, color 0.12s',
+      }}
+      onMouseEnter={(event) => {
+        event.currentTarget.style.background = 'var(--bg-hover)';
+        event.currentTarget.style.color = 'var(--text)';
+      }}
+      onMouseLeave={(event) => {
+        event.currentTarget.style.background = 'none';
+        event.currentTarget.style.color = 'var(--text-muted)';
+      }}
+    >
+      <ThemeIcon preference={preference} size={13} />
+    </button>
   );
 }
 
@@ -828,6 +875,10 @@ export interface SidebarProps {
   homeDir: string;
   /** 品牌字标右侧展示的版本号（如 `0.1.0`；宿主传 APP_VERSION） */
   versionLabel: string;
+  /** 当前主题偏好（品牌行右侧的循环切换按钮展示用） */
+  themePreference: ThemePreference;
+  /** 单击循环切换主题：light → dark → auto → light */
+  onCycleTheme(): void;
   /** EXPLORER 区是否显示（选中了项目才显示，设计规范同款） */
   showExplorer: boolean;
   explorerOpen: boolean;
@@ -1027,11 +1078,12 @@ export function Sidebar(props: SidebarProps) {
             alignItems: 'center',
             gap: 9,
             height: 44,
-            padding: '0 10px 0 17px',
+            padding: '0 12px 0 17px',
           }}
         >
           <img src="/favicon.svg" width={20} height={20} alt="" style={{ flexShrink: 0 }} />
           <BrandTitle versionLabel={props.versionLabel} />
+          <ThemeCycleButton preference={props.themePreference} onCycle={props.onCycleTheme} />
         </div>
 
         {/* 动作行：新会话（正文按钮，样式保持）+ 搜索 */}

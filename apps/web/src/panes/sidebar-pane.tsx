@@ -3,6 +3,7 @@ import {
   getHome,
   getProjectActivity,
   projectKeyForCwd,
+  type ThemePreference,
   validateCwd,
 } from '@ice-ai/client';
 import {
@@ -34,6 +35,10 @@ export interface SidebarPaneProps {
    * 深链（`?s=`）刷页时也靠它把侧栏定位到正确的项目。
    */
   activeSessionCwd: string | null;
+  /** 当前主题偏好（侧栏品牌行的循环切换按钮展示用） */
+  themePreference: ThemePreference;
+  /** 单击循环切换主题：浅色 → 深色 → 跟随系统 */
+  onCycleTheme(): void;
   onSelectSession(sessionId: string): void;
   /** 新建会话：带上项目/工作区 cwd（null = 用上次记忆的 cwd） */
   onNewSession(cwd: string | null): void;
@@ -97,6 +102,8 @@ function loadExplorerOpen(): boolean {
 export function SidebarPane({
   activeSessionId,
   activeSessionCwd,
+  themePreference,
+  onCycleTheme,
   onSelectSession,
   onNewSession,
   onProjectRootChange,
@@ -353,6 +360,8 @@ export function SidebarPane({
       projectActivity={projectActivity}
       homeDir={homeDir}
       versionLabel={APP_VERSION}
+      themePreference={themePreference}
+      onCycleTheme={onCycleTheme}
       showExplorer={selectedCwd !== null}
       explorerOpen={explorerOpen}
       onToggleExplorer={toggleExplorer}
