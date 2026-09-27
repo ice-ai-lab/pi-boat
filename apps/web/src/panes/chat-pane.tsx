@@ -2,7 +2,6 @@ import {
   applyAtInsertion,
   applySlashInsertion,
   buildEntriesFromFiles,
-  buildMinimapBars,
   extractAtQuery,
   extractSlashQuery,
   filterFileEntries,
@@ -22,7 +21,6 @@ import {
 import { presetForToolNames, TOOL_PRESETS } from '@ice-ai/protocol';
 import {
   BranchNavigator,
-  ChatMinimap,
   Composer,
   ComposerToolbar,
   EmptyState,
@@ -31,7 +29,6 @@ import {
   FileIcon,
   hasSessionBranches,
   MessageList,
-  type MessageListHandle,
   QueueBar,
   type SuggestionItem,
   ToastHost,
@@ -339,15 +336,12 @@ export function ChatPane({
   const attachments = useAttachedImages();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
-  /** minimap 视口跟踪（T0-1：替换硬编码的 0,1,1） */
-  const [viewport, setViewport] = useState({ scrollTop: 0, clientHeight: 1, scrollHeight: 1 });
   /**
    * 「本次会话切换由本组件发起」（建会话 / fork：会话先行、URL 后跟），供对账决策用。
    * 用户点侧栏是 URL 先行，绝不置此标记——否则对账会把 URL 反向覆盖回当前会话，
    * 两个会话无限互切（2026-09-26 实测）。
    */
   const selfSwitchRef = useRef(false);
-  const minimapController = useRef<MessageListHandle | null>(null);
   /** 设计规范 `topBarRef`：顶部面板 fixed 下拉的定位基准（T1-3） */
   const topBarRef = useRef<HTMLDivElement>(null);
   const [topPanelPos, setTopPanelPos] = useState<{
@@ -625,18 +619,6 @@ export function ChatPane({
       fileTabsStore.open(path, status !== undefined && status.kind !== 'untracked');
     },
     [session.cwd, gitStatus.data],
-  );
-
-  // T0-1：minimap 视口区间由 MessageList 回传（替换硬编码 0,1,1）
-  const minimapBars = useMemo(
-    () =>
-      buildMinimapBars(
-        chat.turns,
-        viewport.scrollTop,
-        viewport.clientHeight,
-        viewport.scrollHeight,
-      ),
-    [chat.turns, viewport],
   );
 
   // 思考档位候选：按当前模型取（服务端给的是 `provider:id` 键）
@@ -1400,13 +1382,7 @@ export function ChatPane({
           hasOlder={session.hasOlder}
           loadingOlder={session.loadingOlder}
           onLoadOlder={() => void session.loadOlder()}
-          controllerRef={minimapController}
-          onViewportChange={setViewport}
           onOpenWrittenFile={openWrittenFile}
-        />
-        <ChatMinimap
-          bars={minimapBars}
-          onJump={(index) => minimapController.current?.scrollToTurn(index)}
         />
       </div>
 

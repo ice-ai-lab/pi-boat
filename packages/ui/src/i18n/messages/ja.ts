@@ -181,6 +181,9 @@ export const jaLocale: LocalePlugin = {
     'sidebar.changedFiles': '{count} 件の変更ファイル',
     'sidebar.loading': '読み込み中...',
     'sidebar.noSessions': 'セッションが見つかりません',
+    'sidebar.groupToday': '今日',
+    'sidebar.groupYesterday': '昨日',
+    'sidebar.groupEarlier': 'それ以前',
     'sidebar.newActivity': '新しいアクティビティ',
     'sidebar.newSessionActivity': '新しいセッションのアクティビティ',
     'sidebar.agentRunning': 'エージェント実行中',
@@ -350,8 +353,6 @@ export const jaLocale: LocalePlugin = {
     'chat.imageNotSupportedBody':
       '選択したモデル（{model}）は画像入力をサポートしていません。添付した画像は無視される可能性があります。',
     'chat.tokensSaved': '{saved} 節約',
-    'chatMinimap.locateAssistant': 'アシスタントメッセージを特定',
-    'chatMinimap.toolCalls': 'このターンのツール呼び出し: {count}',
     'i18n.close': '閉じる',
     'i18n.copy': 'コピー',
     'i18n.copied': 'コピーしました',

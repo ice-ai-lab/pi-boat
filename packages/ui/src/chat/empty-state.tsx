@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 /**
  * EmptyState：新会话首屏（T3-1 / C1 / C8 / C30）——按设计规范 `ChatWindow` 的空会话态：
  * 品牌行（32×32 应用图标 + `PiBoat` 22px/700 + 右侧两行版本块）+ **直接复用 Composer**
- * + 扩展货架；容器为「上 flex-1 / 内容 / 下 flex-1」（居中偏下），`paddingRight` 桌面 52（避让 minimap）。
+ * + 扩展货架；容器为「上 flex-1 / 内容 / 下 flex-1」（居中偏下）。
  */
 export interface EmptyStateProps {
   /** web 应用版本（如 `0.1.0`） */
@@ -20,7 +20,7 @@ export function EmptyState({ appVersion, piVersion, children, shelf }: EmptyStat
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="min-h-0 flex-1" />
-      <div className="mb-3 w-full" style={{ paddingLeft: 16, paddingRight: 52 }}>
+      <div className="mb-3 w-full" style={{ padding: '0 16px' }}>
         <div
           style={{
             display: 'flex',

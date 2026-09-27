@@ -226,13 +226,6 @@ export {
   VISIBLE_PAGE_SIZE,
 } from './view-models/chat-lazy-load';
 export {
-  activeRange,
-  buildMinimapBars,
-  type MinimapBar,
-  scrollTopForBar,
-  turnTone,
-} from './view-models/minimap';
-export {
   configProviderNames,
   enabledScopeLabel,
   groupModelsByProvider,
@@ -250,11 +243,15 @@ export {
   workspaceKeyOf,
 } from './view-models/session-list';
 export {
-  getScrollTopForIndex,
-  getSessionListHeight,
-  getSessionListIndices,
+  buildSessionListRows,
+  getSessionListVisibleRows,
+  groupSessionsByDay,
+  SESSION_LIST_HEADER_HEIGHT,
   SESSION_LIST_ITEM_HEIGHT,
   SESSION_LIST_OVERSCAN,
+  type SessionListGroup,
+  type SessionListGroupKey,
+  type SessionListRow,
 } from './view-models/session-list-window';
 export {
   contextPercent,

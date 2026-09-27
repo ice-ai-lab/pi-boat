@@ -27,6 +27,8 @@
   --accent: #245bce;
   --accent-hover: #1d4ed8;
   --accent-contrast: #ffffff;
+  /* 品牌黄：字标 `Boat` / 应用图标同色，主题无关（各主题继承 :root） */
+  --brand: #f9a006;
   --user-bg: #eff6ff;
   --assistant-bg: #ffffff;
   --tool-bg: #f9fafb;
@@ -74,7 +76,7 @@
     "Microsoft YaHei", monospace;
 
   /* ---- 布局尺寸（不进 @theme） ---- */
-  --sb-w: 260px;
+  --sb-w: 340px;
   --rb-w: clamp(360px, 42vw, 640px);
   --chat-w: var(--chat-content-max-width);
 

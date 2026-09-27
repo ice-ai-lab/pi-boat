@@ -31,6 +31,23 @@ import { useFileTabs } from '../services/use-file-tabs';
 import { useGlobalKeyboardShortcuts } from '../services/use-keyboard-shortcuts';
 import { useResizablePanel } from '../services/use-resizable-panel';
 
+/** 侧栏宽度持久化 key */
+const SIDEBAR_WIDTH_STORAGE_KEY = 'piboat:sidebar-width';
+/**
+ * 一次性迁移（2026-09-27）：默认宽度 260 → 340。
+ * 存着旧默认值（260）的缓存不是用户拖出来的选择，直接丢弃以落到新默认；
+ * 用户真改过的其他宽度保留。
+ */
+if (typeof window !== 'undefined') {
+  try {
+    if (window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY) === '260') {
+      window.localStorage.removeItem(SIDEBAR_WIDTH_STORAGE_KEY);
+    }
+  } catch {
+    // 存储不可用是尽力而为
+  }
+}
+
 /**
  * 三栏工作区：左栏会话/项目、中栏对话、右栏文件。
  * **结构按设计规范 `AppShell`**（ADR-0020）：
@@ -120,7 +137,7 @@ export function WorkspaceLayout() {
     growthDirection: 'right',
     maxWidth: SIDEBAR_MAX_WIDTH,
     minWidth: SIDEBAR_MIN_WIDTH,
-    storageKey: 'piboat:sidebar-width',
+    storageKey: SIDEBAR_WIDTH_STORAGE_KEY,
     widthRef: sidebarWidthRef,
   });
   const rightPanelResizer = useResizablePanel({

@@ -90,6 +90,20 @@ body {
   background-color: transparent;
 }
 
+/*
+ * 不需要滚动条的容器（会话列表等）：保留滚动能力，但去掉全局 10px 轨道占位。
+ * `.scrollbar-subtle` 只是把 thumb 设成透明，而在「始终显示滚动条」的平台上
+ * 那 10px 的轨道依旧占位，看着就是右侧一条空白 padding。
+ */
+.scrollbar-none {
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
 .scrollbar-subtle.scrollbar-visible::-webkit-scrollbar-thumb {
   background-color: color-mix(in srgb, var(--text-dim) 45%, transparent);
 }
@@ -1399,8 +1413,8 @@ span.token.table {
     }
 
     .sidebar-container.sidebar-open {
-      width: var(--sidebar-width, 260px);
-      min-width: var(--sidebar-width, 260px);
+      width: var(--sidebar-width, 340px);
+      min-width: var(--sidebar-width, 340px);
     }
 
     .sidebar-container.sidebar-closed {
@@ -1411,8 +1425,8 @@ span.token.table {
 
     /* keep inner content at fixed width so it doesn't reflow during animation */
     .sidebar-container > * {
-      width: var(--sidebar-width, 260px);
-      min-width: var(--sidebar-width, 260px);
+      width: var(--sidebar-width, 340px);
+      min-width: var(--sidebar-width, 340px);
     }
 
     .sidebar-container.sidebar-resizing,

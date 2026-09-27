@@ -1,5 +1,4 @@
 import {
-  CLIENT_VERSION,
   getDefaultCwd,
   getHome,
   getProjectActivity,
@@ -17,6 +16,7 @@ import {
 import type { ProjectInfo, SessionInfo } from '@ice-ai/protocol';
 import { Sidebar, type SidebarProject } from '@ice-ai/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { APP_VERSION } from '../layout/health';
 import { insertMention } from '../services/mention-bus';
 import { useResizablePanel } from '../services/use-resizable-panel';
 import { type FileExplorerHandle, FileExplorerPane } from './file-explorer-pane';
@@ -352,7 +352,7 @@ export function SidebarPane({
       }))}
       projectActivity={projectActivity}
       homeDir={homeDir}
-      versionLabel={CLIENT_VERSION}
+      versionLabel={APP_VERSION}
       showExplorer={selectedCwd !== null}
       explorerOpen={explorerOpen}
       onToggleExplorer={toggleExplorer}

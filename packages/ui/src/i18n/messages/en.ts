@@ -180,6 +180,9 @@ export const enLocale: LocalePlugin = {
     'sidebar.changedFiles': '{count} changed files',
     'sidebar.loading': 'Loading...',
     'sidebar.noSessions': 'No sessions found',
+    'sidebar.groupToday': 'Today',
+    'sidebar.groupYesterday': 'Yesterday',
+    'sidebar.groupEarlier': 'Earlier',
     'sidebar.newActivity': 'New activity',
     'sidebar.newSessionActivity': 'New session activity',
     'sidebar.agentRunning': 'Agent running',
@@ -350,8 +353,6 @@ export const enLocale: LocalePlugin = {
     'chat.imageNotSupportedBody':
       'The selected model ({model}) does not support image input. The attached images will likely be ignored.',
     'chat.tokensSaved': '{saved} saved',
-    'chatMinimap.locateAssistant': 'Locate assistant message',
-    'chatMinimap.toolCalls': 'Tool calls this turn: {count}',
     'i18n.close': 'Close',
     'i18n.copy': 'Copy',
     'i18n.copied': 'Copied',

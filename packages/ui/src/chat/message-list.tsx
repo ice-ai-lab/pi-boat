@@ -6,7 +6,7 @@ import {
   restoreScrollTop,
   shouldShowScrollToLatest,
 } from '@ice-ai/client';
-import { type RefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../utils/cn';
 import { useScrollbarVisibility } from '../utils/use-scrollbar-visibility';
 import { AssistantTurn, UserBubble } from './assistant-turn';
@@ -17,24 +17,11 @@ import { AssistantTurn, UserBubble } from './assistant-turn';
  * - 贴底/重吸/上滚脱离 → getLiveFollowAttached
  * - 向上翻页前后按「距底部距离」还原视口 → capture/restoreScrollDistance（防跳动）
  */
-/** 命令式滚动接口（minimap 点击跳转用；React 不适合把滚动位置放进 props） */
-export interface MessageListHandle {
-  scrollToTurn(index: number): void;
-}
-
 export interface MessageListProps {
   chat: ChatState;
   hasOlder?: boolean;
   loadingOlder?: boolean;
   onLoadOlder?(): void;
-  /** 宿主持有它以驱动滚动（可选） */
-  controllerRef?: RefObject<MessageListHandle | null>;
-  /** 视口回传（T0-1：minimap 的 active 区间需要 scrollTop/clientHeight/scrollHeight） */
-  onViewportChange?(viewport: {
-    scrollTop: number;
-    clientHeight: number;
-    scrollHeight: number;
-  }): void;
   /** 助手消息末尾的「本轮改动」chip 点击（宿主在右栏打开该文件） */
   onOpenWrittenFile(path: string): void;
 }
@@ -42,16 +29,11 @@ export interface MessageListProps {
 /** 距顶部多少像素内触发自动翻页 */
 const AUTO_LOAD_THRESHOLD_PX = 80;
 
-/** 右侧 minimap 占位宽度（设计规范 `CHAT_MINIMAP_WIDTH`，回到底部按钮据此避让） */
-const CHAT_MINIMAP_WIDTH = 36;
-
 export function MessageList({
   chat,
   hasOlder = false,
   loadingOlder = false,
   onLoadOlder,
-  controllerRef,
-  onViewportChange,
   onOpenWrittenFile,
 }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -60,26 +42,6 @@ export function MessageList({
   const turnCountRef = useRef(0);
   /** 向上翻页前记下的「距底部距离」，内容前插后还原 */
   const pendingAnchorRef = useRef<number | null>(null);
-
-  // 控制器：按轮下标定位（turn 元素的 offsetTop 即目标，比按比例估算准）
-  useEffect(() => {
-    if (controllerRef === undefined) return;
-    controllerRef.current = {
-      scrollToTurn(index: number) {
-        const scroller = scrollRef.current;
-        if (scroller === null) return;
-        const turns = scroller.querySelectorAll('[data-turn-index]');
-        const target = turns[index];
-        if (target instanceof HTMLElement) {
-          scroller.scrollTo({ top: target.offsetTop - 12, behavior: 'smooth' });
-          attachedRef.current = false;
-        }
-      },
-    };
-    return () => {
-      controllerRef.current = null;
-    };
-  }, [controllerRef]);
 
   const [showJump, setShowJump] = useState(false);
 
@@ -102,17 +64,6 @@ export function MessageList({
     setShowJump(shouldShowScrollToLatest(el.scrollTop, el.clientHeight, el.scrollHeight));
   }, []);
 
-  const reportViewport = useCallback(
-    (el: HTMLDivElement) => {
-      onViewportChange?.({
-        scrollTop: el.scrollTop,
-        clientHeight: el.clientHeight,
-        scrollHeight: el.scrollHeight,
-      });
-    },
-    [onViewportChange],
-  );
-
   // 内容变化：优先还原翻页锚点；否则吸附跟随；自己发消息（轮数增加）强制回底
   useEffect(() => {
     const el = scrollRef.current;
@@ -129,7 +80,6 @@ export function MessageList({
       });
       prevTopRef.current = el.scrollTop;
       syncJump(el);
-      reportViewport(el);
       return;
     }
     const turnCount = chat.turns.length;
@@ -137,13 +87,11 @@ export function MessageList({
     turnCountRef.current = turnCount;
     if (forced) {
       scrollToBottom('smooth');
-      reportViewport(el);
       return;
     }
     if (attachedRef.current) scrollToBottom();
     syncJump(el);
-    reportViewport(el);
-  }, [chat, scrollToBottom, syncJump, reportViewport]);
+  }, [chat, scrollToBottom, syncJump]);
 
   const onScroll = useCallback(() => {
     const el = scrollRef.current;
@@ -157,7 +105,6 @@ export function MessageList({
     );
     prevTopRef.current = el.scrollTop;
     syncJump(el);
-    reportViewport(el);
     if (
       el.scrollTop < AUTO_LOAD_THRESHOLD_PX &&
       hasOlder &&
@@ -167,7 +114,7 @@ export function MessageList({
     ) {
       requestOlder();
     }
-  }, [hasOlder, loadingOlder, onLoadOlder, requestOlder, syncJump, reportViewport]);
+  }, [hasOlder, loadingOlder, onLoadOlder, requestOlder, syncJump]);
 
   useScrollbarVisibility(scrollRef);
 
@@ -226,13 +173,13 @@ export function MessageList({
           </div>
         </div>
       </div>
-      {/* 设计规范 的外层 wrapper 定位：贴住消息区底部、居中、避开右侧 minimap */}
+      {/* 设计规范 的外层 wrapper 定位：贴住消息区底部、居中 */}
       <div
         style={{
           position: 'absolute',
           bottom: 0,
           left: 0,
-          right: CHAT_MINIMAP_WIDTH,
+          right: 0,
           display: 'flex',
           justifyContent: 'center',
           paddingBottom: 10,

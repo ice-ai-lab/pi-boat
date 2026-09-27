@@ -15,7 +15,7 @@ import { type SuggestionItem, SuggestionMenu } from './suggestion-menu';
  * 结构按设计规范 `ChatInput.tsx` 的输入卡部分（T2-3/T2-4/T2-8/T2-10/T2-13）：
  * 14px 圆角卡 + `10px 10px 10px 14px` 内边距 + 双层 boxShadow；流式中描边转黄
  * （`rgba(234,179,8,0.4)`）并把卡内按钮换成 Steer（黄）/ Follow-Up（靛蓝）；
- * 外层 `padding: 0 16px 8px` + 桌面 52px 右内边距（避让 minimap）。
+ * 外层 `padding: 0 16px 8px` + 桌面同宽右内边距。
  * 附件缩略图渲染在卡上方；`belowInput` 是输入卡**下方**的工具行。
  */
 export interface ComposerProps {
@@ -215,8 +215,6 @@ export function Composer({
         border: 0,
         background: 'transparent',
         padding: '0 16px 8px',
-        // 桌面：16px 基准 + 36px 避让 ChatMinimap（设计规范 ChatInput:1586）
-        paddingRight: 52,
       }}
     >
       <div style={{ maxWidth: 'var(--chat-content-max-width, 820px)', margin: '0 auto' }}>

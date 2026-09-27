@@ -1,3 +1,9 @@
+import {
+  buildSessionListRows,
+  getSessionListVisibleRows,
+  groupSessionsByDay,
+  SESSION_LIST_ITEM_HEIGHT,
+} from '@ice-ai/client';
 import type { SessionInfo } from '@ice-ai/protocol';
 import {
   type CSSProperties,
@@ -14,28 +20,12 @@ import { useI18n } from '../i18n/i18n-provider';
 import { DirectoryPicker } from '../settings/directory-picker';
 import { SessionSearch } from './session-search';
 
-/** 会话列表固定行高：窗口化渲染只挂可见切片（设计规范 `SESSION_LIST_ITEM_HEIGHT`） */
-const SESSION_LIST_ITEM_HEIGHT = 54;
-
-export function getSessionListIndices(
-  count: number,
-  scrollTop: number,
-  viewportHeight: number,
-  focusedIndex = -1,
-): number[] {
-  const overscan = 8;
-  const visibleCount = Math.ceil((viewportHeight || 600) / SESSION_LIST_ITEM_HEIGHT) + overscan * 2;
-  const start = Math.max(
-    0,
-    Math.min(Math.floor(scrollTop / SESSION_LIST_ITEM_HEIGHT) - overscan, count - visibleCount),
-  );
-  const end = Math.min(count, start + visibleCount);
-  const indices = Array.from({ length: end - start }, (_, offset) => start + offset);
-  // 焦点行保持挂载，避免滚动把行内重命名卸掉
-  if (focusedIndex >= 0 && focusedIndex < start) indices.unshift(focusedIndex);
-  if (focusedIndex >= end && focusedIndex < count) indices.push(focusedIndex);
-  return indices;
-}
+/** 分组头文案 key（分组键来自 `@ice-ai/client` 的 `groupSessionsByDay`） */
+const SESSION_GROUP_LABEL_KEYS = {
+  today: 'sidebar.groupToday',
+  yesterday: 'sidebar.groupYesterday',
+  earlier: 'sidebar.groupEarlier',
+} as const;
 
 /** 设计规范 `SessionSidebar` 的 26×26 工具条图标按钮原语（T2-6） */
 function ToolbarIconButton({
@@ -187,108 +177,38 @@ function AnimatedDropdown({
   );
 }
 
-const SCRAMBLE_CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
-
-function useScramble(target: string, running: boolean): string {
-  const [display, setDisplay] = useState(target);
-  const frameRef = useRef<number | null>(null);
-  const iterRef = useRef(0);
-
-  useEffect(() => {
-    if (!running) {
-      setDisplay(target);
-      return;
-    }
-    iterRef.current = 0;
-    const totalFrames = target.length * 4;
-
-    const step = () => {
-      iterRef.current += 1;
-      const progress = iterRef.current / totalFrames;
-      const resolved = Math.floor(progress * target.length);
-
-      setDisplay(
-        target
-          .split('')
-          .map((char, i) => {
-            if (char === ' ') return ' ';
-            if (i < resolved) return char;
-            return SCRAMBLE_CHARS[Math.floor(Math.random() * SCRAMBLE_CHARS.length)];
-          })
-          .join(''),
-      );
-
-      if (iterRef.current < totalFrames) {
-        frameRef.current = requestAnimationFrame(step);
-      } else {
-        setDisplay(target);
-      }
-    };
-
-    frameRef.current = requestAnimationFrame(step);
-    return () => {
-      if (frameRef.current) cancelAnimationFrame(frameRef.current);
-    };
-  }, [target, running]);
-
-  return display;
-}
-
-/** 品牌字标：`PiBoat`，点击切换显示版本号（带字符扰乱动画，T2-15） */
+/** 品牌字标：`Pi` 常规字色 + `Boat` 品牌黄，右侧常驻当前版本号（T2-15） */
 function BrandTitle({ versionLabel }: { versionLabel: string }) {
-  const [showVersion, setShowVersion] = useState(false);
-  const [scrambling, setScrambling] = useState(false);
-  const revertTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const target = showVersion ? versionLabel : 'PiBoat';
-  const display = useScramble(target, scrambling);
-
-  const triggerScramble = useCallback((toVersion: boolean) => {
-    setShowVersion(toVersion);
-    setScrambling(true);
-    setTimeout(() => setScrambling(false), (toVersion ? 6 : 8) * 4 * (1000 / 60) + 100);
-  }, []);
-
-  const handleClick = useCallback(() => {
-    if (revertTimerRef.current) clearTimeout(revertTimerRef.current);
-
-    const next = !showVersion;
-    triggerScramble(next);
-
-    if (next) {
-      revertTimerRef.current = setTimeout(() => triggerScramble(false), 3000);
-    }
-  }, [showVersion, triggerScramble]);
-
-  useEffect(
-    () => () => {
-      if (revertTimerRef.current) clearTimeout(revertTimerRef.current);
-    },
-    [],
-  );
-
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      style={{
-        background: 'none',
-        border: 'none',
-        padding: 0,
-        cursor: 'default',
-        fontWeight: 700,
-        fontSize: 14,
-        letterSpacing: '-0.01em',
-        color: showVersion ? 'var(--accent)' : 'var(--text)',
-        fontFamily: 'var(--font-mono)',
-        minWidth: '6ch',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {display}
-    </button>
+    <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+      <span
+        style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 14,
+          fontWeight: 700,
+          letterSpacing: '-0.01em',
+          color: 'var(--text)',
+        }}
+      >
+        Pi
+        <span style={{ color: 'var(--brand)' }}>Boat</span>
+      </span>
+      <span
+        style={{
+          fontFamily: 'var(--font-mono)',
+          fontSize: 9,
+          letterSpacing: '0.04em',
+          color: 'var(--text-dim)',
+          border: '1px solid var(--border)',
+          borderRadius: 99,
+          padding: '1.5px 6px',
+          flexShrink: 0,
+          whiteSpace: 'nowrap',
+        }}
+      >
+        v{versionLabel}
+      </span>
+    </span>
   );
 }
 
@@ -562,7 +482,7 @@ function SessionItem({
         display: 'flex',
         alignItems: 'center',
         paddingLeft: 14,
-        paddingRight: 8,
+        paddingRight: 4,
         cursor: confirmDelete || renaming ? 'default' : 'pointer',
         background: confirmDelete
           ? 'rgba(239,68,68,0.06)'
@@ -712,6 +632,7 @@ function SessionItem({
             >
               <span
                 style={{
+                  flex: 1,
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
@@ -905,7 +826,7 @@ export interface SidebarProps {
   projects: SidebarProject[];
   projectActivity: Map<string, { running: number; unread: number }>;
   homeDir: string;
-  /** BrandTitle 点击后显示的版本串（如 `0.1.0p0.87.1`） */
+  /** 品牌字标右侧展示的版本号（如 `0.1.0`；宿主传 APP_VERSION） */
   versionLabel: string;
   /** EXPLORER 区是否显示（选中了项目才显示，设计规范同款） */
   showExplorer: boolean;
@@ -959,24 +880,21 @@ export function Sidebar(props: SidebarProps) {
   const [sessionSearchOpen, setSessionSearchOpen] = useState(false);
   const [sessionSearchQuery, setSessionSearchQuery] = useState('');
 
-  // 窗口化列表：只挂可见切片
+  // 分组 + 窗口化列表：只挂可见切片（分组头与会话行统一按前缀和定位）
   const listScrollRef = useRef<HTMLDivElement>(null);
   const [listViewportH, setListViewportH] = useState(0);
   const [listScrollTop, setListScrollTop] = useState(0);
   const [focusedSessionId, setFocusedSessionId] = useState<string | null>(null);
   const listScrollRafRef = useRef<number | null>(null);
   const listScrollTopRef = useRef(0);
-  const renderedListScrollTopRef = useRef(0);
   const handleListScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     listScrollTopRef.current = e.currentTarget.scrollTop;
     if (listScrollRafRef.current != null) return;
     listScrollRafRef.current = requestAnimationFrame(() => {
       listScrollRafRef.current = null;
-      const nextTop =
-        Math.floor(listScrollTopRef.current / SESSION_LIST_ITEM_HEIGHT) * SESSION_LIST_ITEM_HEIGHT;
-      if (renderedListScrollTopRef.current === nextTop) return;
-      renderedListScrollTopRef.current = nextTop;
-      setListScrollTop(nextTop);
+      setListScrollTop((previous) =>
+        previous === listScrollTopRef.current ? previous : listScrollTopRef.current,
+      );
     });
   }, []);
   useLayoutEffect(() => {
@@ -988,9 +906,7 @@ export function Sidebar(props: SidebarProps) {
     ro.observe(el);
     setListViewportH(el.clientHeight);
     listScrollTopRef.current = el.scrollTop;
-    renderedListScrollTopRef.current =
-      Math.floor(el.scrollTop / SESSION_LIST_ITEM_HEIGHT) * SESSION_LIST_ITEM_HEIGHT;
-    setListScrollTop(renderedListScrollTopRef.current);
+    setListScrollTop(el.scrollTop);
     return () => ro.disconnect();
   }, []);
 
@@ -1068,15 +984,19 @@ export function Sidebar(props: SidebarProps) {
     }
   }, [props]);
 
-  const virtualIndices = useMemo(
+  const sessionListRows = useMemo(
+    () => buildSessionListRows(groupSessionsByDay(props.sessions)),
+    [props.sessions],
+  );
+  const visibleListRows = useMemo(
     () =>
-      getSessionListIndices(
-        props.sessions.length,
+      getSessionListVisibleRows(
+        sessionListRows.rows,
         listScrollTop,
         listViewportH,
-        props.sessions.findIndex((session) => session.id === focusedSessionId),
+        focusedSessionId,
       ),
-    [focusedSessionId, listScrollTop, listViewportH, props.sessions],
+    [focusedSessionId, listScrollTop, listViewportH, sessionListRows],
   );
 
   return (
@@ -1601,7 +1521,7 @@ export function Sidebar(props: SidebarProps) {
           <div
             ref={listScrollRef}
             onScroll={handleListScroll}
-            className="scrollbar-subtle"
+            className="scrollbar-none"
             style={{
               flex: '1 1 auto',
               minHeight: 0,
@@ -1625,26 +1545,49 @@ export function Sidebar(props: SidebarProps) {
               </div>
             )}
             {props.sessions.length > 0 && (
-              <div
-                style={{
-                  position: 'relative',
-                  height: props.sessions.length * SESSION_LIST_ITEM_HEIGHT,
-                }}
-              >
-                {virtualIndices.map((index) => {
-                  const session = props.sessions[index];
-                  if (session === undefined) return null;
+              <div style={{ position: 'relative', height: sessionListRows.height }}>
+                {visibleListRows.map((index) => {
+                  const row = sessionListRows.rows[index];
+                  if (row === undefined) return null;
+                  if (row.kind === 'header') {
+                    return (
+                      <div
+                        key={row.key}
+                        style={{
+                          position: 'absolute',
+                          top: row.top,
+                          left: 0,
+                          right: 0,
+                          height: row.height,
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '0 14px 0 16px',
+                          // 非首组加分隔线，让分组头从会话列表里明显跳出来
+                          borderTop: row.top > 0 ? '1px solid var(--border)' : 'none',
+                          fontSize: 12,
+                          fontWeight: 700,
+                          letterSpacing: '0.06em',
+                          textTransform: 'uppercase',
+                          color: 'var(--text-muted)',
+                        }}
+                      >
+                        {t(SESSION_GROUP_LABEL_KEYS[row.group])}
+                      </div>
+                    );
+                  }
+                  const session = row.session;
                   return (
                     // biome-ignore lint/a11y/noStaticElementInteractions: 焦点跟踪容器（子元素为交互主体）
                     <div
-                      key={session.id}
+                      key={row.key}
                       onFocus={() => setFocusedSessionId(session.id)}
                       onBlur={() => setFocusedSessionId(null)}
                       style={{
                         position: 'absolute',
-                        top: index * SESSION_LIST_ITEM_HEIGHT,
+                        top: row.top,
                         left: 0,
                         right: 0,
+                        height: row.height,
                       }}
                     >
                       <SessionItem

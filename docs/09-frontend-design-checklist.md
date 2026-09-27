@@ -579,7 +579,7 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 > **~~删除线~~ + ⛔ = 排除域，不得实现。**
 
 ### 阶段 0：修 bug（先做）
-- [x] **T0-1（新）** 接回 minimap 滚动视口跟踪：替换 `chat-pane.tsx` 的硬编码 `0,1,1`。〔BUG-1〕
+- [x] ~~**T0-1（新）** 接回 minimap 滚动视口跟踪：替换 `chat-pane.tsx` 的硬编码 `0,1,1`。~~〔BUG-1〕（2026-09-27 minimap 整体移除，视口回传与跟踪同步删除）
 - [x] **T0-2（新）** `files-pane.tsx` 的 `aria-expanded` 改真实 `rightPanelOpen`。〔BUG-2〕
 - [x] **T0-3（新）** 删 `settings-panel.tsx` 的 `config-badge` 分支（无对应 CSS）。〔BUG-3〕
 - [x] **T0-4** 右栏收尾 3 处：展开时收起顶部面板（`workspace-layout.tsx`，）；关闭时复位 `rightPanelExpanded`；右栏顶行补 `height: calc(36px+env(safe-area-inset-top))` + `background:var(--bg-panel)`。〔F20/T0-3 尾〕
@@ -618,11 +618,12 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 - [x] **T2-14** 新建按钮归位标题行右侧 + hover/disabled + 内联 SVG。〔L14〕（2026-09-27 用户拍板：独立动作行、白底描边 r6、无阴影、常规字重 400 与正文同字体；窄侧栏下标签省略）
   - 二次调整（2026-09-27 用户拍板）：新会话 + 搜索**下移到工作区行**（原只读分支位）；带文字的白底按钮会把项目名挤成 `pi-b…`，故 `+` 改**图标按钮** 26×26/r6/icon 13；品牌行只留字标，高 54 → 44
   - 三次调整（2026-09-27 用户拍板，**当前形态**）：按 `docs/design/piboat-web-v4.html` 的品牌行排版改为三段——**品牌行**（应用图标 20px + `PiBoat`，高 44）/ **动作行**（`新会话` 正文按钮，样式保持：`flex:1 / h31 / r6 / padding 0 16 / 白底描边` + 搜索图标 26×26）/ **工作区行**（目录名 + 下拉）；搜索输入展开时插在动作行下方。原型里的 `v4` 版本胶囊**未落地**（待定：是否要常显版本、显示 app 还是 pi 版本——目前仍靠点字标切显）
-- [x] **T2-15** 品牌字标改 `PiBoat` + 点击切显版本。〔L18〕（2026-09-27 字标左侧恢复应用图标 `favicon.svg`；品牌仍为文本 `PiBoat` + 应用图标，见 ADR-0022）
+- [x] ~~**T2-15** 品牌字标改 `PiBoat` + 点击切显版本。~~ 〔L18〕（2026-09-27 字标左侧应用图标 `favicon.svg`；`Pi` 常规字色 + `Boat` 品牌黄 `--brand`；右侧常驻版本药丸 `v0.1.0`（APP_VERSION），原点击切显与扰乱动画移除；见 ADR-0022）
   - 二次调整（2026-09-27 用户拍板）：字标左侧**加回图标**，用的是应用图标本体（`/favicon.svg`，20×20，与空态的 app icon 同一张图），即原型的 19px mark 位；字标本身与点击切版本行为不变
 - [x] **T2-16** 文件树行几何 + git 徽标 + 行内「提及/下载」。〔L19/L21/L22〕
 - [x] **T2-17（新·M5/M6/M7）** `transient` 守卫、`detailsPending` 的 `…`、去掉列表 `pr-1` + 透传 `focusedIndex`、标题补 `title` tooltip。
 - [x] **T2-18** 建 `apps/web/public/icons/catppuccin/{latte,mocha}/`（沿用规范图标），`file-icon.tsx` 改用 `.catppuccin-file-icon`（14px 单色 `--text-dim`）。〔L20 / F14 / T4-10〕
+- [x] **T2-20（新）** 会话列表按「今天 / 昨天 / 更早」分组（本地日历日）；窗口化从「固定 54px 行高」改为「分组头 + 会话行」前缀和布局（`packages/client/src/view-models/session-list-window.ts`，头 34 / 行 54；分组头 11px/700 + 上分隔线）。（2026-09-27 用户拍板）
 - ~~T2-19 会话家族聚簇 / 机器人图标 / 折叠 chevron~~ ⛔ **排除域（会话平铺是终态）**
 
 ### 阶段 3：中栏对话（P0/P1）
@@ -633,7 +634,7 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 - [ ] **T3-5** 流式中改 Steer（黄）+ Follow-up（靛蓝）双按钮。〔C9〕
 - [ ] **T3-6** 候选浮层 `/` 与 `@` 双形态（header 计数 + 分组 + 网格 + 描边 ring + 文件图标，）。〔C10〕
 - [ ] **T3-7** 新增 `history-menu.tsx` 输入历史浮层。〔C11〕
-- [ ] **T3-8** ChatMinimap 重写：完全复制 （251 行），组件按 实现 36px 栏 + 中轴 + 8×8 节点 + 320px 预览面板。〔C5〕
+- [ ] ~~**T3-8** ChatMinimap 重写：完全复制 （251 行），组件按 实现 36px 栏 + 中轴 + 8×8 节点 + 320px 预览面板。~~〔C5〕（2026-09-27 用户拍板移除 minimap，本任务作废）
 - [ ] **T3-9** 新建 `chat/image-preview.tsx` 灯箱（`<dialog class="image-preview-dialog">`）；`markdown-view.tsx` 注册 `img` → 灯箱；用户气泡渲染 `images`；工具行结果图片。〔C12/C15/C16〕
 - [x] **T3-10** 用户气泡：`maxHeight:300` + hover 操作行 + 时间戳 + 去掉多余 `markdown-body` 嵌套。〔C12〕
 - [x] **T3-11** 助手底部：cache W + `$cost` + 复制 + 时间戳 + 截断告警；`TurnWrittenFiles` 改内联 chip 并移入 `AssistantTurn`。〔C13/C14〕

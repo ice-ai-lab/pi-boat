@@ -206,6 +206,11 @@ AppShell 三栏布局 + 拖拽/折叠（`makeDrag`）、主题切换、路由、
 
 ### 8.3 Message minimap
 
+> ⚠️ **2026-09-27 用户拍板移除**：会话区右侧的 minimap（本条整节）已从代码中删除——
+> `packages/ui/src/chat/chat-minimap.tsx`、`packages/client/src/view-models/minimap.ts`、
+> `chat-pane` 的接线与 `chatMinimap.*` 词条均不存在；composer / 空态的 52px 右内边距（为避让 minimap）
+> 同步回 16px。以下保留为设计记录。
+
 - 密度：每个 turn 一条 `mm-bar`，`right:11px; width:14px; height:3px`，hover 时放大并右移
 - `at` 态：当前视口覆盖的 bar（`scrollTop / total` 到 `(scrollTop + clientHeight) / total` 区间）
 - hover 出 `mm-tip`（280px 宽，最多 4 行预览，`backdrop-filter: blur(40px)`）

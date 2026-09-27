@@ -11,12 +11,6 @@ import {
 } from '../src/input/slash-commands';
 import type { Turn } from '../src/stream/view-model';
 import {
-  activeRange,
-  buildMinimapBars,
-  scrollTopForBar,
-  turnTone,
-} from '../src/view-models/minimap';
-import {
   contextPercent,
   formatCost,
   formatDurationMs,
@@ -109,39 +103,6 @@ describe('输入历史：游标行为', () => {
   it('空历史时不动', () => {
     expect(historyPrev([], EMPTY_CURSOR, 'x').value).toBe('x');
     expect(historyNext([], EMPTY_CURSOR, 'x').value).toBe('x');
-  });
-});
-
-describe('minimap：几何与语义色', () => {
-  const turn = (status: Turn['status'], text = 'hi'): Turn => ({
-    id: `t-${status}-${text}`,
-    user: { text, at: 0 },
-    trail: [],
-    final: null,
-    usage: null,
-    model: null,
-    status,
-  });
-
-  it('tone 映射', () => {
-    expect(turnTone(turn('error'))).toBe('error');
-    expect(turnTone(turn('stopped'))).toBe('stopped');
-    expect(turnTone(turn('streaming'))).toBe('streaming');
-    expect(turnTone(turn('done'))).toBe('normal');
-  });
-
-  it('视口区间与 active 标记', () => {
-    const turns = Array.from({ length: 10 }, (_, index) => turn('done', `t${index}`));
-    expect(activeRange(0, 100, 1000, 10)).toEqual({ start: 0, end: 1 });
-    const bars = buildMinimapBars(turns, 500, 100, 1000);
-    expect(bars.filter((bar) => bar.active).length).toBe(1);
-    expect(bars[0]?.preview).toBe('t0');
-  });
-
-  it('点击定位受上下界夹取', () => {
-    expect(scrollTopForBar(0, 10, 1000, 100)).toBe(0);
-    expect(scrollTopForBar(5, 10, 1000, 100)).toBe(500);
-    expect(scrollTopForBar(10, 10, 1000, 100)).toBe(900);
   });
 });
 

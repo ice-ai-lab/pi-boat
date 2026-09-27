@@ -17,9 +17,10 @@ import {
   workspaceKeyOf,
 } from '../src/view-models/session-list';
 import {
-  getScrollTopForIndex,
-  getSessionListHeight,
-  getSessionListIndices,
+  buildSessionListRows,
+  getSessionListVisibleRows,
+  groupSessionsByDay,
+  SESSION_LIST_HEADER_HEIGHT,
   SESSION_LIST_ITEM_HEIGHT,
 } from '../src/view-models/session-list-window';
 
@@ -108,33 +109,66 @@ describe('session 展示派生', () => {
   });
 });
 
-describe('session-list-window：窗口化切片', () => {
-  it('少量会话：全部挂载', () => {
-    expect(getSessionListIndices(5, 0, 600)).toEqual([0, 1, 2, 3, 4]);
+describe('session-list-window：分组与窗口化', () => {
+  const now = new Date('2026-09-27T12:00:00');
+  const at = (iso: string, id: string) => session({ id, modified: iso });
+
+  it('按本地日历日分组：今天 / 昨天 / 更早', () => {
+    const groups = groupSessionsByDay(
+      [
+        at('2026-09-27T08:00:00', 'a'),
+        at('2026-09-26T23:00:00', 'b'),
+        at('2026-09-20T10:00:00', 'c'),
+      ],
+      now,
+    );
+    expect(groups.map((group) => group.key)).toEqual(['today', 'yesterday', 'earlier']);
+    expect(groups.map((group) => group.sessions.map((s) => s.id))).toEqual([['a'], ['b'], ['c']]);
   });
 
-  it('大量会话：只挂可视 + overscan', () => {
-    const indices = getSessionListIndices(1000, 0, 600);
-    expect(indices[0]).toBe(0);
-    expect(indices.length).toBeLessThan(40);
-    expect(indices[indices.length - 1]).toBe((indices.length ?? 1) - 1);
+  it('空组不产出；未知时间归「更早」', () => {
+    expect(groupSessionsByDay([at('2026-09-27T08:00:00', 'a')], now).map((g) => g.key)).toEqual([
+      'today',
+    ]);
+    expect(groupSessionsByDay([session({ id: 'x', modified: 'not-a-date' })], now)[0]?.key).toBe(
+      'earlier',
+    );
   });
 
-  it('滚动后切片跟随（含上下 overscan）', () => {
-    const indices = getSessionListIndices(1000, 54 * 100, 540);
-    expect(indices).toContain(100);
-    expect(indices[0]).toBe(100 - 8); // 上方 overscan
+  it('展平为行：分组头 + 会话行，前缀和与总高一致', () => {
+    const { rows, height } = buildSessionListRows(
+      groupSessionsByDay([at('2026-09-27T08:00:00', 'a'), at('2026-09-26T08:00:00', 'b')], now),
+    );
+    expect(rows.map((row) => row.kind)).toEqual(['header', 'session', 'header', 'session']);
+    expect(rows[0]?.top).toBe(0);
+    expect(rows[1]?.top).toBe(SESSION_LIST_HEADER_HEIGHT);
+    expect(rows[2]?.top).toBe(SESSION_LIST_HEADER_HEIGHT + SESSION_LIST_ITEM_HEIGHT);
+    expect(height).toBe(SESSION_LIST_HEADER_HEIGHT * 2 + SESSION_LIST_ITEM_HEIGHT * 2);
   });
 
-  it('focusedIndex 强制保留（防行内重命名被卸载）', () => {
-    const indices = getSessionListIndices(1000, 54 * 100, 540, 5);
-    expect(indices).toContain(5);
+  it('窗口化：只挂可视 + overscan；focused 会话强制保留', () => {
+    const groups = groupSessionsByDay(
+      Array.from({ length: 200 }, (_, index) =>
+        at(new Date(now.getTime() - index * 86_400_000).toISOString(), `s${index}`),
+      ),
+      now,
+    );
+    const { rows, height } = buildSessionListRows(groups);
+    const visible = getSessionListVisibleRows(rows, 0, 600);
+    expect(visible[0]).toBe(0);
+    expect(visible.length).toBeLessThan(40);
+    expect(height).toBeGreaterThan(600);
+
+    const scrolled = getSessionListVisibleRows(rows, height - 600, 600);
+    expect(scrolled[scrolled.length - 1]).toBe(rows.length - 1);
+    expect(getSessionListVisibleRows(rows, height - 600, 600, 's0')).toContain(1);
   });
 
-  it('空列表与高度/滚动辅助', () => {
-    expect(getSessionListIndices(0, 0, 600)).toEqual([]);
-    expect(getSessionListHeight(10)).toBe(10 * SESSION_LIST_ITEM_HEIGHT);
-    expect(getScrollTopForIndex(12)).toBe(12 * SESSION_LIST_ITEM_HEIGHT);
+  it('空列表', () => {
+    const { rows, height } = buildSessionListRows([]);
+    expect(rows).toEqual([]);
+    expect(height).toBe(0);
+    expect(getSessionListVisibleRows(rows, 0, 600)).toEqual([]);
   });
 });
 

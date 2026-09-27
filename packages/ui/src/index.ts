@@ -7,18 +7,13 @@
 // chat 册（docs/06 §4.2）
 export { AssistantTurn, UsageLine, UserBubble } from './chat/assistant-turn';
 // chat 册（F5 增补）
-export { ChatMinimap, type ChatMinimapProps } from './chat/chat-minimap';
 export { CodeBlock } from './chat/code-block';
 export { Composer, type ComposerProps } from './chat/composer';
 export { ComposerMenus, type ComposerMenusProps } from './chat/composer-menus';
 export { ComposerToolbar, type ComposerToolbarProps } from './chat/composer-toolbar';
 export { EmptyState, type EmptyStateProps } from './chat/empty-state';
 export { MarkdownBody, MarkdownView } from './chat/markdown-view';
-export {
-  MessageList,
-  type MessageListHandle,
-  type MessageListProps,
-} from './chat/message-list';
+export { MessageList, type MessageListProps } from './chat/message-list';
 export {
   filterModelOptions,
   ModelSelector,
@@ -185,7 +180,6 @@ export {
 // sidebar 册（docs/06 §4.3；T2 重排后结构按设计规范 `SessionSidebar`）
 export {
   displayCwd,
-  getSessionListIndices,
   Sidebar,
   type SidebarProject,
   type SidebarProps,
