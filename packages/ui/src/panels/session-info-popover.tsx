@@ -1,6 +1,7 @@
 import type { ContextUsage, SessionStatsInfo } from '@ice-ai/protocol';
 import { useState } from 'react';
 import { useI18n } from '../i18n/i18n-provider';
+import styles from './session-info-popover.module.css';
 
 type SessionCopyField = 'file' | 'id' | 'projectDir' | 'gitBranch' | 'gitWorktree';
 
@@ -46,7 +47,7 @@ export function SessionInfoPopover({ stats, contextUsage, project }: SessionInfo
 
   if (!stats) {
     return (
-      <div className="session-info-popover" style={POPOVER_STYLE}>
+      <div className={styles.popover} style={POPOVER_STYLE}>
         <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>
           {t('session.load')}
         </div>
@@ -333,7 +334,7 @@ export function SessionInfoPopover({ stats, contextUsage, project }: SessionInfo
     ) : null;
 
   return (
-    <div className="session-info-popover" style={POPOVER_STYLE}>
+    <div className={styles.popover} style={POPOVER_STYLE}>
       <div
         style={{
           display: 'grid',

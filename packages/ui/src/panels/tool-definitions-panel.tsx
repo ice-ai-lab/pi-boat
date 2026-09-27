@@ -1,5 +1,7 @@
+import clsx from 'clsx';
 import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../i18n/i18n-provider';
+import styles from './tool-definitions-panel.module.css';
 
 /** 工具项（协议 `ToolInfo` 的展示子集：`parameters` / `promptGuidelines` 来自 SDK） */
 export interface ToolDefinitionView {
@@ -105,7 +107,7 @@ export function getToolParameterFields(parameters?: unknown): ParameterField[] {
 }
 
 function EmptyState({ children }: { children: string }) {
-  return <div className="tool-definitions-empty">{children}</div>;
+  return <div className={styles.empty}>{children}</div>;
 }
 
 /**
@@ -136,9 +138,9 @@ export function ToolDefinitionsPanel({ tools, loading }: ToolDefinitionsPanelPro
   const fields = selectedTool ? getToolParameterFields(selectedTool.parameters) : [];
 
   return (
-    <div className="tool-definitions-panel">
-      <nav className="tool-definitions-sidebar" aria-label={t('tools.title')}>
-        <div className="tool-definitions-list">
+    <div className={styles.panel}>
+      <nav className={styles.sidebar} aria-label={t('tools.title')}>
+        <div className={styles.list}>
           {activeTools && activeTools.length > 0 ? (
             activeTools.map((tool) => {
               const selected = tool.name === selectedTool?.name;
@@ -146,7 +148,7 @@ export function ToolDefinitionsPanel({ tools, loading }: ToolDefinitionsPanelPro
                 <button
                   key={tool.name}
                   type="button"
-                  className={`tool-definitions-item${selected ? ' selected' : ''}`}
+                  className={clsx(styles.item, selected && styles.selected)}
                   aria-pressed={selected}
                   onClick={() => setSelectedToolName(tool.name)}
                 >
@@ -162,41 +164,41 @@ export function ToolDefinitionsPanel({ tools, loading }: ToolDefinitionsPanelPro
         </div>
       </nav>
 
-      <section className="tool-definition-detail" aria-label={t('tools.details')}>
+      <section className={styles.detail} aria-label={t('tools.details')}>
         {selectedTool ? (
-          <div className="tool-definition-scroll">
+          <div className={styles.scroll}>
             {selectedTool.description !== '' && (
-              <section className="tool-definition-section">
-                <div className="tool-definition-section-label">{t('tools.description')}</div>
-                <div className="tool-definition-description">{selectedTool.description}</div>
+              <section className={styles.section}>
+                <div className={styles.sectionLabel}>{t('tools.description')}</div>
+                <div className={styles.description}>{selectedTool.description}</div>
               </section>
             )}
 
-            <section className="tool-definition-section">
-              <div className="tool-definition-section-label">
+            <section className={styles.section}>
+              <div className={styles.sectionLabel}>
                 <span>{t('tools.parameters')}</span>
                 <span>{t('tools.parameterCount', { count: fields.length })}</span>
               </div>
               {fields.length > 0 ? (
-                <div className="tool-definition-fields">
+                <div className={styles.fields}>
                   {fields.map((field) => (
-                    <div className="tool-definition-field" key={field.name}>
-                      <div className="tool-definition-field-name">
+                    <div className={styles.field} key={field.name}>
+                      <div className={styles.fieldName}>
                         <code>{field.name}</code>
-                        <span className={field.required ? 'required' : undefined}>
+                        <span className={field.required ? styles.required : undefined}>
                           {t(field.required ? 'tools.required' : 'tools.optional')}
                         </span>
                       </div>
-                      <div className="tool-definition-field-value">
-                        <code className="tool-definition-type">{field.type}</code>
+                      <div className={styles.fieldValue}>
+                        <code className={styles.type}>{field.type}</code>
                         {field.description !== undefined && <div>{field.description}</div>}
                         {field.allowedValues !== undefined && (
-                          <div className="tool-definition-meta">
+                          <div className={styles.meta}>
                             {t('tools.allowedValues')}: <code>{field.allowedValues}</code>
                           </div>
                         )}
                         {field.defaultValue !== undefined && (
-                          <div className="tool-definition-meta">
+                          <div className={styles.meta}>
                             {t('tools.defaultValue')}: <code>{field.defaultValue}</code>
                           </div>
                         )}
@@ -205,15 +207,15 @@ export function ToolDefinitionsPanel({ tools, loading }: ToolDefinitionsPanelPro
                   ))}
                 </div>
               ) : (
-                <div className="tool-definition-no-parameters">{t('tools.noParameters')}</div>
+                <div className={styles.noParameters}>{t('tools.noParameters')}</div>
               )}
             </section>
 
             {selectedTool.promptGuidelines !== undefined &&
               selectedTool.promptGuidelines.length > 0 && (
-                <section className="tool-definition-section">
-                  <div className="tool-definition-section-label">{t('tools.guidelines')}</div>
-                  <ul className="tool-definition-guidelines">
+                <section className={styles.section}>
+                  <div className={styles.sectionLabel}>{t('tools.guidelines')}</div>
+                  <ul className={styles.guidelines}>
                     {selectedTool.promptGuidelines.map((guideline, index) => (
                       // biome-ignore lint/suspicious/noArrayIndexKey: 准则文本可能重复，位置即身份
                       <li key={`${selectedTool.name}:${index}`}>{guideline}</li>
