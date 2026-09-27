@@ -18,6 +18,12 @@
 ## 0. 一句话结论
 
 **CSS 已经基本到位，卡在「组件没用这些 CSS」这一步。**
+
+> **2026 更新（ADR-0028）**：组件级 CSS 已按域拆到 `packages/ui/src/*/**.module.css`，
+> 原 `styles/web-ui.css` / `styles/settings.css` 已不存在；本文提到的「死 CSS」清单现在物理集中在
+> `files/unwired.css`、`chat/unwired.css`、`settings/unwired.css`（未接线规范类），
+> 下文的文件名与「缺 N 条」口径按当时的全局表快照记录，未回填。
+
 规则层差集基本归零：globals 缺 48 条（其中 31 条是排除域 + token 基础版式），settings.css 缺 12 条（全为 `.agents-*` 排除域）。
 但 **3 个样式文件共 264 个类名里，有 115 个零消费方（43.6%）** —— 这些"类已备、组件未接"的规则，正是并排看"不像"的直接来源。
 
@@ -651,6 +657,7 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 - [x] **T3-15** BranchNavigator 换 `TreeNodeView`（连接线 + 7×7 圆点三态 + `U`/`A` 徽章 + `+N`，算法内聚）。〔C7 / T6-2〕
 - [x] **T3-16** 收尾：加载更早哨兵 / 排队条胶囊 + 描边撤回 / 发送图标 / 占位符三态 / 思考行 / 过程组去耗时 / 各类 banner。〔C20-C27〕
 - [x] **T3-17（新·N2-N8）** 助手显示名、`t/s` 徽标、`data-*` 锚点、用户命令展开形态、per-turn liveTail 判定。
+- [x] **T3-18（新）** 内容区宽度把手（`ui/chat/content-width-handles.tsx` + `chat-pane` 接线）：双侧 hover 热区 + 2px 光条（跟指针 Y）+ 对称拖拽改宽 + 滚轮转发 + 持久化（`piboat:chat-content-width`，下限 640）；实际宽按 `列宽 - 80` 夹取。〔docs/06 §8.4〕（2026-09-27 参照 deepseek-harness `ConversationWidthControls` 落地）
 
 ### 阶段 4：右栏文件（P0/P1）
 - [ ] **T4-1** 落地 `MermaidBlock`（329 行 + zoom dialog + SVG 下载）并在 md 预览与聊天 markdown 加分支。〔F2〕

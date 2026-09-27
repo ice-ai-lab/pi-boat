@@ -34,9 +34,18 @@
   + 组件内联样式/类名。组件层结构与样式逐条对齐（口径见 ADR-0020）。
   旧原型 `docs/design/piboat-web-v3.html` 退役：其 0.5px hairline、superellipse、`#4176E6`、毛玻璃浮层**不再保留**。
 - **token 单一来源**：`packages/ui/src/theme.css`（规范变量 `:root` + `[data-theme="dark"]` 两套）
-  + 组件级 CSS 已按域就近拆分（2026）：`chat/`、`files/`、`extension/`、`panels/`、
-    `settings/` 各域目录下的 `*.css` + `styles/utilities.css`、`styles/resize-handles.css`，
-    由 `apps/web/src/index.css` 按原级联顺序聚合（口径见 ADR-0020）
+- **组件级 CSS 组织形式（2026 两阶段重构定案）**：
+  - 默认**就近模块化**：域目录下 `*.module.css`（`panels/`、`files/`、`extension/`、`chat/`、
+    `settings/`），类名去域前缀 + camelCase，随组件 import，web 侧不再聚合
+  - 仍为**全局表**的例外（有明确理由才留）：
+    - `styles/utilities.css`（全局滚动条等基础 utility）、`styles/resize-handles.css`
+      （`panel-resize-handle` / `sidebar-section-resize-handle`，被 ui 与 web 布局同时消费的跨包原语）
+    - `chat/chat-content.css`（`.chat-content` 字号钩子，跨多个面板复用）
+    - `*/unwired.css`（`files/`、`chat/`、`settings/`）——**未接线**的设计规范类，
+      组件尚未消费，接线时并入对应 module 或删除；内容清点见 `docs/09` §死 CSS
+  - 第三方渲染产物的类（react-markdown 的 `.task-list-item`、KaTeX 的 `.katex`）在 module 里用 `:global(...)` 保留
+  - `apps/web/src/index.css` 只聚合上述全局表（顺序勿乱）；`apps/web/src/layout/workspace.css`
+    是 web 自有的工作区布局样式，待其消费方 WIP 落地后同样转 module
   - 形状：`@import 'tailwindcss'` 之前用 `:root` / `[data-theme="dark"]` 定义变量，再用
     `@theme inline { --color-surface: var(--surface); … }` 暴露给 Tailwind
   - **暗色不能写死在 `@theme` 里**（`@theme` 是编译期常量，写死则切主题失效）
