@@ -7,14 +7,12 @@
 /* 以下顺序复刻原 web-ui.css / settings.css 的级联顺序（2026 按域拆分，勿乱序） */
 @import "@ice-ai/ui/extension.css";
 @import "@ice-ai/ui/markdown.css";
-@import "@ice-ai/ui/image-preview.css";
 @import "@ice-ai/ui/mermaid.css";
-@import "@ice-ai/ui/file-viewer.css";
+@import "@ice-ai/ui/unwired.css";
 @import "@ice-ai/ui/chat.css";
 @import "@ice-ai/ui/directory-picker.css";
 @import "@ice-ai/ui/resize-handles.css";
 @import "./layout/workspace.css";
-@import "@ice-ai/ui/file-icon.css";
 @import "@ice-ai/ui/config-ui.css";
 @import "@ice-ai/ui/models.css";
 @import "@ice-ai/ui/skills.css";

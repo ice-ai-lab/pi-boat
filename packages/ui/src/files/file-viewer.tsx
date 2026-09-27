@@ -11,6 +11,7 @@ import { AlertTriangle, Download, ExternalLink, Loader2 } from 'lucide-react';
 import { useI18n } from '../i18n/i18n-provider';
 import { CodeViewer } from './code-viewer';
 import { DiffView } from './diff-view';
+import styles from './file-viewer.module.css';
 import { ImagePreview } from './image-preview';
 
 /**
@@ -131,7 +132,7 @@ export function FileViewer({
       }}
     >
       <div
-        className="file-viewer-toolbar"
+        className={styles.toolbar}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -144,15 +145,11 @@ export function FileViewer({
           flexShrink: 0,
         }}
       >
-        <span
-          className="file-viewer-path"
-          style={{ fontFamily: 'var(--font-mono)' }}
-          title={tab.path}
-        >
+        <span className={styles.path} style={{ fontFamily: 'var(--font-mono)' }} title={tab.path}>
           {displayPath}
         </span>
         {meta !== null && (
-          <span className="file-viewer-meta" title={meta}>
+          <span className={styles.meta} title={meta}>
             {meta}
           </span>
         )}
@@ -161,22 +158,18 @@ export function FileViewer({
           role="img"
           title={t('i18n.notWatching')}
           aria-label={t('i18n.notWatching')}
-          className="file-viewer-live-indicator"
+          className={styles.liveIndicator}
           style={{ background: 'var(--border)' }}
         />
-        <div className="file-viewer-controls">
+        <div className={styles.controls}>
           {diffAvailable && (
             /* biome-ignore lint/a11y/useSemanticElements: 与 参考实现 同形（外层已是 flex 容器，换 fieldset 会改版式） */
-            <div
-              role="group"
-              className="file-viewer-mode-switch"
-              aria-label={t('i18n.fileViewMode')}
-            >
+            <div role="group" className={styles.modeSwitch} aria-label={t('i18n.fileViewMode')}>
               <button
                 type="button"
                 onClick={onShowSource}
                 aria-pressed={sourceMode}
-                className="file-viewer-mode-button"
+                className={styles.modeButton}
                 style={{
                   background: sourceMode ? 'var(--bg-selected)' : 'transparent',
                   color: sourceMode ? 'var(--text)' : 'var(--text-muted)',
@@ -189,7 +182,7 @@ export function FileViewer({
                 onClick={onShowDiff}
                 title={t('i18n.compareHead')}
                 aria-pressed={!sourceMode}
-                className="file-viewer-mode-button"
+                className={styles.modeButton}
                 style={{
                   background: !sourceMode ? 'var(--bg-selected)' : 'transparent',
                   color: !sourceMode ? 'var(--text)' : 'var(--text-muted)',
@@ -199,14 +192,14 @@ export function FileViewer({
               </button>
             </div>
           )}
-          <div className="file-viewer-actions">
+          <div className={styles.actions}>
             {onAtMention !== undefined && (
               <button
                 type="button"
                 onClick={onAtMention}
                 title={t('files.insertPath')}
                 aria-label={t('files.mention')}
-                className="file-viewer-icon-button"
+                className={styles.iconButton}
               >
                 <MentionIcon />
               </button>
@@ -218,7 +211,7 @@ export function FileViewer({
                 title={t(tab.wrapLines ? 'i18n.disableWrap' : 'i18n.enableWrap')}
                 aria-label={t(tab.wrapLines ? 'i18n.disableWrap' : 'i18n.enableWrap')}
                 aria-pressed={tab.wrapLines}
-                className="file-viewer-icon-button"
+                className={styles.iconButton}
                 style={{
                   background: tab.wrapLines ? 'var(--bg-selected)' : 'transparent',
                   color: tab.wrapLines ? 'var(--text)' : 'var(--text-muted)',
@@ -233,7 +226,7 @@ export function FileViewer({
             download={name}
             title={t('files.download')}
             aria-label={t('files.download')}
-            className="file-viewer-icon-button"
+            className={styles.iconButton}
           >
             <Download size={14} />
           </a>
@@ -243,7 +236,7 @@ export function FileViewer({
             rel="noreferrer"
             title={t('files.openInNewTab')}
             aria-label={t('files.openInNewTab')}
-            className="file-viewer-icon-button"
+            className={styles.iconButton}
           >
             <ExternalLink size={14} />
           </a>

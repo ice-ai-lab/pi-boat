@@ -1,19 +1,19 @@
-/* —— Catppuccin 文件图标（T2-18） —— */
-.catppuccin-file-icon {
+/* Catppuccin 文件图标（CSS Modules，阶段二批次 2）：.icon → .icon（T2-18） */
+.icon {
   display: block;
   flex-shrink: 0;
   background: center / contain no-repeat var(--catppuccin-icon-light);
 }
-html.dark .catppuccin-file-icon {
+:global(html.dark) .icon {
   background-image: var(--catppuccin-icon-dark);
 }
 @supports (mask-image: url("mask.svg")) or (-webkit-mask-image: url("mask.svg")) {
-  .catppuccin-file-icon {
+  .icon {
     background: var(--text-dim);
     mask: center / contain no-repeat var(--catppuccin-icon-light);
     -webkit-mask: center / contain no-repeat var(--catppuccin-icon-light);
   }
-  html.dark .catppuccin-file-icon {
+  :global(html.dark) .icon {
     background: var(--text-dim);
     mask-image: var(--catppuccin-icon-dark);
     -webkit-mask-image: var(--catppuccin-icon-dark);

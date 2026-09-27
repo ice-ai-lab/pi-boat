@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
+import styles from './file-icon.module.css';
 
 /**
  * 文件图标（T2-18 / L20 / F14）：按设计规范——
@@ -49,7 +50,7 @@ function CatppuccinIcon({ name, size = 14 }: { name: CatppuccinIconName; size?: 
     '--catppuccin-icon-dark': `url(${CATPPUCCIN_ICONS_ROOT}/mocha/${name}.svg)`,
   } as CSSProperties;
 
-  return <span aria-hidden="true" className="catppuccin-file-icon" style={style} />;
+  return <span aria-hidden="true" className={styles.icon} style={style} />;
 }
 
 function FolderGlyph({ size = 14, open = false }: { size?: number; open?: boolean }) {
