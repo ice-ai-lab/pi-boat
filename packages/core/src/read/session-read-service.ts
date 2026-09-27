@@ -781,6 +781,7 @@ const rawWindowCap = (tail: number) => Math.max(MIN_RAW_WINDOW_ENTRIES, tail * 6
 
 /**
  * 沿原始 parentId 父链向上取一页历史（不做 compaction 过滤，压缩前条目照常可达）。
+ * 页头额外对齐到轮锚点（见 alignTurnStart）：轮是不可分单位。
  * - 无 before：从 leafId（缺省取末条）向上，凑满 tail 个可见条目为止
  * - 有 before：从其父节点起（excludeLeaf，向上翻页 prepend 不重复）；
  *   条目不在会话中（含 before 即根）→ 空页而非回退到最新窗口
@@ -813,7 +814,29 @@ function sliceBranchWindow(
     current = current.parentId != null ? byId.get(current.parentId) : undefined;
   }
   chain.reverse();
+  alignTurnStart(chain, byId, cap);
   return chain;
+}
+
+/** 轮锚点：轮从这里开始（user 消息 / 压缩分隔条——后者后头必跟新轮的 user） */
+function isTurnAnchor(entry: SessionEntry): boolean {
+  return entry.type === 'compaction' || (entry.type === 'message' && entry.message.role === 'user');
+}
+
+/**
+ * 窗口头对齐到轮边界：头落在 run 中间（assistant/toolResult）时，同一 run 被切成两半——
+ * 前缀页经 rebuildTurns 会把中间 assistant 消息当轮终点渲染（final/usage 取的是中间步、
+ * 模型标签重复，2026-09-27 会话 01a0e2a8 实测）。向前回溯到最近的轮锚点为止；
+ * cap 兜底防病态会话（超长无锚点段）把单页拉到失控——那时退回旧行为（截断窗口）。
+ */
+function alignTurnStart(chain: SessionEntry[], byId: Map<string, SessionEntry>, cap: number): void {
+  let head = chain[0];
+  while (head !== undefined && chain.length < cap && !isTurnAnchor(head)) {
+    const prev = head.parentId != null ? byId.get(head.parentId) : undefined;
+    if (prev === undefined) break;
+    chain.unshift(prev);
+    head = prev;
+  }
 }
 
 /** 会话文件指纹：`size:mtimeMs`（与列表指纹同构；无单调性，只比较相等） */

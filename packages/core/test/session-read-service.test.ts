@@ -349,13 +349,14 @@ describe('SessionReadService', () => {
     });
   });
 
-  it('context 分页：tail 只计可见消息（toolResult 不吃预算）+ hasMore + oldestEntryId', async () => {
-    // tail=2 → 2 条可见消息（e4、e2），中间的 toolResult e3 附带返回
-    const page = await service().context(sessionId, { tail: 2 });
+  it('context 分页：窗口按轮对齐（toolResult 不吃预算，页头不落在 run 中间）', async () => {
+    // tail=1 → 从 e4 向上只数 1 条可见，但页头必须对齐轮锚点：整轮 e1..e4 一起返回
+    // （旧实现在此返回 ['e2','e3','e4']，前插页会把同一 run 拆成两半）
+    const page = await service().context(sessionId, { tail: 1 });
     if (!page) throw new Error('missing context');
-    expect(page.entryIds).toEqual(['e2', 'e3', 'e4']);
-    expect(page.hasMore).toBe(true);
-    expect(page.oldestEntryId).toBe('e2');
+    expect(page.entryIds).toEqual(['e1', 'e2', 'e3', 'e4']);
+    expect(page.hasMore).toBe(false);
+    expect(page.oldestEntryId).toBe('e1');
 
     // before：取 e3 之前（excludeLeaf 语义）
     const older = await service().context(sessionId, { before: 'e3' });
@@ -368,6 +369,29 @@ describe('SessionReadService', () => {
     if (!oldest) throw new Error('missing oldest context');
     expect(oldest.entryIds).toEqual(['e1']);
     expect(oldest.hasMore).toBe(false);
+  });
+
+  it('context 分页：页头向前回溯到最近的轮锚点（user/compaction）为止', async () => {
+    // tail=2：从叶向上凑满 2 条可见（a3、u3），u3 本身是轮锚点 → 页不再扩展
+    const last = await service(compactedDir).context(compactedId, { tail: 2 });
+    if (!last) throw new Error('missing context');
+    expect(last.entryIds).toEqual(['u3', 'a3']);
+    expect(last.hasMore).toBe(true);
+    expect(last.oldestEntryId).toBe('u3');
+
+    // before=u3：页尾落在 a2（前一轮尾部中间），页头回溯到 user 锚点 u2；
+    // 压缩分隔条 c1 在锚点之后，附带返回
+    const mid = await service(compactedDir).context(compactedId, { before: 'u3', tail: 2 });
+    if (!mid) throw new Error('missing context');
+    expect(mid.entryIds).toEqual(['u2', 'a2', 'c1']);
+    expect(mid.hasMore).toBe(true);
+    expect(mid.oldestEntryId).toBe('u2');
+
+    // 翻到顶：a1 页头回溯到 u1，无更早历史
+    const top = await service(compactedDir).context(compactedId, { before: 'u2', tail: 2 });
+    if (!top) throw new Error('missing context');
+    expect(top.entryIds).toEqual(['u1', 'a1']);
+    expect(top.hasMore).toBe(false);
   });
 
   it('context 分页：压缩会话的历史照常可翻（压缩点不是死路）', async () => {
