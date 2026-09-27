@@ -350,6 +350,8 @@ export function WorkspaceLayout() {
           flexDirection: 'column',
           overflow: 'hidden',
           minWidth: 0,
+          // 中栏实色（原型 `.pane--main` card-solid）：阅读区不透环境渐变，保障正文/代码可读性
+          background: 'var(--bg)',
         }}
       >
         <ChatPane
