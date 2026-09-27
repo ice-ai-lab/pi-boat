@@ -195,6 +195,7 @@ export {
 export { CLIENT_VERSION } from './version';
 export {
   applyChatAppearance,
+  CHAT_CONTENT_EDGE_BUDGET,
   CHAT_CONTENT_FONT_SIZE_DEFAULT,
   CHAT_CONTENT_FONT_SIZE_MAX,
   CHAT_CONTENT_FONT_SIZE_MIN,
@@ -209,6 +210,7 @@ export {
   DEFAULT_CHAT_APPEARANCE,
   isThinkingExpandedByDefault,
   readStoredChatAppearance,
+  resolveChatContentWidth,
   setThinkingExpandedByDefault,
   THINKING_EXPANDED_EVENT,
   THINKING_EXPANDED_STORAGE_KEY,

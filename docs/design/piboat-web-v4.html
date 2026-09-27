@@ -1261,13 +1261,13 @@ svg.chev{
 </div>
 
 <script>
-(function(){
-  var $ = function(s){ return document.querySelector(s); };
-  var $$ = function(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); };
+(()=> {
+  var $ = (s)=> document.querySelector(s);
+  var $$ = (s)=> Array.prototype.slice.call(document.querySelectorAll(s));
 
   /* --- 折叠行 / 折叠组 --- */
-  $$(".disc-head, .grp-head").forEach(function(h){
-    h.addEventListener("click", function(){
+  $$(".disc-head, .grp-head").forEach((h)=> {
+    h.addEventListener("click", ()=> {
       h.parentElement.classList.toggle("open");
     });
   });
@@ -1277,7 +1277,7 @@ svg.chev{
   try { saved = localStorage.getItem("piboat.v4.theme"); } catch(e){}
   if (saved) document.documentElement.setAttribute("data-theme", saved);
   syncThemeIco();
-  $("#themeBtn").addEventListener("click", function(){
+  $("#themeBtn").addEventListener("click", ()=> {
     var cur = document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark";
     document.documentElement.setAttribute("data-theme", cur);
     try { localStorage.setItem("piboat.v4.theme", cur); } catch(e){}
@@ -1289,14 +1289,14 @@ svg.chev{
   }
 
   /* --- 右侧 dock --- */
-  $("#dockBtn").addEventListener("click", function(){
+  $("#dockBtn").addEventListener("click", ()=> {
     $("#dock").classList.toggle("open");
   });
 
   /* --- 浮层 --- */
   var pops = { sysBtn: "popSys", toolsBtn: "popTools", metricsBtn: "popStats" };
-  Object.keys(pops).forEach(function(btnId){
-    $("#" + btnId).addEventListener("click", function(e){
+  Object.keys(pops).forEach((btnId)=> {
+    $("#" + btnId).addEventListener("click", (e)=> {
       e.stopPropagation();
       var pop = $("#" + pops[btnId]);
       var was = pop.classList.contains("open");
@@ -1304,31 +1304,31 @@ svg.chev{
       if (!was) pop.classList.add("open");
     });
   });
-  $$(".pop").forEach(function(p){
-    p.addEventListener("click", function(e){ e.stopPropagation(); });
+  $$(".pop").forEach((p)=> {
+    p.addEventListener("click", (e)=> { e.stopPropagation(); });
   });
-  $$("[data-x]").forEach(function(x){
+  $$("[data-x]").forEach((x)=> {
     x.addEventListener("click", closePops);
   });
   document.addEventListener("click", closePops);
-  document.addEventListener("keydown", function(e){ if (e.key === "Escape") closePops(); });
-  function closePops(){ $$(".pop").forEach(function(p){ p.classList.remove("open"); }); }
+  document.addEventListener("keydown", (e)=> { if (e.key === "Escape") closePops(); });
+  function closePops(){ $$(".pop").forEach((p)=> { p.classList.remove("open"); }); }
 
   /* --- 工具开关 --- */
-  $$(".sw").forEach(function(sw){
-    sw.addEventListener("click", function(){ sw.classList.toggle("on"); });
+  $$(".sw").forEach((sw)=> {
+    sw.addEventListener("click", ()=> { sw.classList.toggle("on"); });
   });
 
   /* --- 会话选中 --- */
-  $$(".sess").forEach(function(s){
-    s.addEventListener("click", function(){
-      $$(".sess").forEach(function(x){ x.classList.remove("on"); });
+  $$(".sess").forEach((s)=> {
+    s.addEventListener("click", ()=> {
+      $$(".sess").forEach((x)=> { x.classList.remove("on"); });
       s.classList.add("on");
     });
   });
 
   /* --- 搜索展开 --- */
-  $("#searchBtn").addEventListener("click", function(){
+  $("#searchBtn").addEventListener("click", ()=> {
     var r = $("#searchRow");
     r.classList.toggle("show");
     if (r.classList.contains("show")) r.querySelector("input").focus();
@@ -1336,16 +1336,16 @@ svg.chev{
 
   /* --- minimap --- */
   var tip = $("#mmtip");
-  $$(".mmbar").forEach(function(bar){
-    bar.addEventListener("mouseenter", function(){
+  $$(".mmbar").forEach((bar)=> {
+    bar.addEventListener("mouseenter", ()=> {
       tip.querySelector(".t1").textContent = bar.getAttribute("data-tip");
       tip.querySelector(".t2").textContent = bar.getAttribute("data-meta");
       var top = bar.offsetTop - 8;
       tip.style.top = Math.max(0, top - 20) + "px";
       tip.classList.add("show");
     });
-    bar.addEventListener("mouseleave", function(){ tip.classList.remove("show"); });
-    bar.addEventListener("click", function(){
+    bar.addEventListener("mouseleave", ()=> { tip.classList.remove("show"); });
+    bar.addEventListener("click", ()=> {
       var t = document.getElementById(bar.getAttribute("data-target"));
       if (t) t.scrollIntoView({ behavior: "smooth", block: "start" });
     });
@@ -1353,14 +1353,14 @@ svg.chev{
 
   /* --- 发送 / 停止 形态切换（演示） --- */
   $("#sendBtn").addEventListener("click", function(){
-    var b = this, stop = b.classList.toggle("stop");
+    var stop = this.classList.toggle("stop");
     $("#sendIco").setAttribute("href", stop ? "#i-stop" : "#i-up");
-    b.title = stop ? "停止" : "发送";
+    this.title = stop ? "停止" : "发送";
   });
 
   /* --- 输入框自动增高 --- */
   var ta = document.querySelector(".input-card textarea");
-  ta.addEventListener("input", function(){
+  ta.addEventListener("input", ()=> {
     ta.style.height = "auto";
     ta.style.height = Math.min(ta.scrollHeight, 168) + "px";
   });

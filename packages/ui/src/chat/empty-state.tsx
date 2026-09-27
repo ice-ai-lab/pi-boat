@@ -27,7 +27,7 @@ export function EmptyState({ appVersion, piVersion, children, shelf }: EmptyStat
             alignItems: 'center',
             justifyContent: 'space-between',
             gap: 12,
-            maxWidth: 'var(--chat-content-max-width, 820px)',
+            maxWidth: 'var(--chat-content-max-width, 1150px)',
             margin: '0 auto',
             fontFamily: 'var(--font-mono)',
           }}

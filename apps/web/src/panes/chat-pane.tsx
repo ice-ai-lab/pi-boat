@@ -8,6 +8,7 @@ import {
   filterSlashCommands,
   getFileIndex,
   parseSlashSubmission,
+  resolveChatContentWidth,
   sessionExportUrl,
   shortPath,
   slashSourceLabel,
@@ -23,6 +24,7 @@ import {
   BranchNavigator,
   Composer,
   ComposerToolbar,
+  ContentWidthHandles,
   EmptyState,
   ExtensionRequestDialog,
   ExtensionStatusBar,
@@ -43,6 +45,7 @@ import {
   type ReactNode,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useReducer,
   useRef,
@@ -53,6 +56,7 @@ import { APP_VERSION, useServerInfo } from '../layout/health';
 import { fileTabsStore } from '../services/file-tabs-store';
 import { useMentionInsertion } from '../services/mention-bus';
 import { attachedImageToContent, useAttachedImages } from '../services/use-attached-images';
+import { useChatAppearance } from '../services/use-chat-appearance';
 import { useInputHistory } from '../services/use-input-history';
 import { registerAbortHandler } from '../services/use-keyboard-shortcuts';
 import { useCompletionSignal } from '../services/use-notifications';
@@ -336,6 +340,45 @@ export function ChatPane({
   const attachments = useAttachedImages();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
+  /**
+   * 内容区宽度把手（设计规范 §8.4）：偏好来自对话外观（与设置页同一份），
+   * 实际宽再按当前列宽夹取（给两侧把手留位）。
+   */
+  const chatAppearance = useChatAppearance();
+  const chatContentRef = useRef<HTMLDivElement>(null);
+  const [chatColumnWidth, setChatColumnWidth] = useState(0);
+  const resolvedContentWidth = resolveChatContentWidth(chatAppearance.width, chatColumnWidth);
+  // 列宽随侧栏/右栏拖拽变化；依赖 sessionId 让会话/空态切换时重新观察新节点
+  // biome-ignore lint/correctness/useExhaustiveDependencies: 会话/空态分支切换要重挂观察器
+  useLayoutEffect(() => {
+    const el = chatContentRef.current;
+    if (el === null) return;
+    el.style.setProperty('--chat-content-max-width', `${resolvedContentWidth}px`);
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) setChatColumnWidth(entry.contentRect.width);
+    });
+    observer.observe(el);
+    setChatColumnWidth(el.clientWidth);
+    return () => observer.disconnect();
+  }, [resolvedContentWidth, sessionId]);
+  // 拖动中直接写 CSS 变量（不落盘、不触发 React 重渲染）；松手才持久化
+  const handleContentWidthDrag = useCallback((width: number) => {
+    const el = chatContentRef.current;
+    if (el === null) return;
+    el.style.setProperty(
+      '--chat-content-max-width',
+      `${resolveChatContentWidth(width, el.clientWidth)}px`,
+    );
+  }, []);
+  const handleContentWidthCommit = useCallback(
+    (width: number) => {
+      const el = chatContentRef.current;
+      const resolved = resolveChatContentWidth(width, el?.clientWidth ?? 0);
+      if (el !== null) el.style.setProperty('--chat-content-max-width', `${resolved}px`);
+      chatAppearance.setWidth(resolved);
+    },
+    [chatAppearance],
+  );
   /**
    * 「本次会话切换由本组件发起」（建会话 / fork：会话先行、URL 后跟），供对账决策用。
    * 用户点侧栏是 URL 先行，绝不置此标记——否则对账会把 URL 反向覆盖回当前会话，
@@ -1372,7 +1415,11 @@ export function ChatPane({
   }
 
   return (
-    <div className="chat-content relative flex min-h-0 flex-1 flex-col" {...dragHandlers}>
+    <div
+      ref={chatContentRef}
+      className="chat-content relative flex min-h-0 flex-1 flex-col"
+      {...dragHandlers}
+    >
       {dragOverlay}
       {toolbar}
 
@@ -1383,6 +1430,12 @@ export function ChatPane({
           loadingOlder={session.loadingOlder}
           onLoadOlder={() => void session.loadOlder()}
           onOpenWrittenFile={openWrittenFile}
+        />
+        <ContentWidthHandles
+          width={resolvedContentWidth}
+          onChange={handleContentWidthDrag}
+          onCommit={handleContentWidthCommit}
+          label={t('chat.resizeContentWidth')}
         />
       </div>
 

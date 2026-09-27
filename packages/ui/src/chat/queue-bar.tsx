@@ -18,7 +18,7 @@ export function QueueBar({ steering, followUp, onClear }: QueueBarProps) {
   const total = steering.length + followUp.length;
   if (total === 0) return null;
   return (
-    <div style={{ maxWidth: 'var(--chat-content-max-width, 820px)', margin: '0 auto 8px' }}>
+    <div style={{ maxWidth: 'var(--chat-content-max-width, 1150px)', margin: '0 auto 8px' }}>
       <div
         style={{
           border: '1px solid var(--border)',
