@@ -1,6 +1,6 @@
-/* 扩展货架/状态栏（extension-*；原 web-ui.css 拆分） */
+/* 扩展货架/状态栏（CSS Modules，阶段二批次 3）：.extension-status-* → .status*、.extension-widget-* → .widget*，映射见对应 TSX；原 web-ui.css 拆分 */
 
-.extension-status-shelf {
+.statusShelf {
   display: flex;
   flex-shrink: 0;
   flex-wrap: wrap;
@@ -10,7 +10,7 @@
   background: transparent;
 }
 
-.extension-widget-panels {
+.widgetPanels {
   display: flex;
   flex: 0 0 100%;
   flex-direction: column;
@@ -23,14 +23,14 @@
   background: var(--bg-panel);
 }
 
-.extension-widget-panel {
+.widgetPanel {
   flex-shrink: 0;
   min-width: 0;
   overflow: hidden;
   background: transparent;
 }
 
-.extension-widget-panel-heading {
+.widgetPanelHeading {
   height: 26px;
   padding: 5px 12px 0;
   overflow: hidden;
@@ -42,7 +42,7 @@
   white-space: nowrap;
 }
 
-.extension-widget-triggers {
+.widgetTriggers {
   display: flex;
   flex: 1 1 100%;
   align-items: stretch;
@@ -54,17 +54,17 @@
   scrollbar-width: none;
 }
 
-.extension-widget-triggers::-webkit-scrollbar {
+.widgetTriggers::-webkit-scrollbar {
   display: none;
 }
 
-.extension-status-shelf.has-widgets.has-status .extension-widget-triggers {
+.statusShelf.hasWidgets.hasStatus .widgetTriggers {
   flex: 0 0 auto;
   max-width: 70%;
   border-right: 1px solid var(--border);
 }
 
-.extension-widget-trigger {
+.widgetTrigger {
   position: relative;
   display: flex;
   flex: 0 0 108px;
@@ -83,7 +83,7 @@
   text-align: left;
 }
 
-.extension-widget-update-pulse {
+.widgetUpdatePulse {
   position: absolute;
   z-index: 0;
   inset: 0;
@@ -92,7 +92,7 @@
   transition: opacity 180ms ease-out;
 }
 
-.extension-widget-update-pulse::before {
+.widgetUpdatePulse::before {
   position: absolute;
   inset: 0;
   background: var(--accent);
@@ -100,11 +100,11 @@
   opacity: 0.12;
 }
 
-.extension-widget-trigger.is-updating .extension-widget-update-pulse {
+.widgetTrigger.isUpdating .widgetUpdatePulse {
   opacity: 1;
 }
 
-.extension-widget-trigger.is-updating .extension-widget-update-pulse::before {
+.widgetTrigger.isUpdating .widgetUpdatePulse::before {
   animation: extension-widget-update-pulse 900ms ease-in-out infinite alternate;
 }
 
@@ -113,23 +113,23 @@
   to { opacity: 0.06; }
 }
 
-button.extension-widget-trigger {
+button.widgetTrigger {
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
 }
 
-button.extension-widget-trigger:hover,
-.extension-widget-trigger.is-expanded {
+button.widgetTrigger:hover,
+.widgetTrigger.isExpanded {
   background: var(--bg-hover);
   color: var(--text);
 }
 
-button.extension-widget-trigger:focus-visible {
+button.widgetTrigger:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 
-.extension-widget-placement {
+.widgetPlacement {
   display: flex;
   position: relative;
   z-index: 1;
@@ -140,7 +140,7 @@ button.extension-widget-trigger:focus-visible {
   color: var(--text-dim);
 }
 
-.extension-widget-placement-icon {
+.widgetPlacementIcon {
   display: block;
   width: 8px;
   height: 6px;
@@ -148,7 +148,7 @@ button.extension-widget-trigger:focus-visible {
   fill: currentColor;
 }
 
-.extension-widget-key {
+.widgetKey {
   position: relative;
   z-index: 1;
   flex: 1;
@@ -161,18 +161,18 @@ button.extension-widget-trigger:focus-visible {
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .extension-widget-update-pulse {
+    .widgetUpdatePulse {
       transition: none;
     }
 
-    .extension-widget-trigger.is-updating .extension-widget-update-pulse::before {
+    .widgetTrigger.isUpdating .widgetUpdatePulse::before {
       animation: none;
       opacity: 0.12;
     }
 
 }
 
-.extension-widget-content {
+.widgetContent {
   margin: 0;
   padding: 3px 12px 8px;
   color: var(--text-muted);
@@ -183,7 +183,7 @@ button.extension-widget-trigger:focus-visible {
   white-space: pre-wrap;
 }
 
-.extension-status-line {
+.statusLine {
   display: flex;
   flex: 1 1 0;
   align-items: flex-start;
@@ -197,7 +197,7 @@ button.extension-widget-trigger:focus-visible {
   scrollbar-width: thin;
 }
 
-.extension-status-text {
+.statusText {
   flex: 1;
   min-width: 0;
   color: var(--text-muted);

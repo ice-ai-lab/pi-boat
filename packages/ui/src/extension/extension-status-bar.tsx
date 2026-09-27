@@ -1,6 +1,8 @@
 import type { ExtensionStatusItem, ExtensionWidgetItem } from '@ice-ai/protocol';
+import clsx from 'clsx';
 import { stripAnsi } from './ansi';
 import { AnsiText } from './ansi-text';
+import styles from './extension.module.css';
 import { ExtensionWidgets } from './extension-widgets';
 
 /** 按设计规范 的文本清洗 */
@@ -38,17 +40,21 @@ export function ExtensionStatusBar({
 
   return (
     <div
-      className={`extension-status-shelf${widgets.length > 0 ? ' has-widgets' : ''}${statuses.length > 0 ? ' has-status' : ''}`}
+      className={clsx(
+        styles.statusShelf,
+        widgets.length > 0 && styles.hasWidgets,
+        statuses.length > 0 && styles.hasStatus,
+      )}
     >
       {widgets.length > 0 && <ExtensionWidgets widgets={widgets} />}
       {statuses.length > 0 && (
         <div
           role="status"
-          className="extension-status-line"
+          className={styles.statusLine}
           aria-label={plainStatusLine}
           title={plainStatusLine}
         >
-          <span className="extension-status-text">
+          <span className={styles.statusText}>
             <AnsiText text={statusLine} />
           </span>
         </div>

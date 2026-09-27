@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '../utils/cn';
 import { useScrollbarVisibility } from '../utils/use-scrollbar-visibility';
 import { AssistantTurn, UserBubble } from './assistant-turn';
+import styles from './chat.module.css';
 
 /**
  * MessageList（docs/06 §4.2 / §8.2）：吸附模型滚动 + 历史懒加载。
@@ -130,16 +131,17 @@ export function MessageList({
       <div
         ref={scrollRef}
         onScroll={onScroll}
+        data-chat-scroll=""
         className="scrollbar-subtle min-w-0 flex-1 overflow-x-hidden overflow-y-auto pt-4 [scrollbar-gutter:stable] [overflow-anchor:none]"
         aria-live="polite"
       >
-        {/* 正文列：设计规范 `ChatWindow` 的 820px 居中栏 + 16px 列内边距 */}
+        {/* 正文列：`--chat-content-max-width` 居中栏 + 16px 列内边距 */}
         <div style={{ minWidth: 0, padding: '0 16px' }}>
           <div
             style={{
               width: '100%',
               minWidth: 0,
-              maxWidth: 'var(--chat-content-max-width, 820px)',
+              maxWidth: 'var(--chat-content-max-width, 1150px)',
               margin: '0 auto',
             }}
           >
@@ -192,7 +194,7 @@ export function MessageList({
           aria-label="回到底部"
           title="回到底部"
           onClick={() => scrollToBottom('smooth')}
-          className={`chat-scroll-to-bottom${showJump ? ' is-visible' : ''}`}
+          className={cn(styles.scrollToBottom, showJump && styles.isVisible)}
         >
           <svg
             width="16"

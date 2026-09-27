@@ -1,7 +1,9 @@
 import type { ExtensionWidgetItem } from '@ice-ai/protocol';
+import clsx from 'clsx';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useI18n } from '../i18n/i18n-provider';
 import { AnsiText } from './ansi-text';
+import styles from './extension.module.css';
 
 /**
  * ExtensionWidgets（ADR-0012）：扩展上报的多行小组件。
@@ -124,7 +126,7 @@ export function ExtensionWidgets({ widgets }: { widgets: ExtensionWidgetItem[] }
   return (
     <>
       {expandedWidget && (
-        <div className="extension-widget-panels">
+        <div className={styles.widgetPanels}>
           {(() => {
             const widget = expandedWidget;
             const index = widgets.indexOf(widget);
@@ -134,11 +136,11 @@ export function ExtensionWidgets({ widgets }: { widgets: ExtensionWidgetItem[] }
               <section
                 key={widget.widgetKey}
                 id={panelId}
-                className="extension-widget-panel"
+                className={styles.widgetPanel}
                 aria-labelledby={triggerId}
               >
-                <div className="extension-widget-panel-heading">{widget.widgetKey}</div>
-                <pre className="extension-widget-content">
+                <div className={styles.widgetPanelHeading}>{widget.widgetKey}</div>
+                <pre className={styles.widgetContent}>
                   <AnsiText text={formatExtensionWidgetContent(widget.widgetLines)} />
                 </pre>
               </section>
@@ -147,11 +149,7 @@ export function ExtensionWidgets({ widgets }: { widgets: ExtensionWidgetItem[] }
         </div>
       )}
       {/* biome-ignore lint/a11y/useSemanticElements: 触发条容器（设计规范同款 div + aria-label） */}
-      <div
-        role="group"
-        className="extension-widget-triggers"
-        aria-label={t('chat.extensionWidgets')}
-      >
+      <div role="group" className={styles.widgetTriggers} aria-label={t('chat.extensionWidgets')}>
         {widgets.map((widget, index) => {
           const expandable = widget.widgetLines.length > 0;
           const expanded = expandable && widget.widgetKey === expandedWidget?.widgetKey;
@@ -171,11 +169,11 @@ export function ExtensionWidgets({ widgets }: { widgets: ExtensionWidgetItem[] }
           const panelId = `${idPrefix}-panel-${index}`;
           const content = (
             <>
-              <span className="extension-widget-update-pulse" aria-hidden="true" />
-              <span className="extension-widget-placement" aria-hidden="true">
+              <span className={styles.widgetUpdatePulse} aria-hidden="true" />
+              <span className={styles.widgetPlacement} aria-hidden="true">
                 <svg
                   aria-hidden="true"
-                  className="extension-widget-placement-icon"
+                  className={styles.widgetPlacementIcon}
                   viewBox="0 0 8 6"
                   width="8"
                   height="6"
@@ -187,7 +185,7 @@ export function ExtensionWidgets({ widgets }: { widgets: ExtensionWidgetItem[] }
                   />
                 </svg>
               </span>
-              <span className="extension-widget-key">{widget.widgetKey}</span>
+              <span className={styles.widgetKey}>{widget.widgetKey}</span>
             </>
           );
 
@@ -196,7 +194,11 @@ export function ExtensionWidgets({ widgets }: { widgets: ExtensionWidgetItem[] }
               key={widget.widgetKey}
               id={triggerId}
               type="button"
-              className={`extension-widget-trigger${expanded ? ' is-expanded' : ''}${updating ? ' is-updating' : ''}`}
+              className={clsx(
+                styles.widgetTrigger,
+                expanded && styles.isExpanded,
+                updating && styles.isUpdating,
+              )}
               aria-controls={panelId}
               aria-expanded={expanded}
               aria-label={`${placementLabel}: ${widget.widgetKey}, ${lineCountLabel}`}
@@ -210,7 +212,7 @@ export function ExtensionWidgets({ widgets }: { widgets: ExtensionWidgetItem[] }
             <div
               key={widget.widgetKey}
               role="group"
-              className={`extension-widget-trigger${updating ? ' is-updating' : ''}`}
+              className={clsx(styles.widgetTrigger, updating && styles.isUpdating)}
               aria-label={`${placementLabel}: ${widget.widgetKey}, ${lineCountLabel}`}
               title={`${widget.widgetKey} - ${placementLabel}`}
             >
