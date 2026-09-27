@@ -17,7 +17,7 @@ function fakeAgentService(options: { running?: string[]; streaming?: string[] } 
     service: {
       isResident: (id: string) => running.has(id),
       residentSessionIds: () => [...running],
-      runningSessionIds: () => [...running],
+      runningSessions: () => [...running].map((id) => ({ id, cwd: '/tmp' })),
       getRunningState: (id: string) =>
         running.has(id)
           ? { running: true, state: { isStreaming: streaming.has(id), isPromptRunning: false } }

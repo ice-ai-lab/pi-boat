@@ -5,6 +5,11 @@
 - 关联文档：`docs/01-overview.md` §5.6；`docs/02-protocol-inventory.md` §6.1 / §9；`docs/04-server-design.md` §3 / §9
 - 关联决策：ADR-0007（本机鉴权无凭据，GET 不得有副作用）
 
+> **后续修订（2026-09-27，ADR-0026）**：本文的性能分层被继续推进——`?projectKey=` 从
+> 「payload 收敛」升级为「payload + CPU 双收敛」（过滤下推到扫描层，缓存按「指纹 + 范围」失效）；
+> 同时**删除**了本文性能分层里的两处：`?summary=1` 快路径（侧栏不再需要两段式，且它不进缓存）
+> 与 `ProjectInfo.sessionCount`（名字暗示会话数、实为文件数，且零消费方）。下面的原始记录保留不改。
+
 ## 背景
 
 会话在磁盘上按 cwd 分目录存放：`~/.pi/agent/sessions/<encoded-cwd>/<ISO 时间戳>_<id>.jsonl`。由此产生两个问题：

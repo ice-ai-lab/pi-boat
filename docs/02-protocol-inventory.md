@@ -192,8 +192,8 @@
 
 | 端点 | 形状 |
 |---|---|
-| `GET /api/sessions?force=1&projectKey=` | → `{ sessions: SessionInfo[], registryVersion, listFingerprint, runningSessionIds[], completionNotificationSuppressedSessionIds[] }`（磁盘扫描与运行时注册表合并）。`projectKey` 只返回该项目的会话；`force=1` 跳过服务端列表缓存并清空项目解析缓存 |
-| `GET /api/projects?force=1` | → `{ projects: ProjectInfo[], listFingerprint }`（ADR-0008）。项目是**会话目录的派生视图**：`readdir` + `stat` + 每目录一次首行头读取，不解析会话正文（实测 3–7 ms / 1.8 KB）。同一仓库的子目录与 worktree 按 `projectKey` 合并为一项，`cwds` 列出全部目录；空会话目录不出现在结果里。**不分页**（量级 10¹） |
+| `GET /api/sessions?force=1&projectKey=` | → `{ sessions: SessionInfo[], registryVersion, listFingerprint, runningSessions[], completionNotificationSuppressedSessionIds[] }`（磁盘扫描与运行时注册表合并）。`projectKey` 只返回该项目的会话，**且把范围下推到扫描层**（只解析该项目目录，不是解析后过滤；实测 52 会话全量解析 ~115 ms vs 单项目 ~2 ms）。`runningSessions: {id, cwd}[]` 是运行中的会话（带 cwd 供客户端归到项目上，见 ADR-0026；原 `runningSessionIds` 已由它取代）。`force=1` 跳过服务端列表缓存并清空项目解析缓存 |
+| `GET /api/projects?force=1` | → `{ projects: ProjectInfo[], listFingerprint }`（ADR-0008）。项目是**会话目录的派生视图**：`readdir` + `stat` + 每目录一次首行头读取，不解析会话正文（实测 3–7 ms / 1.8 KB）。同一仓库的子目录与 worktree 按 `projectKey` 合并为一项，`cwds` 列出全部目录；空会话目录不出现在结果里。**不分页**（量级 10¹）。服务端会把运行时的内存会话（未落盘）的 cwd 一并合入（否则新目录里的新会话在侧栏无项目可选） |
 | `GET /api/agent/running` | 轻量轮询（可见 Tab 池）：`{ registryVersion, runningSessionIds, 通知抑制ids }` |
 | `GET /api/agent/:id` | **单会话状态轻查**：`{running: false}` 或 `{running: true, state: AgentState}`（未运行不报错；客户端在 `agent_end` 后靠它同步模型/上下文/队列状态）。⚠️ 走 `getRunningState()` 直读注册表、**不进命令 FIFO**；`get_state` **命令**则与运行中的 prompt 串行，run 期间发它会排队到 run 结束——轮询实时状态必须走这个路由 |
 | `GET /api/sessions/search?q` | → 搜索结果（q ≤ 200 字符）。先按轻量字段（名字 / 首条消息）筛，剩余候选再有界扫正文（G2-7，候选数与单文件字节数均有上限） |
@@ -351,7 +351,7 @@
 | 4 | 鉴权模型 | 纯本地定位：Host + Origin + Sec-Fetch-Site 三闸常开，**无凭据**（无 token / 无 SSE 票据 / 无 bootstrap，ADR-0007）；代价是 GET 不得有副作用。LAN 场景另议（届时用用户可输入的口令 + cookie，见 ADR-0007 备选方案表） |
 | 5 | 应用更新检查 | 暂缓（发布通道未定） |
 | 6 | 路径风格 | 资源身份进路径、子资源嵌套于所属资源（`/api/sessions/:id/entries/:entryId/thinking`），查询修饰进 query（`?before&tail`）。否决 ID 进 body：GET 无 body（fetch 抛错、SSE 物理不可带）、丢失缓存/重放/日志排查能力；否决 ID 进 query：混淆资源寻址与查询参数（2026-09-22 补记理由）。UUID 过长的排查痛点用日志缩写 ID 解决，不改寻址；鉴权相关端点单独设计 |
-| 7 | 项目分组与会话列表规模 | 项目是**会话目录的派生视图**（`GET /api/projects`，不分页）：服务端 git 归一成 `projectKey`，同一仓库的子目录/worktree 合并；列表缓存键 = 会话目录指纹（`listFingerprint`），磁盘变化自动失效（ADR-0008）。**会话列表暂不分页**，触发条件：10³–10⁴ 会话且实测单请求 > 100 ms 或 payload > 1 MB；届时按 `?projectKey&cursor&limit` 切，游标取目录内文件名时间戳（单调稳定），不做跨项目全量分页 |
+| 7 | 项目分组与会话列表规模 | 项目是**会话目录的派生视图**（`GET /api/projects`，不分页）：服务端 git 归一成 `projectKey`，同一仓库的子目录/worktree 合并；列表缓存键 = 会话目录指纹（`listFingerprint`），磁盘变化自动失效（ADR-0008）。会话列表**按项目取数**（`?projectKey=` 把过滤下推到扫描层，缓存按「指纹 + 范围」失效，ADR-0026），侧栏不再拉全量；**仍未分页**，触发条件：10³–10⁴ 会话且实测单请求 > 100 ms 或 payload > 1 MB；届时按 `?projectKey&cursor&limit` 切，游标取目录内文件名时间戳（单调稳定），不做跨项目全量分页 |
 | 8 | UI 视图模型的归属 | 原型 v3 定义的「处理详情分组 / 折叠行 / 每轮 usage」是 **wire 事件之上的一层**，但不进 protocol——它承诺的是 UI 形状而非 API 能力，且历史（REST `entries`）与实时（SSE 事件）两条路径需蒸出同一种形状。**归 client 私有契约**（`fold.ts` + `rebuild.ts`），规格见 `docs/05-client-design.md` §6，消费侧见 `docs/06-ui-design.md` §4.2 |
 
 ## 10. 协议包目录结构

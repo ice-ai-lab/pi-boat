@@ -117,7 +117,7 @@ protocol 31 / client 83 / ui 16 / web 3 用例）。双实例 DOM 取证：品�
 
 **已修**
 
-- **侧栏「莫名其妙的加载中会话」（P0·真 bug）**：`runningSessionIds()` 返回的是**全部常驻注册表**
+- **侧栏「莫名其妙的加载中会话」（P0·真 bug）**：`runningSessionIds()`（今名 `runningSessions()`，ADR-0026）返回的是**全部常驻注册表**
   （含 idle 未被回收的会话），前端据此给它们渲染无限转圈。对齐 参考实现 `getRunningRpcSessionIds()`：
   只有「流 / 提示 / 压缩」在跑才算 running；常驻但 idle 不再算。改名配套：`isRunning()` → `isResident()`
   （它的语义确实是「在注册表里」，旧名字是这次误判的源头，AGENTS.md「命名不得暗示做不到的事」）、

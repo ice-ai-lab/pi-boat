@@ -30,7 +30,12 @@ import type {
 import { UserInputError } from '../agent/agent-session-service';
 import { type SdkAgentMessage, toWireAgentMessage } from '../events/wire-message';
 import type { SessionsDirScan } from './dir-scan';
-import { findScannedSessionFile, resolveSessionsRoot, scanSessionsDir } from './dir-scan';
+import {
+  findScannedSessionFile,
+  readSessionHeader,
+  resolveSessionsRoot,
+  scanSessionsDir,
+} from './dir-scan';
 import type { ProjectResolverLike } from './project-resolver';
 import { ProjectResolver } from './project-resolver';
 
@@ -50,7 +55,7 @@ import { ProjectResolver } from './project-resolver';
  * 列表缓存键）、project-read-service（项目清单，ADR-0008 的分组视图）与
  * project-resolver（cwd 归一，enrich 用；须与 ProjectReadService 共享同一实例）。
  *
- * 性能分层（ADR-0008）：列表缓存键 = 会话目录指纹（每文件 size+mtime，成本 ~0.1ms，
+ * 性能分层（ADR-0008 / ADR-0026）：列表缓存键 = 会话目录指纹（每文件 size+mtime，成本 ~0.1ms，
  * dir-scan 计算）；指纹不匹配才跑全量 listAll。
  *
  * M1 不做：导出 HTML / auto-name（需 LLM）/ 搜索索引（M3）、deferMedia 占位符
@@ -71,13 +76,8 @@ export interface SessionReadOptions {
 export interface SessionListOptions {
   /** 跳过后端列表缓存并清空项目解析缓存（?force=1） */
   force?: boolean;
-  /** 只返回该项目的会话（ProjectInfo.projectKey） */
+  /** 只返回该项目的会话（ProjectInfo.projectKey），并把范围下推到扫描层（ADR-0026） */
   projectKey?: string;
-  /**
-   * 快路径：跳过 `enrich()`（每 cwd 一次 git 解析）。返回项的 projectRoot/projectKey
-   * 缺省——侧栏先用它把列表显示出来，分组随后由全量读补（ADR-0008）。
-   */
-  summary?: boolean;
   /** 运行时注册表里的内存会话（尚未落盘）；由 server 从 AgentSessionService 取 */
   transient?: SessionInfo[];
 }
@@ -161,8 +161,8 @@ export class SessionReadService {
   private readonly sessionDir?: string;
   private readonly sessionsRoot: string;
   private readonly resolver: ProjectResolverLike;
-  /** 列表缓存：指纹匹配才复用（会话增删/改名/写入都会改变指纹） */
-  private listCache: { fingerprint: string; sessions: SessionInfo[] } | null = null;
+  /** 列表缓存：指纹 + 各取数范围的结果（指纹变了整批作废） */
+  private listCache: { fingerprint: string; byScope: Map<string, SessionInfo[]> } | null = null;
 
   constructor(options: SessionReadOptions = {}) {
     this.sessionDir = options.sessionDir;
@@ -177,27 +177,75 @@ export class SessionReadService {
   async list(options: SessionListOptions = {}): Promise<SessionInfo[]> {
     if (options.force === true) this.invalidate();
     const scan = await scanSessionsDir(this.sessionsRoot);
-    // 快路径不读也不写 enrich 缓存：缓存存的是**带分组**的样子，混着存会让下一次
-    // 全量读拿到没有 projectKey 的条目，分组凭空消失
-    let sessions =
-      options.summary === true
-        ? null
-        : this.listCache?.fingerprint === scan.fingerprint
-          ? this.listCache.sessions
-          : null;
-    if (sessions === null) {
-      const raw = await this.listAllSessions(scan);
-      sessions =
-        options.summary === true
-          ? raw.map((info) => this.toWireInfo(info))
-          : await this.enrich(raw);
-      if (options.summary !== true) this.listCache = { fingerprint: scan.fingerprint, sessions };
+    const scope = options.projectKey ?? null;
+
+    // 按项目取数时**先收窄扫描范围**（不是解析完再 filter）：`SessionManager.listAll()`
+    // 要解析每个 .jsonl 的头尾（本机实测 ~2.5 ms/会话），全量解析再丢弃是纯浪费。
+    // 归属靠共用 resolver 的 projectKey，与 /api/projects 按构造同源（ADR-0008）。
+    const scoped = scope === null ? scan : await this.scopeScan(scan, scope);
+
+    // 缓存按「指纹 + 范围」失效：指纹变了清空全部范围（磁盘侧任何增删改），
+    // 同一指纹下不同项目各自复用（切项目不必重解析）。
+    if (this.listCache?.fingerprint !== scan.fingerprint) {
+      this.listCache = { fingerprint: scan.fingerprint, byScope: new Map() };
     }
-    // 内存会话（transient）排在最前：刚 ensure_session 建的还没落盘，但客户端必须看得见
-    const merged = mergeTransient(sessions, options.transient ?? []);
-    return options.projectKey === undefined
-      ? merged
-      : merged.filter((session) => session.projectKey === options.projectKey);
+    const cacheKey = scope ?? '';
+    let sessions = this.listCache.byScope.get(cacheKey) ?? null;
+    if (sessions === null) {
+      sessions = await this.enrich(await this.listAllSessions(scoped));
+      this.listCache.byScope.set(cacheKey, sessions);
+    }
+
+    // 内存会话（transient）排在最前：刚 ensure_session 建的还没落盘，但客户端必须看得见。
+    // 它们也要过项目过滤——此前 transient 没有 projectKey，`?projectKey=` 会把它们静默
+    // 全丢掉（新会话刚建就在侧栏消失）；这里按 cwd 补上归属再筛。
+    const merged = mergeTransient(sessions, await this.scopeTransient(options.transient, scope));
+    if (scope === null) return merged;
+    // 权威判定在此：目录名编码有损，若某目录混入多个 cwd，以 cwd 归一出的 projectKey 为准
+    return merged.filter((session) => session.projectKey === scope);
+  }
+
+  /**
+   * 把扫描范围收窄到某个项目：逐目录读首行头拿 cwd（~0.5 ms/目录，不解析正文），
+   * 再用共用 resolver 归一成 projectKey 比对。项目目录名是编码后有损的，不能反解。
+   */
+  private async scopeScan(scan: SessionsDirScan, projectKey: string): Promise<SessionsDirScan> {
+    const projects = (
+      await Promise.all(
+        scan.projects.map(async (project) => {
+          const newest = project.files[0];
+          if (newest === undefined) return null;
+          const cwd = (await readSessionHeader(newest.path)).cwd;
+          if (cwd === '') return null;
+          const resolution = await this.resolver.resolve(cwd);
+          return resolution.projectKey === projectKey ? project : null;
+        }),
+      )
+    ).filter((project): project is NonNullable<typeof project> => project !== null);
+    // 指纹照旧取全量的：客户端据它判断“磁盘侧列表变了吗”，与 scope 无关
+    return { projects, fingerprint: scan.fingerprint };
+  }
+
+  /** 内存会话的项目归属（按 cwd 归一）；未给 scope 时原样返回 */
+  private async scopeTransient(
+    transient: SessionInfo[] | undefined,
+    projectKey: string | null,
+  ): Promise<SessionInfo[]> {
+    if (transient === undefined || transient.length === 0) return [];
+    const resolutions = new Map(
+      await Promise.all(
+        [...new Set(transient.map((session) => session.cwd).filter((cwd) => cwd !== ''))].map(
+          async (cwd) => [cwd, await this.resolver.resolve(cwd)] as const,
+        ),
+      ),
+    );
+    const enriched = transient.map((session) => {
+      const resolution = resolutions.get(session.cwd);
+      return resolution === undefined ? session : { ...session, ...resolution };
+    });
+    return projectKey === null
+      ? enriched
+      : enriched.filter((session) => session.projectKey === projectKey);
   }
 
   /** 会话目录指纹（GET /api/sessions 的 listFingerprint）：回答“磁盘侧列表内容变了吗” */
@@ -333,7 +381,6 @@ export class SessionReadService {
     this.listCache = null;
     this.resolver.clear();
   }
-
   // ------------------------------------------------------------------
   // 详情（GET /api/sessions/:id，docs/02 §6.2）
   // ------------------------------------------------------------------

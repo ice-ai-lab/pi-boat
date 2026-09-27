@@ -1,4 +1,4 @@
-import type { ProjectInfo, ProjectsResponse } from '@ice-ai/protocol';
+import type { ProjectInfo, ProjectsResponse, SessionInfo } from '@ice-ai/protocol';
 import { readSessionHeader, resolveSessionsRoot, scanSessionsDir } from './dir-scan';
 import type { ProjectResolution, ProjectResolverLike } from './project-resolver';
 import { ProjectResolver } from './project-resolver';
@@ -24,10 +24,21 @@ export interface ProjectReadOptions {
   resolver?: ProjectResolverLike;
 }
 
+/** `listProjects` 的调用参数 */
+export interface ProjectListOptions {
+  /** 清空项目解析（git）缓存后重算 */
+  force?: boolean;
+  /**
+   * 运行时内存会话（`ensure_session` 建好、首条条目还没落盘）：其 cwd 也必须是一个项目条目。
+   * 否则「在全新目录里新建会话」时该目录还没有 .jsonl，项目清单里就没有它，
+   * 侧栏无从选中（`?projectKey=` 也拿不到那个新会话）。
+   */
+  transient?: SessionInfo[];
+}
+
 /** 项目内一个会话目录的摘要（listProjects 合并用） */
 interface ProjectDirSummary {
   cwd: string;
-  sessionCount: number;
   lastModified: string;
 }
 
@@ -40,7 +51,7 @@ export class ProjectReadService {
     this.resolver = options.resolver ?? new ProjectResolver();
   }
 
-  async listProjects(options: { force?: boolean } = {}): Promise<ProjectsResponse> {
+  async listProjects(options: ProjectListOptions = {}): Promise<ProjectsResponse> {
     if (options.force === true) this.resolver.clear();
     const scan = await scanSessionsDir(this.sessionsRoot);
 
@@ -54,11 +65,28 @@ export class ProjectReadService {
       const resolution = await this.resolver.resolve(cwd);
       const dir: ProjectDirSummary = {
         cwd,
-        sessionCount: project.files.length,
         lastModified: new Date(
           Math.max(...project.files.map((file) => file.mtimeMs)),
         ).toISOString(),
       };
+      const entry = grouped.get(resolution.projectKey);
+      if (entry === undefined) grouped.set(resolution.projectKey, { resolution, dirs: [dir] });
+      else entry.dirs.push(dir);
+    }
+
+    // 内存会话（未落盘）补进它所在的目录：已有该 cwd 就只加计数/刷新时间，否则新建一个目录摘要
+    for (const session of options.transient ?? []) {
+      if (session.cwd.length === 0) continue;
+      const owner = [...grouped.values()].find((entry) =>
+        entry.dirs.some((dir) => dir.cwd === session.cwd),
+      );
+      const existing = owner?.dirs.find((dir) => dir.cwd === session.cwd);
+      if (existing !== undefined) {
+        if (session.modified > existing.lastModified) existing.lastModified = session.modified;
+        continue;
+      }
+      const resolution = await this.resolver.resolve(session.cwd);
+      const dir: ProjectDirSummary = { cwd: session.cwd, lastModified: session.modified };
       const entry = grouped.get(resolution.projectKey);
       if (entry === undefined) grouped.set(resolution.projectKey, { resolution, dirs: [dir] });
       else entry.dirs.push(dir);
@@ -71,7 +99,6 @@ export class ProjectReadService {
         ...resolution,
         cwd: newestDir.cwd,
         cwds: dirs.map((dir) => dir.cwd),
-        sessionCount: dirs.reduce((total, dir) => total + dir.sessionCount, 0),
         lastModified: newestDir.lastModified,
       };
     });

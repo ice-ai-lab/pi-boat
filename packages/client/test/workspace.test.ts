@@ -10,13 +10,10 @@ import {
   shouldShowScrollToLatest,
 } from '../src/view-models/chat-lazy-load';
 import {
-  filterSessions,
   formatRelativeTime,
   getProjectActivity,
-  getRecentProjects,
-  groupSessionsByProject,
+  projectKeyForCwd,
   sessionDisplayTitle,
-  sessionsForProject,
   workspaceKeyOf,
 } from '../src/view-models/session-list';
 import {
@@ -35,52 +32,50 @@ const session = (overrides: Partial<SessionInfo> & { id: string }): SessionInfo 
     ...overrides,
   }) as SessionInfo;
 
-describe('project-groups：分组与活动统计', () => {
-  const sessions = [
-    session({
-      id: 'a',
-      cwd: '/repo/a',
-      projectKey: 'repo',
-      projectRoot: '/repo',
-      modified: '2026-09-03T00:00:00.000Z',
-    }),
-    session({
-      id: 'b',
-      cwd: '/repo/b',
-      projectKey: 'repo',
-      projectRoot: '/repo',
-      modified: '2026-09-01T00:00:00.000Z',
-    }),
-    session({
-      id: 'c',
-      cwd: '/other',
-      projectKey: 'other',
-      projectRoot: '/other',
-      modified: '2026-09-02T00:00:00.000Z',
-    }),
+describe('项目活动统计（按项目取数后：running 带 cwd、unread 靠归属索引）', () => {
+  const projects = [
+    { projectKey: 'repo', projectRoot: '/repo', cwds: ['/repo', '/repo/a', '/repo/b'] },
+    { projectKey: 'other', projectRoot: '/other', cwds: ['/other'] },
   ];
 
-  it('按 projectKey 去重并按活动时间降序，count 为会话数', () => {
-    const projects = getRecentProjects(sessions);
-    expect(projects.map((p) => p.key)).toEqual(['repo', 'other']);
-    expect(projects[0]?.sessionCount).toBe(2);
-    // 代表 cwd 取该项目最新活动会话的
-    expect(projects[0]?.cwd).toBe('/repo/a');
+  it('projectKeyForCwd 命中代表 cwd 与任一子目录/worktree；未知 cwd 回 null', () => {
+    expect(projectKeyForCwd(projects, '/repo')).toBe('repo');
+    expect(projectKeyForCwd(projects, '/repo/a')).toBe('repo');
+    expect(projectKeyForCwd(projects, '/other')).toBe('other');
+    expect(projectKeyForCwd(projects, '/elsewhere')).toBeNull();
+    expect(projectKeyForCwd(projects, '')).toBeNull();
   });
 
-  it('sessionsForProject 只回该项目会话', () => {
-    expect(sessionsForProject(sessions, 'repo').map((s) => s.id)).toEqual(['a', 'b']);
+  it('running 按 cwd 归到项目（跨项目可见，不依赖已加载的列表）', () => {
+    const activity = getProjectActivity({
+      projects,
+      running: [
+        { id: 'a', cwd: '/repo/a' },
+        { id: 'b', cwd: '/repo' },
+        { id: 'c', cwd: '/other' },
+        { id: 'd', cwd: '/never-seen' },
+      ],
+      unread: new Set(),
+      sessionProjects: new Map(),
+    });
+    expect(activity.get('repo')).toEqual({ running: 2, unread: 0 });
+    expect(activity.get('other')).toEqual({ running: 1, unread: 0 });
   });
 
-  it('activity 统计运行中数量', () => {
-    const activity = getProjectActivity(sessions, new Set(['b']));
-    expect(activity.get('repo')).toEqual({ running: 1, total: 2 });
-    expect(activity.get('other')).toEqual({ running: 0, total: 1 });
-  });
-
-  it('groupSessionsByProject 组内按时间降序', () => {
-    const groups = groupSessionsByProject(sessions);
-    expect(groups[0]?.sessions.map((s) => s.id)).toEqual(['a', 'b']);
+  it('unread 靠「会话 → 项目」索引归位；索引里没有的会话不计入任何项目', () => {
+    const activity = getProjectActivity({
+      projects,
+      running: [],
+      // sessionProjects 是会话结束那一刻记下的归属（那时它还在 runningSessions 里）
+      unread: new Set(['a', 'c', 'unknown']),
+      sessionProjects: new Map([
+        ['a', 'repo'],
+        ['c', 'other'],
+      ]),
+    });
+    expect(activity.get('repo')).toEqual({ running: 0, unread: 1 });
+    expect(activity.get('other')).toEqual({ running: 0, unread: 1 });
+    expect(activity.size).toBe(2);
   });
 
   it('workspaceKeyOf 回退顺序：projectKey → projectRoot → cwd', () => {
@@ -110,16 +105,6 @@ describe('session 展示派生', () => {
     expect(formatRelativeTime('2026-09-25T12:00:00.000Z', now)).toBe('2 天前');
     expect(formatRelativeTime('2026-09-01T12:00:00.000Z', now)).toBe('2026-09-01');
     expect(formatRelativeTime('not-a-date', now)).toBe('');
-  });
-
-  it('filterSessions 命中标题/cwd/id/分支', () => {
-    const list = [
-      session({ id: 'a', name: 'Deploy fix', cwd: '/repo' }),
-      session({ id: 'b', cwd: '/other', branch: 'feat/x' }),
-    ];
-    expect(filterSessions(list, 'deploy').map((s) => s.id)).toEqual(['a']);
-    expect(filterSessions(list, 'feat/x').map((s) => s.id)).toEqual(['b']);
-    expect(filterSessions(list, '').length).toBe(2);
   });
 });
 

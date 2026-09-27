@@ -13,6 +13,7 @@ import type {
 } from '@ice-ai/protocol';
 import type { QueryClient } from '@tanstack/react-query';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { validateCwd } from '../endpoints/files';
 import {
   deleteProviderApiKey,
   discoverModels,
@@ -68,6 +69,8 @@ export const queryKeys = {
    *  一次切换只拉一份（见 useSessionDetailQuery 注释） */
   sessionDetail: (sessionId: string) => ['sessionDetail', sessionId] as const,
   projects: () => ['projects'] as const,
+  /** cwd → 项目身份（POST /api/cwd/validate 的结果，兼作 allowed-roots 授权） */
+  cwdProject: (cwd: string) => ['cwdProject', cwd] as const,
   gitStatus: (cwd: string) => ['gitStatus', cwd] as const,
   worktrees: (cwd: string) => ['worktrees', cwd] as const,
 };
@@ -75,10 +78,13 @@ export const queryKeys = {
 /** 列表轮询：注册表/磁盘变动没有推送，用低频轮询兜底（5s 与 idle 回收周期同量级） */
 const LIST_REFETCH_MS = 5_000;
 
-export function useSessionsQuery(projectKey?: string) {
+export function useSessionsQuery(projectKey: string | null) {
   return useQuery({
-    queryKey: queryKeys.sessions(projectKey),
-    queryFn: () => listSessions(projectKey === undefined ? {} : { projectKey }),
+    queryKey: queryKeys.sessions(projectKey ?? undefined),
+    queryFn: () => listSessions(projectKey === null ? {} : { projectKey }),
+    // 项目未定时不取数：全量列表是「按项目取数」要避免的那份 payload
+    // （侧栏首屏的项目由 /api/projects 与 cwd/validate 决定，不靠会话列表反推）
+    enabled: projectKey !== null,
     refetchInterval: LIST_REFETCH_MS,
     // 切项目/重挂载时保留上一份列表，避免侧栏闪空
     placeholderData: (previous) => previous,
@@ -91,6 +97,24 @@ export function useProjectsQuery() {
     queryFn: () => listProjects(),
     refetchInterval: LIST_REFETCH_MS * 4,
     placeholderData: (previous) => previous,
+  });
+}
+
+/**
+ * cwd → 项目身份（projectRoot/projectKey）。为什么侧栏需要它：会话列表按 `?projectKey=`
+ * 取数后，`selectedCwd` 无法再从会话列表反查项目（新目录/子目录/未访问过的项目都不在手里的列表里）。
+ *
+ * 用 `POST /api/cwd/validate` 而不是列表反查：它是 `projectKey` 的权威来源，与 `?projectKey=`
+ * 过滤**按构造同源**（server 两处共用同一个 ProjectResolver）。副作用是 allowed-roots 登记，
+ * 幂等；`staleTime: Infinity` 因为「路径 → git 根」在进程内不会变。
+ */
+export function useCwdProjectQuery(cwd: string | null) {
+  return useQuery({
+    queryKey: queryKeys.cwdProject(cwd ?? ''),
+    queryFn: () => validateCwd(cwd as string),
+    enabled: cwd !== null,
+    staleTime: Number.POSITIVE_INFINITY,
+    retry: false,
   });
 }
 

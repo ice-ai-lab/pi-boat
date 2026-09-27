@@ -24,6 +24,10 @@ import type { SessionStatsInfo } from '../domain/state';
  * ⚠️ `registryVersion` 只反映**运行时注册表**的结构性变动（create/dispose）。
  * 磁盘扫描侧的变动看 `listFingerprint`（会话目录指纹）——它才回答“列表内容变了吗”。
  *
+ * `?summary=1`（跳过项目解析的快路径）已于 2026-09-27 删除（ADR-0026）：侧栏改为
+ * 按项目取数后没有「先画壳再补分组」的需求，而它既不进列表缓存、也不回
+ * `projectKey` 字段，在轮询里只会更慢。
+ *
  * 命名：`listFingerprint` 不叫 `listVersion`/`sessionListVersion`——
  * ① `sessionListVersion` 已于 2026-09-21（`36720e9`）因“名字暗示了它做不到的事”改名为
  *    `registryVersion`（它只是注册表计数器，不反映磁盘侧变化），不要复活那个名字；
@@ -32,12 +36,6 @@ import type { SessionStatsInfo } from '../domain/state';
 export const SessionListQuerySchema = z.object({
   force: z.literal('1').optional(),
   projectKey: z.string().min(1).optional(),
-  /**
-   * 快路径：跳过**项目解析**（每 cwd 一次 git 子进程）只回会话本身。
-   * 结果里 `projectRoot`/`projectKey`/`branch` 缺省——侧栏首次挂载用它先把列表显示出来，
-   * 之后再拉全量补上分组（ADR-0008 性能分层的第二级）。
-   */
-  summary: z.literal('1').optional(),
 });
 export type SessionListQuery = z.infer<typeof SessionListQuerySchema>;
 
@@ -48,7 +46,11 @@ export type SessionListResponse = {
   /** 会话目录指纹：磁盘侧内容（会话增删/改名/写入）变化时改变，客户端据此重建列表。
    *  不透明字符串，无单调性（**只比较相等**，不要拿它排序/做差）。 */
   listFingerprint: string;
-  runningSessionIds: string[];
+  /** 运行中的会话（id + cwd）。为什么带 cwd：列表现在可以按 `?projectKey=` 只取一个项目，
+   *  客户端不再持有全量列表，无法把「别的项目里在跑的会话」归到项目上（侧栏项目徽标与
+   *  「其他项目有新活动」圆点依赖它）。cwd 是 server 内存里现成的（不查磁盘、不解析正文）。
+   *  本字段取代了原来的 `runningSessionIds: string[]`（id 由它派生）。 */
+  runningSessions: { id: string; cwd: string }[];
   /** 已抑制完成通知的会话（避免轮询刷新期间重复弹通知） */
   completionNotificationSuppressedSessionIds: string[];
 };

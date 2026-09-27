@@ -12,6 +12,7 @@ export {
   useCheckSkillUpdatesMutation,
   useCreateWorktreeMutation,
   useCwdBrowseQuery,
+  useCwdProjectQuery,
   useDeleteSessionMutation,
   useDiscoverModelsMutation,
   useEnabledModelsQuery,

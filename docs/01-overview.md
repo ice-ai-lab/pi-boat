@@ -118,7 +118,7 @@ pi-boat/
 - Hono（Node 适配器）实现的 HTTP 服务，路由即 protocol 的实现层（六个域文件：agent / sessions / projects / models / files+git（system）/ resources）
 - SSE 事件流：30s 心跳、快照先行（先建流再回放快照）、断线重连 `Last-Event-ID` 支持
 - 本机访问防护：仅绑定 127.0.0.1 + Host / Origin / Sec-Fetch-Site 三道闸（常开、无凭据；防恶意网页对本机发起 CSRF / DNS 重绑定，详见 §5.6 与 ADR-0007）
-- 会话列表与项目分组（ADR-0008）：`GET /api/projects` 按 git 仓库根归一 `projectKey`（子目录/worktree 合并为一项，不分页）；`GET /api/sessions?projectKey&force` 支持按项目拉取；列表缓存以**会话目录指纹**为键（磁盘变动自动失效），响应带 `listFingerprint`
+- 会话列表与项目分组（ADR-0008 / ADR-0026）：`GET /api/projects` 按 git 仓库根归一 `projectKey`（子目录/worktree 合并为一项，不分页，并把未落盘内存会话的 cwd 一并合入）；侧栏项目清单直接用它，不再从全量会话列表推导；`GET /api/sessions?projectKey&force` 支持按项目取数且**把范围下推到扫描层**（只解析该项目目录）；列表缓存以「**会话目录指纹 + 取数范围**」为键（磁盘变动自动失效），响应带 `listFingerprint` 与带 cwd 的 `runningSessions`（供客户端把运行态归到项目上）
 - 静态托管：生产模式直接托管 `apps/web` 构建产物 → **单进程即完整产品**（本地一键启动，Electron 同样受益）
 - 原生模块（若引入）全部收敛在此包与 core
 

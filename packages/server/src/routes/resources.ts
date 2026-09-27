@@ -1,4 +1,4 @@
-import type { AgentSessionService, ResourceService, SessionReadService } from '@ice-ai/core';
+import type { AgentSessionService, ResourceService } from '@ice-ai/core';
 import { InvalidScopeEditError, SkillInstallError } from '@ice-ai/core';
 import {
   type CommandError,
@@ -33,11 +33,10 @@ import { firstIssueMessage } from '../envelope';
 export interface ResourceRouteDeps {
   resourceService: ResourceService;
   agentService: AgentSessionService;
-  readService: SessionReadService;
 }
 
 export function registerResourceRoutes(app: Hono, deps: ResourceRouteDeps): void {
-  const { resourceService, agentService, readService } = deps;
+  const { resourceService, agentService } = deps;
 
   // ------------------------------------------------------------------
   // 项目信任
@@ -60,7 +59,7 @@ export function registerResourceRoutes(app: Hono, deps: ResourceRouteDeps): void
     const { cwd, trusted } = parsed.data;
     const wantsTrust = trusted !== false;
     // 该 cwd 有活跃会话时不许改信任：已加载的项目资源不能中途撤下（换信任要重开会话）
-    const hasActiveSession = await hasSessionForCwd(readService, agentService, cwd);
+    const hasActiveSession = hasSessionForCwd(agentService, cwd);
     const result = resourceService.setTrust(cwd, wantsTrust, hasActiveSession);
     if ('rejection' in result) {
       return c.json(
@@ -222,16 +221,13 @@ function describeTrustRejection(reason: 'no-trusted-resources' | 'session-active
     : 'This project has no resources that require trust';
 }
 
-/** 该 cwd 是否已有活跃会话（信任变更的前置条件） */
-async function hasSessionForCwd(
-  readService: SessionReadService,
-  agentService: AgentSessionService,
-  cwd: string,
-): Promise<boolean> {
-  const runningIds = new Set(agentService.runningSessionIds());
-  if (runningIds.size === 0) return false;
-  const sessions = await readService.list({ summary: true });
-  return sessions.some((session) => runningIds.has(session.id) && samePathLite(session.cwd, cwd));
+/**
+ * 该 cwd 是否已有活跃会话（信任变更的前置条件）。
+ * 运行态会话自带 cwd，直接比对即可——不再需要为这个判断拉一次会话列表（ADR-0026）。
+ * 比旧实现更准确：未落盘的内存会话也算（它在跑，就不该中途摸下资源）。
+ */
+function hasSessionForCwd(agentService: AgentSessionService, cwd: string): boolean {
+  return agentService.runningSessions().some((session) => samePathLite(session.cwd, cwd));
 }
 
 /** 保守的路径同一性判断（避免为了一处比较把整个 PathGuard 拉进路由层） */

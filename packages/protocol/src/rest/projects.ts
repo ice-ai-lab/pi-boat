@@ -24,8 +24,6 @@ export type ProjectInfo = {
   cwd: string;
   /** 该项目包含的全部 cwd（子目录/worktree 各占一项，按活动时间降序） */
   cwds: string[];
-  /** 该项目的会话文件总数（含未解析正文的） */
-  sessionCount: number;
   /** 该项目内最新会话的文件 mtime（ISO），无需解析正文 */
   lastModified: string;
   isGit: boolean;

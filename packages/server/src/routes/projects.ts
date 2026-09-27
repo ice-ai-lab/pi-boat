@@ -1,4 +1,4 @@
-import type { ProjectReadService } from '@ice-ai/core';
+import type { AgentSessionService, ProjectReadService } from '@ice-ai/core';
 import {
   type CommandError,
   type ProjectsQuery,
@@ -20,10 +20,12 @@ import { firstIssueMessage } from '../envelope';
 
 export interface ProjectRouteDeps {
   projectService: ProjectReadService;
+  /** 内存会话（未落盘）的 cwd 也要成为项目条目，否则新目录里的新会话在侧栏无项目可选 */
+  agentService: AgentSessionService;
 }
 
 export function registerProjectRoutes(app: Hono, deps: ProjectRouteDeps): void {
-  const { projectService } = deps;
+  const { projectService, agentService } = deps;
 
   // GET /api/projects?force=1 —— 项目清单：O(项目数) 的目录元数据扫描，不解析会话正文，
   // 因此不分页（量级 10¹；需要分页的是会话列表，见 ADR-0008）
@@ -35,6 +37,7 @@ export function registerProjectRoutes(app: Hono, deps: ProjectRouteDeps): void {
     const query: ProjectsQuery = parsed.data;
     const body: ProjectsResponse = await projectService.listProjects({
       force: query.force === '1',
+      transient: agentService.transientInfos(),
     });
     return c.json(body);
   });

@@ -44,6 +44,11 @@ export function WorkspaceLayout() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeSessionId = searchParams.get('s');
   const [preferredCwd, setPreferredCwd] = useState<string | null>(null);
+  /**
+   * 活动会话的 cwd（中栏上抬）：侧栏据此定位项目。会话列表按项目取数之后，
+   * 侧栏不再持有全量列表，无法自己反推「`?s=` 那个会话属于哪个项目」。
+   */
+  const [activeSessionCwd, setActiveSessionCwd] = useState<string | null>(null);
   /** 当前项目根：文件树/查看器的相对路径基准（由侧栏回传，见下方 onProjectRootChange） */
   const [projectRoot, setProjectRoot] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -150,6 +155,7 @@ export function WorkspaceLayout() {
     <>
       <SidebarPane
         activeSessionId={activeSessionId}
+        activeSessionCwd={activeSessionCwd}
         onProjectRootChange={setProjectRoot}
         onSelectSession={(id) => setSearchParams({ s: id })}
         onNewSession={(cwd) => {
@@ -351,6 +357,7 @@ export function WorkspaceLayout() {
         <ChatPane
           preferredCwd={effectiveNewSessionCwd}
           projectSelected={projectRoot !== null}
+          onSessionCwdChange={setActiveSessionCwd}
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen((previous) => !previous)}
           trustPending={trustPending}

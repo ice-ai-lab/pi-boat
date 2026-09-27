@@ -42,7 +42,7 @@
 | `POST /api/agent/:id` | `agentService.send()` | 命令信封（§4.1）；同会话 FIFO 串行；未知 `type` → 400（与 404 区分） |
 | `GET /api/agent/:id` | `agentService.getRunningState()` | 轻查直读注册表，**不进 FIFO**（docs/03 §6.4） |
 | `POST /api/agent/:id/resume` | `agentService.resume()` | 从 `.jsonl` 重建 runtime 并登记（ADR-0013a）。**必须 POST**——建流时隐式创建会让 GET 产生副作用（ADR-0007） |
-| `GET /api/agent/running` | `registryVersion + runningSessionIds()` | 轮询端点；`completionNotificationSuppressedSessionIds` 为推送抑制集 |
+| `GET /api/agent/running` | `registryVersion + runningSessions().map(id)` | 轮询端点（通知池只要 id）；`completionNotificationSuppressedSessionIds` 为推送抑制集 |
 | `POST /api/agent/:id/lease` | `liveness.renew()` | 观看心跳；`renewed:false` 表示会话已不在注册表（不是错误，前端据此显式 resume）。返回是**扁平** `{success, renewed}`——不是 `CommandOk` 信封（无 `data` 字段），客户端端点不能走 `postCommand` |
 | `GET /api/agent/:id/events` | `agentService.subscribe()` | SSE（§5，本文重点）；鉴权靠 Host/Origin/Sec-Fetch-Site 头校验，无 query 凭据 |
 
@@ -50,7 +50,7 @@
 
 | 端点 | core 方法 | 语义要点 |
 |---|---|---|
-| `GET /api/sessions?force&projectKey` | `readService.list()` + `listFingerprint()` | 磁盘扫描 ∪ 注册表 ∪ transient（内存未落盘会话排在最前）；`force=1` 跳过指纹缓存；`projectKey` 只返回一个项目 |
+| `GET /api/sessions?force&projectKey` | `readService.list()` + `listFingerprint()` | 磁盘扫描 ∪ 注册表 ∪ transient（内存未落盘会话排在最前）；`force=1` 跳过指纹缓存；`projectKey` 只返回一个项目，**并在扫描层收窄范围**（ADR-0026）；`runningSessions` 带 cwd 供客户端把运行态归到项目上 |
 | `GET /api/sessions/search?q` | `readService.search()` | q ≤ 200；q 缺省 → 400；轻量字段过滤 + 有界正文扫描（G2-7） |
 | `GET /api/sessions/:id` | `readService.detail()` | null → 404；`force=1` 时做外部写入检测并回 `wrapperRebuilt`（ADR-0013b） |
 | `GET /api/sessions/:id/revision` | `readService.revision()` | 文件指纹（G2-6）；null → 404 |
@@ -67,7 +67,7 @@
 
 | 端点 | core 方法 | 语义要点 |
 |---|---|---|
-| `GET /api/projects?force` | `projectService.listProjects()` | ✅ ADR-0008：项目清单（会话目录派生视图）。`readdir`+`stat`+每目录一次首行头，不解析正文（实测 3–7 ms / 1.8 KB）；按 `projectKey` 合并子目录与 worktree；空目录跳过；**不分页** |
+| `GET /api/projects?force` | `projectService.listProjects()` | ✅ ADR-0008：项目清单（会话目录派生视图）。`readdir`+`stat`+每目录一次首行头，不解析正文（实测 3–7 ms / 1.8 KB）；按 `projectKey` 合并子目录与 worktree；空目录跳过；**不分页**。内存会话（未落盘）的 cwd 一并合入（ADR-0026），否则新目录里的新会话在侧栏无项目可选 |
 | `GET /api/models?cwd` | `ConfigService` | 可见模型 + 思考档位 + `thinkingLevelPins` / `modelScopeWarnings` / `defaultModel` |
 | `GET/PUT /api/models-config` | `ConfigService` | models.json 原文读写（PUT 校验后落盘） |
 | `POST /api/models-config/discover` | `ConfigService` | 按 provider `/models` 端点发现（20s 超时） |
@@ -272,7 +272,7 @@ graceful close 可能被 Node 响应管道吞掉——socket 保持 ESTABLISHED�
 
 ### 9.2 补齐批次 B3–B7（2026-02）
 
-模型域（B3）· 会话域增强 export/auto-name/thinking/revision/summary/正文搜索/外部写入探测/transient（B4）·
+模型域（B3）· 会话域增强 export/auto-name/thinking/revision/正文搜索/外部写入探测/transient（B4）·
 文件与 git/worktree（B5）· 资源域（B6）· lease + idle 回收（B7）。批次切分与验收见表 `docs/07` §6。
 </br>（原「推送投递侧」已随 B7 删除，ADR-0016）
 

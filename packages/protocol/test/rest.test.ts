@@ -31,7 +31,7 @@ describe('rest/sessions', () => {
       sessions: [sessionInfo],
       registryVersion: 3,
       listFingerprint: 'a1b2c3d4e5f60718',
-      runningSessionIds: ['s1'],
+      runningSessions: [{ id: 's1', cwd: '/repo' }],
       completionNotificationSuppressedSessionIds: [],
     };
     expect(body.sessions).toHaveLength(1);
@@ -86,7 +86,6 @@ describe('rest/projects（ADR-0008）', () => {
           projectRoot: '/repo',
           cwd: '/repo',
           cwds: ['/repo', '/repo/packages/core'],
-          sessionCount: 3,
           lastModified: '2026-01-16T10:00:00.000Z',
           isGit: true,
           branch: 'main',
@@ -96,7 +95,6 @@ describe('rest/projects（ADR-0008）', () => {
           projectRoot: '/plain',
           cwd: '/plain',
           cwds: ['/plain'],
-          sessionCount: 1,
           lastModified: '2026-01-12T10:00:00.000Z',
           isGit: false,
         },

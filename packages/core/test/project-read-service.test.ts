@@ -79,7 +79,6 @@ describe('ProjectReadService.listProjects', () => {
       projectRoot: '/repo',
       cwd: '/repo', // 代表 cwd = 最近有活动的目录（01-16）
       cwds: ['/repo', '/repo/packages/core'],
-      sessionCount: 3,
       isGit: true,
       branch: 'main',
     });
@@ -87,7 +86,6 @@ describe('ProjectReadService.listProjects', () => {
     expect(otherProject).toMatchObject({
       projectKey: '/other',
       cwd: '/other',
-      sessionCount: 1,
       isGit: false,
     });
     expect(projects.map((p) => p.lastModified)).toEqual(
@@ -95,6 +93,33 @@ describe('ProjectReadService.listProjects', () => {
     );
     // cwd 去重后解析（/repo 与 /repo/packages/core 都会走到 resolver）
     expect(new Set(resolver.calls)).toEqual(new Set(['/repo', '/repo/packages/core', '/other']));
+  });
+
+  it('内存会话（未落盘）的 cwd 也成为一个项目条目；已有 cwd 则只加计数', async () => {
+    const resolver = fakeResolver();
+    const transient = (id: string, cwd: string, modified: string) => ({
+      path: '',
+      id,
+      cwd,
+      created: modified,
+      modified,
+      messageCount: 0,
+      firstMessage: '',
+      transient: true,
+    });
+    const { projects } = await service(resolver).listProjects({
+      transient: [
+        // 全新目录（还没落盘）→ 新建条目，且归一到 /repo
+        transient('new-1', '/repo/packages/app', '2026-02-01T10:00:00.000Z'),
+        // 已有目录 → 只加计数 + 刷新时间
+        transient('new-2', '/repo', '2026-02-02T10:00:00.000Z'),
+      ],
+    });
+
+    const repo = projects.find((project) => project.projectKey === '/repo');
+    expect(repo?.cwds).toContain('/repo/packages/app');
+    expect(repo?.lastModified).toBe('2026-02-02T10:00:00.000Z');
+    expect(resolver.calls).toContain('/repo/packages/app');
   });
 
   it('force=1 清空项目解析缓存', async () => {

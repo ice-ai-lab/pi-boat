@@ -14,7 +14,8 @@ import { expect, type Request, test } from '@playwright/test';
  * 与会话内容/本机状态无关。
  */
 test('切换会话只拉一份详情', async ({ page, request }) => {
-  const list = await (await request.get('/api/sessions?summary=1')).json();
+  // 用全量列表挑一个已落盘、有内容的会话（`?projectKey=` 与 summary 快路径的取舍见 ADR-0026）
+  const list = await (await request.get('/api/sessions')).json();
   const target = (list.sessions as { id: string; messageCount: number }[]).find(
     (session) => session.messageCount > 2,
   );

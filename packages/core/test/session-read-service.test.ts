@@ -840,6 +840,57 @@ describe('SessionReadService 列表项目归一（enrich）', () => {
     ]);
     expect(await service().list({ projectKey: '/nope' })).toEqual([]);
   });
+
+  it('按项目取数把范围下推到扫描层：只解析该项目的目录（ADR-0008 三层成本解耦的第三层）', async () => {
+    const listAll = vi.spyOn(SessionManager, 'listAll');
+    try {
+      await service().list({ projectKey: '/repo' });
+      const dirs = listAll.mock.calls.map(([dir]) => String(dir).replace(root, ''));
+      // /repo 与 /repo/packages/core 两个目录 → 两次 listAll；/other 与空目录不碰
+      expect(dirs.sort()).toEqual(['/--repo--', '/--repo-packages-core--']);
+    } finally {
+      listAll.mockRestore();
+    }
+  });
+
+  it('缓存不串味：同一指纹下多个范围（项目 A / 项目 B / 全量）各自正确', async () => {
+    const svc = service();
+    expect((await svc.list({ projectKey: '/repo' })).map((s) => s.id)).toEqual([
+      'bbbb',
+      'aaaa',
+      'cccc',
+    ]);
+    // 第二个范围命中同一个指纹（缓存不清空）但必须另算
+    expect((await svc.list({ projectKey: '/other' })).map((s) => s.id)).toEqual(['dddd']);
+    // 全量仍然见到全部（不能被前两个范围的缓存当成自己的）
+    expect((await svc.list()).map((s) => s.id).sort()).toEqual(['aaaa', 'bbbb', 'cccc', 'dddd']);
+    // 回到第一个范围仍正确
+    expect((await svc.list({ projectKey: '/repo' })).map((s) => s.id)).toEqual([
+      'bbbb',
+      'aaaa',
+      'cccc',
+    ]);
+  });
+
+  it('transient 也过项目过滤：未落盘的新会话不会因 projectKey 被丢掉', async () => {
+    const transient = (id: string, cwd: string) => ({
+      path: '',
+      id,
+      cwd,
+      created: '2026-02-01T10:00:00.000Z',
+      modified: '2026-02-01T10:00:00.000Z',
+      messageCount: 0,
+      firstMessage: '',
+      transient: true,
+    });
+    const sessions = await service().list({
+      projectKey: '/repo',
+      // 一个属 /repo 子目录、一个属 /other：前者留下并按 cwd 归一到 /repo
+      transient: [transient('mem-repo', '/repo/packages/core'), transient('mem-other', '/other')],
+    });
+    expect(sessions.map((s) => s.id)).toEqual(['mem-repo', 'bbbb', 'aaaa', 'cccc']);
+    expect(sessions[0]?.projectKey).toBe('/repo');
+  });
 });
 
 describe('SessionReadService 列表缓存（指纹失效）', () => {
@@ -990,17 +1041,6 @@ describe('SessionReadService（B4）', () => {
     const hit = detailed.results[0];
     expect(hit?.entryId).toBeNull();
     expect(hit?.match.toLowerCase()).toBe('rate limiter');
-  });
-
-  it('list：summary=1 跳过项目解析（不回 projectKey，也不污染缓存）', async () => {
-    const full = await service().list();
-    const fast = await service().list({ summary: true });
-    expect(full[0]?.id).toBe(sessionId);
-    expect(fast[0]?.id).toBe(sessionId);
-    expect(fast[0]?.projectKey).toBeUndefined();
-    // 快路径不该把「无分组」的结果写进缓存：随后的全量读仍应带分组
-    const again = await service().list();
-    expect(again[0]?.projectRoot).toBe(full[0]?.projectRoot);
   });
 
   it('list：transient 内存会话排在最前，同 id 以内存态为准', async () => {

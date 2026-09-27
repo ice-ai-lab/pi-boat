@@ -60,7 +60,7 @@ export function registerAgentRoutes(app: Hono, deps: AgentRouteDeps): void {
   app.get('/api/agent/running', (c) => {
     const body: RunningSessionsResponse = {
       registryVersion: agentService.registryVersion,
-      runningSessionIds: agentService.runningSessionIds(),
+      runningSessionIds: agentService.runningSessions().map((session) => session.id),
       // M1 恒 []：轮询刷新期间的重复通知抑制是前端多 Tab 语义，M2 再接
       completionNotificationSuppressedSessionIds: [],
     };

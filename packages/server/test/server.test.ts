@@ -80,7 +80,7 @@ function fakeAgentService() {
       running.has(id) ? { running: true, state: { sessionId: id } } : { running: false },
     isResident: (id: string) => running.has(id),
     residentSessionIds: () => [...running],
-    runningSessionIds: () => [...running],
+    runningSessions: () => [...running].map((id) => ({ id, cwd: '/tmp' })),
     registryVersion: 7,
     disposeAll: vi.fn(),
     transientInfos: vi.fn(() => []),
@@ -205,7 +205,6 @@ function fakeProjectService() {
           projectRoot: '/tmp',
           cwd: '/tmp',
           cwds: ['/tmp'],
-          sessionCount: 1,
           lastModified: '2026-01-01T00:00:00.000Z',
           isGit: false,
         },
@@ -681,14 +680,13 @@ describe('轻查与浏览路由', () => {
     expect(await res.json()).toMatchObject({
       registryVersion: 7,
       listFingerprint: 'fp-test',
-      runningSessionIds: ['sess-live'],
+      runningSessions: [{ id: 'sess-live', cwd: '/tmp' }],
       sessions: [{ id: 'sess-disk' }],
     });
     // force=1 不再被忽略：交给 core 跳过列表缓存（ADR-0008）
     expect(readService.list).toHaveBeenCalledWith({
       force: true,
       projectKey: undefined,
-      summary: false,
       transient: [],
     });
   });
@@ -700,15 +698,14 @@ describe('轻查与浏览路由', () => {
     expect(readService.list).toHaveBeenCalledWith({
       force: false,
       projectKey: '/repo',
-      summary: false,
       transient: [],
     });
-    // summary=1：快路径透传（跳过 core 的项目解析）
+    // 已删除的 summary 快路径现在只是被忽略的未知参数（zod 默认不拒未知键）：
+    // 不该再影响 core 调用
     await request(app, '/api/sessions?summary=1');
     expect(readService.list).toHaveBeenLastCalledWith({
       force: false,
       projectKey: undefined,
-      summary: true,
       transient: [],
     });
 
@@ -723,12 +720,17 @@ describe('轻查与浏览路由', () => {
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({
       listFingerprint: 'fp-test',
-      projects: [{ projectKey: '/tmp', cwd: '/tmp', sessionCount: 1, isGit: false }],
+      projects: [{ projectKey: '/tmp', cwd: '/tmp', isGit: false }],
     });
-    expect(projectService.listProjects).toHaveBeenCalledWith({ force: false });
+    // transient 一起透传：内存会话（未落盘）的 cwd 也要成为项目条目
+    expect(projectService.listProjects).toHaveBeenCalledWith(
+      expect.objectContaining({ force: false, transient: [] }),
+    );
 
     await request(app, '/api/projects?force=1');
-    expect(projectService.listProjects).toHaveBeenCalledWith({ force: true });
+    expect(projectService.listProjects).toHaveBeenCalledWith(
+      expect.objectContaining({ force: true }),
+    );
   });
 
   it('GET /api/sessions/search：q 缺省 → 400；超长 → 400；合法 → 200', async () => {
@@ -1425,7 +1427,7 @@ describe('资源域路由', () => {
     expect(nothing.status).toBe(409);
     expect(await nothing.json()).toMatchObject({ reason: 'no-trusted-resources' });
 
-    // fake agentService 的 runningSessionIds 含 sess-live，而 sessions 列表含 sess-disk ⇒ 无交集
+    // fake agentService 的 runningSessions 含 sess-live，而 sessions 列表含 sess-disk ⇒ 无交集
     const ok = await request(app, '/api/project-trust', {
       method: 'POST',
       headers: JSON_HEADERS,

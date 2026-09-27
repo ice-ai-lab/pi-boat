@@ -150,14 +150,14 @@ describe('AgentSessionService.create', () => {
     expect(service.isResident('sess-1')).toBe(true);
     expect(service.residentSessionIds()).toEqual(['sess-1']);
     // 常驻 ≠ 在跑：刚建的会话是 idle，侧栏不能给它显示「加载中」（2026-09-26）
-    expect(service.runningSessionIds()).toEqual([]);
+    expect(service.runningSessions()).toEqual([]);
   });
 
-  it('runningSessionIds：只列真在跑的（流/提示/压缩），常驻 idle 不算', async () => {
+  it('runningSessions：只列真在跑的（流/提示/压缩）+ 带 cwd，常驻 idle 不算', async () => {
     const { service } = serviceWith(fakeAgentSession({ isStreaming: true }));
     await service.create({ cwd: '/tmp', type: 'ensure_session' });
     expect(service.residentSessionIds()).toEqual(['sess-1']);
-    expect(service.runningSessionIds()).toEqual(['sess-1']);
+    expect(service.runningSessions()).toEqual([{ id: 'sess-1', cwd: '/tmp' }]);
   });
 
   it('显式 provider/modelId：经 modelRuntime 解析后 setModel；找不到则报错不留脏注册', async () => {
@@ -194,7 +194,7 @@ describe('AgentSessionService.create', () => {
     await expect(service.create({ cwd: '/tmp', type: 'ensure_session' })).rejects.toThrow(
       'no auth configured',
     );
-    expect(service.runningSessionIds()).toEqual([]);
+    expect(service.runningSessions()).toEqual([]);
   });
 });
 

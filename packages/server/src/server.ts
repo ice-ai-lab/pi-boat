@@ -60,13 +60,15 @@ export function createAgentServer(deps: AgentServerDeps): Hono {
 
   registerAgentRoutes(app, { agentService: deps.agentService, liveness: deps.liveness });
   registerSessionRoutes(app, { agentService: deps.agentService, readService: deps.readService });
-  registerProjectRoutes(app, { projectService: deps.projectService });
+  registerProjectRoutes(app, {
+    projectService: deps.projectService,
+    agentService: deps.agentService,
+  });
   registerModelRoutes(app, { configService: deps.configService });
   registerSystemRoutes(app, { systemService: deps.systemService, readService: deps.readService });
   registerResourceRoutes(app, {
     resourceService: deps.resourceService,
     agentService: deps.agentService,
-    readService: deps.readService,
   });
 
   // 静态托管（docs/04 §7 生产形态）：apps/web/dist + SPA fallback，单进程即完整产品。

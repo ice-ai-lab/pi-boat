@@ -57,7 +57,7 @@
 | G2-5 | **会话文件外部写入检测** | 终端 pi CLI 与 server 同时写同一 `.jsonl` 时，内存 runtime 会读到旧索引；**仅在全量读（挂载 / `force=1`）时**探测磁盘并重建 runtime（回 `wrapperRebuilt`），run 期间不检测；不用文件锁（锁解决不了内存索引与磁盘内容的一致性） | `agent-session-service` + `server/src/routes/sessions.ts`（ADR-0013b） |
 | G2-6 | **会话视图缓存 + revision** | 客户端靠不透明 `revision`（size+mtime，**无单调性**）决定历史窗口能否复用 | `GET /api/sessions/:id/revision` + `readService.revision()` |
 | G2-7 | **会话内容搜索** | 先轻量字段（名字/首条消息）筛，再对**有界候选**扫正文（候选数与单文件字节数均封顶），否则几万会话全读 | `SessionReadService.search()` + `fileContains()` |
-| G2-8 | **列表 `summary=1` 快路径** | 侧栏先画壳不等全量解析 | `SessionListQuerySchema.summary` + `list({summary:true})` |
+| G2-8 | ~~**列表 `summary=1` 快路径**~~ | ~~侧栏先画壳不等全量解析~~ | ⛔ **已删除**（ADR-0026 决策 6）：侧栏改按项目取数后没有两段式需求，且它不进缓存（115 ms vs 2 ms） |
 | G2-9 | **工具预设持久化 + 纯聊天边界** | 预设归 core 解析（`default` 集只有 core 知道）；选择**持久化到会话内 custom 条目**；纯聊天（chat-only）不加载扩展/技能/prompt，跨越该边界**重建 runtime** | `core/src/agent/session-tool-selection.ts` + `set_tools {preset}` |
 | G2-10 | **精确系统提示词覆写**（已撤销） | 原为内联 extension 的 `before_agent_start` 返回 `{systemPrompt}`。**2026-09-24 撤销：删除该扩展**——pi 默认就会把上下文文件放进 `<project_context>`（与工具集无关），扩展只买到「剥掉包装」；且上游方案的另两个部件（占位符 override、状态读取优先 exact）未落地，留着只会造成面板内容随时机变化（ADR-0015） | 已删除（原 `core/src/agent/exact-system-prompt.ts`） |
 | G2-11 | **启动偏好持久化** | ⚠️ 缺口仍实存（与 §9 旧结论相反，本轮审查发现）：新建会话/`set_model` 的显式选择只作用于会话（链内 `model_change` 条目），**不落 settings.json 的 `defaultModel`**（SDK 的 `setModel` 只在 `persist:true` 时写，本仓未传）。要落盘需 core 显式调 `settingsManager.setDefaultModelAndProvider()` 或在命令里加 `persist` 选项。**2026-09-27 定案（ADR-0019）：一期以前端 localStorage（startup-preferences）绕过，core 落盘不做** | 不做（非阻塞） |
@@ -112,7 +112,7 @@
 
 | 端点 | 状态 | 说明 |
 |---|---|---|
-| `GET /api/sessions` | ✅ | 含 `summary=1` 快路径（G2-8）与 transient 合并（`mergeTransient()`） |
+| `GET /api/sessions` | ✅ | 含 transient 合并（`mergeTransient()`）与 `?projectKey=` 下推到扫描层（ADR-0026）；`summary=1` 快路径见 G2-8（已删） |
 | `GET /api/sessions/search?q` | ✅ | 轻量字段过滤 + **有界正文扫描**（G2-7 已落地） |
 | `GET /api/sessions/:id` | ✅ | 含 `wrapperRebuilt`（`force=1` 时触发外部写入检测，G2-5）；`deferMedia` 已实现；未做：`tree=summary` / `treeFormat`（无消费方，按「不养期货」不加） |
 | `GET /api/sessions/:id/revision` | ✅ | 审查后补（G2-6）：单会话文件指纹 |
@@ -251,7 +251,7 @@
 | **B1 SDK 升级** ✅ 已完成 | 升 `0.87.x`（ADR-0010）、wire 投影对齐（system 消息过滤 / `agent_end` / `turn_*` 取舍）、`computeStats` 口径、事件快照回归全绿 | — | core 地基（遗留 2 项真机验证，见 §2 G1） |
 | **B2 命令通道补全** ✅ 已完成 | 13 条命令 + fork runtime 替换（`AgentSessionRuntime`）+ `set_tools` 双路径 + 扩展 UI 通道（G2-4，ADR-0012）+ 工具预设（G2-9）+ 性能统计累加 + 冷会话 `resume`（ADR-0013a）；~~精确系统提示词（G2-10）~~ **已于 2026-09-24 撤销**（ADR-0015） | B1 ✅ | agent 域完整 |
 | **B3 模型域** ✅ 已完成 | `models` / `models-config`(+catalog/discover/test) / `models/enabled`(G2-2，ADR-0011) / `models/refresh`(G2-3) | B1 ✅ | ConfigService |
-| **B4 会话域增强** ✅ 已完成 | export（SDK `exportFromFile`）/ auto-name / thinking / `revision`(G2-6) / `summary=1`(G2-8) / 正文搜索(G2-7) / 外部写入探测(G2-5，ADR-0013b) / transient 合并 | B1 ✅ | 会话域完整 |
+| **B4 会话域增强** ✅ 已完成 | export（SDK `exportFromFile`）/ auto-name / thinking / `revision`(G2-6) / ~~`summary=1`(G2-8，ADR-0026 已删)~~ / 正文搜索(G2-7) / 外部写入探测(G2-5，ADR-0013b) / transient 合并 | B1 ✅ | 会话域完整 |
 | **B5 文件 / Git / Worktree** ✅ 已完成 | files list/read/download/meta/preview + upload/upload-check（引用放行、文件名清洗、冲突策略）/ file-index（git ls-files + 模糊打分）/ home / default-cwd / cwd browse+validate / git status+diff / worktrees 全组（路径归一 + 409 dirty） | B0 ✅ | SystemService + PathGuard |
 | **B6 资源域** ✅ 已完成 | skills（list / PATCH frontmatter / search / install / check / update）/ plugins（list / 五种动作 / check）/ tools-settings / project-trust | B2 ✅ | ResourceService（子代理延后，见 §8-4） |
 | **B7 会话生命周期** ✅ 已完成 | liveness lease / idle 回收（G2-12）；原「推送订阅与投递侧」（G2-13）已删（ADR-0016） | B1 ✅ | LivenessRegistry |

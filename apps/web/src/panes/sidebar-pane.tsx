@@ -2,20 +2,23 @@ import {
   CLIENT_VERSION,
   getDefaultCwd,
   getHome,
-  getRecentProjects,
+  getProjectActivity,
+  projectKeyForCwd,
   validateCwd,
   workspaceKeyOf,
 } from '@ice-ai/client';
 import {
   useCreateWorktreeMutation,
+  useCwdProjectQuery,
   useDeleteSessionMutation,
   useGitStatusQuery,
+  useProjectsQuery,
   useRemoveWorktreeMutation,
   useRenameSessionMutation,
   useSessionsQuery,
   useWorktreesQuery,
 } from '@ice-ai/client/react';
-import type { SessionInfo } from '@ice-ai/protocol';
+import type { ProjectInfo, SessionInfo } from '@ice-ai/protocol';
 import { Sidebar, type SidebarProject, type SidebarWorktreeState } from '@ice-ai/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { insertMention } from '../services/mention-bus';
@@ -29,6 +32,12 @@ import { type FileExplorerHandle, FileExplorerPane } from './file-explorer-pane'
  */
 export interface SidebarPaneProps {
   activeSessionId: string | null;
+  /**
+   * 活动会话的 cwd（由中栏上抬）：会话列表按项目取数后，侧栏手里没有全量列表，
+   * 无法再从中反推「当前会话属于哪个项目」，于是用真正打开了会话的地方作为来源。
+   * 深链（`?s=`）刷页时也靠它把侧栏定位到正确的项目。
+   */
+  activeSessionCwd: string | null;
   onSelectSession(sessionId: string): void;
   /** 新建会话：带上项目/工作区 cwd（null = 用上次记忆的 cwd） */
   onNewSession(cwd: string | null): void;
@@ -91,22 +100,23 @@ function loadExplorerOpen(): boolean {
 
 export function SidebarPane({
   activeSessionId,
+  activeSessionCwd,
   onSelectSession,
   onNewSession,
   onProjectRootChange,
 }: SidebarPaneProps) {
-  const sessionsQuery = useSessionsQuery();
+  const projectsQuery = useProjectsQuery();
   const renameMutation = useRenameSessionMutation();
   const deleteMutation = useDeleteSessionMutation();
   const createWorktreeMutation = useCreateWorktreeMutation();
   const removeWorktreeMutation = useRemoveWorktreeMutation();
 
-  const allSessions = sessionsQuery.data?.sessions ?? [];
-  const runningSessionIds = useMemo(
-    () => new Set(sessionsQuery.data?.runningSessionIds ?? []),
-    [sessionsQuery.data],
+  // 项目清单来自 /api/projects（ADR-0008）：目录元数据扫描 + 每目录一次首行头，
+  // 不解析会话正文也不依赖会话列表（含未落盘内存会话的 cwd）
+  const projects: ProjectInfo[] = useMemo(
+    () => projectsQuery.data?.projects ?? [],
+    [projectsQuery.data],
   );
-  const projects = useMemo(() => getRecentProjects(allSessions), [allSessions]);
 
   /** 当前生效 cwd（项目根 / worktree / 自定义目录） */
   const [selectedCwd, setSelectedCwd] = useState<string | null>(null);
@@ -124,7 +134,10 @@ export function SidebarPane({
   const [resolvedRoot, setResolvedRoot] = useState<string | null>(null);
   const fileExplorerRef = useRef<FileExplorerHandle>(null);
   const explorerRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const previousRunningSessionIdsRef = useRef<Set<string>>(new Set());
+  /** 上一轮“在跑的会话”快照：id → cwd（cwd 用来把「跑完了」归到项目上） */
+  const previousRunningRef = useRef<Map<string, string>>(new Map());
+  /** 见过的会话 → 项目键：unread 只在会话结束那一刻归位，那时它还在 runningSessions 里 */
+  const [sessionProjects, setSessionProjects] = useState<ReadonlyMap<string, string>>(new Map());
 
   // —— 目录数据（家目录 / 上次自定义路径） ——
   useEffect(() => {
@@ -134,20 +147,21 @@ export function SidebarPane({
   }, []);
 
   // —— 选中 cwd 同步：活动会话的 cwd 优先（设计规范 `lastSyncedCwdPropRef` 语义） ——
+  // cwd 由中栏（真正打开会话的地方）上抬，不查会话列表：列表按项目取数后，
+  // 用 `?s=` 深链进来时会话不在手里的列表里（刷页时侧栏会跳回第一个项目）
   const lastSyncedSessionCwdRef = useRef<string | null>(null);
   useEffect(() => {
-    const active = allSessions.find((session) => session.id === activeSessionId);
-    if (active === undefined || active.cwd.length === 0) return;
-    if (active.cwd === lastSyncedSessionCwdRef.current) return;
-    lastSyncedSessionCwdRef.current = active.cwd;
-    setSelectedCwd(active.cwd);
-  }, [allSessions, activeSessionId]);
+    if (activeSessionCwd === null || activeSessionCwd.length === 0) return;
+    if (activeSessionCwd === lastSyncedSessionCwdRef.current) return;
+    lastSyncedSessionCwdRef.current = activeSessionCwd;
+    setSelectedCwd(activeSessionCwd);
+  }, [activeSessionCwd]);
 
   // 首屏：无活动会话时默认第一个项目
   useEffect(() => {
     const first = projects[0];
     if (selectedCwd !== null || first === undefined) return;
-    setSelectedCwd(first.root);
+    setSelectedCwd(first.projectRoot);
   }, [projects, selectedCwd]);
 
   // —— worktree 数据 ——
@@ -169,7 +183,9 @@ export function SidebarPane({
     };
   }, [worktreesQuery.data]);
 
-  // —— 项目身份（与设计规范 `projectFor` 同口径：worktree → 会话 → cwd 兜底） ——
+  // —— 项目身份（与设计规范 `projectFor` 同口径：worktree → cwd 校验 → 项目清单 → cwd 兜底） ——
+  // 不查会话列表：会话列表按项目取数后，它已无法回答“这个 cwd 属于哪个项目”
+  const cwdProjectQuery = useCwdProjectQuery(selectedCwd);
   const selectedProject: SidebarProject | null = useMemo(() => {
     if (selectedCwd === null) return null;
     if (worktreeState !== null) {
@@ -181,19 +197,30 @@ export function SidebarPane({
         };
       }
     }
-    const match = allSessions.find(
-      (session) =>
-        session.cwd === selectedCwd || (session.projectRoot ?? session.cwd) === selectedCwd,
+    // 权威来源：cwd/validate 的 git 归一点（与 ?projectKey= 过滤同源）
+    const validated = cwdProjectQuery.data;
+    if (validated?.success === true && validated.cwd === selectedCwd) {
+      return { key: validated.projectKey, root: validated.projectRoot };
+    }
+    // 清单里的目录（含 worktree 与子目录）也能反查（含未落盘内存会话的 cwd）
+    const match = projects.find(
+      (project) => project.projectRoot === selectedCwd || project.cwds.includes(selectedCwd),
     );
     return match !== undefined
-      ? { key: workspaceKeyOf(match), root: match.projectRoot ?? match.cwd }
+      ? { key: match.projectKey, root: match.projectRoot }
       : { key: selectedCwd, root: selectedCwd };
-  }, [selectedCwd, worktreeState, worktreesQuery.data, allSessions]);
+  }, [selectedCwd, worktreeState, worktreesQuery.data, cwdProjectQuery.data, projects]);
 
-  const projectSessions = useMemo(() => {
-    if (selectedProject === null) return allSessions;
-    return allSessions.filter((session) => workspaceKeyOf(session) === selectedProject.key);
-  }, [allSessions, selectedProject]);
+  // —— 会话列表：按项目取数（服务端 `?projectKey=` 把过滤下推到扫描层，ADR-0008） ——
+  const sessionsQuery = useSessionsQuery(selectedProject?.key ?? null);
+  const allSessions = sessionsQuery.data?.sessions ?? [];
+  const runningSessions = sessionsQuery.data?.runningSessions ?? [];
+  const runningSessionIds = useMemo(
+    () => new Set(runningSessions.map((session) => session.id)),
+    [runningSessions],
+  );
+
+  const projectSessions = allSessions;
 
   // —— 项目根回传（文件树/查看器共用；真实根优先） ——
   const projectRoot = resolvedRoot ?? selectedProject?.root ?? null;
@@ -206,26 +233,50 @@ export function SidebarPane({
     if (projectRoot !== null) void validateCwd(projectRoot).catch(() => null);
   }, [projectRoot]);
 
+  // —— 会话 → 项目归属索引：unread 在会话结束那一刻只能靠它归位（服务端随列表
+  // 下发的 runningSessions 带 cwd；已加载的项目列表直接归当前项目） ——
+  useEffect(() => {
+    setSessionProjects((previous) => {
+      const next = new Map(previous);
+      let changed = false;
+      for (const session of runningSessions) {
+        const key = projectKeyForCwd(projects, session.cwd);
+        if (key !== null && next.get(session.id) !== key) {
+          next.set(session.id, key);
+          changed = true;
+        }
+      }
+      if (selectedProject !== null) {
+        for (const session of allSessions) {
+          if (next.get(session.id) !== selectedProject.key) {
+            next.set(session.id, selectedProject.key);
+            changed = true;
+          }
+        }
+      }
+      return changed ? next : previous;
+    });
+  }, [runningSessions, projects, allSessions, selectedProject]);
+
   // —— 项目活动徽标（运行 / 未读计数，按稳定 projectKey 聚合） ——
-  const projectActivity = useMemo(() => {
-    const activity = new Map<string, { running: number; unread: number }>();
-    for (const session of allSessions) {
-      const key = workspaceKeyOf(session);
-      const entry = activity.get(key) ?? { running: 0, unread: 0 };
-      if (runningSessionIds.has(session.id)) entry.running += 1;
-      if (unreadSessionIds.has(session.id)) entry.unread += 1;
-      activity.set(key, entry);
-    }
-    return activity;
-  }, [allSessions, runningSessionIds, unreadSessionIds]);
+  const projectActivity = useMemo(
+    () =>
+      getProjectActivity({
+        projects,
+        running: runningSessions,
+        unread: unreadSessionIds,
+        sessionProjects,
+      }),
+    [projects, runningSessions, unreadSessionIds, sessionProjects],
+  );
 
   // —— 未读标记：后台完成的会话（非当前选中）记未读；打开即清除 ——
   useEffect(() => {
-    const previous = previousRunningSessionIdsRef.current;
-    const completedInBackground = [...previous].filter(
+    const previous = previousRunningRef.current;
+    const completedInBackground = [...previous.keys()].filter(
       (id) => !runningSessionIds.has(id) && id !== activeSessionId,
     );
-    const newlyRunning = [...runningSessionIds].filter((id) => !previous.has(id));
+    const newlyRunning = runningSessions.filter((session) => !previous.has(session.id));
     if (completedInBackground.length > 0 || newlyRunning.length > 0) {
       setUnreadSessionIds((prev) => {
         const next = new Set(prev);
@@ -234,8 +285,10 @@ export function SidebarPane({
         return next;
       });
     }
-    previousRunningSessionIdsRef.current = runningSessionIds;
-  }, [runningSessionIds, activeSessionId]);
+    previousRunningRef.current = new Map(
+      runningSessions.map((session) => [session.id, session.cwd]),
+    );
+  }, [runningSessions, runningSessionIds, activeSessionId]);
 
   useEffect(() => {
     saveUnreadSessionIds(unreadSessionIds);
@@ -363,7 +416,10 @@ export function SidebarPane({
       unreadSessionIds={unreadSessionIds}
       selectedCwd={selectedCwd}
       selectedProject={selectedProject}
-      projects={projects.map((project) => ({ key: project.key, root: project.root }))}
+      projects={projects.map((project) => ({
+        key: project.projectKey,
+        root: project.projectRoot,
+      }))}
       projectActivity={projectActivity}
       homeDir={homeDir}
       versionLabel={CLIENT_VERSION}

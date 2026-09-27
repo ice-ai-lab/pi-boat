@@ -56,7 +56,6 @@ export function registerSessionRoutes(app: Hono, deps: SessionRouteDeps): void {
     const parsed = SessionListQuerySchema.safeParse({
       force: c.req.query('force'),
       projectKey: c.req.query('projectKey'),
-      summary: c.req.query('summary'),
     });
     if (!parsed.success) {
       return c.json<CommandError>({ error: firstIssueMessage(parsed.error.issues) }, 400);
@@ -66,7 +65,6 @@ export function registerSessionRoutes(app: Hono, deps: SessionRouteDeps): void {
       readService.list({
         force: query.force === '1',
         projectKey: query.projectKey,
-        summary: query.summary === '1',
         // 内存会话（ensure_session 建的还没落盘）也要出现在列表里
         transient: agentService.transientInfos(),
       }),
@@ -76,7 +74,7 @@ export function registerSessionRoutes(app: Hono, deps: SessionRouteDeps): void {
       sessions,
       registryVersion: agentService.registryVersion,
       listFingerprint,
-      runningSessionIds: agentService.runningSessionIds(),
+      runningSessions: agentService.runningSessions(),
       completionNotificationSuppressedSessionIds: [],
     };
     return c.json(body);

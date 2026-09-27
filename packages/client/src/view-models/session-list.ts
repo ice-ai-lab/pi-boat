@@ -1,8 +1,15 @@
-import type { SessionInfo } from '@ice-ai/protocol';
+import type { ProjectInfo } from '@ice-ai/protocol';
 
 /**
- * 会话列表的展示派生（A 类按设计规范 lib/project-groups.ts + lib/session-title.ts 的展示部分）。
- * LLM 生成标题（设计规范 buildTitleRequest）不走这里——本仓由后端 `/auto-name` 负责。
+ * 会话列表的展示派生。
+ *
+ * 这里曾经有一套「从全量会话列表推导项目清单」的函数（getRecentProjects /
+ * sessionsForProject / groupSessionsByProject / filterSessions）——ADR-0008 之后
+ * 项目清单由 `/api/projects` 直接给出（服务端 git 归一并按 projectKey 合并子目录/
+ * worktree），会话列表也按 `?projectKey=` 取数，客户端不再需要那套推导，已删。
+ *
+ * 现在只剩「把运行态/未读的会话归到项目上」这一件事——因为会话列表是按项目取的，
+ * 客户端手里没有全量列表，必须靠服务端随会话带回的 cwd 来归位。
  */
 
 /** 会话所属工作区的稳定标识：projectKey → projectRoot → cwd（worktree 共享同一槽位） */
@@ -14,66 +21,54 @@ export function workspaceKeyOf(session: {
   return session.projectKey ?? session.projectRoot ?? session.cwd;
 }
 
-export interface RecentProject {
-  /** 稳定标识（比较与 Map 键用） */
-  key: string;
-  /** 展示与文件系统操作用的原始路径 */
-  root: string;
-  /** 该项目的代表 cwd（最近有活动的） */
-  cwd: string;
-  /** 该项目最新活动时间（ISO） */
-  lastModified: string;
-  sessionCount: number;
+/** cwd → 项目键（项目清单的 cwds 索引）；清单里没有该 cwd 时返回 null */
+export function projectKeyForCwd(
+  projects: readonly Pick<ProjectInfo, 'projectKey' | 'projectRoot' | 'cwds'>[],
+  cwd: string,
+): string | null {
+  if (cwd.length === 0) return null;
+  const match = projects.find(
+    (project) => project.projectRoot === cwd || project.cwds.includes(cwd),
+  );
+  return match?.projectKey ?? null;
 }
 
-/** 按活动时间排序、按稳定 key 去重的项目清单（侧栏分组头用） */
-export function getRecentProjects(sessions: readonly SessionInfo[]): RecentProject[] {
-  const latest = new Map<string, RecentProject>();
-  for (const session of sessions) {
-    const root = session.projectRoot ?? session.cwd;
-    if (root === undefined || root.length === 0) continue;
-    const key = workspaceKeyOf(session);
-    const previous = latest.get(key);
-    if (previous === undefined) {
-      latest.set(key, {
-        key,
-        root,
-        cwd: session.cwd,
-        lastModified: session.modified,
-        sessionCount: 1,
-      });
-      continue;
-    }
-    previous.sessionCount += 1;
-    if (session.modified > previous.lastModified) {
-      previous.lastModified = session.modified;
-      previous.cwd = session.cwd;
-    }
-  }
-  return [...latest.values()].sort((a, b) => b.lastModified.localeCompare(a.lastModified));
+export interface ProjectActivity {
+  running: number;
+  unread: number;
 }
 
-/** 项目 → 运行中/未读计数（分组头徽标） */
-export function getProjectActivity(
-  sessions: readonly SessionInfo[],
-  runningSessionIds: ReadonlySet<string>,
-): Map<string, { running: number; total: number }> {
-  const counts = new Map<string, { running: number; total: number }>();
-  for (const session of sessions) {
-    const key = workspaceKeyOf(session);
-    const entry = counts.get(key) ?? { running: 0, total: 0 };
-    entry.total += 1;
-    if (runningSessionIds.has(session.id)) entry.running += 1;
+/**
+ * 项目 → 运行中/未读计数（侧栏项目行徽标与「其他项目有新活动」圆点）。
+ *
+ * - running 来自服务端随列表下发的 `runningSessions`（id + cwd）——跨项目可见，
+ *   所以即使只加载了一个项目也能在别的项目行上显示运行数（`?projectKey=` 会丢掉
+ *   全量列表，这是它的代价的补偿）。
+ * - unread 是**客户端**概念（「跑完了你没看」）：会话结束的那一刻它还在 `runningSessions`
+ *   里，因此 `sessionProjects` 记下当时的 cwd → projectKey，此刻直接查得到。
+ */
+export function getProjectActivity(input: {
+  projects: readonly Pick<ProjectInfo, 'projectKey' | 'projectRoot' | 'cwds'>[];
+  running: readonly { id: string; cwd: string }[];
+  unread: ReadonlySet<string>;
+  /** 见过的会话 → 项目键（由 runningSessions 的 cwd 与已加载列表累积） */
+  sessionProjects: ReadonlyMap<string, string>;
+}): Map<string, ProjectActivity> {
+  const counts = new Map<string, ProjectActivity>();
+  const bump = (key: string, field: keyof ProjectActivity) => {
+    const entry = counts.get(key) ?? { running: 0, unread: 0 };
+    entry[field] += 1;
     counts.set(key, entry);
+  };
+  for (const session of input.running) {
+    const key = projectKeyForCwd(input.projects, session.cwd);
+    if (key !== null) bump(key, 'running');
+  }
+  for (const id of input.unread) {
+    const key = input.sessionProjects.get(id);
+    if (key !== undefined) bump(key, 'unread');
   }
   return counts;
-}
-
-export function sessionsForProject(
-  sessions: readonly SessionInfo[],
-  projectKey: string,
-): SessionInfo[] {
-  return sessions.filter((session) => workspaceKeyOf(session) === projectKey);
 }
 
 /** 会话展示标题：用户命名 → 首条消息摘要 → 短 id */
@@ -112,28 +107,4 @@ export function formatRelativeTime(iso: string, now: number = Date.now()): strin
   const date = new Date(time);
   const pad = (value: number) => String(value).padStart(2, '0');
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-}
-
-/** 按项目分组后的列表结构（侧栏渲染输入） */
-export function groupSessionsByProject(
-  sessions: readonly SessionInfo[],
-): { project: RecentProject; sessions: SessionInfo[] }[] {
-  return getRecentProjects(sessions).map((project) => ({
-    project,
-    sessions: sessionsForProject(sessions, project.key).sort((a, b) =>
-      b.modified.localeCompare(a.modified),
-    ),
-  }));
-}
-
-/** 搜索过滤（客户端侧，用于已加载列表的即时筛；服务端搜索另走 /sessions/search） */
-export function filterSessions(sessions: readonly SessionInfo[], query: string): SessionInfo[] {
-  const needle = query.trim().toLowerCase();
-  if (needle.length === 0) return [...sessions];
-  return sessions.filter((session) => {
-    const haystack = [session.name ?? '', session.cwd, session.id, session.branch ?? '']
-      .join(' ')
-      .toLowerCase();
-    return haystack.includes(needle);
-  });
 }

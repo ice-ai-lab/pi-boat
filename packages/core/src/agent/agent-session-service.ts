@@ -863,18 +863,23 @@ export class AgentSessionService {
   }
 
   /**
-   * **真在跑**的会话 id（对齐 参考实现 `getRunningRpcSessionIds`：流 / 提示 / 压缩任一为真）。
-   * 侧栏据此显示转圈——常驻 idle 的会话若列进来会永远显示「加载中」（2026-09-26 修的坑）。
+   * **真在跑**的会话（对齐 参考实现 `getRunningRpcSessionIds`：流 / 提示 / 压缩任一为真），
+   * 并带上各自的 cwd。侧栏据此显示转圈——常驻 idle 的会话若列进来会永远显示「加载中」
+   * （2026-09-26 修的坑）。
+   *
+   * 为什么带 cwd：会话列表可以按 `?projectKey=` 只取一个项目（ADR-0008），客户端手里
+   * 不再有全量列表，只能靠这个字段把「别的项目里在跑的会话」归到项目上（项目徽标）。
+   * cwd 取自内存里的 sessionManager，不查磁盘。
    */
-  runningSessionIds(): string[] {
-    const ids: string[] = [];
+  runningSessions(): { id: string; cwd: string }[] {
+    const running: { id: string; cwd: string }[] = [];
     for (const [sessionId, entry] of this.entries) {
       if (entry.isDisposed) continue;
       if (entry.isStreaming || entry.isPromptRunning || entry.session.isCompacting) {
-        ids.push(sessionId);
+        running.push({ id: sessionId, cwd: entry.session.sessionManager.getCwd() });
       }
     }
-    return ids;
+    return running;
   }
 
   get registryVersion(): number {

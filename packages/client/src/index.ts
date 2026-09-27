@@ -242,14 +242,11 @@ export {
   toggleHint,
 } from './view-models/models';
 export {
-  filterSessions,
   formatRelativeTime,
   getProjectActivity,
-  getRecentProjects,
-  groupSessionsByProject,
-  type RecentProject,
+  type ProjectActivity,
+  projectKeyForCwd,
   sessionDisplayTitle,
-  sessionsForProject,
   workspaceKeyOf,
 } from './view-models/session-list';
 export {

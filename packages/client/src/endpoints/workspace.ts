@@ -14,13 +14,12 @@ import { getJson, http } from '../http';
  * 路由字面量归 client 持有（protocol 不导出路径常量）。
  */
 
-/** GET /api/sessions?force=1&projectKey=&summary=1 */
+/** GET /api/sessions?force=1&projectKey= */
 export function listSessions(
-  query: { projectKey?: string; summary?: boolean; force?: boolean } = {},
+  query: { projectKey?: string; force?: boolean } = {},
 ): Promise<SessionListResponse> {
   const params = new URLSearchParams();
   if (query.projectKey !== undefined) params.set('projectKey', query.projectKey);
-  if (query.summary === true) params.set('summary', '1');
   if (query.force === true) params.set('force', '1');
   const qs = params.size > 0 ? `?${params.toString()}` : '';
   return getJson<SessionListResponse>(`/sessions${qs}`);

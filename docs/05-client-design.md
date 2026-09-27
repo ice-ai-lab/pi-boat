@@ -278,10 +278,11 @@ interface SystemRow { kind: 'system'; text: string; tone: 'info' | 'warn' | 'err
 // '@ice-ai/client/react'
 useAgentSession()            // → { sessionId, chat, send, abort, steer, followUp, open, start, liveState, … }（URL 驱动）
 useAgentStream(sessionId)    // 底层：subscribe + useSyncExternalStore（非 Suspense 场景）
-useSessionsQuery()           // REST：列表（含 listFingerprint 失效）
+useSessionsQuery(projectKey) // REST：列表（按项目取；项目未定时不发请求），ADR-0026
 useSessionDetailQuery(id)    // REST：详情
 useSessionContextQuery(id)   // REST：历史分页（→ rebuild.ts）
-useProjectsQuery()           // REST：项目清单（ADR-0008 的 projectKey）
+useProjectsQuery()           // REST：项目清单（ADR-0008 / 0026 的侧栏项目列表来源）
+useCwdProjectQuery(cwd)      // REST：cwd → 项目身份（POST /cwd/validate，兼作 allowed-roots 授权）
 queryKeys                    // 工厂：失效粒度与 domain 一一对应
 ```
 

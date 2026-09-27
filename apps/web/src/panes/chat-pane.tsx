@@ -224,6 +224,8 @@ export interface ChatPaneProps {
   onToggleRightPanel?: () => void;
   /** 右栏全宽展开时收起顶部面板（设计规范 `rightPanelFullWidth` 效果，T0-4） */
   rightPanelFullWidth?: boolean;
+  /** 打开/新建的会话的 cwd 上抬给侧栏（侧栏据此定位项目，见 SidebarPaneProps.activeSessionCwd） */
+  onSessionCwdChange?(cwd: string | null): void;
 }
 
 /**
@@ -320,6 +322,7 @@ export function ChatPane({
   rightPanelOpen = false,
   onToggleRightPanel,
   rightPanelFullWidth = false,
+  onSessionCwdChange,
 }: ChatPaneProps) {
   const session = useAgentSession();
   const { chat, sessionId } = session;
@@ -367,6 +370,11 @@ export function ChatPane({
     setDraft((previous) => (previous.length === 0 ? text : `${previous} ${text}`));
   }, []);
   useMentionInsertion(insertMentionText);
+
+  // 会话 cwd 上抬给侧栏：它要据此定位项目（侧栏不再持有全量会话列表，见 SidebarPaneProps）
+  useEffect(() => {
+    onSessionCwdChange?.(session.cwd);
+  }, [session.cwd, onSessionCwdChange]);
 
   const pushToast = useCallback((message: string, tone: ToastItem['tone'] = 'info') => {
     const toast: ToastItem = { id: crypto.randomUUID(), message, tone };
