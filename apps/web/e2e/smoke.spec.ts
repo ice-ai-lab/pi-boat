@@ -16,8 +16,8 @@ test('骨架冒烟：三栏空壳 + 对话入口', async ({ page }) => {
   await expect(page.getByRole('button', { name: '设置', exact: true })).toBeVisible();
   // 中栏：对话列容器（空态 / 占位都在其内）
   await expect(page.locator('.chat-content')).toBeVisible();
-  // 右栏：文件面板骨架
-  await expect(page.getByText('没有打开的文件', { exact: false })).toBeVisible();
+  // 右栏：文件面板骨架——固定「文件浏览器」标签页（不可关，默认激活）
+  await expect(page.getByRole('tab', { name: '文件浏览器' })).toBeVisible();
 });
 
 /**

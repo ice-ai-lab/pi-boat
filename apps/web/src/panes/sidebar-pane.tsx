@@ -9,7 +9,6 @@ import {
 import {
   useCwdProjectQuery,
   useDeleteSessionMutation,
-  useGitStatusQuery,
   useProjectsQuery,
   useRenameSessionMutation,
   useSessionsQuery,
@@ -18,14 +17,11 @@ import type { ProjectInfo, SessionInfo } from '@ice-ai/protocol';
 import { Sidebar, type SidebarProject } from '@ice-ai/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { APP_VERSION } from '../layout/health';
-import { insertMention } from '../services/mention-bus';
-import { useResizablePanel } from '../services/use-resizable-panel';
-import { type FileExplorerHandle, FileExplorerPane } from './file-explorer-pane';
 
 /**
- * SidebarPane（T2 重排）：侧栏数据装配——项目/工作区选择、会话列表、未读与运行指示、
- * 自定义目录选择与 EXPLORER 区。不做分支展示与切换（分支只按会话行自己的 worktree 标记呈现）。
- * 结构与动作口径逐条按设计规范 `SessionSidebar`；展示全部交给 `@ice-ai/ui` 的 `Sidebar`。
+ * SidebarPane：侧栏数据装配——项目/工作区选择、会话列表、未读与运行指示、自定义目录选择。
+ * 文件浏览器已移至右栏（FilesPane 的固定标签页）。
+ * 展示全部交给 `@ice-ai/ui` 的 `Sidebar`。
  */
 export interface SidebarPaneProps {
   activeSessionId: string | null;
@@ -48,10 +44,6 @@ export interface SidebarPaneProps {
 
 const UNREAD_SESSIONS_STORAGE_KEY = 'piboat:unread-session-ids';
 const LAST_CUSTOM_CWD_STORAGE_KEY = 'piboat:last-custom-cwd';
-const EXPLORER_OPEN_STORAGE_KEY = 'piboat:explorer-open';
-const SESSION_PANE_DEFAULT_HEIGHT = 320;
-const SESSION_PANE_MIN_HEIGHT = 80;
-const SESSION_PANE_MAX_HEIGHT = 1600;
 
 function loadString(key: string): string {
   try {
@@ -91,14 +83,6 @@ function saveUnreadSessionIds(ids: ReadonlySet<string>): void {
   }
 }
 
-function loadExplorerOpen(): boolean {
-  try {
-    return window.localStorage.getItem(EXPLORER_OPEN_STORAGE_KEY) !== 'false';
-  } catch {
-    return true;
-  }
-}
-
 export function SidebarPane({
   activeSessionId,
   activeSessionCwd,
@@ -126,15 +110,6 @@ export function SidebarPane({
     loadUnreadSessionIds(),
   );
   const [lastCustomCwd, setLastCustomCwd] = useState(() => loadString(LAST_CUSTOM_CWD_STORAGE_KEY));
-  const [explorerOpen, setExplorerOpen] = useState(loadExplorerOpen);
-  const [explorerRefreshKey, setExplorerRefreshKey] = useState(0);
-  const [explorerRefreshDone, setExplorerRefreshDone] = useState(false);
-  const [changesCollapsed, setChangesCollapsed] = useState(true);
-  const [fileSearchOpen, setFileSearchOpen] = useState(false);
-  const [uploadBusy, setUploadBusy] = useState(false);
-  const [resolvedRoot, setResolvedRoot] = useState<string | null>(null);
-  const fileExplorerRef = useRef<FileExplorerHandle>(null);
-  const explorerRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** 上一轮“在跑的会话”快照：id → cwd（cwd 用来把「跑完了」归到项目上） */
   const previousRunningRef = useRef<Map<string, string>>(new Map());
   /** 见过的会话 → 项目键：unread 只在会话结束那一刻归位，那时它还在 runningSessions 里 */
@@ -193,8 +168,8 @@ export function SidebarPane({
 
   const projectSessions = allSessions;
 
-  // —— 项目根回传（文件树/查看器共用；真实根优先） ——
-  const projectRoot = resolvedRoot ?? selectedProject?.root ?? null;
+  // —— 项目根回传（会话域与右栏共用） ——
+  const projectRoot = selectedProject?.root ?? null;
   const rootChangeRef = useRef(onProjectRootChange);
   rootChangeRef.current = onProjectRootChange;
   useEffect(() => {
@@ -275,25 +250,6 @@ export function SidebarPane({
     });
   }, [activeSessionId]);
 
-  // —— 会话/EXPLORER 之间的竖向拖拽（设计规范 `sidebar-section-resize-handle`） ——
-  const sessionPaneHeightRef = useRef(SESSION_PANE_DEFAULT_HEIGHT);
-  const sessionPaneResizer = useResizablePanel({
-    ariaLabel: '调整会话列表与文件浏览器高度',
-    axis: 'vertical',
-    cssVariable: '--sidebar-session-pane-height',
-    defaultWidth: SESSION_PANE_DEFAULT_HEIGHT,
-    getMaxWidth: () => SESSION_PANE_MAX_HEIGHT,
-    growthDirection: 'down',
-    maxWidth: SESSION_PANE_MAX_HEIGHT,
-    minWidth: SESSION_PANE_MIN_HEIGHT,
-    storageKey: 'piboat:sidebar-session-pane-height',
-    widthRef: sessionPaneHeightRef,
-  });
-
-  // —— 变更文件数量（EXPLORER 头部图标可见性） ——
-  const gitStatus = useGitStatusQuery(projectRoot);
-  const changesCount = gitStatus.data?.files.length ?? 0;
-
   // —— 动作 ——
   const commitCustomPath = useCallback(async (path: string): Promise<string | null> => {
     try {
@@ -331,18 +287,6 @@ export function SidebarPane({
     [deleteMutation],
   );
 
-  const toggleExplorer = useCallback((open: boolean) => {
-    setExplorerOpen(open);
-    saveString(EXPLORER_OPEN_STORAGE_KEY, String(open));
-  }, []);
-
-  const refreshExplorer = useCallback(() => {
-    setExplorerRefreshKey((key) => key + 1);
-    setExplorerRefreshDone(true);
-    if (explorerRefreshTimerRef.current !== null) clearTimeout(explorerRefreshTimerRef.current);
-    explorerRefreshTimerRef.current = setTimeout(() => setExplorerRefreshDone(false), 2000);
-  }, []);
-
   return (
     <Sidebar
       sessions={projectSessions}
@@ -362,57 +306,6 @@ export function SidebarPane({
       versionLabel={APP_VERSION}
       themePreference={themePreference}
       onCycleTheme={onCycleTheme}
-      showExplorer={selectedCwd !== null}
-      explorerOpen={explorerOpen}
-      onToggleExplorer={toggleExplorer}
-      sessionPaneRef={sessionPaneResizer.panelRef}
-      resizeHandleSlot={
-        <div
-          {...sessionPaneResizer.separatorProps}
-          className={`sidebar-section-resize-handle${sessionPaneResizer.isResizing ? ' is-resizing' : ''}`}
-          data-resize-handle="sidebar-sections"
-          title="调整会话列表与文件浏览器高度：拖拽或上下键（双击复位）"
-          style={{
-            position: 'relative',
-            zIndex: 20,
-            width: '100%',
-            height: 12,
-            margin: '-6px 0',
-            flex: '0 0 12px',
-            cursor: 'row-resize',
-            touchAction: 'none',
-          }}
-        />
-      }
-      explorerSlot={
-        <div
-          className="scrollbar-subtle"
-          style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}
-        >
-          <FileExplorerPane
-            ref={fileExplorerRef}
-            root={projectRoot}
-            fileSearchOpen={fileSearchOpen}
-            onFileSearchOpenChange={setFileSearchOpen}
-            changesCollapsed={changesCollapsed}
-            refreshKey={explorerRefreshKey}
-            onResolvedRoot={setResolvedRoot}
-            onAtMention={(relativePath, isDir) => insertMention(relativePath, isDir)}
-            onUploadBusyChange={setUploadBusy}
-            onError={() => {}}
-            onNotice={() => {}}
-          />
-        </div>
-      }
-      changesCount={changesCount}
-      changesCollapsed={changesCollapsed}
-      onToggleChanges={() => setChangesCollapsed((collapsed) => !collapsed)}
-      fileSearchOpen={fileSearchOpen}
-      onToggleFileSearch={setFileSearchOpen}
-      uploadBusy={uploadBusy}
-      onUpload={() => fileExplorerRef.current?.openUploadPicker()}
-      onRefreshExplorer={refreshExplorer}
-      explorerRefreshDone={explorerRefreshDone}
       onSelectSession={(session: SessionInfo) => {
         if (session.cwd.length > 0) setSelectedCwd(session.cwd);
         onSelectSession(session.id);

@@ -51,71 +51,6 @@ function useSessionListHeights(): SessionListHeights {
 }
 
 /** 设计规范 `SessionSidebar` 的 26×26 工具条图标按钮原语（T2-6） */
-function ToolbarIconButton({
-  onClick,
-  title,
-  disabled,
-  skipHover,
-  color,
-  background = 'none',
-  marginRight,
-  ariaPressed,
-  children,
-}: {
-  onClick: () => void;
-  title: string;
-  disabled?: boolean;
-  skipHover?: boolean;
-  color: string;
-  background?: string;
-  marginRight?: number;
-  ariaPressed?: boolean;
-  children: ReactNode;
-}) {
-  const enter = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (disabled || skipHover) return;
-    e.currentTarget.style.color = 'var(--text-muted)';
-    e.currentTarget.style.background = 'var(--bg-hover)';
-  };
-  const leave = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (disabled || skipHover) return;
-    e.currentTarget.style.color = color;
-    e.currentTarget.style.background = background;
-  };
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      aria-label={title}
-      aria-pressed={ariaPressed}
-      style={{
-        position: 'relative',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: 26,
-        height: 26,
-        padding: 0,
-        marginRight,
-        background,
-        border: 'none',
-        color,
-        cursor: disabled ? 'default' : 'pointer',
-        borderRadius: 5,
-        flexShrink: 0,
-        opacity: disabled ? 0.6 : 1,
-        transition: 'color 0.3s, background 0.3s',
-      }}
-      onMouseEnter={enter}
-      onMouseLeave={leave}
-    >
-      {children}
-    </button>
-  );
-}
-
 /** 家目录前缀替换为 ~（设计规范 `displayCwd`；不做路径截断——截断交给 PathLabel） */
 export function displayCwd(cwd: string, homeDir?: string): string {
   return homeDir && cwd.startsWith(homeDir) ? `~${cwd.slice(homeDir.length)}` : cwd;
@@ -897,9 +832,8 @@ export interface SidebarProject {
 /**
  * 侧栏（T2 全量重排，结构按设计规范 `SessionSidebar`）：
  * 品牌行（应用图标 + 字标）→ 动作行（新会话 + 搜索）→ 搜索输入（展开时插在动作行下方）
- * → 工作区行（目录名 + 下拉；不展示分支）→ 会话列表（窗口化）→ `.sidebar-section-resize-handle`
- * → EXPLORER（可折叠标题 + 26×26 图标行 + 文件树内容）。
- * 数据与动作全部由宿主注入（ui 保持纯展示）。
+ * → 工作区行（目录名 + 下拉；不展示分支）→ 会话列表（窗口化）。
+ * 数据与动作全部由宿主注入（ui 保持纯展示）。文件浏览器已移至右栏（FilesPane 的固定标签页）。
  */
 export interface SidebarProps {
   sessions: SessionInfo[];
@@ -919,27 +853,6 @@ export interface SidebarProps {
   themePreference: ThemePreference;
   /** 单击循环切换主题：light → dark → auto → light */
   onCycleTheme(): void;
-  /** EXPLORER 区是否显示（选中了项目才显示，设计规范同款） */
-  showExplorer: boolean;
-  explorerOpen: boolean;
-  onToggleExplorer(open: boolean): void;
-  /** EXPLORER 的内容（文件树 / 搜索面板 / 变更文件） */
-  explorerSlot?: ReactNode;
-  /** 会话/EXPLORER 之间的拖拽手柄（宿主用 useResizablePanel(axis:'vertical') 构造） */
-  resizeHandleSlot?: ReactNode;
-  /** 会话区高度 CSS（`--sidebar-session-pane-height` var） */
-  sessionPaneStyle?: CSSProperties;
-  sessionPaneRef?: React.RefObject<HTMLDivElement | null>;
-  /** 头部图标行的动作（T2-6） */
-  changesCount: number;
-  changesCollapsed: boolean;
-  onToggleChanges(): void;
-  fileSearchOpen: boolean;
-  onToggleFileSearch(open: boolean): void;
-  uploadBusy: boolean;
-  onUpload(): void;
-  onRefreshExplorer(): void;
-  explorerRefreshDone: boolean;
   // —— 动作回调 ——
   onSelectSession(session: SessionInfo): void;
   onNewSession(): void;
@@ -1593,17 +1506,12 @@ export function Sidebar(props: SidebarProps) {
 
       {/* 会话列表 */}
       <div
-        ref={props.sessionPaneRef}
         style={{
           display: 'flex',
           flexDirection: 'column',
-          flex:
-            props.showExplorer && props.explorerOpen && props.selectedCwd
-              ? '0 1 var(--sidebar-session-pane-height, 320px)'
-              : '1 1 auto',
+          flex: '1 1 auto',
           minHeight: 80,
           overflow: 'hidden',
-          ...(props.sessionPaneStyle ?? {}),
         }}
       >
         <SessionSearch
@@ -1704,179 +1612,6 @@ export function Sidebar(props: SidebarProps) {
           </div>
         </SessionSearch>
       </div>
-
-      {props.showExplorer && props.explorerOpen && props.selectedCwd && props.resizeHandleSlot}
-
-      {/* EXPLORER 区（T2-1：常驻会话列表下方，不再藏在页签里） */}
-      {props.showExplorer && (
-        <div
-          style={{
-            borderTop: '1px solid var(--border)',
-            display: 'flex',
-            flexDirection: 'column',
-            flex: props.explorerOpen ? '1 1 0' : '0 0 auto',
-            minHeight: props.explorerOpen ? 120 : 0,
-            overflow: 'hidden',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
-            <button
-              type="button"
-              onClick={() => props.onToggleExplorer(!props.explorerOpen)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                flex: 1,
-                padding: '6px 10px',
-                background: 'none',
-                border: 'none',
-                color: 'var(--text-muted)',
-                cursor: 'pointer',
-                fontSize: 11,
-                fontWeight: 600,
-                letterSpacing: '0.05em',
-                textTransform: 'uppercase',
-                textAlign: 'left',
-              }}
-            >
-              <svg
-                aria-hidden="true"
-                width="9"
-                height="9"
-                viewBox="0 0 10 10"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                style={{
-                  transform: props.explorerOpen ? 'rotate(90deg)' : 'none',
-                  transition: 'transform 0.15s',
-                  flexShrink: 0,
-                }}
-              >
-                <polyline points="3 2 7 5 3 8" />
-              </svg>
-              {t('files.explorer')}
-            </button>
-            {/* 终端按钮：⛔ 排除域（ADR-0014），不落地 */}
-            {props.explorerOpen && props.changesCount > 0 && (
-              <ToolbarIconButton
-                onClick={props.onToggleChanges}
-                title={t('sidebar.changedFiles', { count: props.changesCount })}
-                ariaPressed={!props.changesCollapsed}
-                color={props.changesCollapsed ? 'var(--text-dim)' : 'var(--accent)'}
-                background={props.changesCollapsed ? 'none' : 'var(--bg-selected)'}
-              >
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <circle cx="12" cy="12" r="3" />
-                  <path d="M3 12h6" />
-                  <path d="M15 12h6" />
-                </svg>
-              </ToolbarIconButton>
-            )}
-            {props.explorerOpen && (
-              <ToolbarIconButton
-                onClick={() => props.onToggleFileSearch(!props.fileSearchOpen)}
-                title={t('sidebar.searchFiles')}
-                ariaPressed={props.fileSearchOpen}
-                color={props.fileSearchOpen ? 'var(--accent)' : 'var(--text-dim)'}
-                background={props.fileSearchOpen ? 'var(--bg-selected)' : 'none'}
-              >
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="m20 20-4-4" />
-                </svg>
-              </ToolbarIconButton>
-            )}
-            {props.explorerOpen && (
-              <ToolbarIconButton
-                onClick={props.onUpload}
-                disabled={props.uploadBusy}
-                title={t('sidebar.uploadFilesTitle')}
-                color="var(--text-dim)"
-              >
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <path d="m17 8-5-5-5 5" />
-                  <path d="M12 3v12" />
-                </svg>
-              </ToolbarIconButton>
-            )}
-            <ToolbarIconButton
-              onClick={props.onRefreshExplorer}
-              title={t('sidebar.refreshExplorer')}
-              skipHover={props.explorerRefreshDone}
-              color={props.explorerRefreshDone ? '#4ade80' : 'var(--text-dim)'}
-              background={props.explorerRefreshDone ? 'rgba(74,222,128,0.18)' : 'none'}
-              marginRight={6}
-            >
-              {props.explorerRefreshDone ? (
-                <svg
-                  aria-hidden="true"
-                  width="13"
-                  height="13"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#4ade80"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              ) : (
-                <svg
-                  aria-hidden="true"
-                  width="13"
-                  height="13"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                  <path d="M3 3v5h5" />
-                </svg>
-              )}
-            </ToolbarIconButton>
-          </div>
-          {props.explorerOpen && props.explorerSlot}
-        </div>
-      )}
     </div>
   );
 }

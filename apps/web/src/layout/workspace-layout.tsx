@@ -72,6 +72,17 @@ export function WorkspaceLayout() {
   const [activeSessionCwd, setActiveSessionCwd] = useState<string | null>(null);
   /** 当前项目根：文件树/查看器的相对路径基准（由侧栏回传，见下方 onProjectRootChange） */
   const [projectRoot, setProjectRoot] = useState<string | null>(null);
+  /**
+   * 文件树解析出的真实根（符号链接路径下与传入 root 不同）：右栏 explorer 上抛，
+   * 全局替代 projectRoot 使用（与旧侧栏内合成等价）；切换项目时重置。
+   */
+  const [resolvedRoot, setResolvedRoot] = useState<string | null>(null);
+  const effectiveProjectRoot = resolvedRoot ?? projectRoot;
+  /** 项目根回传 + 真实根缓存复位（切项目时旧 resolvedRoot 不再有效） */
+  const handleProjectRootChange = useCallback((root: string | null) => {
+    setResolvedRoot(null);
+    setProjectRoot(root);
+  }, []);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [trustDialogOpen, setTrustDialogOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -102,8 +113,8 @@ export function WorkspaceLayout() {
     setTimeout(() => dispatchToast({ type: 'dismiss', id: toast.id }), 4000);
   }, []);
   // 项目信任：需要信任但未信任时给出一个常驻提示（项目级资源未加载）
-  const trust = useProjectTrustQuery(projectRoot);
-  const updateTrust = useUpdateProjectTrustMutation(projectRoot);
+  const trust = useProjectTrustQuery(effectiveProjectRoot);
+  const updateTrust = useUpdateProjectTrustMutation(effectiveProjectRoot);
   const trustPending = trust.data?.requiresTrust === true && trust.data.trusted === false;
 
   // —— 面板宽度（设计规范 `useResizablePanel` 的两处调用：侧栏向右生长、右栏向左生长） ——
@@ -174,7 +185,7 @@ export function WorkspaceLayout() {
       setPreferredCwd(cwd);
       setSearchParams({});
     },
-    activeCwd: projectRoot,
+    activeCwd: effectiveProjectRoot,
   });
 
   const sidebarContent = (
@@ -184,74 +195,21 @@ export function WorkspaceLayout() {
         activeSessionCwd={activeSessionCwd}
         themePreference={themePreference}
         onCycleTheme={cycleTheme}
-        onProjectRootChange={setProjectRoot}
+        onProjectRootChange={handleProjectRootChange}
         onSelectSession={(id) => setSearchParams({ s: id })}
         onNewSession={(cwd) => {
           setPreferredCwd(cwd);
           setSearchParams({});
         }}
       />
-      {/* 侧栏底栏：模型 / Skills / 设置（按设计规范 AppShell 的 settings 行：内联样式 + 悬停处理） */}
+      {/* 侧栏底栏：设置（靠左，与会话行内容左缘对齐；模型/技能从设置对话框内进入） */}
       <div
         style={{
           padding: '8px',
           flexShrink: 0,
           display: 'flex',
-          justifyContent: 'space-between',
-          gap: 4,
         }}
       >
-        {(
-          [
-            ['models', t('common.models')],
-            ['skills', t('common.skills')],
-          ] as const
-        ).map(([section, label]) => {
-          const disabled = section !== 'models' && projectRoot === null;
-          return (
-            <button
-              key={section}
-              type="button"
-              onClick={() => {
-                setLastSettingsSection(section);
-                setSettingsOpen(true);
-              }}
-              disabled={disabled}
-              title={disabled ? t('settings.projectRequired') : label}
-              aria-label={label}
-              style={{
-                flex: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                height: 32,
-                padding: 0,
-                background: 'none',
-                border: 'none',
-                borderRadius: 9,
-                color: 'var(--text-muted)',
-                cursor: disabled ? 'default' : 'pointer',
-                fontSize: 12,
-                opacity: disabled ? 0.35 : 1,
-                transition: 'background 0.12s, color 0.12s',
-              }}
-              onMouseEnter={(event) => {
-                if (!disabled) {
-                  event.currentTarget.style.background = 'var(--bg-hover)';
-                  event.currentTarget.style.color = 'var(--text)';
-                }
-              }}
-              onMouseLeave={(event) => {
-                event.currentTarget.style.background = 'none';
-                event.currentTarget.style.color = 'var(--text-muted)';
-              }}
-            >
-              <SettingsSectionIcon section={section} size={14} strokeWidth={2} />
-              <span>{label}</span>
-            </button>
-          );
-        })}
         <button
           type="button"
           onClick={() => {
@@ -261,13 +219,13 @@ export function WorkspaceLayout() {
           title={t('common.settings')}
           aria-label={t('common.settings')}
           style={{
-            flex: 1,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
+            justifyContent: 'flex-start',
             gap: 6,
             height: 32,
-            padding: 0,
+            // 容器 padding 8 + 这里 8 = 16px，与会话行内容左缘（2px 边条 + 14px）对齐
+            padding: '0 8px',
             background: 'none',
             border: 'none',
             borderRadius: 9,
@@ -294,7 +252,10 @@ export function WorkspaceLayout() {
 
   // 窗口标题（设计规范 `AppShell` 的 windowTitle）：`<项目目录名> - PiBoat`，无项目时为 `PiBoat`
   useEffect(() => {
-    const activeCwdName = projectRoot === null ? null : getFileName(projectRoot) || projectRoot;
+    const activeCwdName =
+      effectiveProjectRoot === null
+        ? null
+        : getFileName(effectiveProjectRoot) || effectiveProjectRoot;
     const windowTitle = activeCwdName === null ? 'PiBoat' : `${activeCwdName} - PiBoat`;
     const syncWindowTitle = () => {
       if (document.title !== windowTitle) document.title = windowTitle;
@@ -303,11 +264,12 @@ export function WorkspaceLayout() {
     const observer = new MutationObserver(syncWindowTitle);
     observer.observe(document.head, { childList: true, subtree: true, characterData: true });
     return () => observer.disconnect();
-  }, [projectRoot]);
+  }, [effectiveProjectRoot]);
 
   // 设计规范 `effectiveNewSessionCwd`（AppShell）：未选会话但有激活项目 → 回退到项目根，
   // 否则「有项目无会话」时中栏会退化成占位文案（2026-09-26 BUG-2）。
-  const effectiveNewSessionCwd = preferredCwd ?? (activeSessionId === null ? projectRoot : null);
+  const effectiveNewSessionCwd =
+    preferredCwd ?? (activeSessionId === null ? effectiveProjectRoot : null);
 
   return (
     <div
@@ -388,7 +350,7 @@ export function WorkspaceLayout() {
       >
         <ChatPane
           preferredCwd={effectiveNewSessionCwd}
-          projectSelected={projectRoot !== null}
+          projectSelected={effectiveProjectRoot !== null}
           onSessionCwdChange={setActiveSessionCwd}
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen((previous) => !previous)}
@@ -441,26 +403,27 @@ export function WorkspaceLayout() {
         }
       >
         <FilesPane
-          root={projectRoot}
+          root={effectiveProjectRoot}
           sessionId={activeSessionId}
           open={rightPanelOpen}
           expanded={rightPanelExpanded}
           onToggleExpand={() => setRightPanelExpanded((previous) => !previous)}
           onHide={() => setRightPanelOpen(false)}
+          onResolvedRoot={setResolvedRoot}
         />
       </div>
 
       {settingsOpen && (
         <SettingsHost
-          projectRoot={projectRoot}
+          projectRoot={effectiveProjectRoot}
           sessionId={activeSessionId}
           onClose={() => setSettingsOpen(false)}
           onNotice={(message, tone) => pushToast(message, tone ?? 'info')}
         />
       )}
-      {trustDialogOpen && projectRoot !== null && (
+      {trustDialogOpen && effectiveProjectRoot !== null && (
         <ProjectTrustDialog
-          cwd={projectRoot}
+          cwd={effectiveProjectRoot}
           busy={updateTrust.isPending}
           error={null}
           onCancel={() => setTrustDialogOpen(false)}
