@@ -14,12 +14,16 @@ import type {
 import type { QueryClient } from '@tanstack/react-query';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  deleteProviderApiKey,
   discoverModels,
+  getAuthProviders,
   getEnabledModels,
   getModelCatalog,
   getModels,
   getModelsConfig,
   putModelsConfig,
+  putProviderApiKey,
+  queryProviderUsage,
   refreshModels,
   testModel,
   updateEnabledModels,
@@ -181,6 +185,7 @@ export type { GitStatusResponse, ProjectInfo, WorktreesResponse };
 export const settingsKeys = {
   models: (cwd?: string) => ['models', { cwd: cwd ?? null }] as const,
   modelsConfig: () => ['modelsConfig'] as const,
+  authProviders: (cwd?: string) => ['modelsAuthProviders', { cwd: cwd ?? null }] as const,
   enabledModels: (cwd?: string) => ['modelsEnabled', { cwd: cwd ?? null }] as const,
   catalog: (q: string) => ['modelCatalog', q] as const,
   skills: (cwd: string) => ['skills', cwd] as const,
@@ -205,6 +210,45 @@ export function useModelsConfigQuery() {
     queryKey: settingsKeys.modelsConfig(),
     queryFn: () => getModelsConfig(),
   });
+}
+
+/** GET /api/models/auth-providers（本地读；cwd 只影响项目级目录解析） */
+export function useAuthProvidersQuery(cwd?: string) {
+  return useQuery({
+    queryKey: settingsKeys.authProviders(cwd),
+    queryFn: () => getAuthProviders(cwd),
+    staleTime: 10_000,
+  });
+}
+
+/** 保存 / 断开 API Key 后失效 auth-providers 与模型快照（配置状态可能翻转） */
+function useInvalidateAuthProviders() {
+  const client = useQueryClient();
+  return () => {
+    void client.invalidateQueries({ queryKey: ['modelsAuthProviders'] });
+    void client.invalidateQueries({ queryKey: ['models'] });
+  };
+}
+
+export function useSetApiKeyMutation() {
+  const refreshAuthProviders = useInvalidateAuthProviders();
+  return useMutation({
+    mutationFn: (request: { provider: string; apiKey: string }) => putProviderApiKey(request),
+    onSuccess: refreshAuthProviders,
+  });
+}
+
+export function useRemoveApiKeyMutation() {
+  const refreshAuthProviders = useInvalidateAuthProviders();
+  return useMutation({
+    mutationFn: (provider: string) => deleteProviderApiKey(provider),
+    onSuccess: refreshAuthProviders,
+  });
+}
+
+/** 用量查询是一次性动作不是缓存态：mutation，快照由调用方持有 */
+export function useProviderUsageMutation() {
+  return useMutation({ mutationFn: (providerId: string) => queryProviderUsage(providerId) });
 }
 
 export function useUpdateModelsConfigMutation() {

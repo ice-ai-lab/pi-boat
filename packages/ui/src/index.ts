@@ -119,19 +119,24 @@ export {
 } from './settings/directory-picker';
 export { GeneralSection, type GeneralSectionProps } from './settings/general-section';
 export {
+  type AuthProviderView,
   type ModelItemView,
   ModelsSection,
   type ModelsSectionProps,
 } from './settings/models-section';
 export {
-  type PluginItemView,
+  type PluginPackageView,
+  type PluginResourceView,
   PluginsSection,
   type PluginsSectionProps,
+  type StandaloneExtensionView,
 } from './settings/plugins-section';
 export {
   ProjectTrustDialog,
   type ProjectTrustDialogProps,
 } from './settings/project-trust-dialog';
+export { ProviderIcon } from './settings/provider-icon';
+export { ProviderUsageSummary } from './settings/provider-usage-summary';
 export {
   SettingsNotice,
   SettingsPanel,

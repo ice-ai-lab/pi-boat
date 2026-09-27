@@ -8,6 +8,7 @@ import {
   UserInputError,
 } from '@ice-ai/core';
 import {
+  ApiKeySetRequestSchema,
   type CommandError,
   ModelsCatalogQuerySchema,
   ModelsConfigDiscoverRequestSchema,
@@ -16,6 +17,7 @@ import {
   ModelsEnabledUpdateSchema,
   ModelsQuerySchema,
   ModelsRefreshRequestSchema,
+  ProviderUsageRequestSchema,
 } from '@ice-ai/protocol';
 import type { Hono } from 'hono';
 import { firstIssueMessage } from '../envelope';
@@ -27,12 +29,15 @@ import { firstIssueMessage } from '../envelope';
  * 点击**才到达的路径。其余端点（models / models-config / models/enabled）一律本地读。
  *
  * 新增路由检查清单（docs/04 §6）逐条对照：
- * ① 触碰文件系统 → models.json 与 settings.json 都在 `~/.pi/agent`（本服务自己的
+ * ① 触碰文件系统 → models.json 与 auth.json 都在 `~/.pi/agent`（本服务自己的
  *    配置目录，不在 allowed-roots 的讨论范围内——那份清单管的是**用户的工程目录**）
  * ② 错误响应不泄漏路径 → ModelsConfigReadError 的 message 含路径，**不回传原文**，
  *    只回一句固定说明（真实原因进服务端日志）
  * ③ 新增 Origin / Sec-Fetch 例外 → 无
- * ④ 有副作用的 GET → 无（写操作一律 PUT/POST）
+ * ④ 有副作用的 GET → 无（写 key 用 PUT，删 key 用 DELETE，查用量用 POST）
+ *
+ * 联网：discover / test / catalog / refresh / usage——都是**用户显式点击**才到达；
+ * auth-providers 与 api-key 读写只碰本地（auth.json）。
  */
 
 export interface ModelRouteDeps {
@@ -144,6 +149,47 @@ export function registerModelRoutes(app: Hono, deps: ModelRouteDeps): void {
       return c.json<CommandError>({ error: firstIssueMessage(parsed.error.issues) }, 400);
     }
     return c.json(await configService.catalog(parsed.data.q));
+  });
+
+  // GET /api/models/auth-providers —— 可用 API Key 登录的 provider 清单（本地读）
+  app.get('/api/models/auth-providers', async (c) => {
+    return c.json(await configService.authProviders(c.req.query('cwd')));
+  });
+
+  // PUT /api/models/api-key —— 保存 API Key（写入 auth.json；不触发目录刷新）
+  app.put('/api/models/api-key', async (c) => {
+    const raw = await c.req.json().catch(() => null);
+    const parsed = ApiKeySetRequestSchema.safeParse(raw);
+    if (!parsed.success) {
+      return c.json<CommandError>({ error: firstIssueMessage(parsed.error.issues) }, 400);
+    }
+    try {
+      return c.json(await configService.setApiKey(parsed.data.provider, parsed.data.apiKey));
+    } catch (error) {
+      if (error instanceof UserInputError) {
+        return c.json<CommandError>({ error: error.message }, 400);
+      }
+      throw error;
+    }
+  });
+
+  // DELETE /api/models/api-key?provider= —— 只删 API Key 凭据；OAuth 凭据 409
+  app.delete('/api/models/api-key', async (c) => {
+    const provider = c.req.query('provider');
+    if (provider === undefined || provider === '') {
+      return c.json<CommandError>({ error: 'Missing provider' }, 400);
+    }
+    return c.json(await configService.removeApiKey(provider));
+  });
+
+  // POST /api/models/usage —— 查 provider 用量/余额（联网；白名单 provider）
+  app.post('/api/models/usage', async (c) => {
+    const raw = await c.req.json().catch(() => null);
+    const parsed = ProviderUsageRequestSchema.safeParse(raw);
+    if (!parsed.success) {
+      return c.json<CommandError>({ error: firstIssueMessage(parsed.error.issues) }, 400);
+    }
+    return c.json(await configService.providerUsage(parsed.data.providerId));
   });
 
   // GET /api/models/enabled?cwd —— 可见范围（只读；项目 shadow 时 canWrite:false）

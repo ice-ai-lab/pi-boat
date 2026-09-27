@@ -242,11 +242,17 @@
 | `GET /api/models-config/catalog?q` | → models.dev 目录（1h 缓存，服务端代理） |
 | `GET/PUT /api/models/enabled` | 模型可见范围（`enabledModels`，ADR-0011）。GET → `{patterns, models, scope:'global'\|'project', settingsPath, canWrite, warnings[]}`（`scope:'project'` = 项目 `.pi/settings.json` shadow，面板只读）；PUT 最小编辑 `{op:'toggle'\|'prune'\|'resync', providerId?, modelId?, enabled?, cwd?}`；禁用最后一个模型/项目 shadow/已无可见模型 → **409 + `reason`**（`last-model` / `project-shadow` / `no-enabled-models`） |
 | `POST /api/models/refresh` | 按需拉取远端 provider 目录 → `{ok, changed, reason?, errors?}`（不联网是常态，只有用户显式请求才联网——ADR-0011③；`reason: offline\|no-refreshable-provider\|error`） |
+| `GET /api/models/auth-providers` | 可用 API Key 登录的 provider 清单 → `{providers: [{id, displayName, configured, source?, modelCount, supportsOAuth}]}`（本地读；ADR-0025） |
+| `PUT /api/models/api-key` | `{provider, apiKey}` → `{success}`（写 `~/.pi/agent/auth.json`；不触发目录联网刷新；不支持的 provider → 400；ADR-0025） |
+| `DELETE /api/models/api-key?provider=` | → `{status:'removed'\|'not_found'\|'type_mismatch'}`（只删 `api_key` 型；OAuth 凭据回 `type_mismatch`；ADR-0025） |
+| `POST /api/models/usage` | `{providerId}` → `{status:'ready', report:{capturedAt, buckets[], metrics[]}}` 或 `{status:'auth-unavailable'\|'query-failed', message}`（白名单 provider + 官方 origin 校验；用户点「刷新」才联网——ADR-0011③/ADR-0025） |
 
-### 6.5 认证与用量（一期排除）
+### 6.5 认证与用量（ADR-0014 一期排除；**部分恢复**，见 ADR-0025）
 
-> ⚠️ **2026-01 定案：本期不实现**（不引入访问凭据与服务端身份认证入口）。下表**不是待办**，保留仅作能力面记录；若将来要做，需先写 ADR 推翻，形状以本文为准。
-> 连带结果：模型凭据一期只经 `GET/PUT /api/models-config`（models.json 原文）配置，或由本机 `pi` CLI/TUI 配置后读取。详见 `docs/07-backend-capability-gap.md` §8-2。
+> ⚠️ **2026-01 定案：本期不实现**（不引入访问凭据与服务端身份认证入口）。下表**不是待办**，保留仅作能力面记录。
+> **2026-09-27 修订（ADR-0025）**：API Key 管理与用量查询已按低成本路径恢复（端点收进模型域：`/api/models/auth-providers`、
+> `/api/models/api-key`、`/api/models/usage`，形状见 §6.4）；**OAuth 登录流维持排除**（下表 login/logout 仍不是待办）。
+> 连带结果（修订前）：模型凭据一期只经 `GET/PUT /api/models-config`（models.json 原文）配置，或由本机 `pi` CLI/TUI 配置后读取。详见 `docs/07-backend-capability-gap.md` §8-2。
 
 | 端点 | 形状 |
 |---|---|

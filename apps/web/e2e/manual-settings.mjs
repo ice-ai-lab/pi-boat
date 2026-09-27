@@ -2,8 +2,8 @@ import path from 'node:path';
 import { chromium } from '@playwright/test';
 
 /**
- * 手动验收脚本（**不进 CI**）：F4 设置中心——设置浮层 / 通用节 / 模型节（可见范围、
- * models.json 草稿、目录刷新与搜索）/ skills 节 / 扩展包节 / 节记忆。
+ * 手动验收脚本（**不进 CI**）：F4 设置中心——设置浮层 / 通用节 / 模型节（provider 清单、
+ * 可见范围、目录刷新与搜索）/ skills 节 / 扩展包节 / 节记忆。
  *
  * 用法（两个 dev server 已在跑）：node apps/web/e2e/manual-settings.mjs
  * ⚠️ 本脚本只读；**不要**用它点复选框——那会真写 ~/.pi/agent/settings.json。
@@ -38,9 +38,12 @@ ok('可见范围来源已展示', /全局|项目覆盖/.test(modelsText));
 ok('目录刷新按钮在场', (await panel.locator('button:has-text("刷新目录")').count()) > 0);
 ok('目录搜索入口在场', (await panel.locator('input[placeholder*="models.dev"]').count()) > 0);
 
-// models.json 编辑块
-const textareaValue = await panel.locator('textarea').first().inputValue();
-ok('models.json 草稿已载入（含 providers）', textareaValue.includes('providers'));
+// models.json 原文入口已移除：侧栏无条目、详情区无 textarea（自定义 provider 编辑直接写草稿）
+ok(
+  '无 models.json 原文侧栏条目',
+  (await panel.locator('button:has-text("models.json")').count()) === 0,
+);
+ok('无 models.json 原文 textarea', (await panel.locator('textarea').count()) === 0);
 
 // skills 节（需要项目：先打开一个 repo 会话让 projectRoot 就位）
 await panel.locator('button[aria-label="关闭设置"]').click();

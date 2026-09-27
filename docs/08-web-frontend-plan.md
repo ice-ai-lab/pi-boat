@@ -2,7 +2,7 @@
 
 > 目标：**一期实现完整 Web 页面功能**（扣除已排除域，见 §5 差异清单），组件结构与样式按统一 Web 设计规范实现，
 > 并按本仓分层铁律落位到 `packages/client` / `packages/ui` / `apps/web` 三包。
-> 规范基准：**统一 Web 设计规范 0.9.1 快照**；
+> 规范基准：**统一 Web 设计规范快照**；
 > 本仓既有设计：`docs/05`（client）/ `docs/06`（ui 视觉与交互）/ ADR-0002（Vite SPA）/ ADR-0009（前端栈）。
 > 状态：**已定案**（2026-09-27 用户确认六项决策，落成 ADR-0019；见 §6）。本文作为 F0–F5 批次的排期依据，
 > `docs/05`/`docs/06` 的组件与模块细节仍以那两文为准（本文不重复其内容，只做范围与落位）。
@@ -22,7 +22,7 @@
 | 中间对话 | `ChatWindow`（1 998 行） + `ChatInput`（2 741 行） | 见 §1.2 |
 | 右栏 | `TabBar` + `FileViewer`（1 800 行） + `TerminalPanel` | 文件多标签查看（`file-tab-state`）+ PTY 终端页签（**pi-boat 排除**） |
 | 顶部活动面板 | `BranchNavigator` / `SystemPromptPanel` / `ToolDefinitionsPanel` / `AgentSessionPanel` | 分支树导航（fork/clone/navigate_tree）、系统提示词、工具定义、会话信息 + 统计 |
-| 设置浮层 | `SettingsPanel` + `SettingsUi` | 五节：general（主题/语言/思考默认展开/内容宽度/字号/引用选择/PowerShell/声音）/ models / skills / agents（**延后**）/ plugins；节内导航记忆（`settings-navigation`） |
+| 设置浮层 | `SettingsPanel` + `SettingsUi` | 五节：general（主题/语言/思考默认展开/内容宽度/字号/引用选择/PowerShell/声音）/ models / skills / agents（**延后**）/ plugins；节内导航记忆（`settings-navigation`）；models/skills/plugins 三节为**主从布局**（左清单 + 右详情 + 底部操作条，ADR-0025） |
 | 对话框 | `ProjectTrustDialog` | 项目信任授予（409 两种拒绝态） |
 
 ### 1.2 对话域（一期核心）
@@ -209,8 +209,8 @@ src/
 |---|---|---|---|
 | 1 | 设置壳 | ✅ 已做：顶部横向 tab（`settings-section-tabs/-tab`）+ `settings-dialog-*` 外壳 + `×` 关闭键 + 节常驻挂载（`settings-section-host`）；`SettingsUi` 全族（`config-*`）已落地（`settings-ui.tsx`） | ✅ 完成 |
 | 2 | 通用节 | ✅ 已做：外观 + 对话（思考默认展开 / 内容宽 / 字号 range）+ 语言节（三语 radiogroup）；「工具 / 关于 / 项目信任」三节按设计规范移出（信任改 `ProjectTrustDialog`） | ✅ 完成 |
-| 3 | 模型节 | `models-sidebar-*` / `enabled-models-*` / `config-list-action-button` 结构 | ⬜ 未做 |
-| 4 | Skills / 扩展包节 | `skill-*` / `config-detail-*` / `config-button-*` 结构 | ⬜ 未做 |
+| 3 | 模型节 | `models-sidebar-*` / `enabled-models-*` / `config-list-action-button` 结构 | ✅ 完成（2026-09-27，ADR-0025）：主从布局 + provider 清单（API Key 管理 / 用量）+ 自定义 provider 编辑 + models.json 原文入口 + 添加 Provider 选择器 |
+| 4 | Skills / 扩展包节 | `skill-*` / `config-detail-*` / `config-button-*` 结构 | ✅ 完成（2026-09-27，ADR-0025）：主从布局（分组清单 + 详情 + 添加面板 + 底部操作条）；插件包含 status/version/resources 详情与「保留来源式」禁用 |
 | 5 | 目录选择器 | `directory-picker-*` 类（组件已存在，类名待换） | ⬜ 未做 |
 | 6 | 代码块 / 文件查看器 | 设计规范用 `react-syntax-highlighter`（Prism、`vs`/`vscDarkPlus`）+ `showLineNumbers`；本仓现用 shiki 且无行号——颜色与行号都不一样 | ⬜ 未做（需换依赖） |
 | 7 | Markdown | `markdown-frontmatter*`（frontmatter 卡片）、`markdown-custom-message`、`markdown-compaction-message` + `compaction-file-*`、`markdown-file-preview`、`markdown-table-wrap`、`.markdown-user-message` | ⬜ 未做 |
@@ -247,7 +247,7 @@ src/
 - **图片附件上限**：base64 进 `prompt.images`，与 `/api/files` 上传 25MB 是两条通道；做图片附件时，其体积约束须与本仓 protocol `ImagesSchema` 一致
 - **Markdown 安全**：禁止裸 `dangerouslySetInnerHTML`，统一 react-markdown + rehype-sanitize（ADR-0009）；Mermaid/KaTeX 按需懒加载防首屏膨胀
 - **折叠展开规则**：`userToggled` 标记不得被自动收起覆盖；分组只认消息序列不认 turn 事件（docs/05 §6.5 硬约束）
-- **设计规范快照漂移**：设计规范 0.9.x 仍在演进，落地期以本机快照为准，不追上游；后续想同步须逐模块 diff
+- **设计规范快照漂移**：设计规范上游仍在演进，落地期以本机快照为准，不追上游；后续想同步须逐模块 diff
 - **导出长会话**：`exportFromFile` 疑似递归，5000+ 条目可能爆栈（docs/07 §9 未实测项）——前端下载侧无解，碰到再报
 
 ---

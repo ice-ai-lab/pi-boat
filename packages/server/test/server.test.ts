@@ -249,6 +249,28 @@ function fakeConfigService() {
       return enabledResponse;
     }),
     refresh: vi.fn(async () => ({ ok: true, changed: false })),
+    authProviders: vi.fn(async () => ({
+      providers: [
+        {
+          id: 'deepseek',
+          displayName: 'DeepSeek',
+          configured: true,
+          modelCount: 2,
+          supportsOAuth: false,
+        },
+      ],
+    })),
+    setApiKey: vi.fn(async () => ({ success: true })),
+    removeApiKey: vi.fn(async (_providerId: string) =>
+      _providerId === 'oauth-only'
+        ? ({ status: 'type_mismatch', storedType: 'oauth' } as const)
+        : ({ status: 'removed' } as const),
+    ),
+    providerUsage: vi.fn(async (providerId: string) => ({
+      providerId,
+      status: 'ready',
+      report: { providerId, providerName: 'DeepSeek', capturedAt: 0, buckets: [], metrics: [] },
+    })),
   };
 }
 
@@ -353,6 +375,35 @@ function fakeSystemService() {
 }
 
 function fakeResourceService() {
+  const pluginsResponse = {
+    packages: [
+      {
+        source: 'npm:sample-plugin',
+        displayName: 'sample-plugin',
+        scope: 'user',
+        type: 'npm',
+        installedPath: '/tmp/agent/npm/node_modules/sample-plugin',
+        filtered: false,
+        enabled: true,
+        packageName: 'sample-plugin',
+        version: '0.29.0',
+        counts: { extensions: 1, skills: 0, prompts: 0, themes: 0 },
+        resources: [
+          {
+            kind: 'extension',
+            name: 'sample-plugin',
+            path: '/tmp/agent/npm/node_modules/sample-plugin/index.ts',
+            relativePath: 'index.ts',
+          },
+        ],
+        status: 'loaded',
+      },
+    ],
+    standaloneExtensions: [],
+    totals: { packages: 1, extensions: 1, skills: 0, prompts: 0, themes: 0 },
+    diagnostics: [],
+    projectResourcesLoaded: true,
+  };
   return {
     trust: vi.fn((cwd: string) => ({ requiresTrust: true, trusted: cwd === '/trusted' })),
     setTrust: vi.fn((cwd: string, trusted: boolean, active: boolean) => {
@@ -373,20 +424,8 @@ function fakeResourceService() {
     }),
     checkSkillUpdates: vi.fn(async () => ({ results: [] })),
     updateSkills: vi.fn(async () => ({ results: [] })),
-    plugins: vi.fn(async () => ({
-      packages: [],
-      standaloneExtensions: [],
-      totals: { packages: 0, extensions: 0, skills: 0 },
-      diagnostics: [],
-      projectResourcesLoaded: true,
-    })),
-    pluginAction: vi.fn(async () => ({
-      packages: [],
-      standaloneExtensions: [],
-      totals: { packages: 0, extensions: 0, skills: 0 },
-      diagnostics: [],
-      projectResourcesLoaded: true,
-    })),
+    plugins: vi.fn(async () => pluginsResponse),
+    pluginAction: vi.fn(async () => pluginsResponse),
     checkPluginUpdates: vi.fn(async () => ({ results: [] })),
     toolSettings: vi.fn(async () => ({ isWindows: false, powerShellEnabled: false })),
     updateToolSettings: vi.fn(async (_cwd: string, enabled: boolean) => ({
@@ -1104,6 +1143,66 @@ describe('模型域路由', () => {
     expect(res.status).toBe(200);
     expect(configService.refresh).toHaveBeenCalledWith({});
   });
+
+  it('GET /api/models/auth-providers：透传 provider 清单（本地读）', async () => {
+    const { app, configService } = makeApp();
+    const res = await request(app, '/api/models/auth-providers?cwd=/tmp');
+    expect(res.status).toBe(200);
+    expect(await res.json()).toMatchObject({
+      providers: [{ id: 'deepseek', displayName: 'DeepSeek', configured: true }],
+    });
+    expect(configService.authProviders).toHaveBeenCalledWith('/tmp');
+  });
+
+  it('PUT /api/models/api-key：body 校验；DELETE 缺 provider → 400', async () => {
+    const { app, configService } = makeApp();
+    const ok = await request(app, '/api/models/api-key', {
+      method: 'PUT',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ provider: 'deepseek', apiKey: 'sk-x' }),
+    });
+    expect(ok.status).toBe(200);
+    expect(configService.setApiKey).toHaveBeenCalledWith('deepseek', 'sk-x');
+
+    const bad = await request(app, '/api/models/api-key', {
+      method: 'PUT',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ provider: 'deepseek' }),
+    });
+    expect(bad.status).toBe(400);
+
+    expect((await request(app, '/api/models/api-key', { method: 'DELETE' })).status).toBe(400);
+    const removed = await request(app, '/api/models/api-key?provider=deepseek', {
+      method: 'DELETE',
+    });
+    expect(await removed.json()).toMatchObject({ status: 'removed' });
+    const mismatch = await request(app, '/api/models/api-key?provider=oauth-only', {
+      method: 'DELETE',
+    });
+    expect(await mismatch.json()).toMatchObject({ status: 'type_mismatch', storedType: 'oauth' });
+  });
+
+  it('POST /api/models/usage：providerId 必填；透传查询', async () => {
+    const { app, configService } = makeApp();
+    expect(
+      (
+        await request(app, '/api/models/usage', {
+          method: 'POST',
+          headers: JSON_HEADERS,
+          body: JSON.stringify({}),
+        })
+      ).status,
+    ).toBe(400);
+
+    const ok = await request(app, '/api/models/usage', {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ providerId: 'deepseek' }),
+    });
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toMatchObject({ providerId: 'deepseek', status: 'ready' });
+    expect(configService.providerUsage).toHaveBeenCalledWith('deepseek');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1396,7 +1495,14 @@ describe('资源域路由', () => {
   it('plugins：列表 / 动作 / 更新检查', async () => {
     const { app, resourceService } = makeApp();
     expect(await (await request(app, '/api/plugins?cwd=/repo')).json()).toMatchObject({
-      totals: { packages: 0 },
+      totals: { packages: 1, extensions: 1 },
+      packages: [
+        {
+          source: 'npm:sample-plugin',
+          status: 'loaded',
+          counts: { extensions: 1, skills: 0, prompts: 0, themes: 0 },
+        },
+      ],
       projectResourcesLoaded: true,
     });
 

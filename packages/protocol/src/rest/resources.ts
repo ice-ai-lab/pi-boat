@@ -139,6 +139,29 @@ export const SkillUpdateRequestSchema = z.object({
 export const PluginsQuerySchema = z.object({
   cwd: z.string().min(1),
 });
+
+/** 包内资源类别（settings 包详情的「已解析资源」分组用） */
+export type PluginResourceKind = 'extension' | 'skill' | 'prompt' | 'theme';
+
+/** 一条已解析资源：name 给人看，path/relativePath 定位（详情列表两行展示） */
+export type PluginResourceInfo = {
+  kind: PluginResourceKind;
+  name: string;
+  path: string;
+  /** 相对包根的路径（跨平台正斜杠，保证展示稳定） */
+  relativePath: string;
+};
+
+export type PluginResourceCounts = {
+  extensions: number;
+  skills: number;
+  prompts: number;
+  themes: number;
+};
+
+/** 包状态四态（详情页「状态」行与侧栏状态点共用）：loaded=已加载生效 */
+export type PluginPackageStatus = 'loaded' | 'installed' | 'missing' | 'disabled';
+
 export type PluginPackageInfo = {
   source: string;
   displayName: string;
@@ -150,16 +173,33 @@ export type PluginPackageInfo = {
   filtered: boolean;
   /** 该包当前是否启用（禁用 = 从 settings 的 sources 里移除但不删除磁盘副本） */
   enabled: boolean;
+  /** package.json 的 name（读不到时缺省） */
+  packageName?: string;
+  /** 磁盘上已装版本（package.json；读不到时缺省） */
+  version?: string;
+  /** 来源声明里带的版本（`npm:pkg@1.2.3` 的 1.2.3） */
+  configuredVersion?: string;
+  /** package.json 的 description（读不到时缺省） */
+  description?: string;
+  /** 本次运行时真正解析到的资源计数（分 kind） */
+  counts: PluginResourceCounts;
+  /** 本次运行时真正解析到的资源明细（详情页「已解析资源」） */
+  resources: PluginResourceInfo[];
+  status: PluginPackageStatus;
+};
+
+/** 非包形式的独立扩展（用户直接放在扩展目录里的 .js/.ts） */
+export type PluginStandaloneExtensionInfo = PluginResourceInfo & {
+  kind: 'extension';
+  scope: 'user' | 'project' | 'temporary';
+  enabled: boolean;
 };
 
 export type PluginsResponse = {
   packages: PluginPackageInfo[];
-  /** 非包形式加载的扩展（用户直接放在扩展目录里的 .js/.ts） */
-  standaloneExtensions: string[];
-  totals: {
+  standaloneExtensions: PluginStandaloneExtensionInfo[];
+  totals: PluginResourceCounts & {
     packages: number;
-    extensions: number;
-    skills: number;
   };
   diagnostics: ResourceDiagnostic[];
   projectResourcesLoaded: boolean;

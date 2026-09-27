@@ -1,7 +1,7 @@
 # 前端一致性清单（第四轮 · 参考实现 逐屏对拍）
 
 - 日期：2026-09-26
-- 基准 A（唯一视觉真相）：**设计规范** `@agegr/参考实现` **v0.9.3** —— 即本仓历史文档所称「统一 Web 设计规范」
+- 基准 A（唯一视觉真相）：**参考实现** —— 即本仓历史文档所称「统一 Web 设计规范」
 - 受审 B：本仓 Web 前端（`apps/web`，`localhost:9528`；agent server `localhost:9527`）
 - 依据：ADR-0020（视觉基准 = 设计规范，组件层结构与样式逐条对齐）、ADR-0021（三语 i18n）、ADR-0022（品牌 PiBoat）
 - 方法：先划排除域 → CSS 选择器差集 → 死 CSS / 运行时可达性 → **双实例同视口截图（1440×900 亮色，含设置全 Tab 与真实会话对话框）** → 三个区域并行读源码逐条核对
@@ -10,10 +10,10 @@
 ---
 
 > **⚠️ 基线版本漂移（本轮新发现，影响所有结论的口径）**
-> 本仓 `docs/09` 与 ADR-0019/0020 记的基准是**设计规范 npm 0.9.1 快照**，而 A（参考实现）现已是 **0.9.3**。
+> 本仓 `docs/09` 与 ADR-0019/0020 记的基准是**设计规范 npm 快照**，而 A（参考实现）此后仍有演进。
 > 实测到的漂移：A 的设置节已是 **5 个**（常规/模型/技能/**子代理**/插件），B 保持 4 个 ——
 > **这一条 B 是对的**（子代理为排除域，ADR-0014 §4 延后），**不属于缺口**。
-> 但凡引用 0.9.1 快照做出的"已对齐"结论，均应在 0.9.3 上复核后再采信。
+> 但凡引用旧快照做出的"已对齐"结论，均应在最新基准上复核后再采信。
 
 > **范围边界（先看这条）**：本仓有意不做 6 类能力，标 ⛔ 的行**不得实现**。
 > 移动端布局 / 终端 PTY / 登录鉴权 / Provider 用量面板 / 子代理（含会话家族聚簇）/ PWA 与推送。
@@ -104,7 +104,7 @@ if (model === undefined) throw new UserInputError('No model available to generat
 
 | | 有项目、无会话选中 |
 |---|---|
-| **A** | 品牌行 `π 参考实现 v0.9.3` + 右侧 `web v0.9.1 / pi v0.85.1` 版本块 + **完整 Composer** + 顶部工具条（完整历史/生成标题/系统/工具） |
+| **A** | 品牌行 + 右侧版本块 + **完整 Composer** + 顶部工具条（完整历史/生成标题/系统/工具） |
 | **B** | 只有居中一行灰字**「从侧边栏选择一个会话」**；**无工具条、无品牌行、无 Composer** |
 
 **根因**：`showChat` 的 cwd 回退缺失。
@@ -175,8 +175,8 @@ const sections: SettingsSectionItem[] = [
 |---|---|---|---|
 | 1 | 移动端布局 / `useIsMobile` / 移动工具条 / `MobileGate` | ⛔ **不做** | `useViewportHeight`、`@media(pointer:coarse)`、iOS standalone 块 |
 | 2 | 终端 PTY / xterm / `TerminalPanel` | ⛔ **不做** | 侧栏 EXPLORER 终端按钮、TabBar terminal 图标、`!`/`!!` bash 提示条、`bash-output`。**但保留 `BashExecutionMessage` 历史渲染** |
-| 3 | 登录 / 鉴权 / `/login` / `web-login-*` / provider 身份认证入口 | ⛔ **不做** | 设置「登出」项、「Shell(Windows)」PowerShell 节、模型节的 `activeOAuth`/`activeApiKey`/`AddProviderPicker` |
-| 4 | Provider 用量（余额）面板 | ⛔ **不做** | `.providerUsage.*` 7 个 i18n key（语言包已扣除） |
+| 3 | 登录 / 鉴权 / `/login` / `web-login-*` / provider 身份认证入口 | ⛔ **不做**（OAuth 登录流；API Key 管理**已恢复**，见 ADR-0025） | 设置「登出」项、「Shell(Windows)」PowerShell 节；~~模型节的 `activeOAuth`/`activeApiKey`/`AddProviderPicker`~~ → API Key 清单 + 选择器已落地（不走 `/api/auth/*`） |
+| 4 | Provider 用量（余额）面板 | ✅ **已做**（原「⛔ 不做」被 ADR-0025 推翻） | `.providerUsage.*` 7 个 i18n key（已补回三语包）；白名单 provider + 官方 origin 校验 |
 | 5 | 子代理：`AgentsConfig` / `session-family` / `AgentSessionPanel` | ⛔ **不做** | 设置节数**保持 4 个**、会话**平铺即终态**、工具条**不加子代理页签**、不补 12 条 `.agents-*` CSS、`SettingsSectionIcon` 不加 `is-agent` 分支 |
 | 6 | PWA / web push / 设置「后台推送」节 | ⛔ **不做** | `PwaRegistration`；A 的 `.settings-general-description` / `.settings-shell-option` 两条"零消费" CSS 也只服务该节 → **不算缺口** |
 | 7 | `app-update` 更新检查 | ⛔ **不做** | A 品牌行右侧的「更新链接」 |
@@ -373,7 +373,7 @@ globals.css    A=288  B=271  仅 A 有 47：
 | **D19** | 右区 gap | `gap: 2`（`ChatInput.tsx:2379`） | `gap-1` = 4px（`chat-pane.tsx:683`） | P2 | 改 `style={{gap:2}}` |
 | **D20** | 过程组多耗时后缀 | `ChatWindow.tsx:203-204`：`[处理详情, "{n} 条消息", "{n} 次工具调用"]` | `process-group.tsx:27-32` 多一个 `formatDuration(duration)` | P2 | 删 `process-group.tsx:26,31` |
 | **D21** | 用量行语序反 + 缺 cache W/cost + 无流式徽标 | 静态 `MessageView.tsx:1849-1853`：`"{n} in" · "{n} out" · "{n} cache R" · "{n} cache W" · "$x"`；流式 `:781-798` `↓ {est}` + 彩色 `t/s`（≥50 `#53b3cb` / ≥30 `#9bc53d` / ≥15 `#f9c22e` / else `#e01a4f`） | `assistant-turn.tsx:21-28`：`"in {n}"·"out {n}"·"cache R {n}"`（语序反、缺 cacheW/cost）；流式徽标**完全没有** | P1 | 改 A 语序 + 补 cacheW/cost；`AssistantTurn` 加流式估算 + `t/s` |
-| **D22** | 空态品牌名 | `参考实现`（`ChatWindow.tsx:1356`） | `PiBoat`（`empty-state.tsx:62`） | P2 | **见 Q1**，属产品名口径 |
+| **D22** | 空态品牌名 参考实现品牌名（`ChatWindow.tsx:1356`） | `PiBoat`（`empty-state.tsx:62`） | P2 | **见 Q1**，属产品名口径 |
 
 **✅ B 已正确对齐，不要重做**：工具行在输入卡下方（`marginTop:8`）／输入卡 14px 圆角 + `10px 10px 10px 14px` 内边距／双层 boxShadow／`color-mix(border 70%)` 描边／内容宽度锚 820px／`chat-input-textarea` 几何与移动端 16px 覆写／发送按钮几何／Enter+IME 守卫／`↑` 首行接管／空态品牌行结构（32×32 图标 + 22px/700 + 右侧两行 `web v…`/`pi v…` + `paddingRight:52`）／空态容器上 `flex-1` 内容 下 `flex-1`／`@`·`/` 键盘语义／候选浮层定位与上向落影／i18n key 已备齐（`zh-CN.ts:295-302,314,277-279`）
 
@@ -409,7 +409,7 @@ globals.css    A=288  B=271  仅 A 有 47：
 | 检查项 | 结果 |
 |---|---|
 | 语言包 | ✅ 三语，**实测 zh-CN = 616 key**（文档记 612，需更正）；三语 key 集合一致（有 Vitest 断言） |
-| 与 A 的 key 差集 | ✅ 仅 A 有 88 条 = `agents.*`42 + `agentSwitcher.*`14 + `subagent.open`1 + `sidebar.expand/collapseSubagents`2 + `terminal.*`11 + `auth.*`10 + `providerUsage.*`7 + `appUpdate.*`1（**全部排除域**）；仅 B 有 3 条 `files.*`。**设置域差集 = 0** |
+| 与 A 的 key 差集 | ✅ 仅 A 有 88 条 = `agents.*`42 + `agentSwitcher.*`14 + `subagent.open`1 + `sidebar.expand/collapseSubagents`2 + `terminal.*`11 + `auth.*`10 + `providerUsage.*`7 + `appUpdate.*`1（**原全部排除域**；`providerUsage.*` 7 条已于 ADR-0025 补回，其余仍为排除域）；仅 B 有 3 条 `files.*`。**设置域差集 = 0** |
 | 基建 | ✅ `types/registry/format/i18n-provider`；`localStorage` key = `pi-locale`；同步 `document.documentElement.lang`；已补 `ja`/`ja-*` 分支 |
 | 设置域消费 | 🟡 `settings-panel.tsx` / `general-section.tsx` / `project-trust-dialog.tsx` / `tool-definitions-panel.tsx` 已走 `t()`；但**节标签与面板标题仍硬编码英文**（BUG-3） |
 | 未 i18n 热点 | ❌ `models-section.tsx`(~11) / `skills-section.tsx`(~14) / `plugins-section.tsx`(~9) / `composer.tsx` / `empty-state.tsx` / `suggestion-menu.tsx` / `queue-bar.tsx` / `file-viewer.tsx` 等 |
@@ -503,7 +503,7 @@ globals.css    A=288  B=271  仅 A 有 47：
 
 ### 阶段 7：文档更正
 - [x] **T7-1** 更正 `docs/09`：①§4.3 死 CSS 表补 `.config-sidebar-group`、修正 6 条 `.config-button-*` 的性质说明；②`:413` G5 / `:547` T5-7 标「已落地，条目过期」；③`:416` G8 删「`directory-picker.tsx` 消费 `SettingsRow`」（实测未 import）；④`:483` T2-1 与 §0.1 自相矛盾的勾选状态；⑤ADR-0021「每语 612 key」→ 实测 616
-- [x] **T7-2** 本仓 ADR-0019/0020/0021 与 ADR-0022 的「设计规范 0.9.1 快照」口径，补一句「A（参考实现）已到 0.9.3，引用 0.9.1 的结论需复核」
+- [x] **T7-2** 本仓 ADR-0019/0020/0021 与 ADR-0022 的「设计规范 npm 快照」口径，补一句「A（参考实现）已超出快照版本，引用旧快照的结论需复核」
 
 ---
 
@@ -545,7 +545,7 @@ globals.css    A=288  B=271  仅 A 有 47：
 
 | # | 问题 | 背景 | 影响面 |
 |---|---|---|---|
-| **Q1** | **品牌名口径** | A 空态渲染 **`参考实现`**（`ChatWindow.tsx:1356`），B 渲染 **`PiBoat`**（`empty-state.tsx:62`，符合 ADR-0022）。但 ADR-0022 又要求"与 A 完全一样" | 决定是否违反 ADR-0022 |
+| **Q1** | **品牌名口径** | A 空态渲染其自有品牌名（`ChatWindow.tsx:1356`），B 渲染 **`PiBoat`**（`empty-state.tsx:62`，符合 ADR-0022）。但 ADR-0022 又要求"与 A 完全一样" | 决定是否违反 ADR-0022 |
 | **Q2** | **`ProviderIcon` 要不要搬进 composer？** | 实测 A 的 `ProviderIcon.tsx`（43 条映射）**只在设置页**用，composer 里模型选择器用的是"芯片网格" SVG（`ModelSelector.tsx:200-207`）。上轮种子 C3 的描述**不成立** | 决定 composer 是否引入 43 条映射（按"以 A 为唯一真相"应**不引入**） |
 | **Q3** | **`自动命名/导出/统计` 往哪放？** | A 的 composer 完全没有它们（A 对应能力在顶栏/侧栏）；B 有是因为 B 没有 A 的顶栏按钮组 | 决定是直接删，还是先落顶栏 |
 | **Q4** | **「无项目」时 `skills`/`plugins` 的禁用口径** | A 需真实 project cwd（靠 `projectTrustCwd`）；B 退到家目录 `home.data.home`（`settings-host.tsx:68`）。叠加 B 缺 K4 的自动回退，会出现 A 不会有的空态 | 决定 `settings-host.tsx:164-165` 的禁用条件 |

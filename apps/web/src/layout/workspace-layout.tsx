@@ -405,6 +405,7 @@ export function WorkspaceLayout() {
       {settingsOpen && (
         <SettingsHost
           projectRoot={projectRoot}
+          sessionId={activeSessionId}
           onClose={() => setSettingsOpen(false)}
           onNotice={(message, tone) => pushToast(message, tone ?? 'info')}
         />

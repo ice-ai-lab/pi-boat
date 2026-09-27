@@ -63,16 +63,20 @@
 | `PATCH /api/sessions/:id` | `readService.rename()` | 运行中会话 → **409**（提示改走 `set_session_name` 命令，避免与 SDK 写盘竞争）；空白名 → 400 |
 | `DELETE /api/sessions/:id` | `readService.delete()` | 删除会话文件（§8-2）；运行中 → 409 |
 
-### 3.3 项目与模型域（10）——`routes/projects.ts` + `routes/models.ts`
+### 3.3 项目与模型域（13）——`routes/projects.ts` + `routes/models.ts`
 
 | 端点 | core 方法 | 语义要点 |
 |---|---|---|
 | `GET /api/projects?force` | `projectService.listProjects()` | ✅ ADR-0008：项目清单（会话目录派生视图）。`readdir`+`stat`+每目录一次首行头，不解析正文（实测 3–7 ms / 1.8 KB）；按 `projectKey` 合并子目录与 worktree；空目录跳过；**不分页** |
 | `GET /api/models?cwd` | `ConfigService` | 可见模型 + 思考档位 + `thinkingLevelPins` / `modelScopeWarnings` / `defaultModel` |
-| `GET/PUT /api/models-config` | `ConfigService` | models.json 原文读写（PUT 校验后落盘）——**一期唯一的模型凭据入口** |
+| `GET/PUT /api/models-config` | `ConfigService` | models.json 原文读写（PUT 校验后落盘） |
 | `POST /api/models-config/discover` | `ConfigService` | 按 provider `/models` 端点发现（20s 超时） |
 | `POST /api/models-config/test` | `ConfigService` | 真实补全测连通（临时 models.json，20s 超时） |
 | `GET /api/models-config/catalog?q` | `ConfigService` | models.dev 目录（1h 缓存，服务端代理） |
+| `GET /api/models/auth-providers` | `ConfigService` | 可用 API Key 登录的 provider 清单（读 `provider.auth`，不按 id 硬编码；models.json 来源的除外）。**本地读** |
+| `PUT /api/models/api-key` | `ConfigService` | 保存 API Key：走 provider 自己的 `auth.apiKey.login()` 拿标准凭据，再用 proper-lockfile 写 `~/.pi/agent/auth.json`（**不**触发目录联网刷新）；不支持的 provider → 400 |
+| `DELETE /api/models/api-key?provider=` | `ConfigService` | 只删 `api_key` 型凭据；OAuth 凭据回 200 + `type_mismatch` |
+| `POST /api/models/usage` | `ConfigService` | 查 provider 用量/余额（白名单 provider + 官方 origin 校验；**用户点「刷新」才联网**） |
 | `GET/PUT /api/models/enabled` | `ConfigService` + `model-scope` | 可见范围编辑引擎（ADR-0011）：最小编辑 / `prune` / `resync`；项目 shadow → 只读；最后一个模型 → 409 |
 | `POST /api/models/refresh` | `ConfigService` | 按需拉远端目录（只有用户显式请求才联网） |
 

@@ -1,16 +1,20 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { basename, dirname, extname, join, relative, sep } from 'node:path';
 import {
   createAgentSessionServices,
   DefaultPackageManager,
   getAgentDir,
   hasTrustRequiringProjectResources,
   ProjectTrustStore,
+  type ResolvedPaths,
+  type ResolvedResource,
   type SettingsManager,
 } from '@earendil-works/pi-coding-agent';
 import type {
   PluginActionRequest,
   PluginPackageInfo,
+  PluginResourceCounts,
+  PluginResourceInfo,
   PluginsResponse,
   ProjectTrustResponse,
   ResourceDiagnostic,
@@ -165,7 +169,6 @@ export class ResourceService {
       agentDir: ctx.agentDir,
       settingsManager: ctx.settingsManager,
     });
-    const extensions = services.resourceLoader.getExtensions();
     const skills = services.resourceLoader.getSkills();
     const manager = new DefaultPackageManager({
       cwd: ctx.cwd,
@@ -173,46 +176,82 @@ export class ResourceService {
       settingsManager: ctx.settingsManager,
     });
 
-    const configured = manager.listConfiguredPackages();
-    const enabledSources = new Set(configured.map((entry) => entry.source));
-    const packages: PluginPackageInfo[] = configured.map((entry) => ({
-      source: entry.source,
-      displayName: displayNameOf(entry.source),
-      scope: entry.scope,
-      type: sourceType(entry.source),
-      ...(entry.installedPath !== undefined ? { installedPath: entry.installedPath } : {}),
-      filtered: entry.filtered,
-      enabled: enabledSources.has(entry.source),
-    }));
+    // resolve() 给出每个资源的来源（哪个包 / 顶层独立扩展）与启用态——
+    // 「状态 / 已解析资源」两块展示全靠它；缺包（配置了没装上）时跳过并记诊断
+    const diagnostics: ResourceDiagnostic[] = [];
+    let resolved: ResolvedPaths = { extensions: [], skills: [], prompts: [], themes: [] };
+    try {
+      resolved = await manager.resolve(async (source) => {
+        diagnostics.push({
+          type: 'warning',
+          message: `Package ${source} is configured but not installed yet.`,
+        });
+        return 'skip';
+      });
+    } catch (error) {
+      diagnostics.push({
+        type: 'error',
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+    const collected = collectResources(resolved);
 
-    // 非包形式：用户直接放进扩展目录的文件（没有 npm/git 来源）
-    const standalone = extensions.extensions
-      .map((extension) => extension.path)
-      .filter(
-        (path) =>
-          !packages.some(
-            (pkg) => pkg.installedPath !== undefined && path.startsWith(pkg.installedPath),
-          ),
-      );
+    const disabledByPackage = getDisabledPackages(ctx.settingsManager);
+    const packages: PluginPackageInfo[] = manager.listConfiguredPackages().map((entry) => {
+      const scope = entry.scope === 'project' ? 'project' : 'user';
+      const key = packageKey(entry.source, scope);
+      const disabled = disabledByPackage.get(key) ?? false;
+      const counts = collected.countsByPackage.get(key) ?? emptyCounts();
+      const resources = collected.resourcesByPackage.get(key) ?? [];
+      const resourceCount = counts.extensions + counts.skills + counts.prompts + counts.themes;
+      const metadata = readPackageMetadata(entry.installedPath);
+      if (entry.installedPath === undefined) {
+        diagnostics.push({
+          type: 'warning',
+          message: `Configured package ${entry.source} was not found on disk.`,
+        });
+      }
+      return {
+        source: entry.source,
+        displayName: displayNameOf(entry.source),
+        scope,
+        type: sourceType(entry.source),
+        ...(entry.installedPath !== undefined ? { installedPath: entry.installedPath } : {}),
+        filtered: entry.filtered,
+        enabled: !disabled,
+        ...(metadata.packageName !== undefined ? { packageName: metadata.packageName } : {}),
+        ...(metadata.version !== undefined ? { version: metadata.version } : {}),
+        ...(getConfiguredVersion(entry.source) !== undefined
+          ? { configuredVersion: getConfiguredVersion(entry.source) }
+          : {}),
+        ...(metadata.description !== undefined ? { description: metadata.description } : {}),
+        counts,
+        resources,
+        status: disabled
+          ? 'disabled'
+          : resourceCount > 0
+            ? 'loaded'
+            : entry.installedPath !== undefined
+              ? 'installed'
+              : 'missing',
+      } satisfies PluginPackageInfo;
+    });
 
+    // resolve() 的 errors 里有加载失败的独立扩展文件，转成诊断
     return {
       packages,
-      standaloneExtensions: standalone,
+      standaloneExtensions: collected.standaloneExtensions,
       totals: {
+        ...collected.totals,
         packages: packages.length,
-        extensions: extensions.extensions.length,
-        skills: skills.skills.length,
       },
       diagnostics: [
-        ...extensions.errors.map((error) => ({
-          type: 'error' as const,
-          message: `Failed to load extension ${error.path}: ${error.error}`,
-        })),
+        ...diagnostics,
         ...skills.diagnostics.map((diagnostic) => ({
           type: diagnostic.type,
           message: diagnostic.message,
         })),
-      ] satisfies ResourceDiagnostic[],
+      ],
       projectResourcesLoaded: ctx.projectResourcesLoaded,
     };
   }
@@ -251,13 +290,33 @@ export class ResourceService {
         break;
       }
       case 'disable': {
-        // 只摘来源，不删磁盘（见上）
-        manager.removeSourceFromSettings(this.requireSource(input.source), { local });
+        // 保留来源、清空资源过滤器：侧栏行不消失，开关可随时开回（与 remove 的
+        // 「连磁盘一起删」是两回事；旧的「摘来源」语义会让行直接蒸发，误以为被删了）
+        if (
+          !setPackageDisabled(
+            ctx.settingsManager,
+            this.requireSource(input.source),
+            input.scope === 'project' ? 'project' : 'user',
+            true,
+          )
+        ) {
+          break;
+        }
         await ctx.settingsManager.flush();
         break;
       }
       case 'enable': {
-        manager.addSourceToSettings(this.requireSource(input.source), { local });
+        if (
+          !setPackageDisabled(
+            ctx.settingsManager,
+            this.requireSource(input.source),
+            input.scope === 'project' ? 'project' : 'user',
+            false,
+          )
+        ) {
+          // settings 里没有这个来源（旧版语义留下的缺口）：补上
+          manager.addSourceToSettings(this.requireSource(input.source), { local });
+        }
         await ctx.settingsManager.flush();
         break;
       }
@@ -285,7 +344,7 @@ export class ResourceService {
       return {
         results: configured.map((entry) => {
           const update = pending.get(entry.source);
-          const current = readInstalledVersion(entry.installedPath);
+          const current = readPackageMetadata(entry.installedPath).version;
           return {
             package: entry.source,
             state: update !== undefined ? 'update-available' : 'up-to-date',
@@ -378,7 +437,7 @@ export class ResourceService {
         results.push({ package: entry.source, state: 'unsupported' });
         continue;
       }
-      const current = readInstalledVersion(entry.installedPath);
+      const current = readPackageMetadata(entry.installedPath).version;
       const latest = await this.latestRegistryVersion(entry.source);
       if (latest === null) {
         results.push({
@@ -620,25 +679,201 @@ function displayNameOf(source: string): string {
   return slash === -1 ? source : source.slice(slash + 1).replace(/\.git$/, '');
 }
 
-/** 读磁盘上已装包的版本（npm 布局：`<installedPath>/package.json`） */
-function readInstalledVersion(installedPath: string | undefined): string | undefined {
-  if (installedPath === undefined) return undefined;
-  try {
-    // 同步读：调用点已经在 await 链上，且这是 package.json（小文件）
-    const content = readFileSyncCached(join(installedPath, 'package.json'));
-    if (content === null) return undefined;
-    const parsed = JSON.parse(content) as { version?: unknown };
-    return typeof parsed.version === 'string' ? parsed.version : undefined;
-  } catch {
-    return undefined;
-  }
+// ---------------------------------------------------------------------------
+// 插件清单：资源归包 / 禁用表 / 包元数据
+// ---------------------------------------------------------------------------
+
+function emptyCounts(): PluginResourceCounts {
+  return { extensions: 0, skills: 0, prompts: 0, themes: 0 };
 }
 
-function readFileSyncCached(path: string): string | null {
+function packageKey(source: string, scope: 'user' | 'project'): string {
+  return `${scope}\0${source}`;
+}
+
+/** settings 里 packages 条目的「禁用」判定：四类资源过滤器全空 = 禁用 */
+function isDisabledPackageEntry(entry: unknown): boolean {
+  if (typeof entry === 'string') return false;
+  if (typeof entry !== 'object' || entry === null) return false;
+  const record = entry as Record<string, unknown>;
+  return (
+    Array.isArray(record.extensions) &&
+    record.extensions.length === 0 &&
+    Array.isArray(record.skills) &&
+    record.skills.length === 0 &&
+    Array.isArray(record.prompts) &&
+    record.prompts.length === 0 &&
+    Array.isArray(record.themes) &&
+    record.themes.length === 0
+  );
+}
+
+function getDisabledPackages(settingsManager: SettingsManager): Map<string, boolean> {
+  const disabled = new Map<string, boolean>();
+  const globalPackages: unknown = settingsManager.getGlobalSettings().packages;
+  if (Array.isArray(globalPackages)) {
+    for (const entry of globalPackages) {
+      const source =
+        typeof entry === 'string' ? entry : String((entry as { source?: unknown })?.source ?? '');
+      disabled.set(packageKey(source, 'user'), isDisabledPackageEntry(entry));
+    }
+  }
+  const projectPackages: unknown = settingsManager.getProjectSettings().packages;
+  if (Array.isArray(projectPackages)) {
+    for (const entry of projectPackages) {
+      const source =
+        typeof entry === 'string' ? entry : String((entry as { source?: unknown })?.source ?? '');
+      disabled.set(packageKey(source, 'project'), isDisabledPackageEntry(entry));
+    }
+  }
+  return disabled;
+}
+
+/** 把某个来源的四类资源过滤器清空（禁用）或还原为纯来源串（启用）；返回是否有改动 */
+function setPackageDisabled(
+  settingsManager: SettingsManager,
+  source: string,
+  scope: 'user' | 'project',
+  disabled: boolean,
+): boolean {
+  type PackageEntry = Record<string, unknown> & { source: string };
+  const current = (
+    scope === 'project'
+      ? settingsManager.getProjectSettings().packages
+      : settingsManager.getGlobalSettings().packages
+  ) as unknown;
+  if (!Array.isArray(current)) return false;
+  let changed = false;
+  const next = current.map((entry): unknown => {
+    const entrySource =
+      typeof entry === 'string' ? entry : String((entry as { source?: unknown })?.source ?? '');
+    if (entrySource !== source) return entry;
+    changed = true;
+    if (!disabled) return source;
+    const base: PackageEntry =
+      typeof entry === 'string' ? { source: entry } : { ...(entry as PackageEntry) };
+    return { ...base, extensions: [], skills: [], prompts: [], themes: [] };
+  });
+  if (!changed) return false;
+  const list = next as Parameters<SettingsManager['setPackages']>[0];
+  if (scope === 'project') settingsManager.setProjectPackages(list);
+  else settingsManager.setPackages(list);
+  return true;
+}
+
+function resourceKindOf(kind: keyof PluginResourceCounts): PluginResourceInfo['kind'] {
+  return kind === 'extensions' ? 'extension' : (kind.slice(0, -1) as PluginResourceInfo['kind']);
+}
+
+/** 展示名：SKILL.md 取目录名；index.ts 取父目录名；其余去扩展名 */
+function getResourceName(path: string, kind: PluginResourceInfo['kind']): string {
+  const file = basename(path);
+  const ext = extname(file);
+  if (kind === 'skill' && file.toLowerCase() === 'skill.md') return basename(dirname(path));
+  if ((kind === 'extension' || kind === 'theme' || kind === 'prompt') && ext !== '') {
+    if (kind === 'extension' && /^index\.(ts|js)$/.test(file)) return basename(dirname(path));
+    return file.slice(0, -ext.length);
+  }
+  return file;
+}
+
+function getRelativePath(resource: ResolvedResource): string {
+  const baseDir = resource.metadata.baseDir;
+  if (baseDir === undefined) return resource.path;
+  const rel = relative(baseDir, resource.path);
+  // 归一到正斜杠：API 输出跨平台稳定（Node 的 relative 在 Windows 回反斜杠）
+  return rel !== '' && !rel.startsWith('..') ? rel.split(sep).join('/') : resource.path;
+}
+
+function toResourceInfo(
+  resource: ResolvedResource,
+  kind: PluginResourceInfo['kind'],
+): PluginResourceInfo {
+  return {
+    kind,
+    name: getResourceName(resource.path, kind),
+    path: resource.path,
+    relativePath: getRelativePath(resource),
+  };
+}
+
+function collectResources(resolved: ResolvedPaths): {
+  countsByPackage: Map<string, PluginResourceCounts>;
+  resourcesByPackage: Map<string, PluginResourceInfo[]>;
+  standaloneExtensions: PluginsResponse['standaloneExtensions'];
+  totals: PluginResourceCounts;
+} {
+  const countsByPackage = new Map<string, PluginResourceCounts>();
+  const resourcesByPackage = new Map<string, PluginResourceInfo[]>();
+  const totals = emptyCounts();
+  const collect = (resource: ResolvedResource, kind: keyof PluginResourceCounts) => {
+    if (!resource.enabled || resource.metadata.origin !== 'package') return;
+    const scope = resource.metadata.scope === 'project' ? 'project' : 'user';
+    const key = packageKey(resource.metadata.source, scope);
+    const counts = countsByPackage.get(key) ?? emptyCounts();
+    counts[kind] += 1;
+    totals[kind] += 1;
+    countsByPackage.set(key, counts);
+    const resources = resourcesByPackage.get(key) ?? [];
+    resources.push(toResourceInfo(resource, resourceKindOf(kind)));
+    resourcesByPackage.set(key, resources);
+  };
+  for (const resource of resolved.extensions) collect(resource, 'extensions');
+  for (const resource of resolved.skills) collect(resource, 'skills');
+  for (const resource of resolved.prompts) collect(resource, 'prompts');
+  for (const resource of resolved.themes) collect(resource, 'themes');
+  // 顶层独立扩展（不在任何包里）：单独一列，启用数计入 totals
+  const standaloneExtensions = resolved.extensions
+    .filter((resource) => resource.metadata.origin === 'top-level')
+    .map((resource): PluginsResponse['standaloneExtensions'][number] => ({
+      ...toResourceInfo(resource, 'extension'),
+      kind: 'extension' as const,
+      scope: resource.metadata.scope,
+      enabled: resource.enabled,
+    }));
+  totals.extensions += standaloneExtensions.filter((extension) => extension.enabled).length;
+  return { countsByPackage, resourcesByPackage, standaloneExtensions, totals };
+}
+
+/** 来源声明里带的版本（`npm:pkg@1.2.3` 的 1.2.3；git URL 同理） */
+function getConfiguredVersion(source: string): string | undefined {
+  const npmSpec = source.startsWith('npm:') ? source.slice(4) : undefined;
+  if (npmSpec !== undefined) {
+    const lastAt = npmSpec.lastIndexOf('@');
+    const packageNameEnd = npmSpec.startsWith('@') ? npmSpec.indexOf('/', 1) : 0;
+    if (lastAt > packageNameEnd) return npmSpec.slice(lastAt + 1) || undefined;
+    return undefined;
+  }
+  if (source.startsWith('git:') || /^[a-z]+:\/\//.test(source)) {
+    const lastAt = source.lastIndexOf('@');
+    const lastSlash = source.lastIndexOf('/');
+    const lastColon = source.lastIndexOf(':');
+    if (lastAt > Math.max(lastSlash, lastColon)) return source.slice(lastAt + 1) || undefined;
+  }
+  return undefined;
+}
+
+/** 读磁盘上已装包的 package.json 元数据（同步读：调用点已在 await 链上，文件很小） */
+function readPackageMetadata(installedPath: string | undefined): {
+  packageName?: string;
+  version?: string;
+  description?: string;
+} {
+  if (installedPath === undefined) return {};
   try {
-    return readFileSync(path, 'utf8');
+    const content = readFileSync(join(installedPath, 'package.json'), 'utf8');
+    const parsed = JSON.parse(content) as {
+      name?: unknown;
+      version?: unknown;
+      description?: unknown;
+    };
+    return {
+      ...(typeof parsed.name === 'string' ? { packageName: parsed.name } : {}),
+      ...(typeof parsed.version === 'string' ? { version: parsed.version } : {}),
+      ...(typeof parsed.description === 'string' ? { description: parsed.description } : {}),
+    };
   } catch {
-    return null;
+    return {};
   }
 }
 

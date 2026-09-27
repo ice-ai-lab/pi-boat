@@ -198,9 +198,9 @@
 | 域 | 端点 | 处置 |
 |---|---|---|
 | 鉴权 | `GET/POST/DELETE /api/web-auth` | ⛔ §8-1 |
-| 登录 | `GET /api/auth/providers`、`GET/POST /api/auth/login/:provider`、`POST /api/auth/logout/:provider` | ⛔ §8-2 |
-| 凭据写入 | `POST/DELETE /api/auth/api-key/:provider` | ⛔ §8-2（边界见该节） |
-| 用量查询 | `POST /api/provider-usage/query` | ⏸ 待定（见 §8-2 边界说明） |
+| 登录 | `GET /api/auth/providers`、`GET/POST /api/auth/login/:provider`、`POST /api/auth/logout/:provider` | ⛔ §8-2（OAuth 登录流仍排除；API Key 清单已按 ADR-0025 恢复为 `GET /api/models/auth-providers`） |
+| 凭据写入 | `POST/DELETE /api/auth/api-key/:provider` | ✅ 已恢复（ADR-0025，端点改为 `PUT/DELETE /api/models/api-key`） |
+| 用量查询 | `POST /api/provider-usage/query` | ✅ 已恢复（ADR-0025，端点改为 `POST /api/models/usage`） |
 | 终端 | `POST /api/terminal`、`GET/POST/DELETE /api/terminal/:id`、`GET /api/terminal/:id/events` | ⛔ §8-3 |
 | Shell 直连 / bash 输出 | `bash` / `abort_bash`（命令）与 `GET /api/agent/:id/bash-output` | ⛔ §8-3 |
 | 子代理 | `/api/subagents/settings`、`/api/subagents/profiles`、`/api/subagents/:id` | ⏸ 延后 §8-4 |
@@ -328,7 +328,8 @@
 - **不做**：`GET /api/auth/providers`、`GET/POST /api/auth/login/:provider`（OAuth / device-code SSE）、`POST /api/auth/logout/:provider`。
 - **边界说明**：本仓按「登录能力」理解为**整个 provider 身份认证入口**，因此把 `POST/DELETE /api/auth/api-key/:provider`（凭据写入）也一并排除；模型凭据一期**只经 `GET/PUT /api/models-config`**（models.json 原文，含 provider 级 `apiKey`），或由用户在本机的 `pi` CLI / TUI 里配置后由本服务读取。
   - 若日后希望保留「在 Web 里写 API Key」，只恢复 `api-key` 两个方法即可，其余不动。
-- **连带结果**：`POST /api/provider-usage/query`（余额/用量查询）标 ⏸ —— 它不属登录流程，但依赖 provider 凭据来源；若要保留，需明确凭据由谁维护。默认**不做**。
+  - **2026-09-27 修订（ADR-0025）**：已沿此路径恢复——API Key 管理与用量查询落地（端点收进模型域），OAuth 登录流维持排除。
+- **连带结果**：`POST /api/provider-usage/query`（余额/用量查询）标 ⏸ —— 它不属登录流程，但依赖 provider 凭据来源；若要保留，需明确凭据由谁维护。默认**不做**。（**2026-09-27 修订**：已随 ADR-0025 恢复，白名单 provider + 官方 origin 校验。）
 - **出处**：用户 2026-01 定案。
 
 ### 8-3 终端（PTY）⛔

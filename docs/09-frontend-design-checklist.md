@@ -150,7 +150,7 @@ protocol 31 / client 83 / ui 16 / web 3 用例）。双实例 DOM 取证：品�
 
 ---
 
-## 0.3 第四轮实施进度（2026-09-26，参考实现 0.9.3 逐屏对拍）
+## 0.3 第四轮实施进度（2026-09-26，参考实现逐屏对拍）
 
 > 完整清单与取证在 `docs/10-frontend-parity-audit.md`（第四轮报告入库版）。本节只记**已完成**的部分，
 > 任务编号用第四轮的 T 编号（与本文 T5-x 编号不同名，切勿混用）。
@@ -633,7 +633,7 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 - [x] **T3-11** 助手底部：cache W + `$cost` + 复制 + 时间戳 + 截断告警；`TurnWrittenFiles` 改内联 chip 并移入 `AssistantTurn`。〔C13/C14〕
 - [ ] **T3-12** 运行态 phase 文案行。〔C18〕
   - ⚠️ 2026-09-27 复查：**实际未落地**（`chat.runningNamedTool` / `chat.waitingModel` 等 key 零消费方，
-    只有 `assistant-turn.tsx` 的「生成中…」）。回退勾选，以 `docs/10` C18 为准；参考实现在 设计规范
+    只有 `assistant-turn.tsx` 的「生成中…」）。回退勾选，以 `docs/10` C18 为准；参考实现见
     `components/ChatWindow.tsx` 的 `phaseLabel()`（需把 `AgentPhase` 从 fold 状态派生）。
 - [x] **T3-13** 新建 `notice-shelf.tsx`（右上角页内通知，替换中栏底部 toast）。〔C19〕
 - [x] **T3-14** markdown 补 katex / mermaid / 本地文件链接拦截 / `MAX_MARKDOWN_CHARS` 保护；补 `.contains-task-list`/`.task-list-item` 的消费。〔C17〕

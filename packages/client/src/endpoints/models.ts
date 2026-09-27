@@ -1,4 +1,7 @@
 import type {
+  ApiKeyRemoveResult,
+  ApiKeySetRequest,
+  AuthProvidersResponse,
   CatalogModel,
   DiscoveredModel,
   ModelsConfigTestRequest,
@@ -9,6 +12,7 @@ import type {
   ModelsRefreshResponse,
   ModelsResponse,
   ProviderDraft,
+  ProviderUsageResponse,
 } from '@ice-ai/protocol';
 import { getJson, http } from '../http';
 
@@ -61,6 +65,29 @@ export function testModel(input: ModelsConfigTestRequest): Promise<ModelsConfigT
 export function getModelCatalog(q?: string): Promise<{ models: CatalogModel[]; error?: string }> {
   const qs = q === undefined || q.length === 0 ? '' : `?q=${encodeURIComponent(q)}`;
   return getJson(`/models-config/catalog${qs}`);
+}
+
+/** GET /api/models/auth-providers —— 可用 API Key 登录的 provider 清单（本地读） */
+export function getAuthProviders(cwd?: string): Promise<AuthProvidersResponse> {
+  const qs = cwd === undefined ? '' : `?cwd=${encodeURIComponent(cwd)}`;
+  return getJson<AuthProvidersResponse>(`/models/auth-providers${qs}`);
+}
+
+/** PUT /api/models/api-key —— 保存 API Key（写 auth.json，不触发目录刷新） */
+export function putProviderApiKey(request: ApiKeySetRequest): Promise<{ success: true }> {
+  return http.put<{ success: true }>('/models/api-key', request).then((res) => res.data);
+}
+
+/** DELETE /api/models/api-key —— 只删 API Key 凭据；OAuth 凭据回 type_mismatch */
+export function deleteProviderApiKey(provider: string): Promise<ApiKeyRemoveResult> {
+  return http
+    .delete<ApiKeyRemoveResult>(`/models/api-key?provider=${encodeURIComponent(provider)}`)
+    .then((res) => res.data);
+}
+
+/** POST /api/models/usage —— 查 provider 用量/余额（联网；白名单 provider） */
+export function queryProviderUsage(providerId: string): Promise<ProviderUsageResponse> {
+  return http.post<ProviderUsageResponse>('/models/usage', { providerId }).then((res) => res.data);
 }
 
 /** GET /api/models/enabled?cwd= —— 可见范围（只读；scope=project 时 canWrite=false） */

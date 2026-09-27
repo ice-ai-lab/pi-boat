@@ -41,12 +41,16 @@ export {
   validateCwd,
 } from './endpoints/files';
 export {
+  deleteProviderApiKey,
   discoverModels,
+  getAuthProviders,
   getEnabledModels,
   getModelCatalog,
   getModels,
   getModelsConfig,
   putModelsConfig,
+  putProviderApiKey,
+  queryProviderUsage,
   refreshModels,
   testModel,
   updateEnabledModels,

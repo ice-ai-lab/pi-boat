@@ -59,6 +59,11 @@ export {
   writeToolSelection,
 } from './agent/session-tool-selection';
 export {
+  type CredentialRemovalResult,
+  removeStoredCredentialIfType,
+  storeProviderCredential,
+} from './config/auth-store';
+export {
   ConfigService,
   InvalidScopeEditError,
   ProjectShadowedError,
@@ -80,6 +85,12 @@ export {
   readModelsConfig,
   writeModelsConfig,
 } from './config/models-config-store';
+export {
+  isProviderUsageId,
+  normalizeProviderUsagePayload,
+  PROVIDER_USAGE_IDS,
+  type ProviderUsageId,
+} from './config/provider-usage';
 export {
   toWireAgentEvent,
   toWireAgentEventPayload,

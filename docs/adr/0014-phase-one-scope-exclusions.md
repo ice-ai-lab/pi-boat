@@ -1,7 +1,7 @@
 # ADR-0014：一期范围排除与延后（鉴权 / 登录 / 终端 / 内建子代理运行时）
 
 - 日期：2026-01
-- 状态：已接受（Accepted）
+- 状态：已接受（Accepted；**§2 部分修订**：API Key 管理与用量查询已由 ADR-0025 恢复，OAuth 登录流仍排除）
 - 关联文档：`docs/01-overview.md` §9-4a（同内容的工程视图）；`docs/02-protocol-inventory.md` §5.3 / §6.5 / §6.8 / §10；`docs/07-backend-capability-gap.md` §8（排除/延后清单与理由）
 - 关联决策：**部分取代 ADR-0007**（其「LAN 场景另议」段落在本文改为明确不做）；ADR-0012（扩展 UI 不引入 TUI 渲染，与终端排除保持一致）
 

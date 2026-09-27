@@ -6,10 +6,12 @@ import {
   CONFIG_DIR_NAME,
   createAgentSessionServices,
   getAgentDir,
-  type ModelRuntime,
+  ModelRuntime,
   type SettingsManager,
 } from '@earendil-works/pi-coding-agent';
 import type {
+  ApiKeyRemoveResult,
+  AuthProvidersResponse,
   CatalogModel,
   DiscoveredModel,
   ModelsConfigDiscoverRequest,
@@ -21,7 +23,10 @@ import type {
   ModelsRefreshResponse,
   ModelsResponse,
   ProviderDraft,
+  ProviderUsageResponse,
 } from '@ice-ai/protocol';
+import { UserInputError } from '../agent/agent-session-service';
+import { removeStoredCredentialIfType, storeProviderCredential } from './auth-store';
 import {
   LastModelRejectionError,
   modelKey,
@@ -31,6 +36,7 @@ import {
   toggleModelInPatterns,
 } from './model-scope';
 import { modelsConfigPath, readModelsConfig, writeModelsConfig } from './models-config-store';
+import { isProviderUsageId, queryProviderUsage } from './provider-usage';
 
 /**
  * 模型域服务（docs/02 §6.4；决策 ADR-0011）。
@@ -48,6 +54,9 @@ import { modelsConfigPath, readModelsConfig, writeModelsConfig } from './models-
 const CATALOG_TTL_MS = 60 * 60_000;
 const MODELS_DEV_URL = 'https://models.dev/api.json';
 const NETWORK_TIMEOUT_MS = 20_000;
+
+/** 这些 source 的「已配置」来自 models.json 本身，不算 auth.json 的 API Key 配置 */
+const CUSTOM_PROVIDER_SOURCES = new Set(['models_json_key', 'models_json_command']);
 
 interface RuntimeHandle {
   modelRuntime: ModelRuntime;
@@ -260,6 +269,95 @@ export class ConfigService {
         `Failed to write settings: ${describeSettingsError(errors[0])}`,
       );
     }
+  }
+
+  // ------------------------------------------------------------------
+  // Provider 鉴权（API Key 清单 / 保存 / 断开）——写盘只碰 auth.json
+  // ------------------------------------------------------------------
+
+  /**
+   * 可用 API Key 登录的 provider 清单（供设置面板侧栏）。
+   *
+   * 与 参考实现 同一条铁则：provider 支持哪些鉴权方式是 SDK provider 定义的属性，
+   * 只读 `provider.auth`，**不按 id 硬编码**（双鉴权 provider 在不同版本间会变）。
+   * models.json 自定义 provider（source 带 models_json_*）不进来：它们已经在
+   * 面板的「自定义 Provider」段里直接编辑原文。
+   */
+  async authProviders(cwd = process.cwd()): Promise<AuthProvidersResponse> {
+    const handle = await this.createHandle(cwd);
+    const credentials = new Map(
+      (await handle.modelRuntime.listCredentials()).map((entry) => [entry.providerId, entry.type]),
+    );
+    const providers: AuthProvidersResponse['providers'] = [];
+    const seen = new Set<string>();
+    for (const provider of handle.modelRuntime.getProviders()) {
+      if (seen.has(provider.id)) continue;
+      seen.add(provider.id);
+      if (provider.auth.apiKey?.login === undefined) continue;
+      const status = handle.modelRuntime.getProviderAuthStatus(provider.id);
+      if (status.source !== undefined && CUSTOM_PROVIDER_SOURCES.has(status.source)) continue;
+      const configured = status.configured && credentials.get(provider.id) !== 'oauth';
+      providers.push({
+        id: provider.id,
+        displayName: provider.name,
+        configured,
+        ...(configured && status.source !== undefined ? { source: status.source } : {}),
+        modelCount: provider.getModels().length,
+        supportsOAuth: provider.auth.oauth !== undefined,
+      });
+    }
+    return { providers };
+  }
+
+  /**
+   * 保存 API Key：走 provider 自己的 login 流程拿到标准凭据（它知道 key 该
+   * 怎么归类、要不要附带 provider 级 env），再落盘 auth.json。
+   */
+  async setApiKey(providerId: string, apiKey: string): Promise<{ success: true }> {
+    const handle = await this.createHandle(process.cwd());
+    const provider = handle.modelRuntime.getProvider(providerId);
+    const apiKeyAuth = provider?.auth.apiKey;
+    if (apiKeyAuth?.login === undefined) {
+      throw new UserInputError(`${providerId} does not support API key login`);
+    }
+    let keySubmitted = false;
+    const credential = await apiKeyAuth.login({
+      signal: AbortSignal.timeout(NETWORK_TIMEOUT_MS),
+      notify: () => {},
+      prompt: async (prompt) => {
+        if (prompt.type === 'select') {
+          const keyOption = prompt.options.find(
+            (option) => option.id === 'api-key' || option.id === 'bearer-token',
+          );
+          if (keyOption !== undefined) return keyOption.id;
+          throw new Error(`${providerId} requires interactive authentication setup`);
+        }
+        if (!keySubmitted && (prompt.type === 'secret' || prompt.type === 'text')) {
+          keySubmitted = true;
+          return apiKey;
+        }
+        throw new Error(`${providerId} requires additional authentication settings`);
+      },
+    });
+    await storeProviderCredential(providerId, credential);
+    return { success: true };
+  }
+
+  /** 断开（只删 API Key 凭据；OAuth 凭据报 type_mismatch，由前端提示） */
+  async removeApiKey(providerId: string): Promise<ApiKeyRemoveResult> {
+    return removeStoredCredentialIfType(providerId, 'api_key');
+  }
+
+  // ------------------------------------------------------------------
+  // Provider 用量（余额 / 额度窗口）——用户点「刷新」才联网
+  // ------------------------------------------------------------------
+
+  async providerUsage(providerId: string): Promise<ProviderUsageResponse> {
+    if (!isProviderUsageId(providerId)) {
+      return { providerId, status: 'query-failed', message: 'Unsupported provider.' };
+    }
+    const runtime = await ModelRuntime.create({ refreshOnCreate: false });
+    return queryProviderUsage(runtime, providerId);
   }
 
   // ------------------------------------------------------------------

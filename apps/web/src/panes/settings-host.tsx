@@ -1,10 +1,12 @@
 import {
   isThinkingExpandedByDefault,
   parseModelsConfigDraft,
+  sendAgentCommand,
   setThinkingExpandedByDefault,
   THEME_OPTIONS,
 } from '@ice-ai/client';
 import {
+  useAuthProvidersQuery,
   useCheckPluginUpdatesMutation,
   useCheckSkillUpdatesMutation,
   useEnabledModelsQuery,
@@ -15,8 +17,11 @@ import {
   usePatchSkillMutation,
   usePluginActionMutation,
   usePluginsQuery,
+  useProviderUsageMutation,
   useRefreshModelsMutation,
+  useRemoveApiKeyMutation,
   useSearchSkillsMutation,
+  useSetApiKeyMutation,
   useSkillsQuery,
   useUpdateEnabledModelsMutation,
   useUpdateModelsConfigMutation,
@@ -41,17 +46,20 @@ import { useTheme } from '../services/theme';
 import { useChatAppearance } from '../services/use-chat-appearance';
 
 /**
- * SettingsHost（F4）：设置浮层的数据装配——模型（可见范围/原文/目录刷新）、
- * skills、plugins。节导航记忆走 services/settings-navigation（项目信任改由 ProjectTrustDialog 承担）。
+ * SettingsHost（F4）：设置浮层的数据装配——模型（provider 主从视图 / 可见范围 /
+ * 目录刷新）、skills、plugins。节导航记忆走 services/settings-navigation
+ * （项目信任改由 ProjectTrustDialog 承担）。
  */
 export interface SettingsHostProps {
   /** 当前项目根（决定项目级资源与信任范围） */
   projectRoot: string | null;
+  /** 当前会话 id（插件「重新加载会话」用；没有会话时该动作禁用） */
+  sessionId: string | null;
   onClose(): void;
   onNotice(message: string, tone?: 'info' | 'error'): void;
 }
 
-export function SettingsHost({ projectRoot, onClose, onNotice }: SettingsHostProps) {
+export function SettingsHost({ projectRoot, sessionId, onClose, onNotice }: SettingsHostProps) {
   const { t } = useI18n();
   const [section, setSection] = useState<SectionId>(() => getLastSettingsSection());
   const chatAppearance = useChatAppearance();
@@ -77,7 +85,7 @@ export function SettingsHost({ projectRoot, onClose, onNotice }: SettingsHostPro
   /** 项目级资源的 cwd：没有项目就没有项目域资源（与禁用口径同一判据，K5） */
   const resourceCwd = projectRoot;
 
-  // —— 模型 ——
+  // —— 模型：provider 清单 / 可见范围 / models.json 草稿 / 目录 ——
   const models = useModelsQuery(projectRoot ?? undefined);
   const enabled = useEnabledModelsQuery(projectRoot ?? undefined);
   const updateEnabled = useUpdateEnabledModelsMutation(projectRoot ?? undefined);
@@ -85,13 +93,15 @@ export function SettingsHost({ projectRoot, onClose, onNotice }: SettingsHostPro
   const saveConfig = useUpdateModelsConfigMutation();
   const refreshModels = useRefreshModelsMutation();
   const catalog = useModelCatalogMutation();
+  const authProviders = useAuthProvidersQuery(projectRoot ?? undefined);
+  const setApiKey = useSetApiKeyMutation();
+  const removeApiKey = useRemoveApiKeyMutation();
+  const queryUsage = useProviderUsageMutation();
 
   const [configText, setConfigText] = useState('');
-  const [catalogQuery, setCatalogQuery] = useState('');
   const [refreshResult, setRefreshResult] = useState<string | null>(null);
 
   // models.json 载入 → 编辑草稿（重新载入时覆盖）
-  const _configLoadedAt = config.dataUpdatedAt;
   useEffect(() => {
     if (config.data !== undefined) setConfigText(JSON.stringify(config.data.config, null, 2));
   }, [config.data]);
@@ -104,7 +114,7 @@ export function SettingsHost({ projectRoot, onClose, onNotice }: SettingsHostPro
 
   const modelItems = useMemo(() => {
     // 服务端 enabled.models 的 id 是**裸 id**（provider 在旁字段）——必须按 provider:id 组合
-    // 与上面的 modelList 对齐，否则勾选态永远错位（会误导用户反向操作）
+    // 与 models 的 modelList 对齐，否则勾选态永远错位（会误导用户反向操作）
     const enabledIds = new Set(
       (enabled.data?.models ?? []).map((model) => `${model.provider}:${model.id}`),
     );
@@ -201,19 +211,20 @@ export function SettingsHost({ projectRoot, onClose, onNotice }: SettingsHostPro
     if (id === 'models') {
       return (
         <ModelsSection
+          cwd={projectRoot}
+          authProviders={authProviders.data?.providers ?? []}
+          authProvidersLoading={authProviders.isLoading}
           enabled={{
             models: modelItems,
-            scope: enabled.data?.scope ?? 'global',
             canWrite: enabled.data?.canWrite ?? false,
-            settingsPath: enabled.data?.settingsPath ?? '',
-            warnings: enabled.data?.warnings ?? [],
+            busy: updateEnabled.isPending,
             hint:
               modelItems.length === 0
                 ? '没有可见模型：模型选择器会退化为「全部可用」'
                 : enabledCount === 1
                   ? '只剩 1 个可见模型：关闭它会退回「全部可用」语义，故被禁止'
                   : null,
-            busy: updateEnabled.isPending,
+            warnings: enabled.data?.warnings ?? [],
             onToggle: toggleEnabled,
             onPrune: () =>
               updateEnabled.mutate(
@@ -246,12 +257,43 @@ export function SettingsHost({ projectRoot, onClose, onNotice }: SettingsHostPro
             onSave: () => {
               if (!parseResult.ok) return;
               saveConfig.mutate(parseResult.value, {
-                onSuccess: () => onNotice('models.json 已保存'),
+                onSuccess: () => {
+                  onNotice('models.json 已保存');
+                  void authProviders.refetch();
+                },
                 onError: (error) => onNotice(`保存失败：${error.message}`, 'error'),
               });
             },
-            onReload: () => void config.refetch(),
           }}
+          apiKey={{
+            saving: setApiKey.isPending || removeApiKey.isPending,
+            onSave: (providerId, apiKey) => {
+              setApiKey.mutate(
+                { provider: providerId, apiKey },
+                {
+                  onSuccess: () => onNotice('API Key 已保存'),
+                  onError: (error) => onNotice(`保存失败：${error.message}`, 'error'),
+                },
+              );
+            },
+            onRemove: (providerId) => {
+              removeApiKey.mutate(providerId, {
+                onSuccess: (result) => {
+                  if (result.status === 'type_mismatch') {
+                    onNotice(
+                      `该 provider 使用 ${result.storedType} 凭据，请在 pi CLI 中管理`,
+                      'error',
+                    );
+                  } else {
+                    onNotice('已断开连接');
+                  }
+                },
+                onError: (error) => onNotice(`断开失败：${error.message}`, 'error'),
+              });
+            },
+          }}
+          onQueryUsage={(providerId) => queryUsage.mutateAsync(providerId)}
+          onSearchCatalog={(q) => catalog.mutateAsync(q)}
           refresh={{
             busy: refreshModels.isPending,
             lastResult: refreshResult,
@@ -272,14 +314,6 @@ export function SettingsHost({ projectRoot, onClose, onNotice }: SettingsHostPro
                 },
               ),
           }}
-          catalog={{
-            query: catalogQuery,
-            onQueryChange: setCatalogQuery,
-            onSearch: () => catalog.mutate(catalogQuery),
-            results: catalog.data?.models ?? [],
-            loading: catalog.isPending,
-            error: catalog.data?.error ?? null,
-          }}
         />
       );
     }
@@ -290,6 +324,8 @@ export function SettingsHost({ projectRoot, onClose, onNotice }: SettingsHostPro
           skills={(skills.data?.skills ?? []).map((skill) => ({
             name: skill.name,
             description: skill.description,
+            filePath: skill.filePath,
+            source: skill.source,
             scope: skill.scope,
             disableModelInvocation: skill.disableModelInvocation,
           }))}
@@ -341,19 +377,21 @@ export function SettingsHost({ projectRoot, onClose, onNotice }: SettingsHostPro
       return (
         <PluginsSection
           cwd={resourceCwd}
-          packages={(plugins.data?.packages ?? []).map((pkg) => ({
-            source: pkg.source,
-            displayName: pkg.displayName,
-            scope: pkg.scope,
-            type: pkg.type,
-            enabled: pkg.enabled,
-            filtered: pkg.filtered,
-          }))}
+          packages={plugins.data?.packages ?? []}
           standaloneExtensions={plugins.data?.standaloneExtensions ?? []}
-          totals={plugins.data?.totals ?? { packages: 0, extensions: 0, skills: 0 }}
+          totals={
+            plugins.data?.totals ?? {
+              packages: 0,
+              extensions: 0,
+              skills: 0,
+              prompts: 0,
+              themes: 0,
+            }
+          }
           projectResourcesLoaded={plugins.data?.projectResourcesLoaded ?? true}
           loading={plugins.isLoading}
           busy={pluginAction.isPending}
+          sessionId={sessionId}
           onAction={(action, source) =>
             pluginAction.mutate(
               { action, source },
@@ -363,6 +401,17 @@ export function SettingsHost({ projectRoot, onClose, onNotice }: SettingsHostPro
               },
             )
           }
+          onReloadSession={() => {
+            if (sessionId === null) return;
+            sendAgentCommand(sessionId, { type: 'reload' })
+              .then(() => onNotice('会话已重新加载'))
+              .catch((error: unknown) =>
+                onNotice(
+                  `重新加载失败：${error instanceof Error ? error.message : String(error)}`,
+                  'error',
+                ),
+              );
+          }}
           install={{
             source: installSource,
             onSourceChange: setInstallSource,
@@ -385,7 +434,16 @@ export function SettingsHost({ projectRoot, onClose, onNotice }: SettingsHostPro
             results: checkPlugins.data?.results ?? [],
             checking: checkPlugins.isPending,
             onCheck: () => checkPlugins.mutate(undefined),
+            onUpdateAll: () =>
+              pluginAction.mutate(
+                { action: 'update' },
+                {
+                  onSuccess: () => onNotice('全部插件已更新'),
+                  onError: (error) => onNotice(`更新失败：${error.message}`, 'error'),
+                },
+              ),
           }}
+          onRefresh={() => void plugins.refetch()}
         />
       );
     }

@@ -160,6 +160,94 @@ export const ModelsEnabledUpdateSchema = z.object({
 export type ModelsEnabledUpdate = z.infer<typeof ModelsEnabledUpdateSchema>;
 
 // ---------------------------------------------------------------------------
+// Provider 鉴权（API Key）——与 usage 一样只有用户显式操作才联网/写盘
+// ---------------------------------------------------------------------------
+
+/** 可用 API Key 登录的 provider 清单条目（`GET /api/models/auth-providers`） */
+export type ApiKeyProviderInfo = {
+  id: string;
+  /** 展示名（provider 定义里的 name，如 "DeepSeek"） */
+  displayName: string;
+  /** 当前是否已有可用凭据（auth.json 或环境变量） */
+  configured: boolean;
+  /** 凭据来源标签（如 "DEEPSEEK_API_KEY"；缺省 = auth.json） */
+  source?: string;
+  /** 目录里的模型数（给「输入 key 即启用 N 个模型」的提示用） */
+  modelCount: number;
+  /** 同一 provider 也能 OAuth 登录（当前 UI 只做 API Key，留作展示提示） */
+  supportsOAuth: boolean;
+};
+
+export type AuthProvidersResponse = {
+  providers: ApiKeyProviderInfo[];
+};
+
+/** PUT /api/models/api-key —— 保存 API Key（写入 `~/.pi/agent/auth.json`） */
+export const ApiKeySetRequestSchema = z.object({
+  provider: z.string().min(1),
+  apiKey: z.string().min(1),
+});
+export type ApiKeySetRequest = z.infer<typeof ApiKeySetRequestSchema>;
+
+/** DELETE /api/models/api-key 的结果（type-mismatch = 该 provider 是 OAuth 凭据，不混删） */
+export type ApiKeyRemoveResult =
+  | { status: 'removed' | 'not_found' }
+  | { status: 'type_mismatch'; storedType: string };
+
+// ---------------------------------------------------------------------------
+// Provider 用量（余额 / 额度）——只有用户点「刷新」才联网
+// ---------------------------------------------------------------------------
+
+export const ProviderUsageRequestSchema = z.object({
+  providerId: z.string().min(1),
+});
+export type ProviderUsageRequest = z.infer<typeof ProviderUsageRequestSchema>;
+
+export type UsageUnit = 'percent' | 'currency' | 'count';
+
+/** 一个额度窗口（如 5h / 周窗口的已用/剩余百分比） */
+export type UsageBucket = {
+  id: string;
+  label: string;
+  groupLabel?: string;
+  used?: number;
+  remaining?: number;
+  limit?: number;
+  unit: UsageUnit;
+  currency?: string;
+  windowMinutes?: number;
+  /** Unix 秒（Codex 风格的 reset 时间） */
+  resetsAt?: number;
+  period?: string;
+};
+
+/** 一条标量指标（如 Total balance CNY 19.40） */
+export type UsageMetric = {
+  id: string;
+  label: string;
+  value: number | string;
+  unit?: UsageUnit;
+  currency?: string;
+};
+
+export type UsageReport = {
+  providerId: string;
+  providerName: string;
+  capturedAt: number;
+  buckets: UsageBucket[];
+  metrics: UsageMetric[];
+  notes?: string[];
+};
+
+export type ProviderUsageResponse =
+  | { providerId: string; status: 'ready'; report: UsageReport }
+  | {
+      providerId: string;
+      status: 'auth-unavailable' | 'query-failed';
+      message: string;
+    };
+
+// ---------------------------------------------------------------------------
 // 目录刷新——ADR-0011③
 // ---------------------------------------------------------------------------
 
