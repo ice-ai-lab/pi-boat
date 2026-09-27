@@ -202,12 +202,14 @@ export function WorkspaceLayout() {
           setSearchParams({});
         }}
       />
-      {/* 侧栏底栏：设置（靠左，与会话行内容左缘对齐；模型/技能从设置对话框内进入） */}
+      {/* 侧栏底栏：设置（通宽居中，原型 `.sb-foot`：顶部发丝线 + 向上渐变） */}
       <div
         style={{
           padding: '8px',
           flexShrink: 0,
           display: 'flex',
+          borderTop: '1px solid var(--border)',
+          background: 'linear-gradient(to top, var(--glass-2), transparent)',
         }}
       >
         <button
@@ -220,11 +222,11 @@ export function WorkspaceLayout() {
           aria-label={t('common.settings')}
           style={{
             display: 'flex',
+            flex: 1,
             alignItems: 'center',
-            justifyContent: 'flex-start',
+            justifyContent: 'center',
             gap: 6,
-            height: 32,
-            // 容器 padding 8 + 这里 8 = 16px，与会话行内容左缘（2px 边条 + 14px）对齐
+            height: 30,
             padding: '0 8px',
             background: 'none',
             border: 'none',

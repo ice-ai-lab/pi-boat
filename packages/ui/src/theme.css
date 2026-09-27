@@ -38,6 +38,8 @@
     #f4f5f7;
   /* 侧栏 / 右栏毛玻璃面板（配合 backdrop-filter 使用；不支持的浏览器回落近实色仍可读） */
   --glass-pane: rgba(250, 250, 252, 0.72);
+  /* 侧栏底栏渐变端色（原型 glass-2） */
+  --glass-2: rgba(255, 255, 255, 0.62);
   /* 顶栏灰调（原型 glass-3） */
   --bar-tint: rgba(120, 120, 128, 0.08);
   /* 行内代码 / 代码块底（原型 code-bg） */
@@ -98,6 +100,7 @@ html.dark,
     radial-gradient(58% 52% at 100% 102%, rgba(64, 200, 224, 0.1), transparent 68%),
     #0e0e10;
   --glass-pane: rgba(30, 30, 32, 0.7);
+  --glass-2: rgba(44, 44, 46, 0.6);
   --bar-tint: rgba(255, 255, 255, 0.06);
   --code-bg: rgba(255, 255, 255, 0.06);
   --menu: rgba(38, 38, 40, 0.92);
