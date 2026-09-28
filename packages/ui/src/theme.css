@@ -20,6 +20,10 @@
   --bg-hover: #f1f1f3; /* fill rgba(120,120,128,.10) 落在白底 */
   --bg-selected: #e3e3e8; /* fill-2 */
   --border: rgba(60, 60, 67, 0.11); /* 发丝线 hair */
+  /* 第二档发丝线（原型 --hair-2）：落在实色白底上的玻璃卡用（输入卡），hair 档在白底上看不见 */
+  --hair-2: rgba(60, 60, 67, 0.19);
+  /* 玻璃卡顶缘高光（原型 --ring）：叠在 hair-2 描边上，做出玻璃的折射亮边 */
+  --ring: rgba(255, 255, 255, 0.62);
   --text: #1c1c1e;
   --text-2: #3c3c43; /* 次级文字（原型 fg-2，比 muted 深一档） */
   --text-muted: #6e6e73;
@@ -106,6 +110,8 @@ html.dark,
   --bg-hover: #2c2c2e; /* fill */
   --bg-selected: #3a3a3c; /* fill-2 */
   --border: rgba(255, 255, 255, 0.1); /* hair */
+  --hair-2: rgba(255, 255, 255, 0.18); /* 原型 [data-theme="dark"] --hair-2 */
+  --ring: rgba(255, 255, 255, 0.1); /* 原型 [data-theme="dark"] --ring */
   --text: #f2f2f7;
   --text-2: #e3e3e8; /* fg-2 */
   --text-muted: #98989f;
