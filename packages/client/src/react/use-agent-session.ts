@@ -37,7 +37,7 @@ import { ApiError } from '../http';
 import { disposeAgentStream, getAgentStream } from '../stream/agent-stream';
 import { applyLiveRun, rebuildChatState, rebuildTurns } from '../stream/rebuild';
 import { type ChatState, emptyChatState } from '../stream/view-model';
-import { fetchSessionDetail } from './queries';
+import { fetchSessionDetail, queryKeys } from './queries';
 
 /**
  * useAgentSession（docs/05 §7）：单会话编排——建会话 / 打开既有会话（历史重建 +
@@ -173,6 +173,18 @@ export function useAgentSession(): UseAgentSessionResult {
     store?.subscribe ?? noopSubscribe,
     store?.getSnapshot ?? getEmptyChatState,
   );
+
+  // 运行态边沿 → 立即失效会话列表：侧栏「运行中」徽标的数据源是 REST 列表（5s 轮询兑底），
+  // 而事件流这里在 agent_start / agent_settled 时就知道 streaming 边沿——
+  // 不提前失效的话，侧栏蓝圈要等下一个轮询周期才出现/消失（最多晚 ~5s）。
+  const wasStreamingRef = useRef(false);
+  const streaming = storeChat?.streaming ?? false;
+  useEffect(() => {
+    if (sessionId === null) return;
+    if (wasStreamingRef.current === streaming) return;
+    wasStreamingRef.current = streaming;
+    void queryClient.invalidateQueries({ queryKey: queryKeys.sessions() });
+  }, [streaming, sessionId, queryClient]);
 
   // 会话切换：连接事件流（restore 已由 start/open 完成；全新流补空态）；
   // 并释放上一个会话的流（否则每访问一个会话就多留一条 SSE = 多一个观看者）
