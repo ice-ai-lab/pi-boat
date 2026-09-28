@@ -218,7 +218,7 @@
 
 | 端点 | 形状 |
 |---|---|
-| `GET /api/sessions/:id` | → `{ sessionId, filePath, info, leafId, tree, context, stats, totalActiveMs, toolNames? }`（`?force=1` 外部写入探测；`?deferMedia=1` 图片只发坐标，ADR-0024） |
+| `GET /api/sessions/:id` | → `{ sessionId, filePath, info, leafId, tree, context, stats, totalActiveMs, toolNames? }`（`?force=1` 外部写入探测（ADR-0013；客户端详情查询恒带，见 `packages/client/src/react/queries.ts` 的 `sessionDetailQuery`——不带就永远探测不到，本进程内存里的条目/统计会停在 resume 一刻）；`?deferMedia=1` 图片只发坐标，ADR-0024）。⚠️ 这里的 `stats` 是**文件口径**（`computeStats`），与 agent 命令 `get_session_stats`（SDK 内存条目表）不是一份数据——UI 显示走前者 |
 | `PATCH /api/sessions/:id` | `{name}` 改名（历史未运行会话直接追加 session_info 行） |
 | `DELETE /api/sessions/:id` | 删除会话文件（返回受影响 id，只含目标自身；不级联子会话） |
 | `GET /api/sessions/:id/state` | 同 `/api/agent/:id` 形状，但会话文件不存在时 **404**（而非 `{running:false}`；语义差异需保留） |
@@ -420,7 +420,7 @@ packages/protocol/src/
 
 | # | 缺口 | 现状 | 取向 |
 |---|---|---|---|
-| 1 | **性能统计**：对话轮数/步数、LLM 耗时、工具耗时、生成速度 t/s | （原）`SessionStatsInfo` 与 `AgentState` 均无；**SDK `SessionStats` 也没有**（0.87.1 `.d.ts` 已核对） | ✅ **已定并落地（2026-09-22，2026-02 实现）**：core 累加。`rounds` ← `agent_start`；`steps` ← `turn_start`；`llmMs` ← 每 turn 起止差；`toolMs` ← `tool_execution_start/end`；`tps` ← output tokens / `llmMs`。字段形状已入 protocol：`SessionStatsInfo.perf?`。⚠️ **冷会话**（本进程未运行过）为 `undefined`（不是 0）→ 前端不展示 |
+| 1 | **性能统计**：对话轮数/步数、LLM 耗时、工具耗时、生成速度 t/s | （原）`SessionStatsInfo` 与 `AgentState` 均无；**SDK `SessionStats` 也没有**（0.87.1 `.d.ts` 已核对） | ✅ **已定并落地（2026-09-22，2026-02 实现）**：core 累加。`rounds` ← `agent_start`；`steps` ← `turn_start`；`llmMs` ← 每 turn 起止差；`toolMs` ← `tool_execution_start/end`；`tps` ← output tokens / `llmMs`。字段形状已入 protocol：`SessionStatsInfo.perf?`。⚠️ **冷会话**（本进程未运行过）为 `undefined`（不是 0）→ 展示口径（2026-09-28 用户定）：性能段**恒展示**、缺数据值显示 —，「输出速度」无数据时整行隐藏 |
 | 2 | **最近提交**（short hash） | `SessionInfo` 只有 `branch`/`isWorktree` | ✅ 已落地：归 git 域（`/api/git/status` 已在），由前端拼装，不进 `SessionInfo` |
 | 3 | **工具预设**（`chat-only` / `read-only` / `default` / `full`） | （原）protocol 无枚举，只有 `get_tools`/`set_tools` 的具名列表 | ✅ **已定并落地**：预设判定归 **core**——只有 core 知道 SDK 的默认工具集（`default` 无法在客户端静态枚举）。命令形状已入 protocol：`set_tools {preset}` 与 `{toolNames}` 二选一，冷会话返回 `{sessionId, recreated:true}` |
 | 4 | **输入卡「模式」**（默认/只读/**全自动·免确认执行命令**） | 与 #3 语义重叠；「免确认」在 SDK 0.87 无对应能力 | ✅ **已定（2026-09-22）：与工具预设合并**——模式菜单直接展示四项预设（标签用工具集描述），**删掉「全自动·免确认」**（AGENTS.md：命名不得暗示它做不到的事） |

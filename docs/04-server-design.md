@@ -52,7 +52,7 @@
 |---|---|---|
 | `GET /api/sessions?force&projectKey` | `readService.list()` + `listFingerprint()` | 磁盘扫描 ∪ 注册表 ∪ transient（内存未落盘会话排在最前）；`force=1` 跳过指纹缓存；`projectKey` 只返回一个项目，**并在扫描层收窄范围**（ADR-0026）；`runningSessions` 带 cwd 供客户端把运行态归到项目上 |
 | `GET /api/sessions/search?q` | `readService.search()` | q ≤ 200；q 缺省 → 400；轻量字段过滤 + 有界正文扫描（G2-7） |
-| `GET /api/sessions/:id` | `readService.detail()` | null → 404；`force=1` 时做外部写入检测并回 `wrapperRebuilt`（ADR-0013b） |
+| `GET /api/sessions/:id` | `readService.detail()` | null → 404；`force=1` 时做外部写入检测并回 `wrapperRebuilt`（ADR-0013；客户端详情 query 恒带 force，探到重建后由 chat-pane 重新 `open()` 重拉历史）。`stats` 是文件口径（`computeStats`）：同一文件被别的进程写过时，只有它是最新的——agent 命令 `get_session_stats` 聚合的是本进程内存条目表 |
 | `GET /api/sessions/:id/revision` | `readService.revision()` | 文件指纹（G2-6）；null → 404 |
 | `GET /api/sessions/:id/export?inline` | `readService.exportHtml()` | HTML 导出（attachment / inline） |
 | `POST /api/sessions/:id/auto-name` | `readService.autoName()` | LLM 生成标题 + `usage`（会真发一次模型请求） |

@@ -5,13 +5,23 @@ import { getJson, http } from '../http';
  * 会话域端点（docs/02 §6）。F1 只取详情/上下文（历史重建）；列表/搜索/生命周期随 F2 侧栏接入。
  */
 
-/** GET /api/sessions/:id?deferMedia=1 —— 详情（context 即最新窗口，tail 默认 50） */
+/** GET /api/sessions/:id?force=1&deferMedia=1 —— 详情（context 即最新窗口，tail 默认 50）
+ *
+ * - `force=1`：顺带做**外部写入探测**（ADR-0013）——同一会话文件可能被别的进程写（pi CLI
+ *   等外部进程），服务端发现磁盘更新会**从磁盘重建 runtime** 并回 `wrapperRebuilt:true`；
+ *   不带 force 就永远探测不到，本进程内存里的条目 / 统计会停在 resume 那一刻（2026-09-28 实测）。
+ * - `deferMedia=1`：历史图片只发坐标（ADR-0024）。 */
 export function getSessionDetail(
   sessionId: string,
-  query: { deferMedia?: boolean } = {},
+  query: { deferMedia?: boolean; force?: boolean } = {},
 ): Promise<SessionDetailResponse> {
-  const qs = query.deferMedia === true ? '?deferMedia=1' : '';
-  return getJson<SessionDetailResponse>(`/sessions/${encodeURIComponent(sessionId)}${qs}`);
+  const params = new URLSearchParams();
+  if (query.force === true) params.set('force', '1');
+  if (query.deferMedia === true) params.set('deferMedia', '1');
+  const qs = params.toString();
+  return getJson<SessionDetailResponse>(
+    `/sessions/${encodeURIComponent(sessionId)}${qs === '' ? '' : `?${qs}`}`,
+  );
 }
 
 /** GET /api/sessions/:id/context?before=&tail=&deferMedia= —— 向上翻页（excludeLeaf） */

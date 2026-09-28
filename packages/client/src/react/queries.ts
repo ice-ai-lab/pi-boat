@@ -463,7 +463,9 @@ function sessionDetailQuery(sessionId: string | null) {
     queryKey: queryKeys.sessionDetail(sessionId ?? ''),
     // deferMedia=1：历史图片只发坐标（ADR-0024），渲染时再按 entryId+块下标取字节。
     // 初始页（详情里的 context）往往是图片最大的那一页。
-    queryFn: () => getSessionDetail(sessionId as string, { deferMedia: true }),
+    // force=1：同一会话文件被别的进程写过时（pi CLI 等外部进程），服务端从磁盘重建 runtime 并回
+    // `wrapperRebuilt`——不探测的话本进程内存里的条目/统计会停在 resume 一刻（ADR-0013、2026-09-28 实测）。
+    queryFn: () => getSessionDetail(sessionId as string, { deferMedia: true, force: true }),
   };
 }
 
