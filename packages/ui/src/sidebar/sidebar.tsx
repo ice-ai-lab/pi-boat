@@ -512,23 +512,28 @@ function SessionItem({
       }}
       style={{
         height: itemHeight,
+        // 圆角胶囊行（原型 `.sb-item`）：左右各留 6px 不贴边
+        margin: '0 6px',
+        borderRadius: 9,
+        position: 'relative',
         display: 'flex',
         alignItems: 'center',
-        paddingLeft: 14,
+        paddingLeft: 9,
         paddingRight: 4,
         cursor: confirmDelete || renaming ? 'default' : 'pointer',
         background: confirmDelete
-          ? 'rgba(239,68,68,0.06)'
+          ? 'var(--red-bg)'
           : isSelected
-            ? 'var(--bg-selected)'
+            ? 'var(--accent-weak)'
             : hovered
               ? 'var(--bg-hover)'
               : 'transparent',
-        borderLeft: confirmDelete
-          ? '2px solid var(--red)'
+        // 选中/删除态：左侧 3px 色条（inset 阴影，不随圆角弯曲）
+        boxShadow: confirmDelete
+          ? 'inset 3px 0 0 var(--red)'
           : isSelected
-            ? '2px solid var(--accent)'
-            : '2px solid transparent',
+            ? 'inset 3px 0 0 var(--accent)'
+            : 'none',
         transition: 'background 0.1s',
         opacity: deleting ? 0.5 : 1,
         gap: 6,
@@ -639,7 +644,7 @@ function SessionItem({
             fontSize: 12.5,
             padding: '0 8px',
             border: `1px solid ${renameError ? 'var(--red)' : 'var(--accent)'}`,
-            borderRadius: 5,
+            borderRadius: 7,
             outline: 'none',
             background: 'var(--bg)',
             color: 'var(--text)',
@@ -657,7 +662,7 @@ function SessionItem({
               whiteSpace: 'nowrap',
               fontSize: 12.5,
               color: 'var(--text)',
-              fontWeight: isSelected ? 500 : undefined,
+              fontWeight: isSelected ? 600 : undefined,
             }}
             title={title}
           >
@@ -1565,12 +1570,12 @@ export function Sidebar(props: SidebarProps) {
                           alignItems: 'center',
                           padding: '0 14px 0 16px',
                           // 非首组加分隔线，让分组头从会话列表里明显跳出来
-                          borderTop: row.top > 0 ? '1px solid var(--border)' : 'none',
-                          fontSize: 12,
+                          borderTop: 'none',
+                          // 分组头：原型 `.sb-group`，纯灰字不加分隔线
+                          fontSize: 11,
                           fontWeight: 700,
-                          letterSpacing: '0.06em',
-                          textTransform: 'uppercase',
-                          color: 'var(--text-muted)',
+                          letterSpacing: '0.04em',
+                          color: 'var(--text-dim)',
                         }}
                       >
                         {t(SESSION_GROUP_LABEL_KEYS[row.group])}
