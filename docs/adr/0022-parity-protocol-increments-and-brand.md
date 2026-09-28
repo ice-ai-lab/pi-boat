@@ -6,6 +6,10 @@
 - 关联决策：**回答 `docs/09` §7 的 Q1**（品牌名取 `PiBoat`）；修订 `docs/09` §7 Q4 的取向（文件查看器模式文案以规范为准，后续单独落）；ADR-0017（protocol 复用 SDK 类型）与 ADR-0020（视觉基准设计规范）在本 ADR 内继续生效
 
 
+> **修订（2026-09-28）**：决策 3 里「空态版本块展示 `web v<APP_VERSION>` / `pi v<piVersion>`」的**展示位置**改到侧栏品牌胶囊（`Sidebar` 的 `versionLabel` + `piVersionLabel`，同行显示 `v0.1.0 · pi v0.87.1`），
+> 空态品牌行右侧的两行版本块撤掉（理由：版本与应用名/版本同处一排更好找，见 docs/09 T3-1/T2-15）。
+> 其余口径不变：数据源仍是 core 的 `/api/health` `piVersion`，**不在 web 侧手抄第二份版本**。
+
 > **基线漂移（2026-09-26 更新）**：本文引用的「设计规范 npm 快照」已过期——上游参考实现后续
 > 仍有演进（设置节增至 5 个，其中子代理节为排除域，本仓仍保持 4 个）。凡引用旧快照得出的
 > 「已对齐」结论，均须在新版基准上复核后采信（见 `docs/10-frontend-parity-audit.md`）。
@@ -48,7 +52,7 @@
   只有 core 允许 import SDK（AGENTS.md 依赖铁律）。
 - protocol：`HealthResponse` 增 `piVersion: string`；server 在 `/api/health` 回应。
 - web：`useServerInfo()` 一次拿到连通性与 `piVersion`，空态版本块展示 `web v<APP_VERSION>` /
-  `pi v<piVersion>`；`APP_VERSION` 从 client 的 `CLIENT_VERSION` 派生。
+  `pi v<piVersion>`（2026-09-28 起改在侧栏品牌胶囊同行展示，见上方修订）；`APP_VERSION` 从 client 的 `CLIENT_VERSION` 派生。
 
 **4. `apps/web/public/` 纳入版本管理并排除出 Biome。**
 

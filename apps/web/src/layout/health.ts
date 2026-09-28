@@ -13,8 +13,9 @@ export interface ServerInfo {
 export const APP_VERSION = CLIENT_VERSION.split(' ')[0] ?? '0.0.0';
 
 /**
- * 服务信息探针：`/api/health` 同时给出连通性与运行时 pi 版本（空态版本块用）。
- * F0 起只承担骨架自检与版本展示；数据面全部走 `@ice-ai/client`。
+ * 服务信息探针：`/api/health` 同时给出连通性与运行时 pi 版本（侧栏品牌胶囊里的 `pi vX` 用；
+ * 消费方只有 `sidebar-pane`，见 ui 的 `BrandTitle`）。F0 起只承担骨架自检与版本展示；
+ * 数据面全部走 `@ice-ai/client`。
  */
 export function useServerInfo(intervalMs = 15_000): ServerInfo {
   const [info, setInfo] = useState<ServerInfo>({ health: 'checking', piVersion: null });

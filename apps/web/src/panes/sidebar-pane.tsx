@@ -16,7 +16,7 @@ import {
 import type { ProjectInfo, SessionInfo } from '@ice-ai/protocol';
 import { Sidebar, type SidebarProject } from '@ice-ai/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { APP_VERSION } from '../layout/health';
+import { APP_VERSION, useServerInfo } from '../layout/health';
 
 /**
  * SidebarPane：侧栏数据装配——项目/工作区选择、会话列表、未读与运行指示、自定义目录选择。
@@ -95,6 +95,8 @@ export function SidebarPane({
   const projectsQuery = useProjectsQuery();
   const renameMutation = useRenameSessionMutation();
   const deleteMutation = useDeleteSessionMutation();
+  // 品牌胶囊里的 pi 版本：与中栏同一个探针（唯一消费方就是侧栏品牌行，见 sidebar.tsx BrandTitle）
+  const serverInfo = useServerInfo();
 
   // 项目清单来自 /api/projects（ADR-0008）：目录元数据扫描 + 每目录一次首行头，
   // 不解析会话正文也不依赖会话列表（含未落盘内存会话的 cwd）
@@ -304,6 +306,7 @@ export function SidebarPane({
       projectActivity={projectActivity}
       homeDir={homeDir}
       versionLabel={APP_VERSION}
+      piVersionLabel={serverInfo.piVersion}
       themePreference={themePreference}
       onCycleTheme={onCycleTheme}
       onSelectSession={(session: SessionInfo) => {

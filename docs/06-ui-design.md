@@ -135,7 +135,7 @@
 | `MessageMinimap` | `turns` `scrollRef` | `.minimap` + `.mm-bar` + `.mm-tip` 预览，算法见 §8.3 |
 | `ScrollToBottomButton` | `visible` `onClick` | **原型未画，M1 新增件**：圆形按钮 + 下箭头，悬于 composer 上方，`visible = 有溢出 && 未贴底`，`smooth` 滚动，带 `aria-label`（§8.2） |
 | `ContentWidthControls` | `width` `onWidthChange` `min` `max` | `.chat-handle` 双侧 + `--mh-y` 指针跟随光条 |
-| `EmptyState` | `title` `subtitle` `children` | `.hero`（boat 浮动 + 插槽 + 版本脚注）。**M1 用它承载 cwd 输入**（原型预留的 `#heroSlot`）：路径输入 → `POST /api/agent/new` → 成功后 cwd 转只读展示（`.ws-line`），见 §11.3 行 1 |
+| `EmptyState` | `children` `shelf` | 空态品牌行（32×32 app icon + `PiBoat` 22px/700）+ 宿主 Composer（`children`）+ 扩展货架（`shelf`）。**版本块已撤（2026-09-28）**：pi 版本随应用版本常驻侧栏品牌胶囊（`Sidebar` 的 `versionLabel` + `piVersionLabel`，数据源仍是 `/api/health`），空态不再自报版本。**M1 曾用它承载 cwd 输入**（原型预留的 `#heroSlot`），现已由 Composer 直建会话（§11.3 行 1） |
 
 ### 4.3 inspect（M2/M3）
 

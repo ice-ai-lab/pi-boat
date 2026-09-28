@@ -135,8 +135,21 @@ function AnimatedDropdown({
   );
 }
 
-/** 品牌字标：`Pi` 常规字色 + `Boat` 品牌黄，右侧常驻当前版本号（T2-15） */
-function BrandTitle({ versionLabel }: { versionLabel: string }) {
+/**
+ * 品牌字标：`Pi` 常规字色 + `Boat` 品牌黄，右侧常驻版本胶囊（T2-15）。
+ *
+ * 胶囊里同时给应用版本与 pi SDK 版本（2026-09-28 用户拍板：撤掉空态右上角的两行版本块，
+ * pi 版本随应用版本常驻页面左上角的品牌行；`piVersionLabel` 为 null 时只显示应用版本）。
+ */
+function BrandTitle({
+  versionLabel,
+  piVersionLabel,
+}: {
+  versionLabel: string;
+  piVersionLabel: string | null;
+}) {
+  const pillText =
+    piVersionLabel === null ? `v${versionLabel}` : `v${versionLabel} · pi v${piVersionLabel}`;
   return (
     <span style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
       <span
@@ -146,12 +159,14 @@ function BrandTitle({ versionLabel }: { versionLabel: string }) {
           fontWeight: 700,
           letterSpacing: '-0.01em',
           color: 'var(--text)',
+          flexShrink: 0,
         }}
       >
         Pi
         <span style={{ color: 'var(--brand)' }}>Boat</span>
       </span>
       <span
+        title={pillText}
         style={{
           fontFamily: 'var(--font-mono)',
           fontSize: 9,
@@ -160,11 +175,14 @@ function BrandTitle({ versionLabel }: { versionLabel: string }) {
           border: '1px solid var(--border)',
           borderRadius: 99,
           padding: '1.5px 6px',
-          flexShrink: 0,
+          // 窄侧栏（最小 180px）下胶囊先截断——不能把右侧主题按钮挤出可视区
+          minWidth: 0,
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
           whiteSpace: 'nowrap',
         }}
       >
-        v{versionLabel}
+        {pillText}
       </span>
     </span>
   );
@@ -852,8 +870,10 @@ export interface SidebarProps {
   projects: SidebarProject[];
   projectActivity: Map<string, { running: number; unread: number }>;
   homeDir: string;
-  /** 品牌字标右侧展示的版本号（如 `0.1.0`；宿主传 APP_VERSION） */
+  /** 品牌字标右侧展示的应用版本号（如 `0.1.0`；宿主传 APP_VERSION） */
   versionLabel: string;
+  /** 同一个版本胶囊里的 pi SDK 版本（宿主从 `/api/health` 取；未取到传 null，只显示应用版本） */
+  piVersionLabel: string | null;
   /** 当前主题偏好（品牌行右侧的循环切换按钮展示用） */
   themePreference: ThemePreference;
   /** 单击循环切换主题：light → dark → auto → light */
@@ -1042,7 +1062,7 @@ export function Sidebar(props: SidebarProps) {
           }}
         >
           <img src="/favicon.svg" width={20} height={20} alt="" style={{ flexShrink: 0 }} />
-          <BrandTitle versionLabel={props.versionLabel} />
+          <BrandTitle versionLabel={props.versionLabel} piVersionLabel={props.piVersionLabel} />
           <ThemeCycleButton preference={props.themePreference} onCycle={props.onCycleTheme} />
         </div>
 

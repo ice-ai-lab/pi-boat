@@ -53,7 +53,6 @@ import {
   useState,
 } from 'react';
 import { useSearchParams } from 'react-router';
-import { APP_VERSION, useServerInfo } from '../layout/health';
 import { fileTabsStore } from '../services/file-tabs-store';
 import { useMentionInsertion } from '../services/mention-bus';
 import { attachedImageToContent, useAttachedImages } from '../services/use-attached-images';
@@ -402,7 +401,6 @@ export function ChatPane({
   const models = useModelsQuery(session.cwd ?? undefined);
   const gitStatus = useGitStatusQuery(session.cwd);
   const detail = useSessionDetailQuery(sessionId);
-  const serverInfo = useServerInfo();
 
   // 侧栏文件树的「提及」：把 @相对路径 追加进草稿（设计规范 AppShell → ChatInput 同款链路）
   const insertMentionText = useCallback((text: string) => {
@@ -1365,8 +1363,6 @@ export function ChatPane({
         {toolbar}
         {showChat ? (
           <EmptyState
-            appVersion={APP_VERSION}
-            piVersion={serverInfo.piVersion}
             shelf={
               <ExtensionStatusBar
                 statuses={session.liveState?.extensionStatuses ?? []}

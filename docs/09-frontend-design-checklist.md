@@ -77,7 +77,8 @@
  + `has-widgets`/`has-status` + `sanitizeExtensionStatusLine` 排序 join + `AnsiText` + `role="status"` +
  `aria-label`）/ T6-3（货架移到 composer **之下**）/ T6-4（`ExtensionWidgets` 更新脉冲 diff +
  `is-updating` + 位置三角 SVG + panels 前移 + `AnsiText`）/ T6-5（并入 T1-3）。
-- **阶段 3 部分**：T3-1（空态重写：32×32 应用图标 + `PiBoat` 22px/700 + 右侧 `web vX`/`pi vY` 版本块 +
+- **阶段 3 部分**：T3-1（空态重写：32×32 应用图标 + `PiBoat` 22px/700 + 右侧 `web vX`/`pi vY` 版本块
+〔2026-09-28 撤掉，见下方 T3-1 调整〕 +
  **直接复用 Composer** + 上/下 `flex-1` 居中偏下 + `paddingRight 52`；发送即建会话）/ T3-4 部分
  （工具行移到输入卡**下方**：`belowInput` 槽 + 左=模型/思考、右=工具预设/压缩/导出/统计/插队/声音）/
  T3-15（`BranchNavigator` 全量重写：导引线 + 7×7 三态圆点 + `U`/`A` 徽章 + `+N` 压缩）/
@@ -89,7 +90,7 @@
 - `SessionSearchResponse` → `{ results: SessionSearchHit[]; truncated }`（core `searchDetailed`
  产出 `entryId` + `before/match/after` 片段，上限 50）；`/api/health` 增 `piVersion`
  （core 从 SDK `VERSION` 取）；品牌与页面标题统一 `PiBoat`（回答 §7 Q1）。
-- 空态版本块的 `pi v0.87.1` 即由此得来，非手抄。
+- 空态版本块（2026-09-28 起改为侧栏品牌胶囊里的 `pi v0.87.1`）即由此得来，非手抄。
 
 **仍未做（按优先级）**
 
@@ -666,8 +667,10 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 - [x] **T2-14** 新建按钮归位标题行右侧 + hover/disabled + 内联 SVG。〔L14〕（2026-09-27 用户拍板：独立动作行、白底描边 r6、无阴影、常规字重 400 与正文同字体；窄侧栏下标签省略）
   - 二次调整（2026-09-27 用户拍板）：新会话 + 搜索**下移到工作区行**（原只读分支位）；带文字的白底按钮会把项目名挤成 `pi-b…`，故 `+` 改**图标按钮** 26×26/r6/icon 13；品牌行只留字标，高 54 → 44
   - 三次调整（2026-09-27 用户拍板，**当前形态**）：按 `docs/design/piboat-web-v4.html` 的品牌行排版改为三段——**品牌行**（应用图标 20px + `PiBoat`，高 44）/ **动作行**（`新会话` 正文按钮，样式保持：`flex:1 / h31 / r6 / padding 0 16 / 白底描边` + 搜索图标 26×26）/ **工作区行**（目录名 + 下拉）；搜索输入展开时插在动作行下方。原型里的 `v4` 版本胶囊**未落地**（待定：是否要常显版本、显示 app 还是 pi 版本——目前仍靠点字标切显）
+  - 四次调整（2026-09-28 用户拍板）：上面的「待定」已定——版本胶囊**常显**，且**应用版本 + pi 版本同行**（见 T2-15 调整）
 - [x] ~~**T2-15** 品牌字标改 `PiBoat` + 点击切显版本。~~ 〔L18〕（2026-09-27 字标左侧应用图标 `favicon.svg`；`Pi` 常规字色 + `Boat` 品牌黄 `--brand`；右侧常驻版本药丸 `v0.1.0`（APP_VERSION），原点击切显与扰乱动画移除；见 ADR-0022）
   - 二次调整（2026-09-27 用户拍板）：字标左侧**加回图标**，用的是应用图标本体（`/favicon.svg`，20×20，与空态的 app icon 同一张图），即原型的 19px mark 位；字标本身与点击切版本行为不变
+  - 三次调整（2026-09-28 用户拍板，**当前形态**）：版本胶囊改为「`v0.1.0 · pi v0.87.1`」同行——pi 版本随应用版本常驻品牌行（`Sidebar` 的 `piVersionLabel`）；窄侧栏（最小 180px）下胶囊先截断，不挤掉右侧主题按钮
 - [x] **T2-16** 文件树行几何 + git 徽标 + 行内「提及/下载」。〔L19/L21/L22〕
 - [x] **T2-17（新·M5/M6/M7）** `transient` 守卫、`detailsPending` 的 `…`、去掉列表 `pr-1` + 透传 `focusedIndex`、标题补 `title` tooltip。
 - [x] **T2-18** 建 `apps/web/public/icons/catppuccin/{latte,mocha}/`（沿用规范图标），`file-icon.tsx` 改用 `.catppuccin-file-icon`（14px 单色 `--text-dim`）。〔L20 / F14 / T4-10〕
@@ -677,6 +680,7 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 
 ### 阶段 3：中栏对话（P0/P1）
 - [x] **T3-1** 空态重写：品牌行（32×32 app icon + `PiBoat` 22px/700 + 更新链接 + 右侧两行版本块）+ **直接复用 Composer**；容器改「上 flex-1 / 内容 / 下 flex-1」；`paddingRight` 桌面 52。〔C1/C8/C30〕
+  - 调整（2026-09-28 用户拍板，**当前形态**）：**撤掉**品牌行右侧的两行版本块（`EmptyState` 的 `appVersion`/`piVersion` 两个 prop 一并删，组件只剩 `children` + `shelf`）；pi 版本改在**侧栏品牌胶囊**里与应用版本同行常驻（`Sidebar` 新增 `piVersionLabel`，`useServerInfo()` 的消费方从中栏移到侧栏 pane；数据源仍是 `/api/health`，不手抄第二份版本）
 - [ ] **T3-2** Composer 附件能力 + 整屏拖拽覆盖层（）。〔C2〕
 - [ ] **T3-3** 落地 `ProviderIcon`（43 映射）+ `ModelSelector`；建 `apps/web/public/` 并拷 `provider-icons.svg`。〔C3〕
 - [ ] **T3-4** 工具行移到输入卡**下方**，`<select>` 换图标+文字按钮 + 上弹面板，补红系停止与 SVG 声音。〔C4〕

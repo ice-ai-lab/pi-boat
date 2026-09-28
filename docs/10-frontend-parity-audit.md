@@ -104,7 +104,7 @@ if (model === undefined) throw new UserInputError('No model available to generat
 
 | | 有项目、无会话选中 |
 |---|---|
-| **A** | 品牌行 + 右侧版本块 + **完整 Composer** + 顶部工具条（完整历史/生成标题/系统/工具） |
+| **A** | 品牌行 + 右侧版本块〔已于 2026-09-28 主动偏离：版本块撤掉，pi 版本与应用版本同在侧栏品牌胶囊，见 docs/09 T3-1/T2-15〕 + **完整 Composer** + 顶部工具条（完整历史/生成标题/系统/工具） |
 | **B** | 只有居中一行灰字**「从侧边栏选择一个会话」**；**无工具条、无品牌行、无 Composer** |
 
 **根因**：`showChat` 的 cwd 回退缺失。
@@ -537,7 +537,7 @@ globals.css    A=288  B=271  仅 A 有 47：
 4. **设置全 Tab 双实例同视口对拍**：`node audit/shoot.mjs shots`（已含在 `.settings-section-tab` 上逐 Tab 截图）。逐 Tab 并排看：**模型/Skills/扩展包三节应出现「侧栏 + 详情 + Footer」三栏结构**。
 5. **对话框对拍**：`node audit/shoot-session.mjs shots`。工具行应满足：左 `[附件][模型选择器]` / 中 spacer / 右 `[思考][预设][压缩][(停止)][声音]`，**不得出现 `自动命名/导出/统计/插队`**。
 6. **auto-name 端到端**：`curl -X POST .../api/sessions/<id>/auto-name -d '{"dryRun":true}'` 应返回 `{"title":"…"}`，**不得出现 `No model available`**。
-7. **空态回归**：打开首页（有项目、无会话）→ 应看到品牌行 + 版本块 + 完整 Composer + 顶部工具条，**不得出现「从侧边栏选择一个会话」**。
+7. **空态回归**：打开首页（有项目、无会话）→ 应看到品牌行 + 完整 Composer + 顶部工具条，**不得出现「从侧边栏选择一个会话」**；版本块自 2026-09-28 起不在空态（pi 版本与应用版本同在侧栏品牌胶囊）。
 8. **i18n 验收**：三语各跑一遍全站截图，**不得出现 fallback 到 key 字符串**；**不得出现英文标签混在中文界面**（当前 `General/Models/Skills/Plugins` 即失败）；切语言后 `document.documentElement.lang` 同步、刷新保持。
 9. **排除项回归（交付前必跑）**：
    ```bash
