@@ -177,6 +177,10 @@
   /* 底栏高度 = 上下内边距 8×2 + 按钮 30 + 顶边发丝线 1；单点定义，列表内边距同源 */
   --sidebar-footer-h: 47px;
   --sidebar-list-bottom-inset: calc(var(--sidebar-footer-h) + env(safe-area-inset-bottom));
+  /* 底栏填充：玻璃默认太薄（`--glass-pane` 0.72 叠在环境光上），设置入口像浮在列表上、滚动时
+     列表文字从底下透出来。掺 `--bg` 把不透明度抬到约 0.90；渐变上端再留 0.82，毛玻璃只在这一
+     小段边缘可见（2026-09-28 用户反馈「左下角设置太透明」） */
+  --sidebar-footer-fill: color-mix(in srgb, var(--glass-pane) 36%, var(--bg));
 }
 
 .sidebarFooter {
@@ -192,8 +196,8 @@
   border-top: 1px solid var(--border);
   background: linear-gradient(
     to top,
-    var(--glass-2),
-    color-mix(in srgb, var(--glass-2) 45%, transparent)
+    var(--sidebar-footer-fill),
+    color-mix(in srgb, var(--sidebar-footer-fill) 90%, transparent)
   );
   -webkit-backdrop-filter: blur(24px) saturate(180%);
   backdrop-filter: blur(24px) saturate(180%);
