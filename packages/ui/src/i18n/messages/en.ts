@@ -20,10 +20,8 @@ export const enLocale: LocalePlugin = {
     'settings.resetChatContentWidth': 'Reset chat content width',
     'settings.resetChatContentFontSize': 'Reset chat font size',
     'settings.chatContentWidthDescription': 'Set the maximum width of messages and the composer.',
-    'settings.thinkingDisplay': 'Thinking display',
-    'settings.thinkingDisplayDescription':
-      'Choose whether model reasoning blocks are expanded when messages load.',
-    'settings.thinkingExpandedDefault': 'Expand thinking blocks by default',
+    'settings.chatContentFontSizeDescription':
+      'Only affects message text, not the rest of the interface.',
     'settings.chat': 'Chat',
     'settings.quoteSelection': 'Show actions for selected text',
     'settings.languageDescription': 'Choose the language used throughout the interface.',
@@ -47,9 +45,6 @@ export const enLocale: LocalePlugin = {
     'theme.light': 'Theme: Light',
     'theme.dark': 'Theme: Dark',
     'theme.auto': 'Theme: System',
-    'history.full': 'Full history',
-    'history.unsaved': 'Full history is available after the session is saved',
-    'history.label': 'Full history',
     'title.generating': 'Generating...',
     'title.updated': 'Title updated',
     'title.failed': 'Generation failed',

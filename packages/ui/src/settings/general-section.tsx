@@ -8,9 +8,8 @@ import {
   type ChatAppearance,
 } from '@ice-ai/client';
 import { useI18n } from '../i18n/i18n-provider';
-import { cn } from '../utils/cn';
 import styles from './settings-panel.module.css';
-import { ConfigButton, ConfigSwitch } from './settings-ui';
+import { ConfigButton } from './settings-ui';
 
 /**
  * GeneralSection（T5-3 / T8-4）：按设计规范 的 `GeneralSettings`。
@@ -21,8 +20,6 @@ import { ConfigButton, ConfigSwitch } from './settings-ui';
  */
 export interface GeneralSectionProps {
   chat: ChatAppearance & {
-    thinkingExpanded: boolean;
-    onThinkingExpandedChange(expanded: boolean): void;
     onWidthChange(width: number): void;
     onFontSizeChange(fontSize: number): void;
   };
@@ -34,26 +31,33 @@ export function GeneralSection({ chat }: GeneralSectionProps) {
   return (
     <div className={styles.general}>
       <h2 className={styles.generalTitle}>{t('settings.general')}</h2>
+      <p className={styles.generalLead}>{t('settings.generalDescription')}</p>
 
       <section className={styles.generalSection}>
         <h3 className={styles.generalHeading}>{t('settings.chat')}</h3>
-        <div className={styles.chatOptions}>
-          <div className={cn(styles.chatOption, styles.chatSwitchOption)}>
-            <span>{t('settings.thinkingExpandedDefault')}</span>
-            <ConfigSwitch
-              checked={chat.thinkingExpanded}
-              label={t('settings.thinkingExpandedDefault')}
-              onChange={chat.onThinkingExpandedChange}
-            />
-          </div>
-          <div className={cn(styles.chatOption, styles.chatRangeOption)}>
-            <div className={styles.chatRangeHeader}>
-              <label htmlFor="settings-chat-content-width">{t('settings.chatContentWidth')}</label>
+        <div className={styles.list}>
+          <div className={styles.setRow}>
+            <div className={styles.rowText}>
+              <label className={styles.rowTitle} htmlFor="settings-chat-content-width">
+                {t('settings.chatContentWidth')}
+              </label>
+              <div className={styles.rowDesc}>{t('settings.chatContentWidthDescription')}</div>
+            </div>
+            <div className={styles.slider}>
+              <input
+                id="settings-chat-content-width"
+                type="range"
+                min={CHAT_CONTENT_WIDTH_MIN}
+                max={CHAT_CONTENT_WIDTH_MAX}
+                step={10}
+                value={chat.width}
+                onChange={(event) => chat.onWidthChange(Number(event.target.value))}
+              />
               <output htmlFor="settings-chat-content-width">{chat.width}px</output>
               <ConfigButton
                 variant="ghost"
                 size="small"
-                className={styles.chatReset}
+                className={styles.resetButton}
                 title={t('settings.resetChatContentWidth')}
                 aria-label={t('settings.resetChatContentWidth')}
                 disabled={chat.width === CHAT_CONTENT_WIDTH_DEFAULT}
@@ -74,26 +78,30 @@ export function GeneralSection({ chat }: GeneralSectionProps) {
                 </svg>
               </ConfigButton>
             </div>
-            <input
-              id="settings-chat-content-width"
-              type="range"
-              min={CHAT_CONTENT_WIDTH_MIN}
-              max={CHAT_CONTENT_WIDTH_MAX}
-              step={10}
-              value={chat.width}
-              onChange={(event) => chat.onWidthChange(Number(event.target.value))}
-            />
           </div>
-          <div className={cn(styles.chatOption, styles.chatRangeOption)}>
-            <div className={styles.chatRangeHeader}>
-              <label htmlFor="settings-chat-content-font-size">
+
+          <div className={styles.setRow}>
+            <div className={styles.rowText}>
+              <label className={styles.rowTitle} htmlFor="settings-chat-content-font-size">
                 {t('settings.chatContentFontSize')}
               </label>
+              <div className={styles.rowDesc}>{t('settings.chatContentFontSizeDescription')}</div>
+            </div>
+            <div className={styles.slider}>
+              <input
+                id="settings-chat-content-font-size"
+                type="range"
+                min={CHAT_CONTENT_FONT_SIZE_MIN}
+                max={CHAT_CONTENT_FONT_SIZE_MAX}
+                step={1}
+                value={chat.fontSize}
+                onChange={(event) => chat.onFontSizeChange(Number(event.target.value))}
+              />
               <output htmlFor="settings-chat-content-font-size">{chat.fontSize}px</output>
               <ConfigButton
                 variant="ghost"
                 size="small"
-                className={styles.chatReset}
+                className={styles.resetButton}
                 title={t('settings.resetChatContentFontSize')}
                 aria-label={t('settings.resetChatContentFontSize')}
                 disabled={chat.fontSize === CHAT_CONTENT_FONT_SIZE_DEFAULT}
@@ -114,22 +122,13 @@ export function GeneralSection({ chat }: GeneralSectionProps) {
                 </svg>
               </ConfigButton>
             </div>
-            <input
-              id="settings-chat-content-font-size"
-              type="range"
-              min={CHAT_CONTENT_FONT_SIZE_MIN}
-              max={CHAT_CONTENT_FONT_SIZE_MAX}
-              step={1}
-              value={chat.fontSize}
-              onChange={(event) => chat.onFontSizeChange(Number(event.target.value))}
-            />
           </div>
         </div>
       </section>
 
       <section className={styles.generalSection}>
         <h3 className={styles.generalHeading}>{t('common.language')}</h3>
-        <div role="radiogroup" aria-label={t('common.language')} className={styles.languageOptions}>
+        <div role="radiogroup" aria-label={t('common.language')} className={styles.list}>
           {supportedLocales.map((plugin) => {
             const selected = locale === plugin.id;
             return (

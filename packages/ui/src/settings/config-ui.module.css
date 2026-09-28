@@ -38,11 +38,13 @@
   background: var(--bg);
 }
 
+/* 嵌在设置浮层里时不再画实色底/边框：底由浮层的玻璃材质给，否则会把毛玻璃整块盖住 */
 .panelRoot.isEmbedded > .panelSurface {
   width: 100%;
   height: 100%;
   border: 0;
   border-radius: 0;
+  background: transparent;
   box-shadow: none;
 }
 
@@ -116,8 +118,9 @@
   flex-shrink: 0;
   width: 240px;
   min-height: 0;
-  border-right: 1px solid var(--border);
-  background: var(--bg-panel);
+  border-right: 0.5px solid var(--border);
+  /* 原型 .cfg-side 用 glass-3（半透明灰）；本仓 --bar-tint 同值，玻璃浮层上不再压一层实色 */
+  background: var(--bar-tint);
 }
 
 .sidebarList {
@@ -343,8 +346,8 @@
 
 .trustNotice {
   padding: 8px 18px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-panel);
+  border-bottom: 0.5px solid var(--border);
+  background: var(--bar-tint);
   color: var(--text-muted);
   font-size: 12px;
 }
@@ -356,7 +359,8 @@
   gap: 8px;
   min-height: 52px;
   padding: 9px 14px;
-  border-top: 1px solid var(--border);
+  border-top: 0.5px solid var(--border);
+  background: var(--bar-tint);
 }
 
 .footerStatus {
@@ -470,42 +474,35 @@
   margin-left: auto;
 }
 
+/* iOS 开关（原型 .switch）：轨道 44×27、白色滑块 23、开启态绿轨；
+   描边用 inset 发丝线而非 border，滑块左右各留 2px */
 .switch {
   position: relative;
   flex-shrink: 0;
-  width: 32px;
-  height: 18px;
+  width: 44px;
+  height: 27px;
   padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 9px;
+  border: 0;
+  border-radius: 999px;
   background: var(--bg-selected);
+  box-shadow: inset 0 0 0 0.5px var(--border);
   cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.22s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .switch[aria-checked="true"] {
-  border-color: var(--accent);
-  background: var(--accent);
-}
-
-.switch:not(:disabled):hover {
-  border-color: var(--text-muted);
-}
-
-.switch[aria-checked="true"]:not(:disabled):hover {
-  border-color: var(--accent-hover);
-  background: var(--accent-hover);
+  background: var(--green);
 }
 
 .switch::before {
-  content: "";
   position: absolute;
-  inset: -5px -3px;
+  inset: -4px -2px;
+  content: "";
 }
 
 .switch:disabled {
   cursor: default;
-  opacity: 0.55;
+  opacity: 0.45;
 }
 
 .switch.isLoading:disabled {
@@ -516,16 +513,22 @@
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 12px;
-  height: 12px;
+  width: 23px;
+  height: 23px;
   border-radius: 50%;
-  background: var(--text-muted);
-  transition: transform 0.15s, background 0.15s;
+  background: #fff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.22), 0 0 0 0.5px rgba(0, 0, 0, 0.05);
+  transition: transform 0.22s cubic-bezier(0.32, 0.72, 0, 1), width 0.22s
+    cubic-bezier(0.32, 0.72, 0, 1);
 }
 
 .switch[aria-checked="true"] .switchKnob {
-  transform: translateX(14px);
-  background: var(--bg);
+  transform: translateX(17px);
+}
+
+/* 按压时滑块向未开启一侧拉伸（原型 .switch:active::after）；开启态不做，免得溢出轨道 */
+.switch:not([aria-checked="true"]):active .switchKnob {
+  width: 26px;
 }
 
 .switch:focus-visible {
@@ -551,7 +554,8 @@
   border: 0;
   border-radius: 5px;
   background: transparent;
-  color: var(--text-dim);
+  /* 原型 .cfg-item 的「添加 …」入口用强调色，不再是灰字（用户 2026 要求：文字太灰） */
+  color: var(--accent);
   cursor: pointer;
   font-size: 12px;
 }
@@ -559,7 +563,7 @@
 .listActionButton:not(:disabled):hover,
 .listActionButton:not(:disabled):focus-visible {
   background: var(--bg-hover);
-  color: var(--text-muted);
+  color: var(--accent-hover);
   outline: none;
 }
 

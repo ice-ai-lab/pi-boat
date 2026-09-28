@@ -1,9 +1,4 @@
-import {
-  isThinkingExpandedByDefault,
-  parseModelsConfigDraft,
-  sendAgentCommand,
-  setThinkingExpandedByDefault,
-} from '@ice-ai/client';
+import { parseModelsConfigDraft, sendAgentCommand } from '@ice-ai/client';
 import {
   useAuthProvidersQuery,
   useCheckPluginUpdatesMutation,
@@ -61,10 +56,6 @@ export function SettingsHost({ projectRoot, sessionId, onClose, onNotice }: Sett
   const { t } = useI18n();
   const [section, setSection] = useState<SectionId>(() => getLastSettingsSection());
   const chatAppearance = useChatAppearance();
-  const [thinkingExpanded, setThinkingExpanded] = useState(false);
-  useEffect(() => {
-    setThinkingExpanded(isThinkingExpandedByDefault());
-  }, []);
   useEffect(() => {
     setLastSettingsSection(section);
   }, [section]);
@@ -193,11 +184,6 @@ export function SettingsHost({ projectRoot, sessionId, onClose, onNotice }: Sett
           chat={{
             width: chatAppearance.width,
             fontSize: chatAppearance.fontSize,
-            thinkingExpanded,
-            onThinkingExpandedChange: (enabled) => {
-              setThinkingExpandedByDefault(enabled);
-              setThinkingExpanded(enabled);
-            },
             onWidthChange: chatAppearance.setWidth,
             onFontSizeChange: chatAppearance.setFontSize,
           }}

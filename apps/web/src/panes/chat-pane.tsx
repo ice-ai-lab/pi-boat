@@ -9,7 +9,6 @@ import {
   getFileIndex,
   parseSlashSubmission,
   resolveChatContentWidth,
-  sessionExportUrl,
   shortPath,
   slashSourceLabel,
 } from '@ice-ai/client';
@@ -1028,40 +1027,9 @@ export function ChatPane({
             <span>{t('trust.resourcesNotLoaded')}</span>
           </button>
         )}
-        {/* 历史 / 生成标题 / 分支 / 系统 / 工具（空态也渲染，页签 disabled，T1-2） */}
+        {/* 生成标题 / 分支 / 系统 / 工具（空态也渲染，页签 disabled，T1-2） */}
         {showChat && (
           <div style={{ display: 'flex', alignItems: 'stretch', height: '100%' }}>
-            {/* 完整历史（设计规范 `handleViewFullHistory`：导出的内联页） */}
-            <TopBarAction
-              title={sessionId !== null ? t('history.full') : t('history.unsaved')}
-              label={t('history.label')}
-              disabled={sessionId === null}
-              onClick={() =>
-                sessionId !== null &&
-                window.open(sessionExportUrl(sessionId), '_blank', 'noopener,noreferrer')
-              }
-              icon={
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{
-                    color: sessionId !== null ? 'var(--text-muted)' : 'var(--text-dim)',
-                    flexShrink: 0,
-                  }}
-                  aria-hidden="true"
-                >
-                  <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
-                  <path d="M3 3v5h5" />
-                  <path d="M12 7v5l3 2" />
-                </svg>
-              }
-            />
             {/* 生成标题（三态 + hasMessages 禁用，T1-6） */}
             <button
               type="button"

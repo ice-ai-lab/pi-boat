@@ -204,7 +204,7 @@ server 新增「冷会话走 rename / resident 走命令通道」两条。
   放宽需单独决策。
 - **T2-3** 卡内流式双按钮 Steer（黄）/ Follow-Up（靖蓝），删掉常驻「插队」toggle。
 - **T2-4** 删卡内黄色停止，工具行末端补红 `#ef4444` 停止；流式中输入卡描边转 `rgba(234,179,8,0.4)`。
-- **T2-5** 删工具行的 `自动命名/导出/统计`（实测顶栏已有「生成标题 / 完整历史 / 会话信息」，无功能丢失）。
+- **T2-5** 删工具行的 `自动命名/导出/统计`（实测顶栏已有「生成标题 / 会话信息」，无功能丢失）。
 - **T2-6** 新建 `packages/ui/src/chat/tool-preset-menu.tsx`（原 `composer-menus.tsx`，2026-09-28 更名）：
   工具预设改自定义按钮 + 上弹面板（勾选 SVG + 译文描述）
   （思考档位分段已并进 `ModelSelector` 的二级菜单，见 §0.5）；工具预设标签直接用 protocol 的
@@ -579,8 +579,8 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 | G3 | **Skills 节结构** | `ConfigPanelShell + SplitView`（列表 + `skill-detail-*` 详情） | 单列三块（`skills-section.tsx`） | **P0** |
 | G4 | **扩展包节结构** | `ConfigPanelShell + SplitView`（extensions/packages 分组 + 详情） | 单列三块（`plugins-section.tsx`） | **P0** |
 | G5 | ~~**`DirectoryPicker` 形态 + 接线**~~ | portal 模态 520×620 / 圆角 10 | **已落地且已接线**（`sidebar.tsx` 的「自定义路径…」触发）——**本行已过期**（2026-09-26 复核） | ✅ |
-| G6 | **通用节缺「选中文字浮窗」开关** | 4 项：思考展开 / 内容宽 / 字号 / **Show actions for selected text** | 只有前 3 项（`general-section.tsx`）；`settings-host.tsx` 也未传该 prop | P1 |
-| G7 | **控件层未对齐 `primitives`** | `ConfigSwitch` 32×18 / knob 12×12 `var(--bg)`；`ConfigButton` 圆角 5 / h32·h28 / font 12·11 / `is-success`；输入框 12px | `Switch` 36×20 / 圆角 6 / knob **16px 白**；`Button` 圆角 7-8、无 secondary/danger/成功态；`Input` 11px（`primitives/switch.tsx`、`button.tsx`、`input.tsx`） | P1 |
+| G6 | **通用节缺「选中文字浮窗」开关** | 3 项：内容宽 / 字号 / **Show actions for selected text** | 只有前 2 项（`general-section.tsx`）；`settings-host.tsx` 也未传该 prop（「思考展开」项已于 2026 主动删除） | P1 |
+| G7 | **控件层未对齐 `primitives`** | `ConfigSwitch` 44×27 / knob 23 白（原型 v3 口径）；`ConfigButton` 圆角 5 / h32·h28 / font 12·11 / `is-success`；输入框 12px | `Switch` 36×20 / 圆角 6 / knob **16px 白**；`Button` 圆角 7-8、无 secondary/danger/成功态；`Input` 11px（`primitives/switch.tsx`、`button.tsx`、`input.tsx`） | P1 |
 | G8 | **自造 `SettingsRow` 仍在用** | 规范无 `.settings-row`，用 `.settings-shell-option` / `ConfigField` | `settings-panel.tsx`，被 `models-section.tsx`、`skills-section.tsx`、`plugins-section.tsx` 消费（**2026-09-26 更正**：`directory-picker.tsx` 并未 import 它） | P1 |
 | G9 | 三节去掉外层 padding 后文字贴边 | `.config-detail{padding:20px}` 提供内边距（`settings.css`） | `models-section.tsx`、`skills-section.tsx`、`plugins-section.tsx` 是裸 `flex flex-col gap-8` → **内边距为 0** | P1 |
 | G10 | ProjectTrustDialog 盾牌色 | `#f59e0b` | `#d97706`（`project-trust-dialog.tsx`）—— 此前误标为"完全落地"，实为改色 | P2 |

@@ -72,25 +72,3 @@ export function readStoredChatAppearance(read: (key: string) => string | null): 
     fontSize: clampChatContentFontSize(read(CHAT_CONTENT_FONT_SIZE_STORAGE_KEY)),
   };
 }
-
-/** 设计规范：思考块默认是否展开 */
-export const THINKING_EXPANDED_STORAGE_KEY = 'piboat:thinking-expanded';
-export const THINKING_EXPANDED_EVENT = 'piboat:thinking-expanded-changed';
-
-export function isThinkingExpandedByDefault(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    return window.localStorage.getItem(THINKING_EXPANDED_STORAGE_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
-
-export function setThinkingExpandedByDefault(expanded: boolean): void {
-  try {
-    window.localStorage.setItem(THINKING_EXPANDED_STORAGE_KEY, String(expanded));
-  } catch {
-    // 存储不可用：仅本次会话生效
-  }
-  window.dispatchEvent(new Event(THINKING_EXPANDED_EVENT));
-}

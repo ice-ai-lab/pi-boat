@@ -214,7 +214,7 @@ src/
 | 5 | 目录选择器 | `directory-picker-*` 类（组件已存在，类名待换） | ⬜ 未做 |
 | 6 | 代码块 / 文件查看器 | 设计规范用 `react-syntax-highlighter`（Prism、`vs`/`vscDarkPlus`）+ `showLineNumbers`；本仓现用 shiki 且无行号——颜色与行号都不一样 | ⬜ 未做（需换依赖） |
 | 7 | Markdown | `markdown-frontmatter*`（frontmatter 卡片）、`markdown-custom-message`、`markdown-compaction-message` + `compaction-file-*`、`markdown-file-preview`、`markdown-table-wrap`、`.markdown-user-message` | ⬜ 未做 |
-| 8 | 对话流 | 🟡 部分：`chat-scroll-to-bottom.is-visible` 已归位（BUG-1）、工具条补「完整历史 / 生成标题」+ 右侧 tokens/cost/context 统计按钮（T1-3/S4）；`chat-stats-center` / `chat-input-textarea` 归位、面板改 `position:fixed` 下拉（T1-6）未做 | 🟡 部分 |
+| 8 | 对话流 | 🟡 部分：`chat-scroll-to-bottom.is-visible` 已归位（BUG-1）、工具条补「生成标题」+ 右侧 tokens/cost/context 统计按钮（T1-3/S4）；`chat-stats-center` / `chat-input-textarea` 归位、面板改 `position:fixed` 下拉（T1-6）未做 | 🟡 部分 |
 | 9 | 文件域 | 🟡 部分：`file-panel-expand-button` + 隐藏按钮已归位（BUG-3，桌面可关右栏）；`file-viewer-mode-switch` / `-load-more` / `-live-indicator`、`image-preview-dialog` 灯箱、`catppuccin-file-icon`（需图标资源）未做 | 🟡 部分 |
 | 10 | 布局容器 | `sidebar-container`（现为 `<aside>` + `border-r`：内容宽 259 vs 设计规范 260）/ `right-panel-container` / `panel-resize-handle`（设计规范用它画分隔线，不在容器上描边）/ `sidebar-section-resize-handle` / `*-overlay-backdrop` + `scrollbar-subtle` | ⬜ 未做（已实测差异） |
 | 11 | 扩展货架 | `extension-widget-placement(-icon)` / `extension-widget-update-pulse` / `is-updating` | ⬜ 未做 |

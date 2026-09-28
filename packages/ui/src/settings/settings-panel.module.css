@@ -1,7 +1,35 @@
+/* 设置浮层（T5-1）—— 版面与材质照原型 v3 §11「设置弹窗」
+   （`docs/design/piboat-ui-redesign-v3.html` 的 `.settings` / `.set-head` / `.set-tabs` /
+   `.set-tab` / `.set-page` / `.sec` / `.list` / `.set-row` / `.slider` / `.radio-row` / `.radio`）。
+   材质：原型是平涂 `--glass`（rgba(250,250,252,.74)）+ `blur(44px) saturate(190%)`；
+   本仓对应 token 是 `--glass-pane`（.72），模糊收一档到 32px / 160%——
+   不用 `--glass-pop` 的多层渐变镜面，保持平涂玻璃，不做彩虹调。
+   原型变量 → 本仓 token：--glass → --glass-pane；--hair → --border；--fg/--fg-2/--faint →
+   --text/--text-2/--text-dim；--card-solid → --bg；--fill → --bg-hover；--fill-2 → --bg-selected；
+   --fill-3 → --text-dim 混色；--inset/--glass-3 → --bar-tint；--r-2xl → 28px；--r-md → 12px；
+   --sh-3 → --elev-panel。 */
 
+@keyframes settingsBackdropIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
 
-/* 设置对话框与通用设置表单（settings-*；原 settings.css 拆分） */
+@keyframes settingsSurfaceIn {
+  from {
+    opacity: 0;
+    scale: 0.98;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
 
+/* 遮罩：原型 .backdrop = rgba(0,0,0,.28) + blur(10px) saturate(140%)（暗色 .5） */
 .dialogBackdrop {
   position: fixed;
   inset: 0;
@@ -9,37 +37,55 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.38);
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.28);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  backdrop-filter: blur(10px) saturate(140%);
+  animation: settingsBackdropIn 0.24s ease both;
 }
 
+[data-theme="dark"] .dialogBackdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+/* 面板：原型 .settings = min(1000px, 94vw) × min(660px, 88dvh) + 28px 圆角 + 玻璃 + sh-3 */
 .dialogSurface {
   display: flex;
   flex-direction: column;
-  width: 1080px;
-  max-width: calc(100vw - 16px);
-  height: 84vh;
-  max-height: calc(100dvh - 16px);
+  width: min(1000px, 94vw);
+  max-width: 100%;
+  height: min(660px, 88dvh);
+  max-height: 100%;
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: var(--bg);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.22);
+  border-radius: 28px;
+  background: var(--glass-pane);
+  -webkit-backdrop-filter: blur(32px) saturate(160%);
+  backdrop-filter: blur(32px) saturate(160%);
+  box-shadow:
+    0 0 0 0.5px var(--border),
+    inset 0 0.5px 0 var(--glass-pop-rim),
+    var(--elev-panel);
+  animation: settingsSurfaceIn 0.3s cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
+/* 原型 .set-head：13px 16px 内边距 + 0.5px 发丝线 */
 .dialogHeader {
-  position: relative;
   display: flex;
   flex-shrink: 0;
   align-items: center;
+  gap: 12px;
   min-height: 50px;
-  padding: 0 52px 0 18px;
-  border-bottom: 1px solid var(--border);
+  padding: 0 12px 0 16px;
+  border-bottom: 0.5px solid var(--border);
 }
 
+/* 原型 .set-head h2（15px / 700 / 收紧字距） */
 .dialogTitle {
   flex-shrink: 0;
   color: var(--text);
   font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   white-space: nowrap;
 }
 
@@ -47,64 +93,46 @@
   flex-shrink: 0;
 }
 
+/* 原型 .set-tabs / .set-tab：胶囊 tab，选中态回到实色卡面 */
 .sectionTabs {
   display: flex;
-  align-items: stretch;
+  align-items: center;
   gap: 2px;
   min-width: 0;
-  height: 50px;
-  margin-left: 22px;
   overflow-x: auto;
   overflow-y: hidden;
 }
 
 .sectionTab {
-  position: relative;
-  display: flex;
-  flex: 0 0 96px;
+  display: inline-flex;
+  flex: none;
   align-items: center;
-  justify-content: center;
-  gap: 5px;
-  width: 96px;
-  height: 100%;
-  padding: 0 2px;
+  gap: 6px;
+  height: 30px;
+  padding: 0 11px;
   border: 0;
+  border-radius: 999px;
   outline: none;
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 12px;
+  font-family: inherit;
+  font-size: 12.5px;
   font-weight: 400;
   white-space: nowrap;
-  transition: color 0.15s ease;
-}
-
-.sectionTab::after {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  width: 24px;
-  height: 2px;
-  border-radius: 2px 2px 0 0;
-  background: var(--accent);
-  content: "";
-  opacity: 0;
-  transform: translateX(-50%) scaleX(0.5);
-  transition: opacity 0.15s ease, transform 0.15s ease;
-}
-
-.sectionTab[aria-current="page"] {
-  color: var(--text);
-  font-weight: 600;
-}
-
-.sectionTab[aria-current="page"]::after {
-  opacity: 1;
-  transform: translateX(-50%) scaleX(1);
+  transition: background-color 0.14s ease, color 0.14s ease, box-shadow 0.14s ease;
 }
 
 .sectionTab:not(:disabled):hover {
+  background: var(--bar-tint);
   color: var(--text);
+}
+
+.sectionTab[aria-current="page"] {
+  background: var(--bg);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), inset 0 0 0 0.5px var(--border);
 }
 
 .sectionTab:disabled {
@@ -112,20 +140,9 @@
   opacity: 0.38;
 }
 
-.sectionTab:focus-visible:not([aria-current="page"]) {
-  border-radius: 4px;
-  background: var(--bg-hover);
-  color: var(--text);
-}
-
-.sectionTab:focus-visible[aria-current="page"] {
-  outline: none;
-}
-
-
-
-.sectionIcon.isAgent {
-  transform: scale(1.25);
+.sectionTab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .mobileSectionPicker {
@@ -133,9 +150,8 @@
 }
 
 .dialogClose {
-  position: absolute;
-  top: 10px;
-  right: 14px;
+  flex: none;
+  margin-left: auto;
 }
 
 .dialogMain {
@@ -154,150 +170,273 @@
   min-height: 0;
 }
 
+/* ---------- 常规页（原型 .set-page + .sec + .list + .set-row + .slider + .radio-row） ---------- */
+
+/* 原型 .set-page：20px 24px 26px，内容占满面板宽度 */
 .general {
   width: 100%;
-  max-height: 100%;
-  max-width: 680px;
-  padding: 26px clamp(18px, 4vw, 40px) 40px;
+  height: 100%;
+  padding: 20px 24px 26px;
   overflow-y: auto;
 }
 
+/* 原型 .set-page h3（17px / 680 / -.02em） */
 .generalTitle {
-  margin: 0;
+  margin: 0 0 3px;
   color: var(--text);
-  font-size: 18px;
-  font-weight: 700;
+  font-size: 17px;
+  font-weight: 680;
+  letter-spacing: -0.02em;
 }
 
-.generalSection {
-  margin-top: 30px;
-}
-
-.generalSection:first-of-type {
-  margin-top: 24px;
-}
-
-.generalHeading {
-  margin: 0 0 5px;
-  color: var(--text);
-  font-size: 13px;
-  font-weight: 650;
-}
-
-
-
-.chatOptions {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  width: 100%;
-  max-width: 420px;
-}
-
-.chatOption {
-  width: 100%;
-  color: var(--text);
+/* 原型 .set-page .lead */
+.generalLead {
+  margin: 0 0 20px;
+  color: var(--text-dim);
   font-size: 12px;
 }
 
-.chatSwitchOption {
+/* 原型 .sec */
+.generalSection {
+  margin-bottom: 22px;
+}
+
+.generalSection:last-child {
+  margin-bottom: 0;
+}
+
+/* 原型 .sec > h4：11px / 700 / .05em / uppercase */
+.generalHeading {
+  margin: 0 0 8px;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* 原型 .list：iOS inset grouped list（圆角 12 + 半透明灰底 + 发丝描边 + 行间分隔线） */
+.list {
+  overflow: hidden;
+  border-radius: 12px;
+  background: var(--bar-tint);
+  box-shadow: inset 0 0 0 0.5px var(--border);
+}
+
+.list > * + * {
+  position: relative;
+}
+
+.list > * + *::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 14px;
+  height: 0.5px;
+  background: var(--border);
+  content: "";
+}
+
+/* 原型 .set-row */
+.setRow {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  min-height: 28px;
+  gap: 14px;
+  padding: 11px 14px;
 }
 
-.chatRangeOption {
-  padding: 0;
+.rowText {
+  flex: 1;
+  min-width: 0;
 }
 
-.chatRangeHeader {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto 28px;
+/* 原型 .set-row .txt .t */
+.rowTitle {
+  color: var(--text);
+  font-size: 13px;
+}
+
+/* 原型 .set-row .txt .d */
+.rowDesc {
+  margin-top: 2px;
+  color: var(--text-dim);
+  font-size: 11.5px;
+}
+
+/* 原型 .slider：滑杆 + 读数 + 重置键一行 */
+.slider {
+  display: flex;
+  flex: none;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  width: 300px;
 }
 
-.chatRangeHeader output {
+.slider input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  height: 4px;
+  margin: 0;
+  border-radius: 999px;
+  background: var(--bg-selected);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.slider input[type="range"]::-webkit-slider-thumb {
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3), 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+  -webkit-appearance: none;
+  cursor: grab;
+}
+
+.slider input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3), 0 0 0 0.5px rgba(0, 0, 0, 0.06);
+  cursor: grab;
+}
+
+.slider input[type="range"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+
+/* 原型 .slider output：等宽数字、贴右、宽度固定 */
+.slider output {
+  width: 52px;
   color: var(--text-muted);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
-.chatReset {
+/* 原型 .ibtn.sm（重置键）；用后代选择器提高一格特异性，压过 config-ui 的 .buttonSmall 内边距 */
+.slider .resetButton {
+  flex: none;
   width: 28px;
   height: 28px;
   padding: 0;
+  color: var(--text-muted);
 }
 
-.chatRangeOption input {
-  display: block;
-  width: 100%;
-  margin-top: 2px;
-  accent-color: var(--accent);
-}
-
-.languageOptions {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  width: 100%;
-  max-width: 420px;
-}
-
+/* 原型 .radio-row（整行可点，选中态由 .radio 表达） */
 .languageOption {
   display: flex;
   align-items: center;
-  gap: 10px;
-  height: 44px;
-  padding: 0 10px;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 14px;
   border: 0;
-  border-radius: 5px;
   background: transparent;
   color: var(--text);
   cursor: pointer;
-  font-size: 12px;
+  font-family: inherit;
+  font-size: 13px;
   text-align: left;
+  transition: background-color 0.14s ease;
 }
 
-.languageOption[aria-checked="true"] {
-  background: var(--bg-selected);
-}
-
-.languageOption:not([aria-checked="true"]):hover,
-.languageOption:focus-visible {
+.languageOption:not([aria-checked="true"]):hover {
   background: var(--bg-hover);
-  outline: none;
 }
 
+.languageOption:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* 原型 .radio：19px 圆环，选中 → 强调色实心 + 白点 */
 .languageRadio {
   display: grid;
-  flex-shrink: 0;
+  flex: none;
   place-items: center;
-  width: 16px;
-  height: 16px;
-  border: 1px solid var(--border);
+  width: 19px;
+  height: 19px;
   border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--text-dim) 55%, transparent);
 }
 
 .languageOption[aria-checked="true"] .languageRadio {
-  border-color: var(--accent);
+  background: var(--accent);
+  box-shadow: none;
 }
 
 .languageRadioDot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: var(--accent);
+  background: #fff;
 }
 
 .languageLabel {
   flex: 1;
+  min-width: 0;
 }
 
+/* 原型 .radio-row .code */
 .languageCode {
   color: var(--text-dim);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
+}
+
+/* 窄屏：退回下拉选择节（原型无此态，沿用本仓原实现）+ 行内控件换行 */
+@media (max-width: 640px) {
+  .dialogHeader {
+    flex-wrap: wrap;
+    gap: 8px;
+    min-height: 0;
+    padding: 10px 12px;
+  }
+
+  .sectionTabs {
+    display: none;
+  }
+
+  .mobileSectionPicker {
+    display: block;
+    min-width: 0;
+    height: 30px;
+    margin-left: auto;
+    padding: 0 8px;
+    border: 0.5px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg-subtle);
+    color: var(--text);
+    font-size: 12px;
+  }
+
+  .dialogClose {
+    margin-left: 0;
+  }
+
+  .general {
+    padding: 16px;
+  }
+
+  .setRow {
+    flex-wrap: wrap;
+  }
+
+  .slider {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dialogBackdrop,
+  .dialogSurface {
+    animation: none;
+  }
 }

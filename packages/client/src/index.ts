@@ -74,7 +74,6 @@ export {
   autoNameSession,
   getSessionContext,
   getSessionDetail,
-  sessionExportUrl,
 } from './endpoints/sessions';
 export { browseCwd, getDefaultCwd, getHome } from './endpoints/system';
 export {
@@ -208,12 +207,8 @@ export {
   clampChatContentFontSize,
   clampChatContentWidth,
   DEFAULT_CHAT_APPEARANCE,
-  isThinkingExpandedByDefault,
   readStoredChatAppearance,
   resolveChatContentWidth,
-  setThinkingExpandedByDefault,
-  THINKING_EXPANDED_EVENT,
-  THINKING_EXPANDED_STORAGE_KEY,
 } from './view-models/chat-appearance';
 export {
   CHAT_SCROLL_REATTACH_TOLERANCE,

@@ -20,10 +20,8 @@ export const jaLocale: LocalePlugin = {
     'settings.resetChatContentWidth': 'チャット表示幅をリセット',
     'settings.resetChatContentFontSize': 'チャット文字サイズをリセット',
     'settings.chatContentWidthDescription': 'メッセージと入力欄の最大幅を設定します。',
-    'settings.thinkingDisplay': '思考の表示',
-    'settings.thinkingDisplayDescription':
-      'メッセージ読み込み時にモデルの推論ブロックを展開するかを選択します。',
-    'settings.thinkingExpandedDefault': '思考ブロックを既定で展開する',
+    'settings.chatContentFontSizeDescription':
+      'メッセージ本文のみに反映され、他の UI には影響しません。',
     'settings.chat': 'チャット',
     'settings.quoteSelection': '選択テキストの操作を表示',
     'settings.languageDescription': 'インターフェース全体で使用する言語を選択します。',
@@ -47,9 +45,6 @@ export const jaLocale: LocalePlugin = {
     'theme.light': 'テーマ: ライト',
     'theme.dark': 'テーマ: ダーク',
     'theme.auto': 'テーマ: システム',
-    'history.full': '完全な履歴',
-    'history.unsaved': '完全な履歴はセッション保存後に利用できます',
-    'history.label': '完全な履歴',
     'title.generating': '生成中...',
     'title.updated': 'タイトルを更新しました',
     'title.failed': '生成に失敗しました',
