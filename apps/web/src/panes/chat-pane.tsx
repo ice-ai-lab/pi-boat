@@ -685,12 +685,28 @@ export function ChatPane({
     [session.cwd, gitStatus.data],
   );
 
-  // 思考档位候选：按当前模型取（服务端给的是 `provider:id` 键）
+  // 生效模型：活动会话看 liveState；空态用户 pending 选择优先，否则回落服务端默认——
+  // core 建会话不传 model 时正是用 /api/models 的 defaultModel，这里必须同源展示（BUG：空态恒显示「选择模型」）
+  const effectiveModel =
+    sessionId !== null
+      ? (session.liveState?.model ?? null)
+      : (session.pendingModel ?? models.data?.defaultModel ?? null);
+  // 思考档位候选：按生效模型取（服务端给的是 `provider:id` 键）——空态也须有候选（BUG：此前只看 liveState）
   const modelKey =
-    session.liveState?.model === null || session.liveState?.model === undefined
-      ? null
-      : `${session.liveState.model.provider}:${session.liveState.model.modelId}`;
+    effectiveModel === null ? null : `${effectiveModel.provider}:${effectiveModel.modelId}`;
   const thinkingLevels = modelKey === null ? [] : (models.data?.thinkingLevels[modelKey] ?? []);
+  // 档位回显：会话看 liveState；空态先用户 pending，再回落服务端 defaultThinkingLevel——
+  // 它是按 defaultModel 解析的（pin/按模型设置/全局默认，见 core ConfigService.models），
+  // 仅在展示的就是默认模型时可用；用户已另选模型则档位未定，不回显（选了才生效）
+  const isDefaultModelShown =
+    effectiveModel !== null &&
+    effectiveModel.provider === models.data?.defaultModel?.provider &&
+    effectiveModel.modelId === models.data?.defaultModel?.modelId;
+  const thinkingLevel =
+    sessionId !== null
+      ? (session.liveState?.thinkingLevel ?? session.pendingThinkingLevel)
+      : (session.pendingThinkingLevel ??
+        (isDefaultModelShown ? (models.data?.defaultThinkingLevel ?? null) : null));
   /** 模型选择器候选（T2-1）：来自 /api/models 的可用清单 */
   const modelOptions = useMemo(
     () =>
@@ -846,14 +862,14 @@ export function ChatPane({
             attachedCount={attachments.images.length}
             onAttachClick={() => fileInputRef.current?.click()}
             modelOptions={modelOptions}
-            model={sessionId !== null ? (session.liveState?.model ?? null) : session.pendingModel}
+            model={effectiveModel}
             onModelChange={(provider, modelId) =>
               void session.setModel(provider, modelId).then((error) => {
                 if (error !== null) pushToast(error, 'error');
               })
             }
             modelBusy={false}
-            thinkingLevel={session.liveState?.thinkingLevel ?? session.pendingThinkingLevel}
+            thinkingLevel={thinkingLevel}
             thinkingLevels={thinkingLevels}
             onThinkingLevelChange={(level) =>
               void session.setThinkingLevel(level as never).then((error) => {
