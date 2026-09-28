@@ -131,6 +131,11 @@
 > （§3.2）——会话文件与 pi CLI 共用，历史中的 `!` 执行记录仍须可读可渲染；
 > ② LLM 的 bash **工具调用**（tool_use）不受影响——那是 Agent 工具，不是直连命令。
 
+> ⚠️ 2026-09-28：**即时命令不排同会话命令队列**（`docs/03` §6.1）——它作用在「正在跑的那一步」上，
+> 或只是观察状态，排队到轮末要么失能要么死锁。含：中断（`abort` / `abort_compaction` /
+> `clear_queue` / `steer` / `follow_up`）、应答（`extension_ui_response`）、只读（`get_state` /
+> `get_session_stats` / `get_last_assistant_text` / `get_commands` / `get_tools`）。
+
 ### 4.1 新建会话
 
 `POST /api/agent/new`，body：`{ cwd, type?, message?, images?, provider?, modelId?, toolNames?, thinkingLevel? }`

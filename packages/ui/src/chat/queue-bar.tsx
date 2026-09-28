@@ -3,9 +3,9 @@ import { useI18n } from '../i18n/i18n-provider';
 /**
  * QueueBar：排队消息条——steering（插队）与 followUp（收尾后追问）。
  *
- * 按设计规范 `ChatInput` 的排队面板（T2-12）：1px 描边 + 6px 圆角 + `--bg-panel` 底；
- * 头行是 `chat.queued`（"已排队 · N"）与带 SVG 的「移回输入框」按钮；每行是**胶囊标签**
- * （steer 带 accent 描边）+ 单行省略的正文。数据来自 `queue_update` 事件。
+ * 按原型 `.queue`（v3 玻璃）：16px 圆角玻璃卡 + `--elev-panel` 投影；头行
+ * `chat.queued`（11.5px/650 `--text-muted`）+ 「移回输入框」按钮；每行是**语义底色胶囊标签**
+ * （引导 = amber，后续消息 = accent）+ 单行省略正文 + 顶部发丝线。数据来自 `queue_update` 事件。
  */
 export interface QueueBarProps {
   steering: string[];
@@ -13,67 +13,58 @@ export interface QueueBarProps {
   onClear(): void;
 }
 
+/** 原型 `.cbar`：30px 高 / 10px 圆角 / 12px `--text-muted`，hover 填充 */
+const RECALL_BUTTON = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 6,
+  height: 30,
+  padding: '0 10px',
+  border: 'none',
+  borderRadius: 10,
+  background: 'none',
+  color: 'var(--text-muted)',
+  cursor: 'pointer',
+  fontSize: 12,
+  whiteSpace: 'nowrap',
+  transition: 'background 0.14s, color 0.14s',
+  flexShrink: 0,
+} as const;
+
 export function QueueBar({ steering, followUp, onClear }: QueueBarProps) {
   const { t } = useI18n();
   const total = steering.length + followUp.length;
   if (total === 0) return null;
   return (
-    <div style={{ maxWidth: 'var(--chat-content-max-width, 1150px)', margin: '0 auto 8px' }}>
+    <div style={{ maxWidth: 'var(--chat-content-max-width, 1150px)', margin: '0 auto 9px' }}>
       <div
         style={{
-          border: '1px solid var(--border)',
-          borderRadius: 6,
-          background: 'var(--bg-panel)',
-          padding: '5px 0',
+          borderRadius: 16,
+          background: 'var(--menu)',
+          backdropFilter: 'blur(24px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+          boxShadow: 'var(--elev-panel), inset 0 0 0 1px var(--border)',
+          overflow: 'hidden',
         }}
       >
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 8,
-            padding: '2px 8px 4px 10px',
-          }}
-        >
-          <span
-            style={{
-              fontSize: 10,
-              fontFamily: 'var(--font-mono)',
-              color: 'var(--text-dim)',
-              textTransform: 'uppercase',
-              letterSpacing: 0.4,
-            }}
-          >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 11px' }}>
+          <span style={{ fontSize: 11.5, fontWeight: 650, color: 'var(--text-muted)' }}>
             {t('chat.queued', { count: total })}
           </span>
+          <span style={{ flex: 1 }} />
           <button
             type="button"
             onClick={onClear}
             title={t('chat.recallTitle')}
             aria-label={t('chat.recallTitle')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              padding: '4px 12px',
-              fontSize: 12,
-              color: 'var(--text)',
-              background: 'transparent',
-              border: '1px solid var(--border)',
-              borderRadius: 7,
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              transition: 'background 0.12s, border-color 0.12s',
-            }}
+            style={RECALL_BUTTON}
             onMouseEnter={(event) => {
               event.currentTarget.style.background = 'var(--bg-hover)';
-              event.currentTarget.style.borderColor =
-                'color-mix(in srgb, var(--accent) 45%, var(--border))';
+              event.currentTarget.style.color = 'var(--text)';
             }}
             onMouseLeave={(event) => {
-              event.currentTarget.style.background = 'transparent';
-              event.currentTarget.style.borderColor = 'var(--border)';
+              event.currentTarget.style.background = 'none';
+              event.currentTarget.style.color = 'var(--text-muted)';
             }}
           >
             <svg
@@ -107,39 +98,44 @@ export function QueueBar({ steering, followUp, onClear }: QueueBarProps) {
   );
 }
 
+/** 原型 `.tag`：18px 高 / 9.5px 等宽加粗；引导 = amber 底，后续消息 = accent 底 */
+function tagStyle(kind: 'steer' | 'follow-up') {
+  return {
+    flexShrink: 0,
+    display: 'inline-flex',
+    alignItems: 'center',
+    height: 18,
+    padding: '0 7px',
+    borderRadius: 999,
+    fontFamily: 'var(--font-mono)',
+    fontSize: 9.5,
+    fontWeight: 700,
+    letterSpacing: '0.04em',
+    background: kind === 'steer' ? 'var(--amber-bg)' : 'var(--user-bg)',
+    color: kind === 'steer' ? 'var(--amber)' : 'var(--accent)',
+  } as const;
+}
+
 function QueuedMessageRow({ kind, text }: { kind: 'steer' | 'follow-up'; text: string }) {
+  const { t } = useI18n();
   return (
     <div
       title={text}
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: 8,
-        padding: '3px 10px',
-        fontSize: 12,
-        color: 'var(--text-muted)',
+        gap: 9,
+        padding: '7px 11px',
+        borderTop: '1px solid var(--border)',
+        fontSize: 12.5,
+        color: 'var(--text-2)',
         minWidth: 0,
       }}
     >
+      <span style={tagStyle(kind)}>{kind === 'steer' ? t('chat.steer') : t('chat.followUp')}</span>
       <span
         style={{
-          flexShrink: 0,
-          fontSize: 10,
-          fontFamily: 'var(--font-mono)',
-          padding: '1px 7px',
-          borderRadius: 999,
-          border: `1px solid ${
-            kind === 'steer'
-              ? 'color-mix(in srgb, var(--accent) 45%, transparent)'
-              : 'var(--border)'
-          }`,
-          color: kind === 'steer' ? 'var(--accent)' : 'var(--text-dim)',
-        }}
-      >
-        {kind}
-      </span>
-      <span
-        style={{
+          flex: 1,
           minWidth: 0,
           overflow: 'hidden',
           textOverflow: 'ellipsis',

@@ -319,6 +319,9 @@ globals.css    A=288  B=271  仅 A 有 47：
 - C4「B 工具行在输入卡**上方**」❌ **已过时** —— B 已在下方（`composer.tsx:269` `marginTop:8` + `chat-pane.tsx:646`）
 - C1「B 空态是**目录输入卡**」❌ **已过时** —— 空态已复用完整 Composer（`chat-pane.tsx:1230-1241`）。但目前被 BUG-2 遮住，只有"有会话/已选目录"时才看得到
 - C3「A 的 composer 左侧有**供应商图标**（43 条映射）」❌ **不成立** —— `ProviderIcon` **只在设置页** `ModelsConfig.tsx:1815` 使用；composer 的 `ModelSelector` 用的是"芯片网格"SVG（`ModelSelector.tsx:200-207`）。→ **composer 不应引入 43 条映射**
+- **有意偏离 A**（2026-09-28 用户定案）：动作按钮上的 kbd 提示**常显** —— A 是
+  `:has(.ta:not(:placeholder-shown)) .send kbd { display: none }`（一打字就藏）；本仓改成只去禁用态、
+  提示不消失（`docs/06` §8.6、`docs/09` §0.5b）。窄卡隐藏两者一致。
 
 **输入卡本体（那一圈 14px 圆角卡）A/B 是严格一致的**：`borderRadius:14`、`padding:"10px 10px 10px 14px"`、双层 `boxShadow`、`gap:8`、`background:var(--bg)`、内容宽度锚 `--chat-content-max-width,820px`、`textarea` 类名与 `minH24/maxH200/lineHeight1.6`、发送按钮几何 `padding7px 14px/radius8`、Enter 发送 + IME 守卫、`↑` 首行接管历史 —— **全部逐字相同**。
 
@@ -358,7 +361,7 @@ globals.css    A=288  B=271  仅 A 有 47：
 | **D4** | 流式双按钮 Steer/FollowUp 缺失，改用工具行常驻「插队」 | `ChatInput.tsx:2180-2230`：卡内 **Steer 黄**（`rgba(234,179,8,.12)`/`rgba(180,130,0,1)`）+ **Follow-up 靛蓝**（`rgba(129,140,248,.12)`/`rgba(99,102,241,1)`），`radius8 padding7px 12px` | `chat-pane.tsx:684-696` 一个 `插队` toggle；`packages/ui/src/chat/*.tsx` 内 **零** steer/followUp | **P0** | `composer.tsx:206` streaming 分支改 A 双按钮；删「插队」 |
 | **D5** | B 的「停止」在卡内（黄），A 在工具行（红） | 工具行红 `#ef4444` + 方块 SVG | `composer.tsx:206-230`：`rgba(234,179,8,.12)` / `rgba(180,130,0,1)` | P1 | 删卡内停止；工具行末端加红停止（依赖 D4） |
 | **D6** | 工具行多出 3 个文字按钮 | A 无 `自动命名/导出/统计` | `composer-toolbar.tsx:121-135` | **P0** | 删除（功能先落到顶栏再删，见 Q3） |
-| **D7** | 思考档位/工具预设用原生 `<select>` | 自定义 button + 自定义面板（勾选 SVG + 档位描述） | `composer-toolbar.tsx:75-104` 原生 `<select>` | P1 | 新建 `chat/composer-menus.tsx`，搬 A 的 `thinkingDropdownRef`/`toolDropdownRef` 两段 |
+| **D7** | 思考档位/工具预设用原生 `<select>` | 自定义 button + 自定义面板（勾选 SVG + 档位描述） | `composer-toolbar.tsx:75-104` 原生 `<select>` | P1 | 新建 `chat/composer-menus.tsx`，搬 A 的 `thinkingDropdownRef`/`toolDropdownRef` 两段（2026-09-28 更名为 `tool-preset-menu.tsx`，思考档位并进 `ModelSelector`，见 `docs/09` §0.5） |
 | **D9** | 声音用 emoji | SVG 两态（`ChatInput.tsx:2650-2693`） | `chat-pane.tsx:697-705` `🔔`/`🔕` | P1 | 换 A 的 SVG path（`:2680-2690`） |
 | **D10** | 占位符硬编码，三态丢失 | `ChatInput.tsx:2155-2160` 三态（`chat.steerPlaceholder`/`agentPlaceholder`/`messagePlaceholder`） | `composer.tsx:46` 硬编码 `'给 PiBoat 发消息…（Enter 发送，Shift+Enter 换行）'`；**i18n key 已在库未接**（`zh-CN.ts:295-297`） | P1 | 加三态推导 + `useI18n()` |
 | **D11** | 输入历史浮层缺失 | `ChatInput.tsx:1769-1855`：30px 头 + 时钟 SVG + 序号 + `--bg-selected` active | `chat-pane.tsx:638-645` 只改 draft，**无浮层**；`chat.inputHistory` key 零引用（`zh-CN.ts:302`） | P1 | `composer.tsx` 加 `historyItems`/`historyActiveIndex` + 浮层（`bottom: calc(100%+8px)`） |
@@ -453,7 +456,7 @@ globals.css    A=288  B=271  仅 A 有 47：
 - [x] **T2-3** 流式改 Steer（黄）+ Follow-up（靛蓝）双按钮，删「插队」toggle。照抄 A `ChatInput.tsx:2180-2230`。〔D4〕
 - [x] **T2-4** 删卡内黄色停止，工具行末端加红 `#ef4444` 停止 + 流式黄色卡描边。照抄 A `ChatInput.tsx:2623-2648,2119-2121`。〔D5/D18〕
 - [x] **T2-5** 删工具行 `自动命名/导出/统计`（功能先落顶栏）。〔D6〕
-- [x] **T2-6** 新建 `chat/composer-menus.tsx`，思考档位/工具预设改自定义按钮 + 上弹面板。〔D7〕
+- [x] **T2-6** 新建 `chat/composer-menus.tsx`，思考档位/工具预设改自定义按钮 + 上弹面板（2026-09-28 更名 `tool-preset-menu.tsx`，见 `docs/09` §0.5）。〔D7〕
 - [x] **T2-7** 声音改 SVG 两态。照抄 A `ChatInput.tsx:2650-2693`。〔D9〕
 - [x] **T2-8** 占位符三态 + `useI18n()`（key 已在 `zh-CN.ts:295-297`）。〔D10〕
 - [x] **T2-9** 新建输入历史浮层。照抄 A `ChatInput.tsx:1769-1855`。〔D11〕

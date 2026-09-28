@@ -33,6 +33,9 @@
 - **唯一基准（ADR-0020，2026-01 修订）**：**统一 Web 设计规范** —— 的运行变量
   + 组件内联样式/类名。组件层结构与样式逐条对齐（口径见 ADR-0020）。
   旧原型 `docs/design/piboat-web-v3.html` 退役：其 0.5px hairline、superellipse、`#4176E6`、毛玻璃浮层**不再保留**。
+  同目录的 `docs/design/piboat-ui-redesign-v3.html`（原型代号「玻璃 Glass」）**是当前在逐步对齐的那一份**
+  （自 `b1e2366` 起的色板、侧栏 `.sb-item`、composer 区 `.inputcard`/`.queue`/`.statusline` 均以它为准）；
+  它与 ADR-0020 不冲突：同一套运行变量，只是提供了逐块的组件级结构与内联样式细节。
 - **token 单一来源**：`packages/ui/src/theme.css`（规范变量 `:root` + `[data-theme="dark"]` 两套）
 - **组件级 CSS 组织形式（2026 两阶段重构定案）**：
   - 默认**就近模块化**：域目录下 `*.module.css`（`panels/`、`files/`、`extension/`、`chat/`、
@@ -119,9 +122,14 @@
 | `ThinkingRow` | `text` `streaming` `durationMs` | `.shimmer` 流式态 → 定稿态 |
 | `ProcessGroup` | `group: ProcessGroupData` `open` | `.group-disc` + `.child-rail`（左导轨）+ 汇总标题 |
 | `StoppedTag` | — | `.stopped-tag`（abort 后） |
-| `Composer` | `value` `onChange` `onSubmit` `onAbort` `streaming` `model` `mode` | `.composer-seat`（渐变遮罩）+ `.input-card` + 发送↔停止 |
+| `Composer` | `value` `onChange` `onSubmit` `streaming` `onSteer?` `onFollowUp?` `onAbort?` `aboveInput` `cardFoot` `belowInput` | 原型 v3 §8 `.inputcard`（一张玻璃卡：卡内输入区 + `.card-foot` 控件条；右端动作 = 停止 / 引导 / 后续消息 / 发送，`↵` 与 `⌘/Ctrl+↵` 与按钮提示一致） |
+| `ComposerToolbar` | `attachedCount` `onAttachClick` `modelOptions` `model` `thinkingLevel(s)` `toolPreset(s)` `compacting` `soundEnabled` | 原型 v3 `.card-foot` 的**左簇**：`＋ · 模型+等级 · 工具预设 · 压缩 · 提示音`（右端动作在 `Composer`） |
+| `ComposerMetrics` | `tokens` `cost` `contextUsage` `tooltip` `open` `onToggle` | 原型 v3 `.statusline > .meters`（输入卡**下方**的指标行，**居中**；点它开「会话信息」面板，面板自下向上弹）。金额是 SDK 算好的 **USD**，本仓不换汇 |
+| `QueueBar` | `steering` `followUp` `onClear` | 原型 v3 `.queue`（头行 `chat.queued` + 「移回输入框」；行 = 语义底色胶囊 + 单行正文）。单条删除需新端点，未做 |
+| `ModelSelector` | `options` `value` `onChange` `level` `levels` `onLevelChange` | 原型 v3 §8b `.cbar--model` + `.menu--drill`（模型与推理等级合并；根页两行 → 二级列表 + 返回）。⛔ `ProviderIcon` 不进来（见 §5 Q2） |
+| `ToolPresetMenu` | `toolPreset` `toolPresets` `onToolPresetChange` | 原型 v3 `.cbar`（工具预设按钮 + 上弹面板） |
 | `ModelBadge` / `ModeChip` | `model` / `mode` `onChange` | `.model-btn` / `.mode-chip` + `.mode-menu`。⚠️ **「模式」与工具预设已合并为同一概念**（2026-09-22 决策，docs/02 §11.1）：本组件与 `ToolList` 的分段控件读写同一状态 |
-| `StatsPills` | `stats` `onSelect(kind)` | `#statsRow` 7 个 pill（in / out / cache / tps / cost / ctx ring） |
+| `StatsPills` | `stats` `onSelect(kind)` | `#statsRow` 7 个 pill（in / out / cache / tps / cost / ctx ring）。⚠️ **2026-09-28 起指标行由 `ComposerMetrics` 承担**（原型 v3 §8「指标行并入底部」），顶栏不再有会话统计按钮 |
 | `UsageLine` | `usage` `at` | `.usage-line`（每轮：in · out · cache R · cost · 时间） |
 | `SystemPromptPanel` | `prompt: string \| null` `loading` | ✅ **形态已定（2026-09-22）：整宽面板**（不取原型的 560px 锚定浮层）。规格：`height: min(600px, 75dvh)` + `overflow:auto` + `pre-wrap` + `overflow-wrap:anywhere` + 等宽 12px；两态文案（尚未加载 / 加载中；原「空」态已删——不可达，ADR-0015）；触发器为顶栏按钮（`aria-pressed`，有内容时图标转 accent）。原型仍提供视觉 token（`#popSys` 内的 `.sysprompt` 排版） |
 | `MessageMinimap` | `turns` `scrollRef` | `.minimap` + `.mm-bar` + `.mm-tip` 预览，算法见 §8.3 |
@@ -249,8 +257,12 @@ AppShell 三栏布局 + 拖拽/折叠（`makeDrag`）、主题切换、路由、
 
 ### 8.6 其他
 
-- Composer 自动增高（`min-height:24px; max-height:200px`）、`Enter` 发送 / `Shift+Enter` 换行（原型
-  脚本行为，具体快捷键见 §11）
+- Composer 自动增高（输入区 `min-height:56px`（原型 `.ta`）/ 上限 200px——上限由
+  `clampTextareaHeight` 夹取，见 §4.1）、`⇧↵` 换行；`↵` / `⌘/Ctrl+↵` 依运行态分派（空闲 = 发送，
+  运行中 = 引导 / 后续消息），与卡内两个动作按钮上的 kbd 提示一致（`docs/09` §0.5）
+- **kbd 提示常显**（2026-09-28 用户定案，**有意偏离**原型 `:has(.ta:not(:placeholder-shown)) .send kbd`）：
+  输入框有文本时按钮只从禁用态变可用，提示不随之消失——否则用户一打字就丢掉
+  「`↵` 发送 / `⌘↵` 后续消息」这条线索。窄卡（<660px）仍由容器查询隐藏（`chat.module.css .sendKbd`）
 - 浮层关闭三路：点外部、Esc、`[data-x]`（`closePops/closeAll`）
 - 主题切换：`[data-theme]` 属性 + `localStorage`；「跟随系统」在 M2 用 `prefers-color-scheme` + `matchMedia`
 

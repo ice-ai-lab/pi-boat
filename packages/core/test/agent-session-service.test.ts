@@ -13,6 +13,15 @@ import { fakeRuntime, fakeSessionManager } from './helpers/fake-runtime';
  * 不触碰真实 SDK / ~/.pi（真实链路由 demo/chat.ts 验收）。
  */
 
+/** 手动放行的 Promise（模拟「一轮还没跑完」） */
+function deferred() {
+  let release: () => void = () => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  return { gate, release };
+}
+
 const usage = {
   input: 1,
   output: 2,
@@ -387,21 +396,162 @@ describe('AgentSessionService.send：命令分发', () => {
         order.push('prompt-end');
         options?.preflightResult?.(true);
       }),
+      setThinkingLevel: vi.fn(() => order.push('thinking')),
     });
     const { service } = serviceWith(fake);
     await service.create({ cwd: '/tmp', type: 'ensure_session' });
 
     const p1 = service.send('sess-1', { type: 'prompt', message: 'a' });
-    const p2 = service.send('sess-1', { type: 'get_state' }).then((s) => {
-      order.push(`state(${s.sessionId})`);
-      return s;
-    });
-    // get_state 在 prompt 完成前不得插队
+    // 变更类命令（会改会话状态）排队等前一条
+    const p2 = service.send('sess-1', { type: 'set_thinking_level', level: 'high' });
     await new Promise((r) => setTimeout(r, 10));
     expect(order).toEqual(['prompt-start']);
     releasePrompt();
     await Promise.all([p1, p2]);
-    expect(order).toEqual(['prompt-start', 'prompt-end', 'state(sess-1)']);
+    expect(order).toEqual(['prompt-start', 'prompt-end', 'thinking']);
+  });
+
+  it('只读命令不排队：prompt 未结束时 get_state / get_tools 等立即返回', async () => {
+    const { gate, release } = deferred();
+    const fake = fakeAgentSession({
+      prompt: vi.fn(async () => {
+        await gate;
+      }),
+    });
+    const { service } = serviceWith(fake);
+    await service.create({ cwd: '/tmp', type: 'ensure_session' });
+
+    const prompt = service.send('sess-1', { type: 'prompt', message: '跑 60s' });
+    await new Promise((r) => setTimeout(r, 0));
+    // 不 release 就该返回：只读命令只是看状态，排到轮末只会白占浏览器连接
+    const state = await service.send('sess-1', { type: 'get_state' });
+    expect(state.sessionId).toBe('sess-1');
+    expect(await service.send('sess-1', { type: 'get_tools' })).toHaveLength(2);
+    expect(await service.send('sess-1', { type: 'get_commands' })).toEqual({
+      commands: [
+        {
+          name: 'review',
+          description: 'code review',
+          source: 'prompt',
+          sourceInfo: undefined,
+        },
+      ],
+    });
+
+    release();
+    await prompt;
+  });
+
+  it('扩展 UI 应答不排队：运行中阻塞等答案时立即回填（否则死锁到 5 分钟超时）', async () => {
+    type UiContext = { confirm(title: string, message: string): Promise<boolean | undefined> };
+    const { gate, release } = deferred();
+    const captured: { uiContext: UiContext | null } = { uiContext: null };
+    const fake = fakeAgentSession({
+      prompt: vi.fn(async () => {
+        await gate;
+      }),
+      bindExtensions: vi.fn(async (options: { uiContext: UiContext }) => {
+        captured.uiContext = options.uiContext;
+      }),
+    });
+    const { service } = serviceWith(fake);
+    await service.create({ cwd: '/tmp', type: 'ensure_session' });
+
+    // 捕获桥发的请求 id（真实链路上客户端就是这么拿到的）
+    const requestIds: string[] = [];
+    service.subscribe('sess-1', (event) => {
+      if (event.type === 'extension_ui_request') requestIds.push(event.request.id);
+    });
+
+    const prompt = service.send('sess-1', { type: 'prompt', message: 'a' });
+    await new Promise((r) => setTimeout(r, 0));
+    // 扩展在运行中发起阻塞型提问（真实场景：工具里 await uiContext.confirm）
+    const uiContext = captured.uiContext;
+    if (uiContext === null) throw new Error('扩展 UI 上下文未捕获');
+    const answer = uiContext.confirm('标题', '正文');
+    const requestId = requestIds[0];
+    if (requestId === undefined) throw new Error('扩展 UI 请求未捕获');
+    await service.send('sess-1', {
+      type: 'extension_ui_response',
+      id: requestId,
+      confirmed: true,
+    });
+    await expect(answer).resolves.toBe(true);
+
+    release();
+    await prompt;
+  });
+
+  it('中断类命令不排队：prompt 未结束时 abort 已派发（停止按钮不等轮末）', async () => {
+    const { gate, release } = deferred();
+    const abortSpy = vi.fn(async () => {});
+    const fake = fakeAgentSession({
+      prompt: vi.fn(async () => {
+        await gate;
+      }),
+      abort: abortSpy,
+    });
+    const { service } = serviceWith(fake);
+    await service.create({ cwd: '/tmp', type: 'ensure_session' });
+
+    const prompt = service.send('sess-1', { type: 'prompt', message: '跑 60s' });
+    await new Promise((r) => setTimeout(r, 0));
+    // 不 release 就该返回：abort 直通 SDK，不排在同会话 FIFO 后面
+    await service.send('sess-1', { type: 'abort' });
+    expect(abortSpy).toHaveBeenCalledTimes(1);
+    release();
+    await prompt;
+  });
+
+  it('中断类命令不排队：运行中的 steer / follow_up / abort_compaction 立即入 SDK 队列', async () => {
+    const { gate, release } = deferred();
+    const steerSpy = vi.fn(async () => {});
+    const followUpSpy = vi.fn(async () => {});
+    const abortCompactionSpy = vi.fn();
+    const fake = fakeAgentSession({
+      prompt: vi.fn(async () => {
+        await gate;
+      }),
+      steer: steerSpy,
+      followUp: followUpSpy,
+      abortCompaction: abortCompactionSpy,
+    });
+    const { service } = serviceWith(fake);
+    await service.create({ cwd: '/tmp', type: 'ensure_session' });
+
+    const prompt = service.send('sess-1', { type: 'prompt', message: 'a' });
+    await new Promise((r) => setTimeout(r, 0));
+    await service.send('sess-1', { type: 'steer', message: '插队' });
+    await service.send('sess-1', { type: 'follow_up', message: '追问' });
+    await service.send('sess-1', { type: 'abort_compaction' });
+    expect(steerSpy).toHaveBeenCalledWith('插队', undefined);
+    expect(followUpSpy).toHaveBeenCalledWith('追问', undefined);
+    expect(abortCompactionSpy).toHaveBeenCalledTimes(1);
+
+    release();
+    await prompt;
+  });
+
+  it('中断类命令不写队列尾：排队中的 prompt 仍等前一个 run 结束（不并发两个 run）', async () => {
+    const { gate, release } = deferred();
+    const promptSpy = vi.fn(async () => {
+      await gate;
+    });
+    const fake = fakeAgentSession({ prompt: promptSpy });
+    const { service } = serviceWith(fake);
+    await service.create({ cwd: '/tmp', type: 'ensure_session' });
+
+    const first = service.send('sess-1', { type: 'prompt', message: 'a' });
+    await new Promise((r) => setTimeout(r, 0));
+    // 中断命令插进来，也不该把队列尾推平
+    await service.send('sess-1', { type: 'abort' });
+    const second = service.send('sess-1', { type: 'prompt', message: 'b' });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(promptSpy).toHaveBeenCalledTimes(1);
+
+    release();
+    await Promise.all([first, second]);
+    expect(promptSpy).toHaveBeenCalledTimes(2);
   });
 
   it('命令串行化：前一条失败不阻塞后续命令（队列尾恒 fulfilled）', async () => {

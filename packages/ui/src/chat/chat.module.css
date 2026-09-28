@@ -136,6 +136,56 @@
 
 }
 
+/*
+ * 输入卡（原型 `.inputcard`）：20px 圆角玻璃卡，卡内只有两段——输入区与控件条。
+ * 玻璃放在 ::before 上而不是卡片本身：元素一旦有 backdrop-filter 就成为后代的 backdrop root，
+ * 卡内的模型/预设上弹菜单（position:absolute）会失去自己的毛玻璃。
+ * 容器查询供发送键的快捷键提示按卡宽取舍（原型 `@container card (min-width:660px)`）。
+ */
+.inputCard {
+  position: relative;
+  padding: 6px;
+  border-radius: 20px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 24px -12px rgba(15, 23, 42, 0.1);
+  transition: box-shadow 0.2s ease;
+  container-type: inline-size;
+  container-name: card;
+}
+
+.inputCard::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  background: var(--menu);
+  box-shadow: inset 0 0 0 1px var(--border);
+  -webkit-backdrop-filter: blur(18px) saturate(180%);
+  backdrop-filter: blur(18px) saturate(180%);
+}
+
+.inputCard > * {
+  position: relative;
+  z-index: 1;
+}
+
+.inputCard:focus-within {
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 52%, transparent),
+    0 0 0 4px var(--user-bg);
+}
+
+/* 快捷键提示：卡窄时不占版面（与原型同款取舍） */
+.sendKbd {
+  display: none;
+}
+
+@container card (min-width: 660px) {
+  .sendKbd {
+    display: inline-block;
+  }
+}
+
 /* 移动端输入框字号（原 web workspace.css 迁入；composer.tsx 消费） */
 @media (max-width: 640px) {
   .inputTextarea {

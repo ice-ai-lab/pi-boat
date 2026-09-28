@@ -56,6 +56,7 @@ import {
  * - 多会话注册表：按 sessionId 寻址、创建/销毁/re-key、registryVersion 供列表轻量轮询
  * - 统一命令通道：AgentCommand 判别联合分发（protocol 契约即方法面）；
  *   同会话命令 FIFO 串行、跨会话并行，错误不传染队列链；
+ *   即时命令（中断 / 应答 / 只读）直通不排队（IMMEDIATE_COMMANDS）；
  *   失败走类型化异常（SessionNotFoundError / PromptRejectedError / UserInputError）
  * - get_commands / get_tools：SDK 分散的能力（扩展命令/模板/技能/工具）聚合成面板数据
  * - fork/clone 的**破坏性原地替换**收口：runtime 换完会话后重新登记注册表键，
@@ -96,6 +97,44 @@ export class UserInputError extends Error {
     this.name = 'UserInputError';
   }
 }
+
+// ---------------------------------------------------------------------------
+// 命令分类（见 send 的注释）
+// ---------------------------------------------------------------------------
+
+/**
+ * **即时命令**：不排同会话 FIFO，直接派发。三类：
+ *
+ * - **中断**（`abort` / `abort_compaction` / `clear_queue` / `steer` / `follow_up`）：作用对象是
+ *   「正在跑的那一步」，排队到轮末等于失效——停止按钮点了要等本轮自然结束（用户在等 60s 的
+ *   bash 时反复点，每条挂住的请求都占一条浏览器同源连接，上限 6 条占满后连 `/api/health`
+ *   都发不出去）、引导退化成下一轮的追问、停止压缩压不掉。
+ * - **应答**（`extension_ui_response`）：扩展的阻塞型请求（ADR-0012）正卡着这一轮等答案，
+ *   排队就是死锁——应答永远等不到轮末，而轮末永远等不到应答（只能等 5 分钟的默认超时收尾）。
+ * - **只读**（`get_state` / `get_session_stats` / `get_last_assistant_text` / `get_commands` /
+ *   `get_tools`）：只是观察状态，没有排队理由；而每条排到轮末的请求都占一条连接，
+ *   打开一个正在跑的会话（命令/工具/统计三个预取）就能把连接占满，看上去就是「所有接口都 pending」。
+ *   实时轮询仍建议走轻查 `GET /api/agent/:id`（不占命令队列，也不占额外连接，docs/03 §6.4）。
+ *
+ * 即时命令**都不写队列尾**——写进去会让排队中的 prompt 误以为前任已结束而提前起跑，
+ * 同一会话就出现两个 run（SDK 约束：同会话只跑一个 prompt）。
+ */
+const IMMEDIATE_COMMANDS: ReadonlySet<AgentCommand['type']> = new Set([
+  // 中断
+  'abort',
+  'abort_compaction',
+  'clear_queue',
+  'steer',
+  'follow_up',
+  // 应答
+  'extension_ui_response',
+  // 只读
+  'get_state',
+  'get_session_stats',
+  'get_last_assistant_text',
+  'get_commands',
+  'get_tools',
+]);
 
 /** 会话本轮正在跑，无法做需要重建 runtime 的操作——server 映射 409 */
 export class SessionBusyError extends Error {
@@ -416,6 +455,10 @@ export class AgentSessionService {
     command: Extract<AgentCommand, { type: T }>,
   ): Promise<CommandData<T>> {
     const entry = this.requireEntry(sessionId);
+    // 即时命令直通（IMMEDIATE_COMMANDS 注释）：排队会让它们失能甚至死锁
+    if (IMMEDIATE_COMMANDS.has(command.type)) {
+      return (await this.dispatchCommand(entry, command)) as CommandData<T>;
+    }
     const run = this.commandTails.get(sessionId) ?? Promise.resolve();
     // 队列尾恒为 fulfilled（入队时已 catch）：前一条命令失败不阻塞后续命令
     const task = run.then(() => this.dispatchCommand(entry, command));

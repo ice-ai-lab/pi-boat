@@ -9,7 +9,7 @@ export { AssistantTurn, UsageLine, UserBubble } from './chat/assistant-turn';
 // chat 册（F5 增补）
 export { CodeBlock } from './chat/code-block';
 export { Composer, type ComposerProps } from './chat/composer';
-export { ComposerMenus, type ComposerMenusProps } from './chat/composer-menus';
+export { ComposerMetrics, type ComposerMetricsProps } from './chat/composer-metrics';
 export { ComposerToolbar, type ComposerToolbarProps } from './chat/composer-toolbar';
 export {
   ContentWidthHandles,
@@ -32,6 +32,7 @@ export {
   type SuggestionMenuProps,
 } from './chat/suggestion-menu';
 export { SystemRowView, ThinkingRowView } from './chat/thinking-row';
+export { ToolPresetMenu, type ToolPresetMenuProps } from './chat/tool-preset-menu';
 export { ToolRowView } from './chat/tool-row';
 export { TurnWrittenFiles, type TurnWrittenFilesProps } from './chat/turn-written-files';
 export { WorkspacePlaceholder } from './chat/workspace-placeholder';

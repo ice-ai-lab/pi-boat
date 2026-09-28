@@ -23,6 +23,7 @@ import { presetForToolNames, TOOL_PRESETS } from '@ice-ai/protocol';
 import {
   BranchNavigator,
   Composer,
+  ComposerMetrics,
   ComposerToolbar,
   ContentWidthHandles,
   EmptyState,
@@ -231,19 +232,10 @@ export interface ChatPaneProps {
 
 /**
  * 工具预设候选（T2-6）：与设计规范一致——标签就是预设 id，含义由面板右侧的描述行承担
- * （`chat.chatOnly` / `chat.readOnlyTools` / …，见 ComposerMenus）。值域单一来源是 protocol 的
+ * （`chat.chatOnly` / `chat.readOnlyTools` / …，见 ToolPresetMenu）。值域单一来源是 protocol 的
  * `TOOL_PRESETS`，不再手写第二份中文标签。
  */
 const TOOL_PRESET_OPTIONS = TOOL_PRESETS.map((value) => ({ value, label: value }));
-
-/** 设计规范 `formatCompact`（AppShell：1200 → "1k"，1_200_000 → "1.2M"） */
-function formatCompact(value: number): string {
-  return value >= 1_000_000
-    ? `${(value / 1_000_000).toFixed(1)}M`
-    : value >= 1000
-      ? `${(value / 1000).toFixed(0)}k`
-      : String(value);
-}
 
 /**
  * 设计规范中栏工具条按钮（`AppShell` 的 `renderChatToolbarActions`）：
@@ -387,10 +379,17 @@ export function ChatPane({
   const selfSwitchRef = useRef(false);
   /** 设计规范 `topBarRef`：顶部面板 fixed 下拉的定位基准（T1-3） */
   const topBarRef = useRef<HTMLDivElement>(null);
+  /** 指标行（输入卡下方）的 DOM 基准：会话信息面板从它向上弹出（⑥b） */
+  const metricsRef = useRef<HTMLDivElement>(null);
   const [topPanelPos, setTopPanelPos] = useState<{
     top: number;
     left: number;
     width: number;
+  } | null>(null);
+  const [metricsPanelPos, setMetricsPanelPos] = useState<{
+    right: number;
+    bottom: number;
+    maxHeight: number;
   } | null>(null);
   const urlSessionId = searchParams.get('s');
 
@@ -481,9 +480,11 @@ export function ChatPane({
     };
   }, [chat.streaming, session]);
 
-  // ⑥ 顶部面板定位：fixed 贴顶下拉，位置由 topPanelPos 测量（T1-3）
+  // ⑥ 顶部面板定位：fixed 贴顶下拉，位置由 topPanelPos 测量（T1-3）；
+  // 会话信息面板挂在**输入卡下方**的指标行上，所以它走 ⑥b 的向上弹出
   useEffect(() => {
     if (activePanel === null || activePanel === 'branches' || topBarRef.current === null) return;
+    if (activePanel === 'session') return;
     const update = () => {
       const topBarRect = topBarRef.current?.getBoundingClientRect();
       if (topBarRect === undefined) return;
@@ -492,6 +493,26 @@ export function ChatPane({
     update();
     const ro = new ResizeObserver(update);
     if (topBarRef.current !== null) ro.observe(topBarRef.current);
+    return () => ro.disconnect();
+  }, [activePanel]);
+
+  // ⑥b 指标行面板定位：fixed 向上弹出（原型里它在 `.statusline` 之外，免得被裁掉）
+  useEffect(() => {
+    if (activePanel !== 'session' || metricsRef.current === null) return;
+    const update = () => {
+      const rect = metricsRef.current?.getBoundingClientRect();
+      if (rect === undefined) return;
+      const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+      setMetricsPanelPos({
+        right: Math.max(8, viewportWidth - rect.right),
+        bottom: viewportHeight - rect.top + 8,
+        maxHeight: Math.max(160, rect.top - 12),
+      });
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(metricsRef.current);
     return () => ro.disconnect();
   }, [activePanel]);
 
@@ -728,21 +749,9 @@ export function ChatPane({
     [detail.data?.tree],
   );
 
-  // 会话统计按钮内容（按设计规范 `renderSessionStatsButton` 桌面分支，T1-5）
+  // 指标行（原型 §8：从顶栏搬到输入卡下方）的读数与悬停提示
   const tokens = sessionStats?.tokens;
   const cost = sessionStats?.cost ?? 0;
-  const costText = cost > 0 ? (cost >= 0.01 ? `$${cost.toFixed(2)}` : '<$0.01') : null;
-  let contextColor = 'var(--text-muted)';
-  let desktopContextText: string | null = null;
-  if (contextUsage?.contextWindow) {
-    const percent = contextUsage.percent;
-    if (percent !== null && percent > 90) contextColor = 'var(--red)';
-    else if (percent !== null && percent > 70) contextColor = 'rgba(234,179,8,0.95)';
-    desktopContextText =
-      percent !== null
-        ? `${percent.toFixed(0)}% / ${formatCompact(contextUsage.contextWindow)}`
-        : `? / ${formatCompact(contextUsage.contextWindow)}`;
-  }
   const tooltipParts: string[] = [];
   if (tokens) {
     tooltipParts.push(`in: ${tokens.input.toLocaleString()}`);
@@ -758,7 +767,7 @@ export function ChatPane({
     );
   }
   const statsTooltip = tooltipParts.join('  |  ');
-  const showStatsButton = showChat && (sessionStats !== null || contextUsage !== null);
+  const showMetrics = showChat && (sessionStats !== null || contextUsage !== null);
 
   // 生成标题按钮状态（按设计规范：hasMessages 参考 userMessages 与消息总数）
   const hasMessages =
@@ -786,9 +795,9 @@ export function ChatPane({
   const compacting = session.liveState?.isCompacting === true;
 
   /**
-   * 输入区（空态与活动会话共用）：附件输入 + 排队条 + Composer。
-   * 工具行（T2-6）放在输入卡**下方**（`belowInput`，设计规范 ChatInput 底部行）：
-   * 左 = 附件 + 模型选择器，中 = flex:1 spacer，右 = 思考 / 预设 / 压缩 / (停止) / 声音。
+   * 输入区（空态与活动会话共用）：隐藏文件输入 + 排队条 + Composer + 指标行。
+   * 控件条在输入卡**内**（`cardFoot`，原型 `.card-foot` 的左簇：附件 + 模型+等级 + 预设 + 压缩 + 提示音），
+   * 指标行在输入卡**下方**（`belowInput`，原型 `.statusline`）。
    */
   const composerElement = (
     <div className="shrink-0">
@@ -831,7 +840,8 @@ export function ChatPane({
         onPasteImages={attachments.addFiles}
         onSteer={chat.streaming ? () => queueStreamingMessage('steer') : undefined}
         onFollowUp={chat.streaming ? () => queueStreamingMessage('followUp') : undefined}
-        belowInput={
+        onAbort={chat.streaming ? () => void session.abort() : undefined}
+        cardFoot={
           <ComposerToolbar
             attachedCount={attachments.images.length}
             onAttachClick={() => fileInputRef.current?.click()}
@@ -866,11 +876,27 @@ export function ChatPane({
               })
             }
             onAbortCompaction={() => void session.abortCompaction()}
-            streaming={chat.streaming}
-            onAbort={() => void session.abort()}
             soundEnabled={signal.soundEnabled}
             onToggleSound={signal.toggleSound}
           />
+        }
+        belowInput={
+          showMetrics ? (
+            <div ref={metricsRef}>
+              <ComposerMetrics
+                tokens={tokens ?? null}
+                cost={cost}
+                contextUsage={contextUsage}
+                tooltip={statsTooltip}
+                open={activePanel === 'session'}
+                onToggle={() => {
+                  const next = activePanel === 'session' ? null : 'session';
+                  setActivePanel(next);
+                  if (next === 'session') void session.refreshStats();
+                }}
+              />
+            </div>
+          ) : undefined
         }
       />
     </div>
@@ -1163,138 +1189,6 @@ export function ChatPane({
             />
           </div>
         )}
-        {/* 会话统计（T1-5：cacheRead 图标 + context `pct% / window`，ml-auto，无统计时隐藏） */}
-        {showStatsButton && (
-          <button
-            type="button"
-            onClick={() => {
-              const next = activePanel === 'session' ? null : 'session';
-              setActivePanel(next);
-              if (next === 'session') void session.refreshStats();
-            }}
-            title={statsTooltip || t('session.title')}
-            aria-label={t('session.title')}
-            aria-pressed={activePanel === 'session'}
-            style={{
-              marginLeft: 'auto',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'flex-end',
-              minWidth: 0,
-              gap: 10,
-              paddingLeft: 12,
-              paddingRight: 12,
-              height: '100%',
-              overflow: 'hidden',
-              background: activePanel === 'session' ? 'var(--bg-selected)' : 'none',
-              border: 'none',
-              borderTop:
-                activePanel === 'session' ? '2px solid var(--accent)' : '2px solid transparent',
-              fontSize: 11,
-              color: 'var(--text-muted)',
-              whiteSpace: 'nowrap',
-              cursor: 'pointer',
-              fontVariantNumeric: 'tabular-nums',
-              transition: 'color 0.1s, background 0.1s',
-            }}
-            onMouseEnter={(event) => {
-              event.currentTarget.style.color = 'var(--text)';
-            }}
-            onMouseLeave={(event) => {
-              event.currentTarget.style.color =
-                activePanel === 'session' ? 'var(--text)' : 'var(--text-muted)';
-            }}
-          >
-            {tokens && tokens.input > 0 && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 10 10"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <line x1="5" y1="8.5" x2="5" y2="1.5" />
-                  <polyline points="2 4 5 1.5 8 4" />
-                </svg>
-                {formatCompact(tokens.input)}
-              </span>
-            )}
-            {tokens && tokens.output > 0 && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 10 10"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <line x1="5" y1="1.5" x2="5" y2="8.5" />
-                  <polyline points="2 6 5 8.5 8 6" />
-                </svg>
-                {formatCompact(tokens.output)}
-              </span>
-            )}
-            {tokens && tokens.cacheRead > 0 && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 10 10"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M8.5 5a3.5 3.5 0 1 1-1-2.45" />
-                  <polyline points="6.5 1.5 8.5 2.5 7.5 4.5" />
-                </svg>
-                {formatCompact(tokens.cacheRead)}
-              </span>
-            )}
-            {costText && (
-              <span
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  color: 'var(--text)',
-                  fontWeight: 500,
-                }}
-              >
-                {costText}
-              </span>
-            )}
-            {desktopContextText && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: 4, color: contextColor }}>
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 10 10"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="M1 9 L1 5 Q1 1 5 1 Q9 1 9 5 L9 9" />
-                  <line x1="1" y1="9" x2="9" y2="9" />
-                </svg>
-                {desktopContextText}
-              </span>
-            )}
-          </button>
-        )}
         {/* 文件面板开合（T1-1，按设计规范 `renderMainFileToggle`） */}
         {onToggleRightPanel !== undefined && (
           <button
@@ -1305,7 +1199,7 @@ export function ChatPane({
             title={rightPanelOpen ? t('files.hidePanel') : t('files.showPanel')}
             aria-label={rightPanelOpen ? t('files.hidePanel') : t('files.showPanel')}
             style={{
-              marginLeft: !showStatsButton ? 'auto' : 0,
+              marginLeft: 'auto',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -1345,45 +1239,54 @@ export function ChatPane({
             </svg>
           </button>
         )}
-        {/* 顶部面板：fixed 贴顶下拉（T1-3，一次只开一个） */}
-        {activePanel !== null && activePanel !== 'branches' && topPanelPos !== null && (
-          <div
-            style={{
-              position: 'fixed',
-              top: topPanelPos.top,
-              left: topPanelPos.left,
-              width: topPanelPos.width,
-              maxHeight: `calc(100dvh - ${topPanelPos.top}px)`,
-              overflowY: 'auto',
-              zIndex: 500,
-            }}
-          >
-            <PanelsHost
-              active={activePanel}
-              systemPrompt={session.liveState?.systemPrompt ?? null}
-              systemLoading={false}
-              tools={session.tools.map((tool) => ({
-                name: tool.name,
-                description: tool.description,
-                active: tool.active === true,
-                parameters: tool.parameters,
-                promptGuidelines: tool.promptGuidelines,
-              }))}
-              toolsLoading={false}
-              stats={session.stats}
-              contextUsage={contextUsage}
-              project={
-                session.cwd === null
-                  ? null
-                  : {
-                      cwd: session.cwd,
-                      branch: detail.data?.info.branch,
-                      isWorktree: detail.data?.info.isWorktree,
-                    }
-              }
-            />
-          </div>
-        )}
+        {/* 顶部面板：fixed 贴顶下拉（T1-3，一次只开一个）；会话信息面板例外——
+            它的入口在输入卡下方的指标行，所以从指标行**向上**弹出（⑥b） */}
+        {activePanel !== null &&
+          activePanel !== 'branches' &&
+          (activePanel === 'session' ? metricsPanelPos !== null : topPanelPos !== null) &&
+          (() => {
+            const anchored: CSSProperties =
+              activePanel === 'session' && metricsPanelPos !== null
+                ? {
+                    right: metricsPanelPos.right,
+                    bottom: metricsPanelPos.bottom,
+                    maxHeight: metricsPanelPos.maxHeight,
+                  }
+                : {
+                    top: topPanelPos?.top ?? 0,
+                    left: topPanelPos?.left ?? 0,
+                    width: topPanelPos?.width ?? 0,
+                    maxHeight: `calc(100dvh - ${topPanelPos?.top ?? 0}px)`,
+                  };
+            return (
+              <div style={{ position: 'fixed', ...anchored, overflowY: 'auto', zIndex: 500 }}>
+                <PanelsHost
+                  active={activePanel}
+                  systemPrompt={session.liveState?.systemPrompt ?? null}
+                  systemLoading={false}
+                  tools={session.tools.map((tool) => ({
+                    name: tool.name,
+                    description: tool.description,
+                    active: tool.active === true,
+                    parameters: tool.parameters,
+                    promptGuidelines: tool.promptGuidelines,
+                  }))}
+                  toolsLoading={false}
+                  stats={session.stats}
+                  contextUsage={contextUsage}
+                  project={
+                    session.cwd === null
+                      ? null
+                      : {
+                          cwd: session.cwd,
+                          branch: detail.data?.info.branch,
+                          isWorktree: detail.data?.info.isWorktree,
+                        }
+                  }
+                />
+              </div>
+            );
+          })()}
       </div>
     </div>
   );

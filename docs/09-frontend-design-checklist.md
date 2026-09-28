@@ -204,8 +204,10 @@ server 新增「冷会话走 rename / resident 走命令通道」两条。
 - **T2-3** 卡内流式双按钮 Steer（黄）/ Follow-Up（靖蓝），删掉常驻「插队」toggle。
 - **T2-4** 删卡内黄色停止，工具行末端补红 `#ef4444` 停止；流式中输入卡描边转 `rgba(234,179,8,0.4)`。
 - **T2-5** 删工具行的 `自动命名/导出/统计`（实测顶栏已有「生成标题 / 完整历史 / 会话信息」，无功能丢失）。
-- **T2-6** 新建 `packages/ui/src/chat/composer-menus.tsx`：思考档位与工具预设改自定义按钮 + 上弹面板
-  （勾选 SVG + 译文描述）；工具预设标签直接用 protocol 的 `TOOL_PRESETS` 值，不再手写中文。
+- **T2-6** 新建 `packages/ui/src/chat/tool-preset-menu.tsx`（原 `composer-menus.tsx`，2026-09-28 更名）：
+  工具预设改自定义按钮 + 上弹面板（勾选 SVG + 译文描述）
+  （思考档位分段已并进 `ModelSelector` 的二级菜单，见 §0.5）；工具预设标签直接用 protocol 的
+  `TOOL_PRESETS` 值，不再手写中文。
 - **T2-7** 声音改 SVG 两态（开/静音）。
 - **T2-8** 占位符三态（`steerPlaceholder`/`agentPlaceholder`/`messagePlaceholder`）走 `t()`。
 - **T2-9** 新建输入历史浮层（30px 头 + 时钟 SVG + 序号 + 2 行截断 + active `--bg-selected`）；
@@ -271,6 +273,46 @@ T1-10（三节 i18n，与套壳同批，避免写两遍）。
 验证：手写 Playwright 脚本跑通四条路径（空态发送 / 既有会话追问 / 「新建会话」后发送 /
 `touch server` 重启后发送）；新增单测 `packages/client/test/stream.test.ts`（waitUntilReady ×4）与
 `packages/client/test/session-revive.test.ts`（revive 重发 ×3）；`test + lint + build` 全绿。
+
+---
+
+## 0.5 第五轮实施进度（2026-09-28，composer 区对齐原型 v3「玻璃」）
+
+> 基准换到 `docs/design/piboat-ui-redesign-v3.html`（与 `b1e2366` 起的「玻璃 Glass」色板同一份原型）。
+> 本轮只动**对话框区域**（原型 §8）：一张玻璃卡 + 卡内控件条 + 卡下指标行 + 卡上排队条。
+
+- **输入卡合并为一张**：`Composer` 从「卡片（输入 + 发送动作）+ 卡下工具行」改为原型 `.inputcard`
+  ——20px 圆角玻璃卡（玻璃放 `::before`，卡内上弹菜单才保留自己的毛玻璃），卡内只有两段
+  （输入区 `min-height:56px` / 控件条 `.card-foot`）；附件缩略图从卡上方移进卡内顶部。
+  槽位随之改名：`belowInput`（卡内左簇）→ `cardFoot`，`belowInput` 保留给卡下的一行。
+- **动作进控件条**：停止 / 引导 / 后续消息 / 发送 都移到 `.card-foot` 的右端（`Composer` 自己渲染），
+  键盘 `↵` = 引导（运行中）/ 发送（空闲）、`⌘/Ctrl+↵` = 后续消息——与按钮上的 kbd 提示一致
+  （此前运行中 `↵` 走的是普通 `prompt`）。禁用态 = 透明底 + 发丝描边。
+- **模型 + 推理等级合并成一个控件**：`ModelSelector` 收起态 `[芯片] 模型 id [等级胶囊] ⌄`，
+  展开后是二级菜单（根页「模型 / 推理等级」两行 → 各自列表 + 返回）；等级描述 key 随之迁入。
+- **`composer-menus.tsx` → `tool-preset-menu.tsx`**（`ComposerMenus` → `ToolPresetMenu`）：
+  思考档位移出后只剩工具预设一段，文件与组件名按剩余职责命名。
+- **指标行并入底部**：顶栏的会话统计按钮删掉，改由新的 `ComposerMetrics` 渲染在输入卡**下方**
+  （`↑ in ↓ out ⟳ cache read │ cost │ ◐ pct / window` + 上弹「会话信息」面板，面板从指标行向上弹）。
+  行**居中**（2026-09-28 用户指定；原型是右对齐）。T1-5 的读数口径（`formatCompact` / cost / context
+  三档配色）原样迁移，顶栏从此只剩会话级入口。
+  ⚠️ 金额是 **USD 本地估算**：SDK 用模型目录里的费率（USD/1M token）乘 token 数算出，本仓不换汇（见下文）。
+- **排队条对齐原型 `.queue`**：头行 11.5px/650 `--text-muted`（不再是等宽大写）+ 「移回输入框」走 `.cbar`；
+  行内标签改**语义底色胶囊**（引导 = amber、后续消息 = accent）+ 顶部发丝线，文案走 `t('chat.steer')` /
+  `t('chat.followUp')`（此前直接渲染 `steer` / `follow-up` 字面量）。
+  ⚠️ 原型行尾的「单条 ✕」不做：协议只有 `clear_queue`（整队清空），单条删除需要新增端点。
+- 验证：原型单文件对照截图（排队条 / 运行中 / 空闲三态 + 模型二级菜单）+ 真实会话页截图；
+  `typecheck + lint + test + build` 全绿。i18n 新增三语 key：`chat.modelLabel` / `chat.reasoningLabel` / `chat.back`。
+
+### 0.5b 后续修订（2026-09-28）
+
+- **kbd 提示常显**（**有意偏离**原型 `:has(.ta:not(:placeholder-shown)) .send kbd`；`docs/06` §8.6）：
+  输入框有文本时只去禁用态，`↵` / `⌘↵` 提示不消失。
+- **停止按钮真的能停**：core 的**即时命令**（中断 `abort / steer / follow_up / clear_queue /
+abort_compaction`、应答 `extension_ui_response`、只读 `get_state` 等）改为**不排同会话命令队列**
+  （`docs/03` §6.1）——旧行为下「停止」要等本轮自然结束才生效，连点还会各挂一条浏览器连接
+  （同源 6 条占满 → 所有接口 pending）；扩展对话框的应答会死锁到 5 分钟超时。client 侧的
+  `abort` 另加了在途去重。
 
 ---
 

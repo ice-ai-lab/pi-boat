@@ -29,7 +29,7 @@ core 是 pi SDK 之上的**传输无关**业务层，补齐 SDK 没有的三件�
 
 | 文件 | 职责 | 测试 |
 |---|---|---|
-| `agent/agent-session-service.ts` | 注册表 + 命令分发（FIFO，均 24 条命令）+ 新建/reload + fork·clone·navigate_tree 的 runtime 替换 + late-join 订阅入口 | `agent-session-service.test.ts` |
+| `agent/agent-session-service.ts` | 注册表 + 命令分发（FIFO + 即时命令直通，共 24 条命令）+ 新建/reload + fork·clone·navigate_tree 的 runtime 替换 + late-join 订阅入口 | `agent-session-service.test.ts` |
 | `agent/session-entry.ts` | 注册表单元：委托订阅 / seq 计数 / 流内状态跟踪（queue、半截消息、扩展 UI、perf 累加）/ dispose | `session-entry.test.ts` |
 | `agent/extension-ui-bridge.ts` | 扩展 UI 宿主：阻塞型请求的兜底超时、未决请求结清、widgets/status 代际管理（ADR-0012） | `extension-ui-bridge.test.ts` |
 | `agent/liveness.ts` | `LivenessRegistry`：lease + idle 回收（G2-12，判据 = 无观看者且不在跑） | `liveness.test.ts` |
@@ -152,14 +152,32 @@ return task;                                   // 错误由本次调用方接住
 
 同会话串行、跨会话并行；**前一条命令失败不阻塞后续命令**（错误不传染队列链）。
 
+**例外：即时命令直通不排队**（2026-09-28 修复）。`IMMEDIATE_COMMANDS` 三类：
+
+- **中断**（`abort` / `abort_compaction` / `clear_queue` / `steer` / `follow_up`）：作用对象是
+  **正在跑的那一步**，排队到轮末等于失效——停止按钮点了要等本轮自然结束（用户在等 60s 的
+  bash 时反复点，每条挂住的请求都占一条浏览器同源连接，上限 6 条占满后连 `/api/health`
+  都发不出去）、引导退化成下一轮的追问、停止压缩压不掉。
+- **应答**（`extension_ui_response`）：扩展的阻塞型请求（ADR-0012）正卡着这一轮等答案，
+  排队就是死锁（应答等不到轮末、轮末等不到应答，只能等 5 分钟默认超时）。
+- **只读**（`get_state` / `get_session_stats` / `get_last_assistant_text` / `get_commands` /
+  `get_tools`）：只是观察状态，没有排队理由；每条排到轮末的请求同样白占一条连接
+  （打开一个正在跑的会话会预取命令/工具/统计）。实时轮询仍走轻查 `GET /api/agent/:id`（§6.4）。
+
+这十一类在 `send` 里绕开 `commandTails` 直接派发，**且不写队列尾**——写进去会让排队中的
+prompt 误以为前任已结束而提前起跑，同一会话就出现两个 run（SDK 约束：同会话只跑一个 prompt）。
+FIFO 只串「起轮/改结构」的命令（`prompt` / `compact` / `set_*` / `fork*` / `clone` /
+`navigate_tree` / `reload`）。
+
 ### 6.2 命令实现要点（24 条命令全量；下表为易踩坑的一批）
 
 | 命令 | 要点 |
 |---|---|
 | `prompt` | `preflightResult` 回调捕获拒稿 → `PromptRejectedError`；**finally 无条件销账**（见 6.3）；完成信号走事件流 `agent_settled`，返回 null |
-| `steer` / `follow_up` | 标记 dispatched；同步失败销账后上抛；入队即返回（销账靠 `agent_settled` 幂等兜底） |
-| `abort` / `clear_queue` | 直通 SDK；clear_queue 返回 `{steering[], followUp[]}` 快照 |
-| `get_state` | 装配 AgentState：queued/isPromptRunning 来自 **Entry 流内跟踪**，其余直读 SDK；`lastSeq` 与各字段同块同步读取 |
+| `steer` / `follow_up` | 直通不排队（§6.1 中断类）；标记 dispatched；同步失败销账后上抛；入队即返回（销账靠 `agent_settled` 幂等兜底） |
+| `abort` / `clear_queue` | 直通不排队（§6.1 中断类）；直通 SDK；clear_queue 返回 `{steering[], followUp[]}` 快照 |
+| `abort_compaction` | 直通不排队（§6.1 中断类）——`compact` 要等压缩整轮跑完才返回，排队会让「停止压缩」永远点不到 |
+| `get_state` | 直通不排队（§6.1 只读类）；装配 AgentState：queued/isPromptRunning 来自 **Entry 流内跟踪**，其余直读 SDK；`lastSeq` 与各字段同块同步读取 |
 | `get_session_stats` / `get_last_assistant_text` | 直通 SDK 装配 |
 | `get_commands` | 聚合三源：扩展命令 + prompt 模板 + 技能（`skill:` 前缀） |
 | `get_tools` / `set_tools` | active 集合来自 `agent.state.tools`；`set_tools` 收 `{preset}` 或 `{toolNames}`（恰好一个，core 校验）：运行中走 switch 路径（下一轮生效）返回 `null`；冷会话**重建 runtime** 返回 `{sessionId, recreated:true}` |
@@ -173,8 +191,9 @@ agent-session.js:776/784/949）②`agent_settled` 事件幂等兜底（steer/fol
 
 ### 6.4 命令 vs 轻查——两条通道
 
-`get_state` **命令**与运行中的 prompt 串行（会排队到 run 结束）；`getRunningState()` **轻查**
-直读注册表不排队。轮询实时状态必须走轻查（`GET /api/agent/:id`），docs/02 §6.1 ⚠️。
+`get_state` **命令**不排队（§6.1 只读类），`getRunningState()` **轻查** 直读注册表也不排队。
+两者是同一次同步装配，差别在传输：轻查是 `GET`，不给命令队列/浏览器连接加负担，
+所以轮询实时状态仍走轻查（`GET /api/agent/:id`，docs/02 §6.1 ⚠️）。
 
 ## 7. 只读浏览（read/ 模块组）
 

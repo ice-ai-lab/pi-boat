@@ -132,6 +132,12 @@ export function useAgentSession(): UseAgentSessionResult {
   /** 自愈去重：同一时刻只跑一次 revive（lease 心跳与用户动作可能同时发现会话已回收） */
   const reviveRef = useRef<Promise<void> | null>(null);
   /**
+   * 停止在途去重：`abort` 要等 agent 真正 idle 才返回，这期间连点停止 / 连按 Esc
+   * 会各发一条请求，每条都占一条浏览器连接（同源 6 条封顶）——占满后连 `/api/health`
+   * 都发不出去，看起来就是「所有接口都 pending」。
+   */
+  const abortingRef = useRef(false);
+  /**
    * 未落盘会话（`ensure_session` 建的）：pi 直到首条 assistant 消息才写 `.jsonl`，
    * 这之前 `open()` 走 404 分支（只有运行态、没有历史，用户消息不在任何通道里）。
    * 记下它，等它落盘后补一次历史（见下方 effect）。
@@ -425,11 +431,14 @@ export function useAgentSession(): UseAgentSessionResult {
 
   const abort = useCallback(async (): Promise<void> => {
     const id = sessionIdRef.current;
-    if (id === null) return;
+    if (id === null || abortingRef.current) return;
+    abortingRef.current = true;
     try {
       await sendAgentCommand(id, { type: 'abort' });
     } catch {
       // 会话已 settle 时 abort 报错可忽略
+    } finally {
+      abortingRef.current = false;
     }
   }, []);
 
