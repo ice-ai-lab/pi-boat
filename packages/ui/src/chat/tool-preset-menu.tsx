@@ -16,6 +16,8 @@ export interface ToolPresetMenuProps {
   toolPreset: string | null;
   toolPresets: { value: string; label: string }[];
   onToolPresetChange(preset: string): void;
+  /** 锁定（会话本轮在跑，切预设会排队到轮末）：不可展开，置灰 */
+  disabled?: boolean;
 }
 
 const TOOL_PRESET_DESC: Record<string, { key: string; count?: number }> = {
@@ -29,6 +31,7 @@ export function ToolPresetMenu({
   toolPreset,
   toolPresets,
   onToolPresetChange,
+  disabled = false,
 }: ToolPresetMenuProps) {
   const { t } = useI18n();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -43,6 +46,11 @@ export function ToolPresetMenu({
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, []);
 
+  // 锁定时收起已展开的面板（同 ModelSelector 的 locked 语义）
+  useEffect(() => {
+    if (disabled) setOpen(false);
+  }, [disabled]);
+
   const label = toolPresets.find((preset) => preset.value === toolPreset)?.label ?? '';
   if (toolPresets.length === 0) return null;
 
@@ -55,6 +63,7 @@ export function ToolPresetMenu({
         aria-label={t('chat.changeToolPreset')}
         aria-expanded={open}
         aria-haspopup="listbox"
+        disabled={disabled}
         onClick={() => setOpen((current) => !current)}
         style={{
           display: 'flex',
@@ -66,12 +75,14 @@ export function ToolPresetMenu({
           border: 'none',
           borderRadius: 10,
           color: open ? 'var(--text)' : 'var(--text-muted)',
-          cursor: 'pointer',
+          cursor: disabled ? 'not-allowed' : 'pointer',
+          opacity: disabled ? 0.5 : 1,
           fontSize: 12,
           whiteSpace: 'nowrap',
-          transition: 'background 0.14s, color 0.14s',
+          transition: 'background 0.14s, color 0.14s, opacity 0.14s',
         }}
         onMouseEnter={(event) => {
+          if (disabled) return;
           event.currentTarget.style.background = 'var(--bg-hover)';
           event.currentTarget.style.color = 'var(--text)';
         }}

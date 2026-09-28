@@ -2,17 +2,25 @@ import type { ContextUsage } from '@ice-ai/protocol';
 import { useI18n } from '../i18n/i18n-provider';
 
 /**
- * ComposerMetrics：输入卡**下方**的会话指标行（原型 `.statusline > .meters`）——
- * `↑ in ↓ out ⟳ cache read │ cost │ ◐ pct / window`，点它开「会话信息」面板（由调用方渲染）。
+ * ComposerMetrics：输入卡**下方**的会话指标行 ——
+ * `Σ total tok · 缓存命中 pct% │ ◐ pct / window`，点它开「会话信息」面板（由调用方渲染）。
  *
  * 从顶栏工具条搬到输入卡下方（原型 §8「指标行并入底部」）：指标是「本轮消耗」的读数，
  * 跟发送动作同处一地比挂在顶栏更好找；顶栏因此只剩会话级入口。
  * 行**居中**（用户 2026-09-28 指定；原型是右对齐）——输入卡与排队条都是通宽块，
  * 居中的读数行看起来与它们同轴。
+ * 2026-09-28（用户）：收敛为「总 token + 缓存命中率」一处读数，去掉 in/out/cost 三个碎片指标；
+ * 明细（in/out/cache read/write/cost）仍在悬停提示与会话信息面板。
  */
 export interface ComposerMetricsProps {
-  tokens: { input: number; output: number; cacheRead: number } | null;
-  cost: number;
+  /** 形状对齐 SDK `SessionStats['tokens']`（total/cacheWrite 由调用方从 sessionStats.tokens 原样传入） */
+  tokens: {
+    input: number;
+    output: number;
+    cacheRead: number;
+    cacheWrite: number;
+    total: number;
+  } | null;
   contextUsage: ContextUsage | null;
   /** 悬停提示（in/out/cache/cost/context 的精确值，由调用方拼） */
   tooltip: string;
@@ -42,14 +50,12 @@ const ICON = {
 
 export function ComposerMetrics({
   tokens,
-  cost,
   contextUsage,
   tooltip,
   open,
   onToggle,
 }: ComposerMetricsProps) {
   const { t } = useI18n();
-  const costText = cost > 0 ? (cost >= 0.01 ? `$${cost.toFixed(2)}` : '<$0.01') : null;
   let contextColor = 'var(--text-muted)';
   let contextText: string | null = null;
   if (contextUsage?.contextWindow) {
@@ -61,9 +67,9 @@ export function ComposerMetrics({
         ? `${percent.toFixed(0)}%`
         : `? / ${formatCompact(contextUsage.contextWindow)}`;
   }
-  const input = tokens?.input ?? 0;
-  const output = tokens?.output ?? 0;
+  const total = tokens?.total ?? 0;
   const cacheRead = tokens?.cacheRead ?? 0;
+  const cacheHitPct = total > 0 ? Math.round((cacheRead / total) * 100) : 0;
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: '0 2px' }}>
@@ -99,41 +105,21 @@ export function ComposerMetrics({
           event.currentTarget.style.color = 'var(--text-dim)';
         }}
       >
-        {input > 0 && (
+        {total > 0 && (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
             <svg {...ICON} aria-hidden="true">
-              <path d="M12 19.5V5M5.5 11.5 12 5l6.5 6.5" />
-            </svg>
-            <b style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{formatCompact(input)}</b>
-          </span>
-        )}
-        {output > 0 && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <svg {...ICON} aria-hidden="true">
-              <path d="M12 4.5V19M5.5 12.5 12 19l6.5-6.5" />
-            </svg>
-            <b style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{formatCompact(output)}</b>
-          </span>
-        )}
-        {cacheRead > 0 && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-            <svg {...ICON} aria-hidden="true">
-              <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-              <polyline points="21 3 21 9 15 9" />
+              {/* Σ（sigma）：total = 各类 token 之和 */}
+              <path d="M18 7V4H6l6 8-6 8h12v-3" />
             </svg>
             <b style={{ color: 'var(--text-muted)', fontWeight: 600 }}>
-              {formatCompact(cacheRead)}
+              {formatCompact(total)} tok
             </b>
+            {cacheRead > 0 && (
+              <span>
+                · {t('chat.cacheHit')} {cacheHitPct}%
+              </span>
+            )}
           </span>
-        )}
-        {costText !== null && (
-          <>
-            <span
-              aria-hidden="true"
-              style={{ width: 1, height: 11, flexShrink: 0, background: 'var(--border)' }}
-            />
-            <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{costText}</span>
-          </>
         )}
         {contextText !== null && (
           <>

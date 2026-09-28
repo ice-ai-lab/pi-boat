@@ -36,20 +36,6 @@ import workspace from './workspace.module.css';
 
 /** 侧栏宽度持久化 key */
 const SIDEBAR_WIDTH_STORAGE_KEY = 'piboat:sidebar-width';
-/**
- * 一次性迁移（2026-09-27）：默认宽度 260 → 340。
- * 存着旧默认值（260）的缓存不是用户拖出来的选择，直接丢弃以落到新默认；
- * 用户真改过的其他宽度保留。
- */
-if (typeof window !== 'undefined') {
-  try {
-    if (window.localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY) === '260') {
-      window.localStorage.removeItem(SIDEBAR_WIDTH_STORAGE_KEY);
-    }
-  } catch {
-    // 存储不可用是尽力而为
-  }
-}
 
 /**
  * 三栏工作区：左栏会话/项目、中栏对话、右栏文件。

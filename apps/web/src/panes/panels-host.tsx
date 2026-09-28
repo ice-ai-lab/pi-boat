@@ -22,11 +22,6 @@ export interface PanelsHostProps {
   toolsLoading: boolean;
   stats: SessionStatsInfo | null;
   contextUsage: ContextUsage | null;
-  project?: {
-    cwd: string;
-    branch?: string;
-    isWorktree?: boolean;
-  } | null;
 }
 
 export function PanelsHost(props: PanelsHostProps) {
@@ -37,13 +32,7 @@ export function PanelsHost(props: PanelsHostProps) {
     return <ToolDefinitionsPanel tools={props.tools} loading={props.toolsLoading} />;
   }
   if (props.active === 'session') {
-    return (
-      <SessionInfoPopover
-        stats={props.stats}
-        contextUsage={props.contextUsage}
-        project={props.project ?? null}
-      />
-    );
+    return <SessionInfoPopover stats={props.stats} contextUsage={props.contextUsage} />;
   }
   return null;
 }

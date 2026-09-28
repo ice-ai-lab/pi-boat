@@ -66,7 +66,7 @@
 | `--l1` … `--l4` | `--color-line-1` … `--color-line-4` | 由弱到强的 4 档描边（`border-line-2`），保留 1:1 不合并 |
 | `--t1` … `--t4` | `--color-fg` `--color-fg-muted` `--color-fg-subtle` `--color-fg-faint` | 文字四级 |
 | `--accent` `--accent-weak` | `--color-accent` `--color-accent-weak` | `#4176E6` 及弱底 |
-| `--hover` `--bubble` `--menu` | `--color-hover` `--color-bubble` `--color-menu` | `--menu` 是毛玻璃底（需配合 `backdrop-blur`） |
+| `--hover` `--bubble` `--menu` | `--color-hover` `--color-bubble` `--color-menu` | `--menu` 是毛玻璃底（输入卡 `::before` / 排队条在用）；弹层另有 `--glass-pop`（渐变底：左上镜面 + 竖向渐变）/ `--glass-pop-blur` / `--glass-pop-rim` / `--glass-pop-shadow`（渐变毛玻璃，用户 2026-09-28 指定） |
 | `--green/red/amber/teal` + `-bg` | `--color-success/danger/warn/teal` + `-soft` | 语义名取代色名；`teal` 暂留（仅工具色用） |
 | `--seg-sys/-tools/-msg` | `--color-seg-sys/-tools/-msg` | 轨迹分段的指示色 |
 | `--k-think/-bash/-read/-edit/-err` | `--color-tool-*` | 工具名→色，见 §7 |
@@ -124,7 +124,7 @@
 | `StoppedTag` | — | `.stopped-tag`（abort 后） |
 | `Composer` | `value` `onChange` `onSubmit` `streaming` `onSteer?` `onFollowUp?` `onAbort?` `aboveInput` `cardFoot` `belowInput` | 原型 v3 §8 `.inputcard`（一张玻璃卡：卡内输入区 + `.card-foot` 控件条；右端动作 = 停止 / 引导 / 后续消息 / 发送，`↵` 与 `⌘/Ctrl+↵` 与按钮提示一致） |
 | `ComposerToolbar` | `attachedCount` `onAttachClick` `modelOptions` `model` `thinkingLevel(s)` `toolPreset(s)` `compacting` `soundEnabled` | 原型 v3 `.card-foot` 的**左簇**：`＋ · 模型+等级 · 工具预设 · 压缩 · 提示音`（右端动作在 `Composer`） |
-| `ComposerMetrics` | `tokens` `cost` `contextUsage` `tooltip` `open` `onToggle` | 原型 v3 `.statusline > .meters`（输入卡**下方**的指标行，**居中**；点它开「会话信息」面板，面板自下向上弹）。金额是 SDK 算好的 **USD**，本仓不换汇 |
+| `ComposerMetrics` | `tokens` `cost` `contextUsage` `tooltip` `open` `onToggle` | 原型 v3 `.statusline > .meters`（输入卡**下方**的指标行，**居中**；点它开「会话信息」面板，面板自下向上弹、**水平在指标行正上方居中**）。金额是 SDK 算好的 **USD**，本仓不换汇 |
 | `QueueBar` | `steering` `followUp` `onClear` | 原型 v3 `.queue`（头行 `chat.queued` + 「移回输入框」；行 = 语义底色胶囊 + 单行正文）。单条删除需新端点，未做 |
 | `ModelSelector` | `options` `value` `onChange` `level` `levels` `onLevelChange` | 原型 v3 §8b `.cbar--model` + `.menu--drill`（模型与推理等级合并；根页两行 → 二级列表 + 返回）。⛔ `ProviderIcon` 不进来（见 §5 Q2） |
 | `ToolPresetMenu` | `toolPreset` `toolPresets` `onToolPresetChange` | 原型 v3 `.cbar`（工具预设按钮 + 上弹面板） |

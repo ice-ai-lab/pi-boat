@@ -8,7 +8,7 @@
   PiBoat Web · v3「iOS 毛玻璃」UI 重设计原型（单文件 / 零外链 / 零构建）
   范围：功能与组件与 apps/web + packages/ui 现状一一对应，仅重做视觉与排版。
 
-  本轮（v3）改动的三块：
+  本轮（v3）改动的四块：
   1. 内容区 header —— 顶栏改成 iOS 导航栏：收起态显示会话标题 + 圆角工具组，
      顶部展开态由正文里的大标题承担（滚动即收拢，见 .topbar / .chat-head）。
   2. 内容区排版 —— 正文 14.5/1.72、标题收紧字距、表格与代码块重排，
@@ -33,6 +33,14 @@
   · 指标行：in / out / cache read / cost / context，数值取真实会话
     （27k / 17k / 527k / $0.01 / 4% / 1.0M），不再有自造的扩展组件与状态文案；
     扩展请求弹窗改由 ⌃⌥E 打开，不占界面位置。
+   · 会话统计浮层（#statsMenu，指标行下拉）改为参考卡的形态：图标标题「会话统计」+ 发丝线，
+     下面只放指标行（标签贴左、数值贴右、等宽数字，分组头沿用 .menu-label），
+     不再重复会话信息 / 项目信息（名称、会话文件、ID、活跃时长、Git 分支、Worktree 六行移除）。
+     宽度上限 600px，并按「侧栏右缘」自适应收放（100vw − 侧栏 − 右栏 − 16px），
+     列数随之分三档：宽 → 性能 / 消息 / Token 三段并排；1240px 以下 → 性能·消息叠左列、
+     Token 占右列跨两行；1080px 以下 → 单列 + 限高内滚。
+     其中「性能」为本轮新增（协议 SessionStatsInfo.perf：轮·步 / 模型用时 / 工具调用用时 /
+     输出速度；冷会话无 perf 时整段隐藏）。
 
   材质规则（避免「过于浮夸」的关键）：
   只有内容会从下面穿过的地方才上毛玻璃 —— 顶栏、输入卡、浮层；
@@ -1542,6 +1550,51 @@ input[type="range"]::-webkit-slider-thumb {
 .metrics { display: grid; grid-template-columns: 180px 1fr; gap: 9px 14px; font-size: 12.5px; }
 .metrics dt { color: var(--faint); }
 .metrics dd { margin: 0; color: var(--fg-2); font-variant-numeric: tabular-nums; }
+
+/* 会话统计浮层（参考卡形态）：一张宽卡 = 图标标题 + 发丝线 + 指标行。
+   行内标签贴左、数值贴右、等宽数字，不画竖分隔线。
+   宽度上限 600px，并随视口收放：最多长到侧栏右缘（= 100vw − 侧栏 − 右栏 − 16 呼吸位），
+   这样放宽后不会被侧栏压住；列数由 .stats-grid 按同一宽度分三档。 */
+.menu--stats {
+  width: min(600px, calc(100vw - var(--sw) - var(--rw) - 16px));
+  padding: 0;
+}
+.stats-head { display: flex; align-items: center; gap: 8px; padding: 12px 16px 10px; }
+.stats-title { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 650; color: var(--fg); }
+.stats-title .icon { color: var(--faint); }
+.stats-rule { height: .5px; margin: 0 16px; background: var(--hair); }
+.stats-grid {
+  display: grid;
+  /* Token 列标签最长（平均缓存命中率），分宽一点，免得数值被挤到省略号 */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.18fr);
+  gap: 0 24px; padding: 7px 16px 14px;
+}
+.stats-grid .menu-label { padding: 10px 0 6px; }
+.menu--stats .metrics { grid-template-columns: auto minmax(0, 1fr); gap: 6px 12px; font-size: 12.5px; }
+.menu--stats .metrics dt { white-space: nowrap; }
+.menu--stats .metrics dd {
+  margin: 0; color: var(--fg-2); text-align: right; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.menu--stats .metrics .is-em { color: var(--fg); font-weight: 600; }
+/* 中等宽度：性能 / 消息 叠在左列，Token 占右列跨两行。
+   下界 1240 / 1080 是按「Token 列要放得下 平均缓存命中率 + 4.3% / 1.0M」算出来的，
+   再窄就退一档，免得数值被省略号吃掉。 */
+@media (min-width: 1081px) and (max-width: 1240px) {
+  .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stats-sec:nth-child(1) { grid-column: 1; grid-row: 1; }
+  .stats-sec:nth-child(2) { grid-column: 1; grid-row: 2; }
+  .stats-sec:nth-child(3) { grid-column: 2; grid-row: 1 / span 2; }
+}
+/* 窄窗口：单列 + 限高内滚 */
+@media (max-width: 1080px) {
+  .stats-grid { grid-template-columns: 1fr; gap: 0; }
+  .menu--stats {
+    width: min(360px, calc(100vw - var(--sw) - var(--rw) - 16px));
+    max-height: min(70vh, 540px);
+    overflow: auto;
+  }
+}
 .seg-wrap { display: inline-flex; }
 .skill-path { font-family: var(--mono); font-size: 11px; color: var(--faint); }
 </style>
@@ -2388,40 +2441,50 @@ RUN  v2.1.4  /Users/gatesma/project/pi-boat/packages/billing-service-core
               <span class="ico"><span class="ring" style="--p:4"></span><b>4%</b> / 1.0M</span>
             </button>
           </div>
-      <!-- 会话信息（指标行下拉，向上弹出；放在 statusline 外面，免得被它的 overflow 裁掉） -->
-      <div class="menu" id="statsMenu" style="right:0;bottom:calc(100% + 8px);min-width:560px">
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 18px;padding:8px 10px 10px">
-          <div>
-            <div class="menu-label" style="padding-left:0">会话信息</div>
-            <dl class="metrics" style="grid-template-columns:78px 1fr">
-              <dt>名称</dt><dd>资金类型归一化与迁移脚本</dd>
-              <dt>会话文件</dt><dd class="mono" style="font-size:11px">~/.pi/sessions/01a0…jsonl</dd>
-              <dt>ID</dt><dd class="mono" style="font-size:11px">01a0e2a8-3839</dd>
-              <dt>活跃时长</dt><dd>18m 42s</dd>
+      <!-- 会话统计（指标行下拉，向上弹出；放在 statusline 外面，免得被它的 overflow 裁掉）
+           一张宽卡：图标标题 + 发丝线 + 三段指标（性能 / 消息 / Token），只放指标本身；
+           行内标签贴左、数值贴右（等宽数字）。列数随宽度收放：
+           宽 → 三段并排；1240px 以下 → 性能·消息叠左列、Token 占右列；1080px 以下 → 单列内滚。
+           「性能」取协议 SessionStatsInfo.perf（轮·步 / 模型用时 / 工具调用用时 / 输出速度），
+           冷会话无 perf 时整段隐藏。 -->
+      <div class="menu menu--stats" id="statsMenu" style="right:0;bottom:calc(100% + 8px)">
+        <div class="stats-head">
+          <span class="stats-title"><svg class="icon sm"><use href="#i-gauge"/></svg>会话统计</span>
+        </div>
+        <div class="stats-rule" aria-hidden="true"></div>
+        <div class="stats-grid">
+          <section class="stats-sec">
+            <div class="menu-label">性能</div>
+            <dl class="metrics">
+              <dt>轮 / 步</dt><dd>8 / 271</dd>
+              <dt>模型用时</dt><dd>28m 22s</dd>
+              <dt>工具调用用时</dt><dd>59m 3s</dd>
+              <dt>输出速度</dt><dd>285 tok/s</dd>
             </dl>
-            <div class="menu-label" style="padding-left:0">项目信息</div>
-            <dl class="metrics" style="grid-template-columns:78px 1fr">
-              <dt>Git 分支</dt><dd class="mono" style="font-size:11px">main</dd>
-              <dt>Worktree</dt><dd class="mono" style="font-size:11px">pi-boat</dd>
+          </section>
+          <section class="stats-sec">
+            <div class="menu-label">消息</div>
+            <dl class="metrics">
+              <dt>用户</dt><dd>12</dd>
+              <dt>助手</dt><dd>12</dd>
+              <dt>工具调用</dt><dd>6</dd>
+              <dt>工具结果</dt><dd>6</dd>
+              <dt class="is-em">总计</dt><dd class="is-em">36</dd>
             </dl>
-          </div>
-          <div>
-            <div class="menu-label" style="padding-left:0">消息</div>
-            <dl class="metrics" style="grid-template-columns:1fr auto">
-              <dt>User</dt><dd>12</dd><dt>Assistant</dt><dd>12</dd>
-              <dt>Tool Calls</dt><dd>6</dd><dt>Tool Results</dt><dd>6</dd>
-              <dt style="color:var(--fg-2);font-weight:600">Total</dt><dd style="font-weight:600">36</dd>
+          </section>
+          <section class="stats-sec">
+            <div class="menu-label">Token</div>
+            <dl class="metrics">
+              <dt>输入</dt><dd>26,982</dd>
+              <dt>输出</dt><dd>17,040</dd>
+              <dt>缓存读取</dt><dd>526,720</dd>
+              <dt>缓存写入</dt><dd>0</dd>
+              <dt class="is-em">总计</dt><dd class="is-em">570,742</dd>
+              <dt>费用</dt><dd>$0.0100</dd>
+              <dt>上下文</dt><dd>4.3% / 1.0M</dd>
+              <dt>平均缓存命中率</dt><dd>92.4%</dd>
             </dl>
-          </div>
-          <div>
-            <div class="menu-label" style="padding-left:0">Tokens</div>
-            <dl class="metrics" style="grid-template-columns:1fr auto">
-              <dt>Input</dt><dd>26,982</dd><dt>Output</dt><dd>17,040</dd>
-              <dt>Cache Read</dt><dd>526,720</dd><dt>Cache Write</dt><dd>0</dd>
-              <dt>Total</dt><dd>570,742</dd>
-              <dt>Cost</dt><dd>$0.0100</dd><dt>Context</dt><dd>4.3% / 1.0M</dd>
-            </dl>
-          </div>
+          </section>
         </div>
       </div>
         </div>

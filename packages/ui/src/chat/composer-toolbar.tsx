@@ -21,7 +21,12 @@ export interface ComposerToolbarProps {
   modelOptions: ModelSelectorOption[];
   model: { provider: string; modelId: string } | null;
   onModelChange(provider: string, modelId: string): void;
-  modelBusy: boolean;
+  /**
+   * 会话本轮在跑（streaming）：锁定全部「修改类」控件——模型/思考档位/工具预设/压缩。
+   * 这些命令在 core 不属即时命令，发送后排到 FIFO 队尾、轮末才生效，点击者得不到
+   * 反馈还会误以为已切换；停止/引导/后续消息是即时命令，不受影响。
+   */
+  busy: boolean;
   thinkingLevel: string | null;
   thinkingLevels: string[];
   onThinkingLevelChange(level: string): void;
@@ -45,7 +50,7 @@ export function ComposerToolbar({
   modelOptions,
   model,
   onModelChange,
-  modelBusy,
+  busy,
   thinkingLevel,
   thinkingLevels,
   onThinkingLevelChange,
@@ -118,7 +123,7 @@ export function ComposerToolbar({
           levels={thinkingLevels}
           onLevelChange={onThinkingLevelChange}
           disabled={false}
-          busy={modelBusy}
+          busy={busy}
         />
       )}
 
@@ -126,13 +131,27 @@ export function ComposerToolbar({
         toolPreset={toolPreset}
         toolPresets={toolPresets}
         onToolPresetChange={onToolPresetChange}
+        disabled={busy}
       />
 
       {showCompact && (
         <button
           type="button"
-          title={compacting ? t('chat.stopCompaction') : t('chat.compactContext')}
-          aria-label={compacting ? t('chat.stopCompaction') : t('chat.compactContext')}
+          disabled={busy && !compacting}
+          title={
+            compacting
+              ? t('chat.stopCompaction')
+              : busy
+                ? t('chat.busyDisabled')
+                : t('chat.compactContext')
+          }
+          aria-label={
+            compacting
+              ? t('chat.stopCompaction')
+              : busy
+                ? t('chat.busyDisabled')
+                : t('chat.compactContext')
+          }
           onClick={compacting ? onAbortCompaction : onCompact}
           style={{
             display: 'flex',
@@ -144,13 +163,15 @@ export function ComposerToolbar({
             border: 'none',
             borderRadius: 10,
             color: compacting ? 'var(--red)' : 'var(--text-muted)',
-            cursor: 'pointer',
+            cursor: busy && !compacting ? 'not-allowed' : 'pointer',
+            opacity: busy && !compacting ? 0.5 : 1,
             fontSize: 12,
             whiteSpace: 'nowrap',
             flexShrink: 0,
-            transition: 'background 0.14s, color 0.14s',
+            transition: 'background 0.14s, color 0.14s, opacity 0.14s',
           }}
           onMouseEnter={(event) => {
+            if (busy && !compacting) return;
             event.currentTarget.style.background = compacting
               ? 'color-mix(in srgb, var(--red) 20%, transparent)'
               : 'var(--bg-hover)';

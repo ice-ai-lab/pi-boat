@@ -1,62 +1,151 @@
+/* 会话统计浮层 —— 版面照原型（v3 `#statsMenu`）的 `.menu--stats` / `.stats-head` / `.stats-title` /
+   `.stats-rule` / `.stats-grid` / `.menu-label` / `.metrics`；两段指标（消息 / Token，用户 2026-09-28
+   去掉「性能」列）。
+   ⚠️ 尺寸不照原型：原型是 600px / 12.5px-13px-10.5px 那一档，本卡按用户 2026-09-28 要求**整体缩一档**
+   （宽 480，内边距、字号、行高各降一小档，见各规则旁标注）；其余取值与原型一致。
+   原型变量 → 本仓 token：--card-solid → --bg、--hair → --border、
+   --fg/--fg-2/--faint → --text/--text-2/--text-dim、--r-md → 12px、
+   --ease → cubic-bezier(.32,.72,0,1)；原型的 `100vw − 侧栏 − 右栏` 宽公式在 app 里
+   由「面板居中锚在指标行 + 视口夹取」承担。
+   材质：渐变毛玻璃（--glass-pop* = 左上白镜面 + 竖向渐变底 + 64px 强模糊背板 + 顶边高光描边
+   + sh-3 落地阴影），不是原型的平涂 `--menu`。 */
 
-/* —— 会话统计浮层（CSS Modules，阶段二试点）：.session-info-popover → .popover；原 web-ui.css 拆分（T1-10） —— */
-@keyframes session-info-pop {
-  0% {
+@keyframes session-info-in {
+  from {
     opacity: 0;
-    transform: translateY(-24px);
-    filter: blur(6px);
-    box-shadow: 0 2px 8px rgba(0,0,0,0);
+    translate: 0 -4px;
   }
-  55% {
+  to {
     opacity: 1;
-    transform: translateY(0);
-    filter: blur(0);
-    background: color-mix(in srgb, var(--accent) 8%, var(--bg-panel));
-    box-shadow: 0 18px 44px rgba(37,99,235,0.16);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-    filter: blur(0);
-    background: var(--bg-panel);
-    box-shadow: 0 10px 28px rgba(0,0,0,0.10);
+    translate: 0 0;
   }
 }
-@keyframes session-info-light-wash {
-  0% {
-    opacity: 0;
-    transform: translateX(-110%) skewX(-16deg);
-  }
-  24% {
-    opacity: 0.42;
-  }
-  100% {
-    opacity: 0;
-    transform: translateX(115%) skewX(-16deg);
-  }
-}
+
 .popover {
   position: relative;
+  /* 用户 2026-09-28：在原型的 600px 基础上缩一档（内容只剩两段指标，480 就够） */
+  width: min(480px, calc(100vw - 24px));
+  padding: 0; /* 原型 .menu--stats 覆盖 .menu 的 5px；内边距由 head / rule / grid 各自持有 */
+  /* 自身滚动（可用高度由 app 经 --popover-max-height 传入）。
+     ⚠️ 不能让宿主的 overflow:auto 来滚：那会把这里的投影裁到自己的矩形边界，
+     结果是四周看不到阴影、而左下/右下圆角外的方格反而露出两块方形暗色（2026-09-28 用户报告）。 */
+  max-height: var(--popover-max-height, none);
+  overflow: auto;
+  /* 原型 .menu 的入场：opacity .16s ease + translate .18s var(--ease)（单一动画取 .18s / --ease） */
+  animation: session-info-in 180ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  /* 原型 body 的排版：字体靠继承（app body = --font），这里只补行高/字距 */
+  line-height: 1.5;
+  letter-spacing: -0.006em;
+  border-radius: 12px; /* 原型 --r-md */
+  /* 渐变毛玻璃底（token 里两层：左上镜面 + 竖向冷调渐变） + 强模糊背板 */
+  background: var(--glass-pop);
+  backdrop-filter: var(--glass-pop-blur);
+  -webkit-backdrop-filter: var(--glass-pop-blur);
+  /* 外发丝线（原型 inset 0 0 0 .5px var(--hair) 的外圈等价）→ 顶边高光 → 玻璃内描边 → 落地阴影 */
+  box-shadow:
+    0 0 0 0.5px var(--border),
+    inset 0 0.5px 0 var(--glass-pop-rim),
+    inset 0 0 0 0.5px color-mix(in srgb, var(--glass-pop-rim) 55%, transparent),
+    var(--glass-pop-shadow);
+}
+
+/* 原型 .stats-head：标题行自持内边距（.menu--stats 的 padding 为 0） */
+.head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px 8px;
+}
+/* 原型 .stats-title（图标 13px = .icon.sm，色用 faint） */
+.title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--text);
+}
+.titleIcon {
+  width: 13px;
+  height: 13px;
+  color: var(--text-dim);
+  flex: none;
+}
+
+/* 原型 .stats-rule */
+.rule {
+  height: 0.5px;
+  margin: 0 14px;
+  background: var(--border);
+}
+
+/* 原型 .stats-grid：Token 列标签最长（平均缓存命中率），分宽 1.18 免得数值被挤成省略号 */
+.grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.18fr);
+  gap: 0 18px;
+  padding: 6px 14px 12px;
+}
+
+/* 原型 .menu-label（.stats-grid .menu-label 覆盖了上下内边距） */
+.label {
+  padding: 8px 0 5px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+/* 原型 .menu--stats .metrics / .metrics */
+.metrics {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 5px 10px;
+  margin: 0;
+  font-size: 12px;
+}
+.dt {
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.dd {
+  margin: 0;
+  color: var(--text-2);
+  text-align: right;
+  white-space: nowrap;
   overflow: hidden;
-  transform-origin: top right;
-  animation: session-info-pop 360ms ease-out both;
-  will-change: transform, opacity, filter, background, box-shadow;
+  text-overflow: ellipsis;
+  font-variant-numeric: tabular-nums;
 }
-.popover::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 44%;
-  pointer-events: none;
-  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 24%, transparent), transparent);
-  animation: session-info-light-wash 620ms ease-out both;
+/* 原型 .menu--stats .metrics .is-em */
+.em {
+  color: var(--text);
+  font-weight: 600;
 }
+
+/* 加载态（原型没有这一屏：本仓面板可先于统计到达） */
+.empty {
+  padding: 0 14px 12px;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--text-dim);
+}
+
+/* 原型 @media (max-width: 1080px)：单列（高度自滚，兜底给一个视口上限） */
+@media (max-width: 1080px) {
+  .grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .popover {
+    width: min(320px, calc(100vw - 24px));
+    max-height: min(var(--popover-max-height, 70vh), 70vh, 540px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .popover,
-  .popover::after {
+  .popover {
     animation: none;
   }
 }
-

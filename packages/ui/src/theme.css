@@ -60,7 +60,7 @@
   /* ---- 阴影（浮层用；`.elev-soft*` / `--shadow-soft*` 零消费已删 2026） ---- */
   --elev-panel: 0 2px 6px rgba(0, 0, 0, 0.06), 0 18px 44px -18px rgba(0, 0, 0, 0.26);
 
-  /* ---- 字体（`--font` 供字标等少数内联用例；`font-sans` utility 零消费已删 2026） ---- */
+  /* ---- 字体（`--font` 供字标等少数内联用例） ---- */
   --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   /* `--font-noto-mono` 为自托管 Noto Sans Mono（latin + cyrillic）；
      本仓由 apps/web 引 `@fontsource-variable/noto-sans-mono` 提供同名变量。
@@ -75,7 +75,27 @@
   --l1: color-mix(in srgb, var(--border) 55%, transparent);
   --l2: var(--border);
   --accent-weak: color-mix(in srgb, var(--accent) 10%, transparent);
-  --menu: rgba(255, 255, 255, 0.88); /* 原型 menu：毛玻璃弹层底（暗色在下方覆盖） */
+  /* ---- 菜单毛玻璃材质（原型 .menu，docs/design/piboat-ui-redesign-v3.html §4） ----
+     半透明菜单底（输入卡 `::before` / 排队条在用）。 */
+  --menu: rgba(252, 252, 253, 0.82); /* 原型 --menu */
+  /* ---- 弹层渐变毛玻璃（用户 2026-09-28 指定）----
+     底 = 左上白镜面（背面有内容时提亮）+ 冷调竖向渐变（白→淡灰蓝）。渐变必须是冷调：纯白的底叠在
+     白色中栏上就是一张白卡（背板没颜色时看不出玻璃）；顶边高光 --glass-pop-rim 由组件画在
+     box-shadow 的 inset 上，落地阴影走 --glass-pop-shadow。 ---- */
+  --glass-pop:
+    radial-gradient(130% 100% at 10% -30%, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0) 55%),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.8) 0%,
+      rgba(243, 247, 252, 0.62) 55%,
+      rgba(222, 229, 241, 0.58) 100%
+    );
+  --glass-pop-blur: blur(64px) saturate(200%) brightness(1.04);
+  --glass-pop-rim: rgba(255, 255, 255, 0.95);
+  /* 落地阴影：用户 2026-09-28 要求「增加阴影」——三层（贴边 / 中景 / 远景），比原型的 --sh-3 更立 */
+  --glass-pop-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 20px -6px rgba(0, 0, 0, 0.14),
+    0 30px 70px -24px rgba(0, 0, 0, 0.32);
 }
 
 html.dark,
@@ -105,7 +125,20 @@ html.dark,
   --glass-2: rgba(44, 44, 46, 0.6);
   --bar-tint: rgba(255, 255, 255, 0.06);
   --code-bg: rgba(255, 255, 255, 0.06);
-  --menu: rgba(38, 38, 40, 0.92);
+  --menu: rgba(38, 38, 40, 0.86); /* 原型 [data-theme="dark"] --menu */
+  --glass-pop:
+    radial-gradient(130% 100% at 10% -30%, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 55%),
+    linear-gradient(
+      180deg,
+      rgba(78, 81, 89, 0.62) 0%,
+      rgba(52, 54, 61, 0.58) 58%,
+      rgba(33, 34, 39, 0.56) 100%
+    );
+  --glass-pop-blur: blur(64px) saturate(170%) brightness(1.12);
+  --glass-pop-rim: rgba(255, 255, 255, 0.2);
+  --glass-pop-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.5), 0 12px 28px -10px rgba(0, 0, 0, 0.55),
+    0 40px 90px -30px rgba(0, 0, 0, 0.8); /* 三层落地阴影（同浅色，暗色更重） */
 
   --green: #30d158;
   --green-bg: color-mix(in srgb, #30d158 16%, transparent);

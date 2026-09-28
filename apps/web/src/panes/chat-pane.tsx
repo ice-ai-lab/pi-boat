@@ -19,7 +19,7 @@ import {
   useModelsQuery,
   useSessionDetailQuery,
 } from '@ice-ai/client/react';
-import { presetForToolNames, TOOL_PRESETS } from '@ice-ai/protocol';
+import { presetForToolNames, type SessionDetailResponse, TOOL_PRESETS } from '@ice-ai/protocol';
 import {
   BranchNavigator,
   Composer,
@@ -381,13 +381,16 @@ export function ChatPane({
   const topBarRef = useRef<HTMLDivElement>(null);
   /** 指标行（输入卡下方）的 DOM 基准：会话信息面板从它向上弹出（⑥b） */
   const metricsRef = useRef<HTMLDivElement>(null);
+  /** 面板宿主（fixed 容器）：外点关闭时算「内侧」⑦b */
+  const panelHostRef = useRef<HTMLDivElement>(null);
   const [topPanelPos, setTopPanelPos] = useState<{
     top: number;
     left: number;
     width: number;
   } | null>(null);
   const [metricsPanelPos, setMetricsPanelPos] = useState<{
-    right: number;
+    /** 指标行水平中点（面板 left 用这个值 + translateX(-50%) 居中，面板宽度不用先量） */
+    center: number;
     bottom: number;
     maxHeight: number;
   } | null>(null);
@@ -472,6 +475,17 @@ export function ChatPane({
     wasStreamingRef.current = chat.streaming;
   }, [chat.streaming]);
 
+  // ④b 外部写入被探测到（服务端已从磁盘重建 runtime，ADR-0013）：本标签页的历史与事件水位线要重来一遍。
+  // 不重开的话，客户端 fold / 水位线仍是旧 runtime 的：另一个进程写的那些条目永远不会进视图，
+  // 半截消息与队列也会残留。ref 记住已处理的那份响应，避开 StrictMode 双跑与重复 open。
+  const rebuiltRef = useRef<SessionDetailResponse | null>(null);
+  useEffect(() => {
+    const data = detail.data;
+    if (data?.wrapperRebuilt !== true || rebuiltRef.current === data) return;
+    rebuiltRef.current = data;
+    if (sessionId !== null) void session.open(sessionId);
+  }, [detail.data, sessionId, session.open]);
+
   // ⑤ 全局 Esc 停止（设计规范 `registerAbortHandler`：只在运行中接管 Esc）
   useEffect(() => {
     registerAbortHandler(chat.streaming ? () => void session.abort() : null);
@@ -496,16 +510,16 @@ export function ChatPane({
     return () => ro.disconnect();
   }, [activePanel]);
 
-  // ⑥b 指标行面板定位：fixed 向上弹出（原型里它在 `.statusline` 之外，免得被裁掉）
+  // ⑥b 指标行面板定位：fixed 在指标行正上方居中弹出（用户 2026-09-28；原型里它在
+  // `.statusline` 之外，免得被裁掉）。居中用 left + translateX(-50%)：不去量面板宽度。
   useEffect(() => {
     if (activePanel !== 'session' || metricsRef.current === null) return;
     const update = () => {
       const rect = metricsRef.current?.getBoundingClientRect();
       if (rect === undefined) return;
-      const viewportWidth = window.visualViewport?.width ?? window.innerWidth;
       const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
       setMetricsPanelPos({
-        right: Math.max(8, viewportWidth - rect.right),
+        center: rect.left + rect.width / 2,
         bottom: viewportHeight - rect.top + 8,
         maxHeight: Math.max(160, rect.top - 12),
       });
@@ -520,6 +534,31 @@ export function ChatPane({
   useEffect(() => {
     if (rightPanelFullWidth) setActivePanel(null);
   }, [rightPanelFullWidth]);
+
+  // ⑦b 面板外点按 / Esc 关闭（对齐 DSH useDismissOnOutsidePointer：触发器与面板本体算「内」，
+  // 其余任意位置 pointerdown 即收）。顶栏整体豁免：面板切换按钮的点击走各自的
+  // setActivePanel，不能被先收后开；Esc 同步收口。
+  useEffect(() => {
+    if (activePanel === null) return;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      const insidePanel = panelHostRef.current?.contains(target) ?? false;
+      const insideTrigger =
+        (metricsRef.current?.contains(target) ?? false) ||
+        (topBarRef.current?.contains(target) ?? false);
+      if (!insidePanel && !insideTrigger) setActivePanel(null);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setActivePanel(null);
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [activePanel]);
 
   // ⑧ 斜杠 / 提及候选（斜杠优先：命令在行首，提及在词中）
   const textBeforeCaret = draft.slice(0, Math.min(caret, draft.length));
@@ -758,7 +797,11 @@ export function ChatPane({
   const dragOverlay = dragOver ? <DropOverlay /> : null;
 
   // —— 工具条数据（设计规范的 sessionStats / contextUsage / sessionHasBranches） ——
-  const sessionStats = session.stats;
+  // 统计口径 = **会话文件聚合**（详情里的 stats，`computeStats` 与 SDK 逐条对齐、含全部历史），
+  // 不是 `session.stats`：后者是 SDK 内存里那份条目表的聚合，只包含本进程 resume 时读到的
+  // 那一段 + 它自己写的（同一文件被别的进程写时永远追不上，见 ADR-0013 / 2026-09-28 实测：
+  // 文件 566 条 vs 内存 261 条）。live 那份只当兜底（详情还没到时）。
+  const sessionStats = detail.data?.stats ?? session.stats;
   const contextUsage = session.liveState?.contextUsage ?? null;
   const hasBranches = useMemo(
     () => hasSessionBranches(detail.data?.tree ?? []),
@@ -868,7 +911,7 @@ export function ChatPane({
                 if (error !== null) pushToast(error, 'error');
               })
             }
-            modelBusy={false}
+            busy={chat.streaming}
             thinkingLevel={thinkingLevel}
             thinkingLevels={thinkingLevels}
             onThinkingLevelChange={(level) =>
@@ -901,14 +944,18 @@ export function ChatPane({
             <div ref={metricsRef}>
               <ComposerMetrics
                 tokens={tokens ?? null}
-                cost={cost}
                 contextUsage={contextUsage}
                 tooltip={statsTooltip}
                 open={activePanel === 'session'}
                 onToggle={() => {
                   const next = activePanel === 'session' ? null : 'session';
                   setActivePanel(next);
-                  if (next === 'session') void session.refreshStats();
+                  if (next === 'session') {
+                    // 打开弹窗要当下最新：详情走文件口径（顺带 force 探测外部写入），
+                    // live 那份只用来兜底 / 拿 contextUsage
+                    void detail.refetch();
+                    void session.refreshStats();
+                  }
                 }}
               />
             </div>
@@ -1263,11 +1310,15 @@ export function ChatPane({
           (() => {
             const anchored: CSSProperties =
               activePanel === 'session' && metricsPanelPos !== null
-                ? {
-                    right: metricsPanelPos.right,
+                ? ({
+                    left: metricsPanelPos.center,
                     bottom: metricsPanelPos.bottom,
-                    maxHeight: metricsPanelPos.maxHeight,
-                  }
+                    // 面板 left 落在指标行中点上，靠这一步居中（宽度不用先量）
+                    transform: 'translateX(-50%)',
+                    // 可用高度交给弹窗自己滚（它内部 max-height: var(--popover-max-height)）——
+                    // 宿主一旦 overflow:auto，弹窗的投影会被裁到弹窗自己的矩形里（四周无影、圆角外冒方角）
+                    '--popover-max-height': `${metricsPanelPos.maxHeight}px`,
+                  } as CSSProperties)
                 : {
                     top: topPanelPos?.top ?? 0,
                     left: topPanelPos?.left ?? 0,
@@ -1275,7 +1326,16 @@ export function ChatPane({
                     maxHeight: `calc(100dvh - ${topPanelPos?.top ?? 0}px)`,
                   };
             return (
-              <div style={{ position: 'fixed', ...anchored, overflowY: 'auto', zIndex: 500 }}>
+              <div
+                ref={panelHostRef}
+                style={{
+                  position: 'fixed',
+                  ...anchored,
+                  // 会话统计弹窗自己滚，宿主不能裁（见上）；其余面板（系统提示词 / 工具）仍用宿主滚
+                  overflowY: activePanel === 'session' ? 'visible' : 'auto',
+                  zIndex: 500,
+                }}
+              >
                 <PanelsHost
                   active={activePanel}
                   systemPrompt={session.liveState?.systemPrompt ?? null}
@@ -1288,17 +1348,8 @@ export function ChatPane({
                     promptGuidelines: tool.promptGuidelines,
                   }))}
                   toolsLoading={false}
-                  stats={session.stats}
+                  stats={sessionStats}
                   contextUsage={contextUsage}
-                  project={
-                    session.cwd === null
-                      ? null
-                      : {
-                          cwd: session.cwd,
-                          branch: detail.data?.info.branch,
-                          isWorktree: detail.data?.info.isWorktree,
-                        }
-                  }
                 />
               </div>
             );

@@ -1,36 +1,21 @@
 import type { ContextUsage, SessionStatsInfo } from '@ice-ai/protocol';
-import { useState } from 'react';
+import { Fragment } from 'react';
 import { useI18n } from '../i18n/i18n-provider';
 import styles from './session-info-popover.module.css';
 
-type SessionCopyField = 'file' | 'id' | 'projectDir' | 'gitBranch' | 'gitWorktree';
-
 /**
- * 会话统计浮层（工具条「会话信息」下拉）：三列 key-value（会话信息 / 项目信息 / 消息计数 /
- * token 表含 cacheWrite·cost·cacheHitRate）+ 完全段复制按钮 + 入场动画。
- * 按设计规范 的 `session-info-popover`（T1-10 / C6）。
+ * 会话统计浮层（输入卡下方指标行的上拉面板）：参考卡形态
+ * （docs/design/piboat-ui-redesign-v3.html `#statsMenu`）——
+ * 图标标题「会话统计」+ 发丝线 + 两段指标（消息 / Token）。
+ * - 「性能」列已去掉（用户 2026-09-28；原型里那一列含轮·步 / 模型用时 / 工具调用用时 / 输出速度）。
+ * - Token 段：未缓存读取 / 缓存读取 / 输出 / 总计（+ 费用 / 上下文 / 平均缓存命中率）；
+ *   不展示缓存写入（用户 2026-09-28 指定）。
+ * 行内标签贴左、数值贴右（等宽数字、超长省略）；版面照原型 `.stats-*`，材质走 --glass-pop*，
+ * 映射表见 module.css 抬头。
  */
 export interface SessionInfoPopoverProps {
   stats: SessionStatsInfo | null;
   contextUsage: ContextUsage | null;
-  /** 项目信息行（无则整节隐藏） */
-  project?: {
-    projectRoot?: string;
-    cwd?: string;
-    branch?: string;
-    isWorktree?: boolean;
-  } | null;
-}
-
-function formatDuration(ms: number): string {
-  if (ms <= 0) return '0s';
-  const totalSec = Math.floor(ms / 1000);
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  if (h > 0) return `${h}h ${m}m`;
-  if (m > 0) return `${m}m ${s}s`;
-  return `${s}s`;
 }
 
 function formatCompact(n: number): string {
@@ -41,324 +26,142 @@ function formatCompact(n: number): string {
       : String(n);
 }
 
-export function SessionInfoPopover({ stats, contextUsage, project }: SessionInfoPopoverProps) {
-  const { t, locale } = useI18n();
-  const [copiedSessionField, setCopiedSessionField] = useState<SessionCopyField | null>(null);
+/** 仪表盘图标（原型 sprite `#i-gauge`，13px / stroke 1.7，色用 faint） */
+function GaugeIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      className={styles.titleIcon}
+    >
+      <path d="M4 17a9 9 0 1 1 16 0" />
+      <path d="m12 17 4-5" />
+      <circle cx="12" cy="17" r="1.4" />
+    </svg>
+  );
+}
 
-  if (!stats) {
-    return (
-      <div className={styles.popover} style={POPOVER_STYLE}>
-        <div style={{ fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic' }}>
-          {t('session.load')}
-        </div>
-      </div>
-    );
-  }
+/** 统计行：strong = 总计行（dt/dd 同加强调，设计 `.is-em`） */
+interface StatRow {
+  label: string;
+  value: string;
+  strong?: boolean;
+}
 
-  const handleCopySessionField = (field: SessionCopyField, value: string) => {
-    void navigator.clipboard?.writeText(value).catch(() => {});
-    setCopiedSessionField(field);
-    setTimeout(
-      () => setCopiedSessionField((current) => (current === field ? null : current)),
-      1600,
-    );
-  };
+/** 一段指标（menu-label + dl.metrics）：dt 贴左、dd 贴右 */
+function statSection(label: string, rows: StatRow[]) {
+  return (
+    <section className={styles.sec}>
+      <div className={styles.label}>{label}</div>
+      <dl className={styles.metrics}>
+        {rows.map((row) => (
+          <Fragment key={`${label}:${row.label}`}>
+            <dt className={row.strong === true ? `${styles.dt} ${styles.em}` : styles.dt}>
+              {row.label}
+            </dt>
+            <dd className={row.strong === true ? `${styles.dd} ${styles.em}` : styles.dd}>
+              {row.value}
+            </dd>
+          </Fragment>
+        ))}
+      </dl>
+    </section>
+  );
+}
 
-  const totalActiveMs = stats.totalActiveMs ?? 0;
-  const sessionRows = [
-    ...(stats.sessionName
-      ? [{ label: t('session.name'), value: stats.sessionName, copyField: null }]
-      : []),
-    {
-      label: t('session.file'),
-      value: stats.sessionFile ?? t('session.inMemory'),
-      copyField: 'file' as const,
-    },
-    { label: t('session.id'), value: stats.sessionId, copyField: 'id' as const },
-    ...(totalActiveMs > 0
-      ? [{ label: t('session.totalActive'), value: formatDuration(totalActiveMs), copyField: null }]
-      : []),
+function PopoverBody({
+  stats,
+  contextUsage,
+  locale,
+}: {
+  stats: SessionStatsInfo;
+  contextUsage: ContextUsage | null;
+  locale: string;
+}) {
+  const { t } = useI18n();
+  const messageRows: StatRow[] = [
+    { label: t('session.user'), value: stats.userMessages.toLocaleString(locale) },
+    { label: t('session.assistant'), value: stats.assistantMessages.toLocaleString(locale) },
+    { label: t('session.toolCalls'), value: stats.toolCalls.toLocaleString(locale) },
+    { label: t('session.toolResults'), value: stats.toolResults.toLocaleString(locale) },
+    { label: t('session.total'), value: stats.totalMessages.toLocaleString(locale), strong: true },
   ];
-  const projectRows = [
-    ...(project?.projectRoot
-      ? [
-          {
-            label: t('session.projectDir'),
-            value: project.projectRoot,
-            copyField: 'projectDir' as const,
-          },
-        ]
-      : []),
-    ...(project?.branch
-      ? [{ label: t('session.gitBranch'), value: project.branch, copyField: 'gitBranch' as const }]
-      : []),
-    ...(project?.isWorktree
-      ? [
-          {
-            label: t('session.gitWorktree'),
-            value: project?.cwd ?? '',
-            copyField: 'gitWorktree' as const,
-          },
-        ]
-      : []),
-  ];
-  const messageRows = [
-    [t('session.user'), stats.userMessages.toLocaleString(locale)],
-    [t('session.assistant'), stats.assistantMessages.toLocaleString(locale)],
-    [t('session.toolCalls'), stats.toolCalls.toLocaleString(locale)],
-    [t('session.toolResults'), stats.toolResults.toLocaleString(locale)],
-    [t('session.total'), stats.totalMessages.toLocaleString(locale)],
-  ];
-  const tokenRows = [
-    [t('session.input'), stats.tokens.input.toLocaleString(locale)],
-    [t('session.output'), stats.tokens.output.toLocaleString(locale)],
-    ...(stats.tokens.cacheRead > 0
-      ? [[t('session.cacheRead'), stats.tokens.cacheRead.toLocaleString(locale)]]
-      : []),
-    ...(stats.tokens.cacheWrite > 0
-      ? [[t('session.cacheWrite'), stats.tokens.cacheWrite.toLocaleString(locale)]]
-      : []),
-    [t('session.total'), stats.tokens.total.toLocaleString(locale)],
+  // 缓存写入不展示（用户 2026-09-28 指定）；「输入」改名「未缓存读取」，放在缓存读取上方
+  const tokenRows: StatRow[] = [
+    { label: t('session.inputUncached'), value: stats.tokens.input.toLocaleString(locale) },
+    { label: t('session.cacheRead'), value: stats.tokens.cacheRead.toLocaleString(locale) },
+    { label: t('session.output'), value: stats.tokens.output.toLocaleString(locale) },
+    { label: t('session.total'), value: stats.tokens.total.toLocaleString(locale), strong: true },
   ];
   const ctx = contextUsage ?? stats.contextUsage ?? null;
-  const extraTokenRows = [
-    ...(stats.cost > 0 ? [[t('session.cost'), `$${stats.cost.toFixed(4)}`]] : []),
-    ...(ctx?.contextWindow
-      ? [
-          [
-            t('session.context'),
-            `${ctx.percent !== null ? `${ctx.percent.toFixed(1)}%` : '?'} / ${formatCompact(ctx.contextWindow)}`,
-          ],
-        ]
-      : []),
-    // Cache hit rate = cache reads / (input + cache writes + cache reads) —— 分母覆盖全部输入类 token
-    ...(stats.tokens.cacheRead + stats.tokens.cacheWrite > 0 &&
+  if (stats.cost > 0) {
+    // 金额是 SDK 按模型目录费率算好的 USD（docs/06 §3：本仓不换汇），显式标出币种
+    tokenRows.push({ label: t('session.cost'), value: `$${stats.cost.toFixed(4)} USD` });
+  }
+  if (ctx?.contextWindow) {
+    tokenRows.push({
+      label: t('session.context'),
+      value: `${ctx.percent !== null ? `${ctx.percent.toFixed(1)}%` : '?'} / ${formatCompact(ctx.contextWindow)}`,
+    });
+  }
+  // Cache hit rate = cache reads / (input + cache writes + cache reads) —— 分母覆盖全部输入类 token
+  if (
+    stats.tokens.cacheRead + stats.tokens.cacheWrite > 0 &&
     stats.tokens.cacheRead + stats.tokens.cacheWrite + stats.tokens.input > 0
-      ? [
-          [
-            t('session.cacheHitRate'),
-            `${(
-              (stats.tokens.cacheRead /
-                (stats.tokens.cacheRead + stats.tokens.cacheWrite + stats.tokens.input)) *
-                100
-            ).toFixed(1)}%`,
-          ],
-        ]
-      : []),
-  ];
-
-  const section = (
-    title: string,
-    sectionRows: string[][],
-    valueAlign: 'left' | 'right' = 'left',
-    compact = false,
-  ) => (
-    <div style={{ minWidth: 0 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
-        {title}
-      </div>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: compact ? 'max-content max-content' : 'auto minmax(0, 1fr)',
-          columnGap: compact ? 14 : 12,
-          rowGap: 4,
-          justifyContent: compact ? 'start' : undefined,
-        }}
-      >
-        {sectionRows.map(([label, value]) => (
-          <div key={`${title}:${label}`} style={{ display: 'contents' }}>
-            <div style={{ color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>{label}</div>
-            <div
-              style={{
-                color: 'var(--text-muted)',
-                minWidth: 0,
-                overflowWrap: compact ? 'normal' : 'anywhere',
-                textAlign: valueAlign,
-                whiteSpace: valueAlign === 'right' ? 'nowrap' : 'normal',
-              }}
-            >
-              {value}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  const copyTitleKey: Record<SessionCopyField, string> = {
-    file: 'session.copyFile',
-    id: 'session.copyId',
-    projectDir: 'session.copyProjectDir',
-    gitBranch: 'session.copyGitBranch',
-    gitWorktree: 'session.copyGitWorktree',
-  };
-
-  const copyButton = (field: SessionCopyField, value: string) => {
-    const copied = copiedSessionField === field;
-    return (
-      <button
-        type="button"
-        title={copied ? t('session.copied') : t(copyTitleKey[field])}
-        onClick={() => handleCopySessionField(field, value)}
-        style={{
-          alignSelf: 'start',
-          display: 'inline-flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          width: 22,
-          height: 22,
-          marginTop: -2,
-          color: copied ? 'var(--accent)' : 'var(--text-dim)',
-          background: 'transparent',
-          border: '1px solid var(--border)',
-          borderRadius: 4,
-          cursor: 'pointer',
-          flex: '0 0 auto',
-          transition: 'color 0.12s, border-color 0.12s, background 0.12s',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.color = 'var(--accent)';
-          e.currentTarget.style.borderColor = 'var(--accent)';
-          e.currentTarget.style.background = 'var(--bg-hover)';
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.color = copied ? 'var(--accent)' : 'var(--text-dim)';
-          e.currentTarget.style.borderColor = 'var(--border)';
-          e.currentTarget.style.background = 'transparent';
-        }}
-      >
-        {copied ? (
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-        ) : (
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-          </svg>
-        )}
-      </button>
-    );
-  };
-
-  const sessionInfoSection = (
-    <div style={{ minWidth: 0 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
-        {t('session.infoSection')}
-      </div>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'auto minmax(0, 1fr) auto',
-          columnGap: 12,
-          rowGap: 8,
-          alignItems: 'start',
-        }}
-      >
-        {sessionRows.map((row) => (
-          <div key={`session-info:${row.label}`} style={{ display: 'contents' }}>
-            <div style={{ color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>{row.label}</div>
-            <div
-              style={{
-                color: 'var(--text-muted)',
-                minWidth: 0,
-                overflowWrap: 'anywhere',
-                wordBreak: 'break-word',
-                whiteSpace: 'normal',
-              }}
-            >
-              {row.value}
-            </div>
-            <div>{row.copyField ? copyButton(row.copyField, row.value) : null}</div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  const projectInfoSection =
-    projectRows.length > 0 ? (
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
-          {t('session.projectSection')}
-        </div>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'auto minmax(0, 1fr) auto',
-            columnGap: 12,
-            rowGap: 8,
-            alignItems: 'start',
-          }}
-        >
-          {projectRows.map((row) => (
-            <div key={`project-info:${row.label}`} style={{ display: 'contents' }}>
-              <div style={{ color: 'var(--text-dim)', whiteSpace: 'nowrap' }}>{row.label}</div>
-              <div
-                style={{
-                  color: 'var(--text-muted)',
-                  minWidth: 0,
-                  overflowWrap: 'anywhere',
-                  wordBreak: 'break-word',
-                  whiteSpace: 'normal',
-                }}
-              >
-                {row.value}
-              </div>
-              <div>{row.copyField ? copyButton(row.copyField, row.value) : null}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-    ) : null;
+  ) {
+    tokenRows.push({
+      label: t('session.cacheHitRate'),
+      value: `${(
+        (stats.tokens.cacheRead /
+          (stats.tokens.cacheRead + stats.tokens.cacheWrite + stats.tokens.input)) *
+          100
+      ).toFixed(1)}%`,
+    });
+  }
 
   return (
-    <div className={styles.popover} style={POPOVER_STYLE}>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(360px, 1.7fr) minmax(140px, 0.55fr) minmax(190px, 0.75fr)',
-          gap: 24,
-          fontSize: 12,
-          lineHeight: 1.5,
-          fontFamily: 'var(--font-mono)',
-        }}
-      >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {sessionInfoSection}
-          {projectInfoSection}
-        </div>
-        {section(t('session.messages'), messageRows)}
-        {section(t('session.tokens'), [...tokenRows, ...extraTokenRows], 'right', true)}
-      </div>
+    <div className={styles.grid}>
+      {statSection(t('session.messages'), messageRows)}
+      {statSection(t('session.tokens'), tokenRows)}
     </div>
   );
 }
 
-const POPOVER_STYLE = {
-  background: 'var(--bg-panel)',
-  borderBottom: '1px solid var(--border)',
-  boxShadow: '0 10px 28px rgba(0,0,0,0.10)',
-  padding: '12px 16px',
-} as const;
+export function SessionInfoPopover({ stats, contextUsage }: SessionInfoPopoverProps) {
+  const { t, locale } = useI18n();
+
+  if (!stats) {
+    return (
+      <div className={styles.popover}>
+        <div className={styles.head}>
+          <span className={styles.title}>
+            <GaugeIcon />
+            {t('session.statsTitle')}
+          </span>
+        </div>
+        <div className={styles.rule} aria-hidden="true" />
+        <div className={styles.empty}>{t('session.load')}</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.popover}>
+      <div className={styles.head}>
+        <span className={styles.title}>
+          <GaugeIcon />
+          {t('session.statsTitle')}
+        </span>
+      </div>
+      <div className={styles.rule} aria-hidden="true" />
+      <PopoverBody stats={stats} contextUsage={contextUsage} locale={locale} />
+    </div>
+  );
+}
