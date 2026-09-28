@@ -237,6 +237,8 @@ export function fold(state: ChatState, event: WireAgentEvent): ChatState {
           turn.model = { provider: message.provider, modelId: message.model };
           if (message.stopReason === 'aborted') turn.status = 'stopped';
           else if (message.stopReason === 'error') turn.status = 'error';
+          // 自动重试成功：撤销上次失败尝试留下的 error，回到流式中（agent_settled 收口为 done）
+          else if (turn.status === 'error') turn.status = 'streaming';
         }
       } else if (message.role === 'toolResult') {
         applyToolResult(next.turns, message);
@@ -299,16 +301,38 @@ export function fold(state: ChatState, event: WireAgentEvent): ChatState {
       );
       return next;
 
-    case 'auto_retry_start':
+    case 'auto_retry_start': {
       pushSystem(
         next.turns,
         `模型请求失败，自动重试 ${event.attempt}/${event.maxAttempts}`,
         'warn',
       );
+      // 失败尝试的半截产物就地作废（trail 只追加、就地补丁，docs/05 §6.3）：
+      // ① 文本草稿清空——重试的 text_start 重建；不清则新 delta 拼在残稿后面，
+      //    直到 message_end 才被覆盖（流式期间一直显示残稿+新文拼接）
+      // ② thinking/preparing 行定格——残稿不再按「流式中」渲染（截图中 dangling 的半截思考行）
+      // ③ error 状态暂撤——新尝试在路上，横幅先收起；彻底失败时 auto_retry_end(false)
+      //    会还原（重试可能被取消/耗尽而不发起尝试，成败不能在这里预判）
+      const turn = lastTurn(next.turns);
+      if (turn !== undefined) {
+        turn.final = null;
+        turn.trail = turn.trail.map((item) =>
+          item.kind === 'thinking' && item.streaming
+            ? { ...item, streaming: false }
+            : item.kind === 'tool' && item.status === 'preparing'
+              ? { ...item, status: 'stopped' }
+              : item,
+        );
+        if (turn.status === 'error') turn.status = 'streaming';
+      }
       return next;
+    }
     case 'auto_retry_end':
       if (!event.success) {
         pushSystem(next.turns, `自动重试失败：${event.finalError ?? '未知错误'}`, 'error');
+        // 彻底失败（取消/耗尽）：auto_retry_start 后被清掉的 error 轮状态还原，横幅要出
+        const turn = lastTurn(next.turns);
+        if (turn !== undefined && turn.status === 'streaming') turn.status = 'error';
       }
       return next;
     case 'summarization_retry_scheduled':

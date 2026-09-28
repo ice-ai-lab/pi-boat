@@ -279,6 +279,153 @@ describe('fold：流式中间态与系统事件', () => {
     expect(state.queued.steering).toEqual(['补充']);
   });
 
+  it('自动重试：失败尝试的半截产物作废，成功后不再挂 error（2026-09-28 用户报障回归）', () => {
+    const assistantStart = (timestamp: number) =>
+      ev({
+        type: 'message_start',
+        message: {
+          role: 'assistant',
+          content: [],
+          api: 'anthropic',
+          provider: 'anthropic',
+          model: 'glm-5.3-flash',
+          usage: USAGE,
+          stopReason: 'pending',
+          timestamp,
+        },
+      });
+    const state = run([
+      ev({ type: 'agent_start' }),
+      ev({ type: 'message_start', message: { role: 'user', content: 'hi', timestamp: 1_000 } }),
+      // 尝试 ①：吐了半截 thinking + 半截回答后请求失败
+      assistantStart(2_000),
+      ev({
+        type: 'message_update',
+        usage: USAGE,
+        assistantMessageEvent: { type: 'thinking_start', contentIndex: 0 },
+      }),
+      ev({
+        type: 'message_update',
+        usage: USAGE,
+        assistantMessageEvent: {
+          type: 'thinking_delta',
+          contentIndex: 0,
+          delta: 'Fully confirmed:',
+        },
+      }),
+      ev({
+        type: 'message_update',
+        usage: USAGE,
+        assistantMessageEvent: { type: 'text_start', contentIndex: 1 },
+      }),
+      ev({
+        type: 'message_update',
+        usage: USAGE,
+        assistantMessageEvent: { type: 'text_delta', contentIndex: 1, delta: '半截回答' },
+      }),
+      ev({
+        type: 'message_end',
+        message: {
+          role: 'assistant',
+          content: [
+            { type: 'thinking', thinking: 'Fully confirmed:' },
+            { type: 'text', text: '半截回答' },
+          ],
+          api: 'anthropic',
+          provider: 'anthropic',
+          model: 'glm-5.3-flash',
+          usage: USAGE,
+          stopReason: 'error',
+          timestamp: 3_000,
+        },
+      }),
+      ev({
+        type: 'auto_retry_start',
+        attempt: 1,
+        maxAttempts: 3,
+        delayMs: 1000,
+        errorMessage: 'boom',
+      }),
+      // 尝试 ②：完整回答
+      assistantStart(4_000),
+      ev({
+        type: 'message_update',
+        usage: USAGE,
+        assistantMessageEvent: { type: 'text_start', contentIndex: 0 },
+      }),
+      ev({
+        type: 'message_update',
+        usage: USAGE,
+        assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: '完整回答' },
+      }),
+      ev({
+        type: 'message_end',
+        message: {
+          role: 'assistant',
+          content: [{ type: 'text', text: '完整回答' }],
+          api: 'anthropic',
+          provider: 'anthropic',
+          model: 'glm-5.3-flash',
+          usage: USAGE,
+          stopReason: 'stop',
+          timestamp: 5_000,
+        },
+      }),
+      ev({ type: 'agent_end', messages: [], willRetry: false }),
+      ev({ type: 'agent_settled' }),
+    ]);
+    const turn = state.turns[0];
+    expect(turn?.final?.markdown).toBe('完整回答'); // 不拼残稿（重试时草稿已清空）
+    expect(turn?.status).toBe('done'); // 重试成功后不挂 error（不再渲染「本轮出错」横幅）
+    expect(turn?.usage).toEqual(USAGE); // 用量随成功尝试定稿
+    const thinking = turn?.trail.find((item) => item.kind === 'thinking');
+    expect(thinking).toMatchObject({ kind: 'thinking', streaming: false }); // 残行定格，不按流式中渲染
+    expect(turn?.trail.some((item) => item.kind === 'system')).toBe(true); // 重试提示行保留
+  });
+
+  it('自动重试耗尽：最后一跳仍失败时保留 error（横幅该出还是出）', () => {
+    const state = run([
+      ev({ type: 'message_start', message: { role: 'user', content: 'hi', timestamp: 1_000 } }),
+      ev({
+        type: 'message_start',
+        message: {
+          role: 'assistant',
+          content: [],
+          api: 'anthropic',
+          provider: 'anthropic',
+          model: 'glm-5.3-flash',
+          usage: USAGE,
+          stopReason: 'pending',
+          timestamp: 2_000,
+        },
+      }),
+      ev({
+        type: 'message_end',
+        message: {
+          role: 'assistant',
+          content: [],
+          api: 'anthropic',
+          provider: 'anthropic',
+          model: 'glm-5.3-flash',
+          usage: USAGE,
+          stopReason: 'error',
+          timestamp: 3_000,
+        },
+      }),
+      ev({
+        type: 'auto_retry_start',
+        attempt: 1,
+        maxAttempts: 3,
+        delayMs: 1000,
+        errorMessage: 'boom',
+      }),
+      ev({ type: 'auto_retry_end', success: false, attempt: 1, finalError: 'still boom' }),
+      ev({ type: 'agent_end', messages: [], willRetry: false }),
+      ev({ type: 'agent_settled' }),
+    ]);
+    expect(state.turns[0]?.status).toBe('error');
+  });
+
   it('session_shutdown：轮标记 stopped、terminated', () => {
     const state = run([
       ev({ type: 'message_start', message: { role: 'user', content: 'x', timestamp: 1 } }),
