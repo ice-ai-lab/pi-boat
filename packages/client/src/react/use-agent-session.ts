@@ -160,10 +160,24 @@ export function useAgentSession(): UseAgentSessionResult {
   const pendingToolPresetRef = useRef<ToolPreset | null>(null);
   const [pendingToolPreset, setPendingToolPreset] = useState<ToolPreset | null>(null);
 
-  /** 切会话的唯一入口：ref 与 state 必须同时更新，只改其中一个就是上面那个 bug */
+  /**
+   * 切会话的唯一入口：ref 与 state 必须同时更新，只改其中一个就是上面那个 bug。
+   *
+   * 同时**作废会话作用域缓存**（stats / liveState / tools / commands）：它们只属于上一个
+   * 会话，而渲染侧一律「详情查询（按 sessionId 分键，切换后立刻为空）→ 兜底读这份 state」，
+   * 于是空态（新建会话）会把上一个会话的统计行 / 上下文环 / 扩展货架整块带过来
+   * （2026-09-28 报的 BUG），新会话也会先显示旧会话的模型与思考档位。
+   * 切到**同一个** id 不动（`revive()` 自愈复用 `open(id)`）：清了没人再取，界面会空掉。
+   */
   const switchSession = useCallback((id: string | null): void => {
+    const changed = sessionIdRef.current !== id;
     sessionIdRef.current = id;
     setSessionId(id);
+    if (!changed) return;
+    setStats(null);
+    setLiveState(null);
+    setToolsState([]);
+    setCommands([]);
   }, []);
 
   const store = useMemo(() => {

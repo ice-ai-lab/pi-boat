@@ -826,6 +826,12 @@ export function ChatPane({
   const statsTooltip = tooltipParts.join('  |  ');
   const showMetrics = showChat && (sessionStats !== null || contextUsage !== null);
 
+  // 指标行不渲染（空态 / 无统计）时，会话信息面板失去锚点（它的 ⑥b 定位基准就是指标行）：
+  // 直接收起，否则它会悬在指标行消失前的老位置上（面板入口随之消失，用户关不掉）
+  useEffect(() => {
+    if (!showMetrics && activePanel === 'session') setActivePanel(null);
+  }, [showMetrics, activePanel]);
+
   // 生成标题按钮状态（按设计规范：hasMessages 参考 userMessages 与消息总数）
   const hasMessages =
     sessionId !== null &&
