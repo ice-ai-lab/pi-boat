@@ -1534,6 +1534,9 @@ export function Sidebar(props: SidebarProps) {
               minHeight: 0,
               overflowY: 'auto',
               padding: '0',
+              /* 宿主在列表上方叠毛玻璃底栏时（apps/web 侧栏底栏），用这个变量给滚动末端留白，
+                 否则最后一行永远压在玻璃下面 */
+              paddingBottom: 'var(--sidebar-list-bottom-inset, 0px)',
             }}
           >
             {props.loading && (

@@ -255,6 +255,11 @@ AppShell 三栏布局 + 拖拽/折叠（`makeDrag`）、主题切换、路由、
 拖动期 `body.resizing`（禁 textarea/iframe 的 pointer 事件）。**原型未持久化侧栏宽度** → 与 §8.4 统一到
 `usePersistentPref`。
 
+同层还有一条宿主 → ui 的布局变量（2026-09-28 用户要求侧栏底栏改毛玻璃）：底栏在 `apps/web` 里
+绝对定位压在会话列表之上（列表因此要从玻璃后面滤过），ui 的 `Sidebar` 滚动容器读
+`--sidebar-list-bottom-inset`（默认 `0px`）给滚动末端留白，否则最后一行永远被玻璃盖住。
+高度由宿主在 `.sidebar` 上单点定义（`--sidebar-footer-h`）。
+
 ### 8.6 其他
 
 - Composer 自动增高（输入区 `min-height:56px`（原型 `.ta`）/ 上限 200px——上限由

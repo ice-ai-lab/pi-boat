@@ -169,9 +169,86 @@
   color: var(--accent);
 }
 
-.filePanelExpandButton:focus-visible {
+/* 侧栏底栏：毛玻璃条（原型 `.sb-foot` 的顶边发丝线 + 向上渐变）。
+   它绝对定位压在会话列表之上（不占流程空间，列表一直铺到侧栏底边），列表滚到末端时从玻璃后面
+   滤过——这才是毛玻璃看得见的来源；列表末端的内边距由 `--sidebar-list-bottom-inset` 补给
+   （ui 的 `Sidebar` 滚动容器消费）。 */
+.sidebar {
+  /* 底栏高度 = 上下内边距 8×2 + 按钮 30 + 顶边发丝线 1；单点定义，列表内边距同源 */
+  --sidebar-footer-h: 47px;
+  --sidebar-list-bottom-inset: calc(var(--sidebar-footer-h) + env(safe-area-inset-bottom));
+}
+
+.sidebarFooter {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: env(safe-area-inset-bottom);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  height: var(--sidebar-footer-h);
+  padding: 0 8px;
+  border-top: 1px solid var(--border);
+  background: linear-gradient(
+    to top,
+    var(--glass-2),
+    color-mix(in srgb, var(--glass-2) 45%, transparent)
+  );
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  box-shadow: inset 0 1px 0 var(--glass-pop-rim);
+}
+
+/* 设置入口：玻璃按钮。hover 不只换底色——玻璃填充 + 描边 + 竖边高光 + 抬升，齿轮转向 accent */
+.settingsButton {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  color: var(--text-2);
+  cursor: pointer;
+  font-size: 12px;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease,
+    color 0.16s ease,
+    transform 0.16s ease;
+}
+
+.settingsButton svg {
+  transition: color 0.16s ease, transform 0.2s ease;
+}
+
+.settingsButton:hover {
+  background: var(--glass-2);
+  border-color: var(--border);
+  color: var(--text);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 0.5px 0 var(--glass-pop-rim),
+    0 2px 8px -2px rgba(0, 0, 0, 0.18);
+}
+
+.settingsButton:hover svg {
+  color: var(--accent);
+  transform: rotate(-18deg);
+}
+
+.settingsButton:active {
+  transform: translateY(0) scale(0.985);
+}
+
+.settingsButton:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: -3px;
+  outline-offset: 2px;
 }
 
 /* Mobile sidebar: slide in/out as overlay */

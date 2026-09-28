@@ -15,7 +15,6 @@ import { useProjectTrustQuery, useUpdateProjectTrustMutation } from '@ice-ai/cli
 import {
   cn,
   ProjectTrustDialog,
-  SettingsSectionIcon,
   ToastHost,
   type ToastItem,
   toastQueueReducer,
@@ -188,50 +187,35 @@ export function WorkspaceLayout() {
           setSearchParams({});
         }}
       />
-      {/* 侧栏底栏：设置（通宽居中，原型 `.sb-foot`：顶部发丝线 + 向上渐变） */}
-      <div
-        style={{
-          padding: '8px',
-          flexShrink: 0,
-          display: 'flex',
-          borderTop: '1px solid var(--border)',
-          background: 'linear-gradient(to top, var(--glass-2), transparent)',
-        }}
-      >
+      {/* 侧栏底栏：毛玻璃条（原型 `.sb-foot` 的顶边发丝线 + 向上渐变）。
+          绝对定位压在会话列表之上 → 列表滚到末端时从玻璃后面滤过，这是「毛玻璃透明」唯一看得见的来源；
+          高度与列表末端留白同源（见 workspace.module.css 的 `--sidebar-footer-h`）。 */}
+      <div className={workspace.sidebarFooter}>
         <button
           type="button"
+          className={workspace.settingsButton}
           onClick={() => {
             setLastSettingsSection('general');
             setSettingsOpen(true);
           }}
           title={t('common.settings')}
           aria-label={t('common.settings')}
-          style={{
-            display: 'flex',
-            flex: 1,
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 6,
-            height: 30,
-            padding: '0 8px',
-            background: 'none',
-            border: 'none',
-            borderRadius: 9,
-            color: 'var(--text-2)',
-            cursor: 'pointer',
-            fontSize: 12,
-            transition: 'background 0.12s, color 0.12s',
-          }}
-          onMouseEnter={(event) => {
-            event.currentTarget.style.background = 'var(--bg-hover)';
-            event.currentTarget.style.color = 'var(--text)';
-          }}
-          onMouseLeave={(event) => {
-            event.currentTarget.style.background = 'none';
-            event.currentTarget.style.color = 'var(--text-2)';
-          }}
         >
-          <SettingsSectionIcon section="general" size={14} strokeWidth={2} />
+          {/* 齿轮（原型 `i-gear` → lucide `Settings`，docs/06 §6） */}
+          <svg
+            aria-hidden="true"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
           <span>{t('common.settings')}</span>
         </button>
       </div>
