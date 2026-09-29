@@ -65,8 +65,8 @@ export interface UseAgentSessionResult {
   setModel(provider: string, modelId: string): Promise<string | null>;
   abortCompaction(): Promise<void>;
   setTools(preset: ToolPreset): Promise<string | null>;
-  /** 用 LLM 生成会话名并落盘（dryRun 只回名字） */
-  autoName(dryRun?: boolean): Promise<{ title?: string; error?: string }>;
+  /** 用 LLM 生成会话名并落盘（落盘归服务端：resident 走命令通道 / 冷会话 rename） */
+  autoName(): Promise<{ title?: string; error?: string }>;
   setSessionName(name: string): Promise<string | null>;
   steer(text: string, images?: ImageContent[]): Promise<string | null>;
   followUp(text: string, images?: ImageContent[]): Promise<string | null>;
@@ -591,21 +591,18 @@ export function useAgentSession(): UseAgentSessionResult {
     [requireSession, loadTools, switchSession],
   );
 
-  const autoName = useCallback(
-    async (dryRun = false): Promise<{ title?: string; error?: string }> => {
-      const id = requireSession();
-      if (id === null) return { error: '没有活动会话' };
-      try {
-        // 落盘归服务端（resident → 命令通道 / 冷会话 → rename），这里不再补一次写，
-        // 否则与 runtime 抢写同一会话文件（2026-09-26 BUG-1d）。
-        const { title } = await autoNameSession(id, dryRun ? { dryRun: true } : {});
-        return { title };
-      } catch (error) {
-        return { error: errorMessage(error) };
-      }
-    },
-    [requireSession],
-  );
+  const autoName = useCallback(async (): Promise<{ title?: string; error?: string }> => {
+    const id = requireSession();
+    if (id === null) return { error: '没有活动会话' };
+    try {
+      // 落盘归服务端（resident → 命令通道 / 冷会话 → rename），这里不再补一次写，
+      // 否则与 runtime 抢写同一会话文件（2026-09-26 BUG-1d）。
+      const { title } = await autoNameSession(id, {});
+      return { title };
+    } catch (error) {
+      return { error: errorMessage(error) };
+    }
+  }, [requireSession]);
 
   const setSessionName = useCallback(
     async (name: string): Promise<string | null> => {

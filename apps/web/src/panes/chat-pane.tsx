@@ -13,6 +13,7 @@ import {
   slashSourceLabel,
 } from '@ice-ai/client';
 import {
+  queryKeys,
   useAgentSession,
   useGitStatusQuery,
   useModelsQuery,
@@ -39,6 +40,7 @@ import {
   useI18n,
   WorkspacePlaceholder,
 } from '@ice-ai/ui';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   type CSSProperties,
   type DragEvent,
@@ -197,16 +199,10 @@ function SidebarToggleButton({ open, onToggle }: { open: boolean; onToggle: () =
   );
 }
 
-/** 生成标题的三态（设计规范 `autoNameStatus`） */
-type AutoNameStatus = {
-  kind: 'idle' | 'naming' | 'success' | 'error';
-  message?: string;
-};
-
 /**
  * ChatPane（F1→F5）：对话主面板。URL `?s=` 是会话的唯一真相（ADR-0019-5）。
  * 工具条按设计规范 `AppShell` 的桌面向：
- * 侧栏开关 → 信任警示 → 历史/生成标题/分支/系统/工具 → 会话统计 → 文件面板开关；
+ * 侧栏开关 → 信任警示 → 历史/分支/系统/工具 → 会话统计 → 文件面板开关；
  * 顶部面板为 `position:fixed` 贴顶下拉（T1-3），一次只开一个。
  */
 export interface ChatPaneProps {
@@ -317,6 +313,7 @@ export function ChatPane({
 }: ChatPaneProps) {
   const session = useAgentSession();
   const { chat, sessionId } = session;
+  const queryClient = useQueryClient();
   const [draft, setDraft] = useState('');
   const [toasts, dispatchToast] = useReducer(toastQueueReducer, [] as ToastItem[]);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -324,8 +321,13 @@ export function ChatPane({
   const [activeIndex, setActiveIndex] = useState(0);
   const [fileIndex, setFileIndex] = useState<string[] | null>(null);
   const [activePanel, setActivePanel] = useState<ActivePanel>(null);
-  const autoNameTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [autoNameStatus, setAutoNameStatus] = useState<AutoNameStatus>({ kind: 'idle' });
+  // 自动命名（触发时机见下方 effect）：每会话最多一次 + 流式边沿检测（按会话绑定，
+  // 避免「A 流式中切到 B」被误判成 B 的结束沿，白白烧一次 token）
+  const autoNamedRef = useRef(new Set<string>());
+  const prevStreamRef = useRef<{ id: string | null; streaming: boolean }>({
+    id: null,
+    streaming: false,
+  });
   /** 图片附件（T2-2）：按钮 / 粘贴 / 拖拽三个入口共用 */
   const attachments = useAttachedImages();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -638,35 +640,6 @@ export function ChatPane({
     [session, pushToast],
   );
 
-  /** 生成标题（工具条与 composer 工具行共用；三态按设计规范 `autoNameStatus`，T1-6）
-   *  成功态 1800ms / 失败态 5000ms 后自行回 idle（对齐 参考实现 AppShell，BUG-1b） */
-  const runAutoName = useCallback(() => {
-    if (sessionId === null || autoNameStatus.kind === 'naming') return;
-    if (autoNameTimerRef.current !== null) clearTimeout(autoNameTimerRef.current);
-    setAutoNameStatus({ kind: 'naming' });
-    void session.autoName().then((result) => {
-      if (result.error !== undefined) {
-        setAutoNameStatus({ kind: 'error', message: result.error });
-        autoNameTimerRef.current = setTimeout(() => setAutoNameStatus({ kind: 'idle' }), 5000);
-        pushToast(result.error, 'error');
-      } else {
-        setAutoNameStatus({ kind: 'success' });
-        autoNameTimerRef.current = setTimeout(() => setAutoNameStatus({ kind: 'idle' }), 1800);
-        pushToast(`${t('title.updated')}：${result.title ?? ''}`);
-      }
-    });
-  }, [session, sessionId, pushToast, t, autoNameStatus.kind]);
-
-  // 切会话复位三态（设计规范 AppShell 的 `[selectedSession?.id]` effect，BUG-1b）
-  // biome-ignore lint/correctness/useExhaustiveDependencies: sessionId 是"会话已切换"的触发信号，本就不参与计算
-  useEffect(() => {
-    if (autoNameTimerRef.current !== null) clearTimeout(autoNameTimerRef.current);
-    setAutoNameStatus({ kind: 'idle' });
-    return () => {
-      if (autoNameTimerRef.current !== null) clearTimeout(autoNameTimerRef.current);
-    };
-  }, [sessionId]);
-
   const handleSubmit = useCallback(
     (text: string) => {
       const images = attachments.images.map(attachedImageToContent);
@@ -828,28 +801,25 @@ export function ChatPane({
     if (!showMetrics && activePanel === 'session') setActivePanel(null);
   }, [showMetrics, activePanel]);
 
-  // 生成标题按钮状态（按设计规范：hasMessages 参考 userMessages 与消息总数）
-  const hasMessages =
-    sessionId !== null &&
-    ((sessionStats?.userMessages ?? 0) > 0 || (session.liveState?.messageCount ?? 0) > 0);
-  const autoNameDisabled = sessionId === null || !hasMessages || autoNameStatus.kind === 'naming';
-  const autoNameIsSuccess = autoNameStatus.kind === 'success';
-  const autoNameIsError = autoNameStatus.kind === 'error';
-  const autoNameLabel =
-    autoNameStatus.kind === 'naming'
-      ? t('title.generating')
-      : autoNameIsSuccess
-        ? t('title.updated')
-        : autoNameIsError
-          ? t('title.failed')
-          : t('title.generate');
-  const autoNameTitle = !sessionId
-    ? t('title.unsaved')
-    : !hasMessages
-      ? t('title.noMessages')
-      : autoNameIsError
-        ? (autoNameStatus.message ?? t('title.generateSession'))
-        : t('title.generateSession');
+  // 首轮回复结束（流式 true→false 沿）→ 自动生成会话标题：
+  // 仅未命名会话、每会话最多一次；失败静默（标题维持默认，不打断对话）。
+  // 落盘归服务端（resident 走命令通道 / 冷会话 rename），前端只发请求不写文件。
+  useEffect(() => {
+    const prev = prevStreamRef.current;
+    prevStreamRef.current = { id: sessionId, streaming: chat.streaming };
+    const settledEdge = prev.id === sessionId && prev.streaming && !chat.streaming;
+    if (sessionId === null || !settledEdge) return;
+    if (autoNamedRef.current.has(sessionId)) return;
+    if ((detail.data?.info.name ?? '').trim() !== '') return;
+    const hasMessages =
+      (sessionStats?.userMessages ?? 0) > 0 || (session.liveState?.messageCount ?? 0) > 0;
+    if (!hasMessages) return;
+    autoNamedRef.current.add(sessionId);
+    void session.autoName().then((result) => {
+      if (result.error !== undefined) return;
+      void queryClient.invalidateQueries({ queryKey: queryKeys.sessions() });
+    });
+  }, [chat.streaming, sessionId, detail.data, session, sessionStats, queryClient]);
 
   const compacting = session.liveState?.isCompacting === true;
 
@@ -1036,114 +1006,9 @@ export function ChatPane({
             <span>{t('trust.resourcesNotLoaded')}</span>
           </button>
         )}
-        {/* 生成标题 / 分支 / 系统 / 工具（空态也渲染，页签 disabled，T1-2） */}
+        {/* 分支 / 系统 / 工具（空态也渲染，页签 disabled，T1-2） */}
         {showChat && (
           <div style={{ display: 'flex', alignItems: 'stretch', height: '100%' }}>
-            {/* 生成标题（三态 + hasMessages 禁用，T1-6） */}
-            <button
-              type="button"
-              onClick={runAutoName}
-              disabled={autoNameDisabled}
-              title={autoNameTitle}
-              aria-label={autoNameLabel}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                height: '100%',
-                padding: '0 12px',
-                background: 'none',
-                border: 'none',
-                borderTop: '2px solid transparent',
-                borderRight: '1px solid var(--border)',
-                color: autoNameIsError
-                  ? 'var(--red)'
-                  : autoNameIsSuccess
-                    ? 'var(--accent)'
-                    : autoNameDisabled
-                      ? 'var(--text-dim)'
-                      : 'var(--text-muted)',
-                cursor: autoNameDisabled ? 'not-allowed' : 'pointer',
-                opacity: autoNameDisabled && autoNameStatus.kind !== 'naming' ? 0.45 : 1,
-                flexShrink: 0,
-                fontSize: 11,
-                whiteSpace: 'nowrap',
-                transition: 'color 0.1s, background 0.1s, opacity 0.1s',
-              }}
-              onMouseEnter={(event) => {
-                if (autoNameDisabled) return;
-                event.currentTarget.style.color = autoNameIsError ? 'var(--red)' : 'var(--text)';
-                event.currentTarget.style.background = 'var(--bg-hover)';
-              }}
-              onMouseLeave={(event) => {
-                event.currentTarget.style.color = autoNameIsError
-                  ? 'var(--red)'
-                  : autoNameIsSuccess
-                    ? 'var(--accent)'
-                    : autoNameDisabled
-                      ? 'var(--text-dim)'
-                      : 'var(--text-muted)';
-                event.currentTarget.style.background = 'none';
-              }}
-            >
-              {autoNameStatus.kind === 'naming' ? (
-                <svg
-                  className="animate-spin"
-                  width="13"
-                  height="13"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  aria-hidden="true"
-                >
-                  <circle
-                    cx="12"
-                    cy="12"
-                    r="9"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    opacity="0.25"
-                  />
-                  <path
-                    d="M21 12a9 9 0 0 0-9-9"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              ) : autoNameIsSuccess ? (
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <polyline points="20 6 9 17 4 12" />
-                </svg>
-              ) : (
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  aria-hidden="true"
-                >
-                  <path d="m15 4 5 5L7 22l-5-5Z" />
-                  <path d="m14 5 5 5" />
-                  <path d="M6 4V2M5 3H3M19 19v3M17.5 20.5h3" />
-                </svg>
-              )}
-              <span>{autoNameLabel}</span>
-            </button>
             {/* 分支：仅在会话存在分支时渲染（T1-7/T3-15，设计规范 `BranchNavigator inline`） */}
             {hasBranches && (
               <BranchNavigator
