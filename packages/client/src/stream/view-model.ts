@@ -22,6 +22,8 @@ export interface Turn {
   usage: Usage | null;
   model: ModelRef | null;
   status: 'streaming' | 'done' | 'stopped' | 'error';
+  /** SDK 的 `AssistantMessage.errorMessage`：stopReason=error 时的原始错误（429/404 等），无错为 null */
+  errorMessage: string | null;
 }
 
 export type TrailItem = ThinkingRow | ToolRow | SystemRow;

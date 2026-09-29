@@ -40,6 +40,7 @@ export function rebuildTurns(
           usage: null,
           model: null,
           status: 'done',
+          errorMessage: null,
         });
         return;
       }
@@ -73,8 +74,12 @@ export function rebuildTurns(
         if (final.length > 0) turn.final = { markdown: final };
         turn.usage = message.usage;
         turn.model = { provider: message.provider, modelId: message.model };
-        if (message.stopReason === 'aborted' && turn.status === 'streaming')
-          turn.status = 'stopped';
+        turn.errorMessage = message.errorMessage ?? null;
+        // 状态链与 fold 的 message_end 对齐（rebuild 是它的历史对照物，两条路径等价）：
+        // error → 红框出原始 errorMessage；后续成功消息（自动重试）把 error 撤回 done
+        if (message.stopReason === 'aborted') turn.status = 'stopped';
+        else if (message.stopReason === 'error') turn.status = 'error';
+        else if (turn.status === 'error') turn.status = 'done';
         return;
       }
       case 'toolResult': {
@@ -129,6 +134,7 @@ function pushOrphanTurn(turns: Turn[], at: number, id: string): Turn {
     usage: null,
     model: null,
     status: 'done',
+    errorMessage: null,
     orphan: true,
   };
   turns.push(orphan);

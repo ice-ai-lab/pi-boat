@@ -162,7 +162,9 @@ export const AssistantTurn = memo(function AssistantTurn({
               lineHeight: 1.5,
             }}
           >
-            本轮出错（详见处理详情）
+            {turn.errorMessage !== null && turn.errorMessage.length > 0
+              ? `本轮出错：${turn.errorMessage}`
+              : '本轮出错（详见处理详情）'}
           </div>
         )}
         {writtenPaths.length > 0 && <TurnWrittenFiles paths={writtenPaths} onOpen={onOpenFile} />}

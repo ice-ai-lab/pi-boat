@@ -53,6 +53,7 @@ function createOrphanTurn(id: string, at: number): Turn {
     usage: null,
     model: null,
     status: 'streaming',
+    errorMessage: null,
     orphan: true,
   };
 }
@@ -119,6 +120,7 @@ export function fold(state: ChatState, event: WireAgentEvent): ChatState {
             usage: null,
             model: null,
             status: 'streaming',
+            errorMessage: null,
           },
         ];
       } else if (message.role === 'assistant') {
@@ -235,6 +237,7 @@ export function fold(state: ChatState, event: WireAgentEvent): ChatState {
           turn.final = { markdown: assistantFinalText(message) };
           turn.usage = message.usage as Usage;
           turn.model = { provider: message.provider, modelId: message.model };
+          turn.errorMessage = message.errorMessage ?? null;
           if (message.stopReason === 'aborted') turn.status = 'stopped';
           else if (message.stopReason === 'error') turn.status = 'error';
           // 自动重试成功：撤销上次失败尝试留下的 error，回到流式中（agent_settled 收口为 done）

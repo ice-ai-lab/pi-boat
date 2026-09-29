@@ -409,6 +409,7 @@ describe('fold：流式中间态与系统事件', () => {
           model: 'glm-5.3-flash',
           usage: USAGE,
           stopReason: 'error',
+          errorMessage: 'boom',
           timestamp: 3_000,
         },
       }),
@@ -424,6 +425,7 @@ describe('fold：流式中间态与系统事件', () => {
       ev({ type: 'agent_settled' }),
     ]);
     expect(state.turns[0]?.status).toBe('error');
+    expect(state.turns[0]?.errorMessage).toBe('boom'); // 原始错误随轮保留（红框真文案）
   });
 
   it('session_shutdown：轮标记 stopped、terminated', () => {
@@ -736,6 +738,69 @@ describe('rebuild：历史消息 → 与 fold 终态同形', () => {
       toolCallId: 'call-1',
       output: 'total 0\ndrwxr-xr-x src',
     });
+  });
+});
+
+describe('rebuild：错误轮（与 fold 的 message_end 状态链对齐）', () => {
+  const limboError = '429: {"code":"1310","message":"Weekly/Monthly Limit Exhausted"}';
+
+  /** 会话文件里的失败尝试：content 空、stopReason=error、带原始 errorMessage */
+  const failedAttempt = (at: number, errorMessage: string): AgentMessage => ({
+    role: 'assistant',
+    content: [],
+    api: 'openai-completions',
+    provider: 'zai',
+    model: 'glm-5.3-flash',
+    usage: USAGE,
+    stopReason: 'error',
+    errorMessage,
+    timestamp: at,
+  });
+
+  it('stopReason=error：轮标 error 并保留原始 errorMessage（刷新后红框有真文案）', () => {
+    const [turn] = rebuildTurns(
+      [{ role: 'user', content: '继续', timestamp: 1_000 }, failedAttempt(2_000, limboError)],
+      ['e1', 'e2'],
+    );
+    expect(turn?.status).toBe('error');
+    expect(turn?.errorMessage).toBe(limboError);
+  });
+
+  it('自动重试成功的历史（error 后跟成功消息）：轮收口 done，不挂 error', () => {
+    const turns = rebuildTurns(
+      [
+        { role: 'user', content: 'hi', timestamp: 1_000 },
+        failedAttempt(2_000, 'boom'),
+        {
+          role: 'assistant',
+          content: [{ type: 'text', text: '完整回答' }],
+          api: 'anthropic',
+          provider: 'anthropic',
+          model: 'claude-test',
+          usage: USAGE,
+          stopReason: 'stop',
+          timestamp: 3_000,
+        },
+      ],
+      ['e1', 'e2', 'e3'],
+    );
+    expect(turns[0]?.status).toBe('done');
+    expect(turns[0]?.final?.markdown).toBe('完整回答');
+    expect(turns[0]?.errorMessage).toBeNull();
+  });
+
+  it('连续失败后用户换模型重来：最后一跳仍是 error 则保持 error', () => {
+    const turns = rebuildTurns(
+      [
+        { role: 'user', content: '继续', timestamp: 1_000 },
+        failedAttempt(2_000, 'boom-1'),
+        { role: 'user', content: '继续', timestamp: 3_000 },
+        failedAttempt(4_000, 'boom-2'),
+      ],
+      ['e1', 'e2', 'e3', 'e4'],
+    );
+    expect(turns.map((turn) => turn.status)).toEqual(['error', 'error']);
+    expect(turns[1]?.errorMessage).toBe('boom-2');
   });
 });
 
