@@ -34,3 +34,4 @@
 | [0027](0027-drop-model-scope-prune-resync.md) | 删除可见范围的 prune / resync 批量修复操作——只留 toggle（修订 0011①） | 已接受 | 2026-09-27 |
 | [0028](0028-css-modules-by-domain.md) | 组件级 CSS 按域就近模块化（CSS Modules）——全局表只留共享钩子与未接线规范类 | 已接受 | 2026-01 |
 | [0029](0029-source-highlight-shiki-reuse.md) | 源码高亮统一复用 shiki——双主题经 CSS 变量下发，ui 不订阅宿主主题（关闭 `docs/09` §7 Q3） | 已接受 | 2026-09-29 |
+| [0030](0030-npm-distribution-packaging.md) | npm 分发包 `@ice-ai/pi-boat` 的打包策略——单文件 ESM bundle + 内嵌 Web 静态产物 | 已接受 | 2026-09-29 |

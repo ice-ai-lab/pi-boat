@@ -11,6 +11,7 @@
     "test": "turbo run test",
     "lint": "turbo run lint",
     "lint:fix": "biome check --write .",
+    "bundle": "node packages/pi-boat/scripts/build.mjs",
     "format": "biome format --write .",
     "typecheck": "turbo run typecheck",
     "clean": "git clean -xdf"

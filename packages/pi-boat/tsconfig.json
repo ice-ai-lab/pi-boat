@@ -1,0 +1,7 @@
+{
+  "extends": "@ice-ai/typescript-config/base.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["src"]
+}

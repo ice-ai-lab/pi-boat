@@ -29,13 +29,14 @@ server 验收：单测 `packages/server/test/server.test.ts`（64 用例：安�
 ## Monorepo 结构与依赖铁律
 
 ```
-apps/web          前端 SPA —— Vite + React 19 静态产物（未建，目录尚未创建，决策见 ADR-0002）
+apps/web          前端 SPA —— Vite + React 19 静态产物（已交付，ADR-0002）
 apps/desktop      Electron（二期，未建）
 packages/protocol 纯类型（复用 SDK 导出）+ 入参 Zod，零业务逻辑 —— 前后端唯一契约
 packages/core     Agent 业务核心 —— 全仓唯一允许依赖 pi SDK 的包
 packages/server   Hono HTTP/SSE 服务，组装 core，原生模块收敛于此
 packages/client   类型安全 client SDK + React hooks
 packages/ui       纯展示组件，只依赖 protocol 类型与 client hooks
+packages/pi-boat  npm 分发包 @ice-ai/pi-boat：piboat CLI（bundle server + web 产物，ADR-0030）
 packages/config/  typescript-config（Biome 配置在根 biome.json，见 ADR-0003）
 ```
 

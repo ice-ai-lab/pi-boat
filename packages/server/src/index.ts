@@ -14,3 +14,8 @@
 export { securityMiddleware } from './security';
 export { type AgentServerDeps, createAgentServer } from './server';
 export { closeAllAgentEventStreams } from './sse';
+export {
+  type PiboatServerHandle,
+  type StartPiboatServerOptions,
+  startPiboatServer,
+} from './start';

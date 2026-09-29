@@ -16,6 +16,12 @@ coverage/
 
 # 含绝对路径，仅限本地 AI 索引用，不入库
 docs/reference/codebase-map.md
+
+# npm 分发包的 README 由 packages/pi-boat/scripts/build.mjs 从根 README 生成
+packages/pi-boat/README.md
+
+# npm pack 产物
+*.tgz
 # playwright
 playwright-report/
 test-results/

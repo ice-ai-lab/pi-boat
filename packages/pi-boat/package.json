@@ -1,0 +1,51 @@
+{
+  "name": "@ice-ai/pi-boat",
+  "version": "1.2.5",
+  "description": "PiBoat —— 载着 pi 航行的船：基于 pi-coding-agent SDK 的本机 AI 编程助手。一条命令启动，浏览器即用（一核多端，当前交付 Web 端）。",
+  "keywords": [
+    "pi",
+    "pi-coding-agent",
+    "ai",
+    "coding-agent",
+    "assistant",
+    "web-ui",
+    "local"
+  ],
+  "type": "module",
+  "bin": {
+    "piboat": "dist/piboat.mjs"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "scripts": {
+    "bundle": "node scripts/build.mjs",
+    "prepack": "node scripts/build.mjs",
+    "start": "node dist/piboat.mjs",
+    "test": "vitest run --passWithNoTests",
+    "lint": "biome check .",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@earendil-works/pi-ai": "~0.87.1",
+    "@earendil-works/pi-coding-agent": "~0.87.1",
+    "proper-lockfile": "^4.1.2"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.14",
+    "@ice-ai/protocol": "workspace:*",
+    "@ice-ai/server": "workspace:*",
+    "@ice-ai/typescript-config": "workspace:*",
+    "@types/node": "^22",
+    "esbuild": "^0.28.2",
+    "typescript": "~7.0.2",
+    "vitest": "^5.0.1"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  }
+}
