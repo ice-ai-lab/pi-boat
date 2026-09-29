@@ -34,7 +34,9 @@ const TONE_CLASS: Record<NonNullable<ToastItem['tone']>, string> = {
 export function ToastHost({ items }: { items: ToastItem[] }) {
   if (items.length === 0) return null;
   return (
-    <div className="pointer-events-none fixed bottom-28 left-1/2 z-99 flex -translate-x-1/2 flex-col items-center gap-2">
+    // 层级必须**高于模态**（设置浮层 / 信任弹窗 / 目录选择器都是 z-index:1000）：
+    // 否则提示落在遮罩下面，被遮罩的 blur 糊成一团（"更新完成"看不清）
+    <div className="pointer-events-none fixed bottom-28 left-1/2 z-[1100] flex -translate-x-1/2 flex-col items-center gap-2">
       {items.map((toast) => (
         <div
           key={toast.id}

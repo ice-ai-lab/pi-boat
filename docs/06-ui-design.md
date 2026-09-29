@@ -102,7 +102,7 @@
 | `SegmentedControl` | `items` `value` `onChange` | `.preset-seg` `.view-tabs` |
 | `Popover` | `trigger` `open` `onOpenChange` `align` `width` | `.pop` + `#wsMenu` + `#modeMenu`（4 处同一交互：锚点定位、点外/Esc/`data-x` 三路关闭） |
 | `Tooltip` | `content` `children` | `.mm-tip` `title` 属性 |
-| `Toast` | `message`（队列化） | `.toast` + `toast()`，底部居中浮层 |
+| `Toast` | `message`（队列化） | `.toast` + `toast()`，底部居中浮层。**层级在模态之上**（`z-[1100]` vs 设置浮层 1000）——否则提示被遮罩的 blur 糊住看不见 |
 | `ScrollArea` | `mask?: 'top'` | 细滚动条双分支 + `.scrollbody` 的 mask 渐隐 |
 | `ProgressRing` | `value` `size` `strokeWidth` | `.ring` + `#ctxRing`（`stroke-dasharray` 数学） |
 | `Chip` | `tone` `icon` | `.chip` `.spill` `.hchip` |
