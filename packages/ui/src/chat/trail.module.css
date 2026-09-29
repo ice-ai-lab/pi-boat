@@ -1,0 +1,186 @@
+/* 轨迹行（思考 / 工具）与处理详情组 —— 原型 `.disc` / `.tag` / `.child-rail`
+   （docs/06 §6 组件表、§7 工具名→色表；颜色一律取 theme.css 的 token） */
+
+/* ---- 组内导轨（原型 `.child-rail`） ---- */
+.childRail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 4px;
+  margin-left: 11px;
+  padding-left: 6px;
+  border-left: 1px solid var(--border);
+}
+
+/* ---- 轨迹行（原型 `.disc`） ---- */
+.disc {
+  border-radius: 9px;
+}
+
+.discHead {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 30px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 9px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.13s;
+}
+
+.discHead:hover {
+  background: var(--bg-hover);
+}
+
+/* 思考行展开态：与标题合并成同一枚卡片（灯泡 + 全文），不再另挂详情块 */
+.discHeadOpen,
+.discHeadOpen:hover {
+  align-items: flex-start;
+  padding: 10px 13px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--code-bg);
+}
+
+.thinkIcon {
+  display: inline-flex;
+  flex: none;
+  margin-top: 3px;
+}
+
+.thinkText {
+  flex: 1;
+  min-width: 0;
+  font-size: calc(12px + var(--chat-font-size-offset, 0px));
+  line-height: 1.68;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.discChev {
+  flex: none;
+  color: var(--text-dim);
+  transition: transform 0.18s ease;
+}
+
+.discTitle {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--font-mono);
+  font-size: calc(12px + var(--chat-font-size-offset, 0px));
+  color: var(--text);
+}
+
+.discTitlePlain {
+  font-family: var(--font);
+  color: var(--text-muted);
+}
+
+/* 工具执行失败：签仍按工具色，只把标题字改红（docs/06 §7） */
+.discTitleError {
+  color: var(--red);
+}
+
+.discDur {
+  flex: none;
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: calc(10.5px + var(--chat-font-size-offset, 0px));
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.discInner {
+  margin: 1px 8px 8px;
+  max-height: 320px;
+  padding: 10px 13px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--code-bg);
+}
+
+.discInnerPre {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: calc(11.5px + var(--chat-font-size-offset, 0px));
+  line-height: 1.68;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.discImages {
+  margin-bottom: 8px;
+}
+
+/* ---- 药丸色签（原型 `.tag`；只有思考行带图标） ---- */
+.tag {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  min-height: 19px;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  font-size: calc(10px + var(--chat-font-size-offset, 0px));
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.tagMono {
+  font-family: var(--font-mono);
+  font-weight: 550;
+}
+
+.tagBash {
+  background: var(--tool-bash-bg);
+  color: var(--tool-bash);
+}
+
+.tagRead {
+  background: var(--tool-read-bg);
+  color: var(--tool-read);
+}
+
+.tagEdit {
+  background: var(--tool-edit-bg);
+  color: var(--tool-edit);
+}
+
+.tagWrite {
+  background: var(--tool-write-bg);
+  color: var(--tool-write);
+}
+
+.tagGrep {
+  background: var(--tool-grep-bg);
+  color: var(--tool-grep);
+}
+
+.tagFind {
+  background: var(--tool-find-bg);
+  color: var(--tool-find);
+}
+
+.tagLs {
+  background: var(--tool-ls-bg);
+  color: var(--tool-ls);
+}
+
+.tagOther {
+  background: var(--amber-bg);
+  color: var(--amber);
+}

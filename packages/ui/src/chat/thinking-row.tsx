@@ -1,6 +1,9 @@
 import type { ThinkingRow as ThinkingRowModel } from '@ice-ai/client';
+import { formatDuration } from '@ice-ai/client';
 import { useState } from 'react';
 import { cn } from '../utils/cn';
+import { TrailTag } from './trail';
+import styles from './trail.module.css';
 
 /** 设计规范 `ThinkingIcon`（折叠态 = 暗色灯泡；展开 = 高亮灯泡） */
 function ThinkingIcon({ active, size = 14 }: { active: boolean; size?: number }) {
@@ -30,80 +33,44 @@ function ThinkingIcon({ active, size = 14 }: { active: boolean; size?: number })
 }
 
 /**
- * ThinkingRow：结构/样式按设计规范 的 `ThinkingBlock`
- * （1px 描边 + 7px 圆角 + mono 11px；折叠态单行省略，展开态换行全文）。
+ * ThinkingRow：结构/样式按设计规范 的 `.disc`（docs/06 §6 组件表）
+ * （折叠态单行 = 「思考」签 + 首行预览省略 + 耗时；
+ *  展开态 = 与标题合并成同一枚淡底卡片：灯泡 + 全文，不另挂详情块）。
  */
 export function ThinkingRowView({ row }: { row: ThinkingRowModel }) {
   const [expanded, setExpanded] = useState(false);
   const preview = row.text.split('\n').find((line) => line.trim().length > 0) ?? '';
+  const duration = row.durationMs === undefined ? null : formatDuration(row.durationMs);
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: 6,
-        minWidth: 0,
-        border: '1px solid var(--border)',
-        borderRadius: 7,
-        padding: '6px 10px',
-        background: 'var(--bg)',
-        fontFamily: 'var(--font-mono)',
-        fontSize: 'calc(11px + var(--chat-font-size-offset, 0px))',
-        lineHeight: 1.5,
-      }}
-    >
+    <div className={styles.disc}>
       <button
         type="button"
         aria-expanded={expanded}
         aria-label={`思考${preview.length > 0 ? `: ${preview}` : ''}`}
-        title="思考"
+        title={expanded ? '收起思考' : '展开思考'}
         onClick={() => setExpanded((value) => !value)}
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: 6,
-          width: expanded ? 14 : '100%',
-          flexShrink: expanded ? 0 : 1,
-          minWidth: 0,
-          minHeight: '1.5em',
-          padding: 0,
-          background: 'transparent',
-          border: 'none',
-          color: 'var(--text-muted)',
-          cursor: 'pointer',
-          font: 'inherit',
-          textAlign: 'left',
-        }}
+        className={cn(styles.discHead, expanded && styles.discHeadOpen)}
       >
-        <ThinkingIcon active={expanded} />
-        {!expanded && (
-          <span
-            className={cn(row.streaming && 'shimmer')}
-            style={{
-              minWidth: 0,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {preview.length > 0 ? preview : '思考中…'}
-          </span>
+        {expanded ? (
+          <>
+            <span className={styles.thinkIcon}>
+              <ThinkingIcon active size={13} />
+            </span>
+            <span className={styles.thinkText}>{row.text}</span>
+          </>
+        ) : (
+          <>
+            <TrailTag icon={<ThinkingIcon active={false} size={11} />}>思考</TrailTag>
+            <span
+              className={cn(styles.discTitle, styles.discTitlePlain, row.streaming && 'shimmer')}
+            >
+              {preview.length > 0 ? preview : '思考中…'}
+            </span>
+          </>
         )}
+        {duration !== null && <span className={styles.discDur}>{duration}</span>}
       </button>
-      {expanded && (
-        <div
-          style={{
-            flex: 1,
-            minWidth: 0,
-            color: row.streaming ? 'var(--accent)' : 'var(--text-muted)',
-            whiteSpace: 'pre-wrap',
-            overflowWrap: 'anywhere',
-          }}
-        >
-          {row.text}
-        </div>
-      )}
     </div>
   );
 }

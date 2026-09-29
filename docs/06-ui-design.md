@@ -69,7 +69,7 @@
 | `--hover` `--bubble` `--menu` | `--color-hover` `--color-bubble` `--color-menu` | `--menu` 是毛玻璃底（输入卡 `::before` / 排队条在用）；弹层另有 `--glass-pop`（渐变底：左上镜面 + 竖向渐变）/ `--glass-pop-blur` / `--glass-pop-rim` / `--glass-pop-shadow`（渐变毛玻璃，用户 2026-09-28 指定） |
 | `--green/red/amber/teal` + `-bg` | `--color-success/danger/warn/teal` + `-soft` | 语义名取代色名；`teal` 暂留（仅工具色用） |
 | `--seg-sys/-tools/-msg` | `--color-seg-sys/-tools/-msg` | 轨迹分段的指示色 |
-| `--k-think/-bash/-read/-edit/-err` | `--color-tool-*` | 工具名→色，见 §7 |
+| `--k-bash/-read/-edit/-write/-grep/-find/-ls` | `--tool-*`（+ `-bg`） | 内置工具名→色，见 §7；思考行无专属 token（复用 `--bg-hover` + `--text-muted`）；失败态不占色位（只把标题字改 `--red`） |
 | `--pw-panel/-border/-subtle/-accent` | `--md-panel` `--md-border` `--md-subtle` `--md-accent` | **markdown 排版专用**，与业务 token 隔离 |
 | `--code-bg` `--code-banner` | `--color-code-bg` `--color-code-banner` | 代码块/折叠体底 |
 | `--elev-panel/-soft/-soft-sm` | `--shadow-panel/-soft/-soft-sm` | 三档阴影（均以 0.5px 环起始） |
@@ -117,9 +117,9 @@
 | `MarkdownView` | `markdown`（流式增量） | `.md` 全量排版 + `.tbl` 表格 wrap |
 | `CodeBlock` | `code` `lang` `onCopy` | `.codeblk`（banner + 语言 + 复制 + `pre`） |
 | `DiffView` | `lines`（来自 `toolResult.details.diff`） | `.diff`（行号 + `+`/`-`/ctx 前缀）——**无需 diff 库、无需协议改动**，见 §11.2 行 5 附注 |
-| `CollapseRow` | `tag` `title` `durationMs` `open` `onToggle` `children` | `.disc` 原子（chev 旋转 + 耗时 + 限高滚动体） |
-| `ToolTag` | `toolName` `status` | `.tag.tool.{bash,read,edit}` + `.tag.err`，色表见 §7 |
-| `ThinkingRow` | `text` `streaming` `durationMs` | `.shimmer` 流式态 → 定稿态 |
+| `CollapseRow` | `tag` `title` `durationMs` `open` `onToggle` `children` | `.disc` 原子（耗时 + 限高滚动体）；**轨迹行不画 chev 箭头**（展开指示只在 `ProcessGroup` 组头保留） |
+| `ToolTag` | `toolName` `status` | `.tag.tool.{bash,read,edit,write,grep,find,ls}`，色表见 §7；失败态不改签色，标题字改红 |
+| `ThinkingRow` | `text` `streaming` `durationMs` | 收起 = 「思考」签 + 首行预览 + 耗时（`.shimmer` 流式态）；**展开 = 与标题合并为同一枚卡片**（灯泡 + 全文，不再另挂 `.disc-inner`） |
 | `ProcessGroup` | `group: ProcessGroupData` `open` | `.group-disc` + `.child-rail`（左导轨）+ 汇总标题 |
 | `StoppedTag` | — | `.stopped-tag`（abort 后） |
 | `Composer` | `value` `onChange` `onSubmit` `streaming` `onSteer?` `onFollowUp?` `onAbort?` `aboveInput` `cardFoot` `belowInput` | 原型 v3 §8 `.inputcard`（一张玻璃卡：卡内输入区 + `.card-foot` 控件条；右端动作 = 停止 / 引导 / 后续消息 / 发送，`↵` 与 `⌘/Ctrl+↵` 与按钮提示一致） |
@@ -193,12 +193,16 @@ AppShell 三栏布局 + 拖拽/折叠（`makeDrag`）、主题切换、路由、
 
 | toolName | token | 备注 |
 |---|---|---|
-| （思考行） | `--color-tool-think` | 原型 `.tag.think` 用 `--hover` 灰底 + `--t2` 字 |
-| `bash` | `--color-tool-bash` | 绿 |
-| `read` | `--color-tool-read` | 业务蓝 |
-| `edit` | `--color-tool-edit` | teal |
-| 执行失败（任意工具） | `--color-tool-err` | 红，与工具色叠加为"错误态" |
-| **其余全部**（`write` `grep` `find` `todo_write` `task` …） | 默认橙（`warn` + `warn-soft`） | ⚠️ 原型只画了 3 个具名色，其余落默认橙；M2 起按需扩表，**不允许组件内写死颜色** |
+| （思考行） | `--bg-hover` + `--text-muted` | 原型 `.tag.think` 用 `--hover` 灰底 + `--t2` 字 |
+| `bash` | `--tool-bash` | 绿（执行命令） |
+| `read` | `--tool-read` | 业务蓝（读文件） |
+| `edit` | `--tool-edit` | teal（改文件） |
+| `write` | `--tool-write` | 紫（写新文件） |
+| `grep` | `--tool-grep` | 品红（内容检索） |
+| `find` | `--tool-find` | 金（按名找文件） |
+| `ls` | `--tool-ls` | 石板灰蓝（列目录） |
+| 执行失败（任意工具） | 不占色位：签保持工具色，**标题字改 `--red`** | **2026-09-29 定**：失败态不再覆盖签色（否则与工具色互斥），示警只落在标题上 |
+| **其余全部**（`todo_write` `task` `mcp__*` …） | 默认橙（`--amber` + `--amber-bg`） | ⚠️ 原型只画了 3 个具名色；2026-09-29 起 7 个内置工具各有具名色，表外工具落默认橙，**不允许组件内写死颜色** |
 
 ## 8. 交互规格
 

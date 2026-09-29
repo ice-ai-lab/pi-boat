@@ -32,6 +32,8 @@ export interface ThinkingRow {
   kind: 'thinking';
   text: string;
   streaming: boolean;
+  /** 思考段耗时（`thinking_start`→`thinking_end`，fold 内部记账） */
+  durationMs?: number;
 }
 
 export interface ToolRow {

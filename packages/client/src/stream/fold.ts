@@ -140,6 +140,7 @@ export function fold(state: ChatState, event: WireAgentEvent): ChatState {
       switch (sub.type) {
         case 'thinking_start':
           appendTrail(next.turns, { kind: 'thinking', text: '', streaming: true });
+          thinkingStartedAt = Date.now();
           return next;
         case 'thinking_delta': {
           const turn = lastTurn(next.turns);
@@ -151,11 +152,18 @@ export function fold(state: ChatState, event: WireAgentEvent): ChatState {
           return next;
         }
         case 'thinking_end': {
+          const startedAt = thinkingStartedAt;
+          thinkingStartedAt = null;
           const turn = lastTurn(next.turns);
           const index = turn === undefined ? -1 : lastThinkingIndex(turn.trail);
           const row = turn === undefined || index === -1 ? undefined : turn.trail[index];
           if (turn !== undefined && index !== -1 && row !== undefined && row.kind === 'thinking') {
-            turn.trail[index] = { ...row, text: sub.content, streaming: false };
+            turn.trail[index] = {
+              ...row,
+              text: sub.content,
+              streaming: false,
+              ...(startedAt !== null ? { durationMs: Date.now() - startedAt } : {}),
+            };
           }
           return next;
         }
@@ -501,3 +509,6 @@ function applyAssistantSnapshot(turns: Turn[], message: AssistantMessage): void 
 
 /** 工具执行起始时刻（fold 内部记账，跨事件配对 start/end） */
 const toolStartTimes = new Map<string, number>();
+
+/** 思考段起始时刻（thinking 无 id，`thinking_start`/`thinking_end` 严格成对） */
+let thinkingStartedAt: number | null = null;

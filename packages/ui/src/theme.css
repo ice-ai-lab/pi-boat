@@ -61,6 +61,23 @@
   --amber: #c93400;
   --amber-bg: color-mix(in srgb, #ff9500 12%, transparent);
 
+  /* ---- 工具色（原型 `--k-*`；docs/06 §7 工具名→色表。思考行复用 `--bg-hover` + `--text-muted`；
+       执行失败不改签色，只把标题字改 `--red`） ---- */
+  --tool-bash: #3e8f5f;
+  --tool-bash-bg: rgba(62, 143, 95, 0.1);
+  --tool-read: #4a72c4;
+  --tool-read-bg: rgba(74, 114, 196, 0.1);
+  --tool-edit: #1f8478;
+  --tool-edit-bg: rgba(31, 132, 120, 0.1);
+  --tool-write: #7a4bbf;
+  --tool-write-bg: rgba(122, 75, 191, 0.1);
+  --tool-grep: #b04a7f;
+  --tool-grep-bg: rgba(176, 74, 127, 0.1);
+  --tool-find: #a0761a;
+  --tool-find-bg: rgba(160, 118, 26, 0.11);
+  --tool-ls: #5a7488;
+  --tool-ls-bg: rgba(90, 116, 136, 0.11);
+
   /* ---- 阴影（浮层用；`.elev-soft*` / `--shadow-soft*` 零消费已删 2026） ---- */
   --elev-panel: 0 2px 6px rgba(0, 0, 0, 0.06), 0 18px 44px -18px rgba(0, 0, 0, 0.26);
 
@@ -152,6 +169,21 @@ html.dark,
   --red-bg: color-mix(in srgb, #ff453a 16%, transparent);
   --amber: #ff9f0a;
   --amber-bg: color-mix(in srgb, #ff9f0a 16%, transparent);
+
+  --tool-bash: #6cb98c;
+  --tool-bash-bg: rgba(108, 185, 140, 0.13);
+  --tool-read: #85a1e0;
+  --tool-read-bg: rgba(133, 161, 224, 0.14);
+  --tool-edit: #4fb3a7;
+  --tool-edit-bg: rgba(79, 179, 167, 0.13);
+  --tool-write: #a98ce0;
+  --tool-write-bg: rgba(169, 140, 224, 0.14);
+  --tool-grep: #e091bd;
+  --tool-grep-bg: rgba(224, 145, 189, 0.13);
+  --tool-find: #d4b264;
+  --tool-find-bg: rgba(212, 178, 100, 0.13);
+  --tool-ls: #94adc0;
+  --tool-ls-bg: rgba(148, 173, 192, 0.13);
 
   --elev-panel: 0 2px 8px rgba(0, 0, 0, 0.45), 0 22px 50px -20px rgba(0, 0, 0, 0.7);
 }
