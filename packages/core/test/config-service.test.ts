@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { THINKING_LEVELS } from '@ice-ai/protocol';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { ConfigService } from '../src/config/config-service';
 
 /**
@@ -82,6 +82,50 @@ describe('ConfigService（模型面板主路径）', () => {
     // 可见集必须是目录的子集（面板按 catalog 渲染、按 models 点亮开关）
     for (const model of response.models) {
       expect(keys.has(`${model.provider}:${model.id}`)).toBe(true);
+    }
+  });
+
+  it('catalog()：透出价格 / 输出上限 / 输入模态（面板「填入模型信息」的数据源）', async () => {
+    // PI_OFFLINE 会短路 catalog，这里临时摘掉
+    const offline = process.env.PI_OFFLINE;
+    delete process.env.PI_OFFLINE;
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            zai: {
+              name: 'Z.AI',
+              models: {
+                'glm-x': {
+                  name: 'GLM X',
+                  reasoning: true,
+                  modalities: { input: ['text', 'image'] },
+                  limit: { context: 128_000, output: 32_768 },
+                  cost: { input: 0.3, output: 0.9, cache_read: 0.1 },
+                },
+              },
+            },
+          }),
+          { status: 200 },
+        ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      const result = await new ConfigService().catalog();
+      expect(result.error).toBeUndefined();
+      expect(result.models.find((model) => model.id === 'glm-x')).toEqual({
+        id: 'glm-x',
+        name: 'GLM X',
+        provider: 'Z.AI',
+        contextWindow: 128_000,
+        maxTokens: 32_768,
+        reasoning: true,
+        input: ['text', 'image'],
+        cost: { input: 0.3, output: 0.9, cacheRead: 0.1 },
+      });
+    } finally {
+      vi.unstubAllGlobals();
+      if (offline !== undefined) process.env.PI_OFFLINE = offline;
     }
   });
 });

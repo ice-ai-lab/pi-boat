@@ -1,7 +1,22 @@
-import type { CatalogModel, ProviderUsageResponse } from '@ice-ai/protocol';
+import type {
+  CatalogModel,
+  DiscoveredModel,
+  ModelsConfigTestResponse,
+  ProviderUsageResponse,
+} from '@ice-ai/protocol';
 import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../i18n/i18n-provider';
 import styles from './config-ui.module.css';
+import { SecretInput } from './models/controls';
+import {
+  type CustomModelEntry,
+  type CustomProviderEntry,
+  type ModelsDraft,
+  parseDraft,
+  serializeDraft,
+} from './models/model-config';
+import { CustomModelDetail } from './models/model-detail';
+import { CustomProviderDetail } from './models/provider-detail';
 import { ProviderIcon } from './provider-icon';
 import { ProviderUsageSummary } from './provider-usage-summary';
 import { SettingsNotice } from './settings-panel';
@@ -13,7 +28,6 @@ import {
   ConfigDetailHeaderInfo,
   ConfigDetailStack,
   ConfigEmptyState,
-  ConfigField,
   ConfigFooter,
   ConfigListAction,
   ConfigPanelShell,
@@ -31,6 +45,9 @@ import {
  * ModelsSection（docs/06 §4.4；对齐 参考实现 ModelsConfig 的主从布局）：
  * 左侧 provider 清单（已配置 API Key 的 provider + models.json 自定义 provider +
  * 「添加 Provider」），右侧所选条目的详情；底部保存条写整份 models.json。
+ *
+ * 自定义 provider 是三层结构：provider → model 列表（侧栏缩进）→ 模型详情编辑器
+ * （能力 / 规格 / 价格 / 思考等级映射，见 `models/model-detail.tsx`）。
  *
  * 可见范围（enabledModels）的引擎在 core（ADR-0011）：这里只发 toggle，
  * 不自己算 pattern 命中。
@@ -88,8 +105,19 @@ export interface ModelsSectionProps {
   };
   /** 用量查询（联网；由宿主调 mutation） */
   onQueryUsage(providerId: string): Promise<ProviderUsageResponse>;
-  /** models.dev 目录搜索（联网；用户点「搜索」才发起） */
+  /** models.dev 目录搜索（联网；用户点「搜索 / 填入」才发起） */
   onSearchCatalog(q: string): Promise<{ models: CatalogModel[]; error?: string }>;
+  /** 按 provider `/models` 端点发现模型（联网；用户点「导入模型」才发起） */
+  onDiscover(
+    providerName: string,
+    provider: { baseUrl: string; api: string; apiKey?: string },
+  ): Promise<{ models: DiscoveredModel[]; error?: string }>;
+  /** 真实补全测连通（联网；用户点「测试」才发起） */
+  onTestModel(
+    providerName: string,
+    provider: { baseUrl: string; api: string; apiKey?: string },
+    modelId: string,
+  ): Promise<ModelsConfigTestResponse>;
   /** 目录刷新（联网；必须用户显式点） */
   refresh: {
     busy: boolean;
@@ -98,46 +126,14 @@ export interface ModelsSectionProps {
   };
 }
 
-type Selection = { type: 'auth'; id: string } | { type: 'custom'; name: string };
-
-interface CustomProviderEntry {
-  baseUrl?: string;
-  api?: string;
-  apiKey?: string;
-  models?: { id?: string; name?: string; reasoning?: boolean }[];
-}
-
-/** 宽松解析草稿（parse 失败返回 null：编辑入口全部禁用，保存由宿主拦） */
-function parseDraft(text: string): { providers: Record<string, CustomProviderEntry> } | null {
-  try {
-    const parsed: unknown = JSON.parse(text);
-    if (typeof parsed !== 'object' || parsed === null) return null;
-    const record = parsed as Record<string, unknown>;
-    const providers =
-      typeof record.providers === 'object' && record.providers !== null
-        ? (record.providers as Record<string, CustomProviderEntry>)
-        : {};
-    return { providers };
-  } catch {
-    return null;
-  }
-}
-
-/** 把 providers 写回草稿文本（2 空格缩进，与初次载入的展示一致） */
-function serializeDraft(providers: Record<string, CustomProviderEntry>): string {
-  return `${JSON.stringify({ providers }, null, 2)}\n`;
-}
+type Selection =
+  | { type: 'auth'; id: string }
+  | { type: 'custom'; name: string }
+  | { type: 'custom-model'; provider: string; index: number };
 
 function shortenPath(p: string): string {
   return p.replace(/^\/(?:Users|home)\/[^/]+/, '~');
 }
-
-const API_OPTIONS = [
-  'openai-completions',
-  'openai-responses',
-  'anthropic-messages',
-  'google-generative-ai',
-] as const;
 
 const inputStyle = {
   width: '100%',
@@ -151,79 +147,6 @@ const inputStyle = {
   fontSize: 12,
   outline: 'none',
 } as const;
-
-/** 秘密输入：单行 + 右侧明/密切换 */
-function SecretInput({
-  value,
-  onChange,
-  placeholder,
-  onKeyDown,
-}: {
-  value: string;
-  onChange(value: string): void;
-  placeholder?: string;
-  onKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void;
-}) {
-  const [visible, setVisible] = useState(false);
-  return (
-    <div style={{ position: 'relative', flex: 1, minWidth: 0 }}>
-      <input
-        type={visible ? 'text' : 'password'}
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        onKeyDown={onKeyDown}
-        placeholder={placeholder}
-        autoComplete="off"
-        spellCheck={false}
-        style={{ ...inputStyle, fontFamily: 'var(--font-mono)', paddingRight: 34 }}
-      />
-      <button
-        type="button"
-        onClick={() => setVisible((current) => !current)}
-        aria-label={visible ? 'hide' : 'show'}
-        title={visible ? 'hide' : 'show'}
-        style={{
-          position: 'absolute',
-          right: 6,
-          top: '50%',
-          transform: 'translateY(-50%)',
-          display: 'flex',
-          padding: 3,
-          border: 'none',
-          background: 'none',
-          color: 'var(--text-dim)',
-          cursor: 'pointer',
-        }}
-      >
-        <svg
-          width="15"
-          height="15"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden={true}
-        >
-          {visible ? (
-            <>
-              <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-              <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-              <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
-              <line x1="1" y1="1" x2="23" y2="23" />
-            </>
-          ) : (
-            <>
-              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z" />
-              <circle cx="12" cy="12" r="3" />
-            </>
-          )}
-        </svg>
-      </button>
-    </div>
-  );
-}
 
 // ── 详情：API Key provider ────────────────────────────────────────────────────
 
@@ -244,13 +167,11 @@ function ApiKeyDetail({
 }) {
   const { t } = useI18n();
   const [key, setKey] = useState('');
-  const [error, setError] = useState<string | null>(null);
   const [savedOk, setSavedOk] = useState(false);
   // 切换 provider 由父层的 key={provider.id} 重新挂载，状态天然重置
 
   const save = () => {
     if (key.trim() === '') return;
-    setError(null);
     setSavedOk(false);
     apiKey.onSave(provider.id, key.trim());
     setKey('');
@@ -341,25 +262,9 @@ function ApiKeyDetail({
             gap: 5,
           }}
         >
-          {savedOk && (
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden={true}
-            >
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          )}
           {savedOk ? t('i18n.saved') : apiKey.saving ? t('i18n.saving') : t('i18n.save')}
         </button>
       </div>
-      {error !== null && <p style={{ margin: 0, fontSize: 12, color: 'var(--red)' }}>{error}</p>}
 
       <ProviderUsageSummary
         providerId={provider.id}
@@ -478,319 +383,6 @@ function EnabledModelsBlock({
         </div>
       )}
     </section>
-  );
-}
-
-// ── 详情：models.json 自定义 provider（紧凑编辑） ─────────────────────────────
-
-function CustomProviderDetail({
-  name,
-  entry,
-  canEdit,
-  onRename,
-  onChange,
-  onDelete,
-  enabledModels,
-  enabled,
-  onSearchCatalog,
-}: {
-  name: string;
-  entry: CustomProviderEntry;
-  canEdit: boolean;
-  onRename(next: string): void;
-  onChange(next: CustomProviderEntry): void;
-  onDelete(): void;
-  enabledModels: ModelItemView[];
-  enabled: ModelsSectionProps['enabled'];
-  onSearchCatalog: ModelsSectionProps['onSearchCatalog'];
-}) {
-  const { t } = useI18n();
-  const [newModelId, setNewModelId] = useState('');
-  const [catalogQuery, setCatalogQuery] = useState('');
-  const [catalogState, setCatalogState] = useState<
-    | { phase: 'idle' }
-    | { phase: 'loading' }
-    | { phase: 'error'; message: string }
-    | { phase: 'done'; results: CatalogModel[] }
-  >({ phase: 'idle' });
-  const models = entry.models ?? [];
-  const providerModels = enabledModels.filter((model) => model.provider === name);
-
-  const handleCatalogSearch = async () => {
-    const q = catalogQuery.trim();
-    if (q === '') return;
-    setCatalogState({ phase: 'loading' });
-    try {
-      const result = await onSearchCatalog(q);
-      if (result.error !== undefined) {
-        setCatalogState({ phase: 'error', message: result.error });
-      } else {
-        setCatalogState({ phase: 'done', results: result.models });
-      }
-    } catch (cause) {
-      setCatalogState({
-        phase: 'error',
-        message: cause instanceof Error ? cause.message : String(cause),
-      });
-    }
-  };
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <ConfigDetailHeader>
-        <ConfigDetailHeaderInfo>
-          <span
-            style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: 13,
-              fontWeight: 600,
-              color: 'var(--text)',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {name}
-          </span>
-        </ConfigDetailHeaderInfo>
-        <ConfigDetailActions>
-          <ConfigButton variant="danger" size="small" disabled={!canEdit} onClick={onDelete}>
-            {t('i18n.delete')}
-          </ConfigButton>
-        </ConfigDetailActions>
-      </ConfigDetailHeader>
-
-      <ConfigField label={t('i18n.providerName')}>
-        <input
-          value={name}
-          disabled={!canEdit}
-          onChange={(event) => onRename(event.target.value.trim())}
-          style={{ ...inputStyle, fontFamily: 'var(--font-mono)' }}
-        />
-      </ConfigField>
-
-      <ConfigField label="Base URL">
-        <input
-          value={entry.baseUrl ?? ''}
-          disabled={!canEdit}
-          placeholder="https://api.example.com/v1"
-          onChange={(event) => onChange({ ...entry, baseUrl: event.target.value })}
-          style={{ ...inputStyle, fontFamily: 'var(--font-mono)' }}
-        />
-      </ConfigField>
-
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-        <ConfigField label={t('models.apiOverride')} style={{ flex: 1, minWidth: 180 }}>
-          <select
-            value={entry.api ?? API_OPTIONS[0]}
-            disabled={!canEdit}
-            onChange={(event) => onChange({ ...entry, api: event.target.value })}
-            style={inputStyle}
-          >
-            {API_OPTIONS.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
-        </ConfigField>
-        <ConfigField label="API KEY" style={{ flex: 1, minWidth: 180 }}>
-          <input
-            type="password"
-            value={entry.apiKey ?? ''}
-            disabled={!canEdit}
-            placeholder={t('i18n.optional')}
-            autoComplete="off"
-            spellCheck={false}
-            onChange={(event) =>
-              onChange({
-                ...entry,
-                ...(event.target.value === ''
-                  ? { apiKey: undefined }
-                  : { apiKey: event.target.value }),
-              })
-            }
-            style={{ ...inputStyle, fontFamily: 'var(--font-mono)' }}
-          />
-        </ConfigField>
-      </div>
-
-      <ConfigField label={`${t('i18n.model')}（${models.length}）`}>
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          {models.length === 0 && (
-            <span style={{ fontSize: 11.5, color: 'var(--text-dim)' }}>{t('i18n.noResults')}</span>
-          )}
-          {models.map((model, index) => (
-            <div
-              key={model.id !== undefined && model.id !== '' ? model.id : `new-model-${index}`}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '5px 0',
-                borderBottom: '1px solid var(--border)',
-              }}
-            >
-              <span
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 12,
-                  color:
-                    model.id !== undefined && model.id !== '' ? 'var(--text)' : 'var(--text-dim)',
-                  minWidth: 0,
-                  flex: 1,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
-              >
-                {model.id !== undefined && model.id !== '' ? model.id : t('i18n.newModel')}
-              </span>
-              {model.name !== undefined && model.name !== model.id && (
-                <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{model.name}</span>
-              )}
-              {model.reasoning === true && (
-                <span
-                  style={{
-                    fontSize: 9,
-                    padding: '1px 4px',
-                    background: 'rgba(99,102,241,0.12)',
-                    color: 'rgba(99,102,241,0.8)',
-                    borderRadius: 3,
-                    flexShrink: 0,
-                  }}
-                >
-                  T
-                </span>
-              )}
-              <ConfigButton
-                size="small"
-                variant="ghost"
-                disabled={!canEdit}
-                onClick={() => {
-                  const next = models.filter((_, i) => i !== index);
-                  onChange({ ...entry, models: next.length > 0 ? next : undefined });
-                }}
-              >
-                {t('i18n.delete')}
-              </ConfigButton>
-            </div>
-          ))}
-        </div>
-      </ConfigField>
-
-      <div style={{ display: 'flex', gap: 6 }}>
-        <input
-          value={newModelId}
-          disabled={!canEdit}
-          placeholder={`${t('i18n.model')} id`}
-          onChange={(event) => setNewModelId(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && newModelId.trim() !== '') {
-              onChange({ ...entry, models: [...models, { id: newModelId.trim() }] });
-              setNewModelId('');
-            }
-          }}
-          style={{ ...inputStyle, fontFamily: 'var(--font-mono)', flex: 1 }}
-        />
-        <ConfigButton
-          variant="primary"
-          size="small"
-          disabled={!canEdit || newModelId.trim() === ''}
-          onClick={() => {
-            onChange({ ...entry, models: [...models, { id: newModelId.trim() }] });
-            setNewModelId('');
-          }}
-        >
-          + {t('i18n.model')}
-        </ConfigButton>
-      </div>
-
-      {/* 从 models.dev 目录导入（联网；只有点「搜索」才发起） */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <ConfigSectionTitle>{t('models.catalogFill')}</ConfigSectionTitle>
-        <div style={{ display: 'flex', gap: 6 }}>
-          <input
-            value={catalogQuery}
-            onChange={(event) => setCatalogQuery(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' && catalogQuery.trim() !== '') {
-                void handleCatalogSearch();
-              }
-            }}
-            placeholder={t('models.catalogSearchPlaceholder')}
-            style={{ ...inputStyle, flex: 1, minWidth: 0 }}
-          />
-          <ConfigButton
-            size="small"
-            disabled={catalogState.phase === 'loading' || catalogQuery.trim() === ''}
-            onClick={() => void handleCatalogSearch()}
-          >
-            {catalogState.phase === 'loading' ? t('i18n.searching') : t('i18n.search')}
-          </ConfigButton>
-        </div>
-        {catalogState.phase === 'error' && (
-          <SettingsNotice tone="warn">{catalogState.message}</SettingsNotice>
-        )}
-        {catalogState.phase === 'done' && catalogState.results.length === 0 && (
-          <span style={{ fontSize: 11.5, color: 'var(--text-dim)' }}>{t('i18n.noResults')}</span>
-        )}
-        {catalogState.phase === 'done' &&
-          catalogState.results.map((result) => {
-            const known = models.some((model) => model.id === result.id);
-            return (
-              <div
-                key={`${result.provider}:${result.id}`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '5px 0',
-                  borderBottom: '1px solid var(--border)',
-                  fontSize: 11.5,
-                }}
-              >
-                <span
-                  style={{
-                    fontFamily: 'var(--font-mono)',
-                    color: 'var(--text)',
-                    flexShrink: 0,
-                  }}
-                >
-                  {result.id}
-                </span>
-                <span
-                  style={{
-                    color: 'var(--text-dim)',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    flex: 1,
-                    minWidth: 0,
-                  }}
-                >
-                  {result.name}
-                </span>
-                <ConfigButton
-                  size="small"
-                  variant={known ? 'ghost' : 'secondary'}
-                  disabled={!canEdit || known}
-                  onClick={() =>
-                    onChange({
-                      ...entry,
-                      models: [...models, { id: result.id, name: result.name }],
-                    })
-                  }
-                >
-                  {known ? '✓' : '+'}
-                </ConfigButton>
-              </div>
-            );
-          })}
-      </div>
-
-      <EnabledModelsBlock models={providerModels} enabled={enabled} />
-    </div>
   );
 }
 
@@ -971,13 +563,21 @@ export function ModelsSection({
   apiKey,
   onQueryUsage,
   onSearchCatalog,
+  onDiscover,
+  onTestModel,
   refresh,
 }: ModelsSectionProps) {
   const { t } = useI18n();
   const [selection, setSelection] = useState<Selection | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [testing, setTesting] = useState<{
+    index: number;
+    pending: boolean;
+    result: string | null;
+    ok: boolean | null;
+  } | null>(null);
 
-  const draft = useMemo(() => parseDraft(config.text), [config.text]);
+  const draft: ModelsDraft | null = useMemo(() => parseDraft(config.text), [config.text]);
   const customProviders = useMemo(() => Object.entries(draft?.providers ?? {}), [draft]);
 
   // 默认选中：第一个已配置的 auth provider → 第一个自定义 provider。
@@ -987,7 +587,14 @@ export function ModelsSection({
         const exists =
           (current.type === 'auth' &&
             authProviders.some((provider) => provider.id === current.id)) ||
-          (current.type === 'custom' && customProviders.some(([name]) => name === current.name));
+          (current.type === 'custom' && customProviders.some(([name]) => name === current.name)) ||
+          (current.type === 'custom-model' &&
+            customProviders.some(
+              ([name, entry]) =>
+                name === current.provider &&
+                (entry.models ?? []).length > current.index &&
+                current.index >= 0,
+            ));
         if (exists) return current;
       }
       const configured = authProviders.find((provider) => provider.configured);
@@ -1003,6 +610,22 @@ export function ModelsSection({
     const providers = { ...draft.providers };
     mutate(providers);
     config.onChange(serializeDraft(providers));
+  };
+
+  const mutateProvider = (name: string, next: CustomProviderEntry) => {
+    mutateProviders((providers) => {
+      providers[name] = next;
+    });
+  };
+
+  const mutateModel = (providerName: string, index: number, next: CustomModelEntry) => {
+    mutateProviders((providers) => {
+      const provider = providers[providerName];
+      if (provider === undefined) return;
+      const models = [...(provider.models ?? [])];
+      models[index] = next;
+      providers[providerName] = { ...provider, models };
+    });
   };
 
   const addCustomProvider = () => {
@@ -1021,16 +644,43 @@ export function ModelsSection({
     mutateProviders((providers) => {
       const entries = Object.entries(providers);
       const index = entries.findIndex(([key]) => key === oldName);
-      const entry = entries[index];
-      if (index === -1 || entry === undefined) return;
-      entries[index] = [next, entry[1] ?? {}];
-      const renamed = Object.fromEntries(
-        entries.map(([key, value]) => [key, value ?? {}]),
-      ) as Record<string, CustomProviderEntry>;
-      providersClear(providers);
-      Object.assign(providers, renamed);
+      if (index === -1) return;
+      const entry = entries[index]?.[1] ?? {};
+      entries[index] = [next, entry];
+      for (const key of Object.keys(providers)) delete providers[key];
+      Object.assign(providers, Object.fromEntries(entries));
     });
-    setSelection({ type: 'custom', name: next });
+    setSelection((current) =>
+      current?.type === 'custom-model' && current.provider === oldName
+        ? { type: 'custom-model', provider: next, index: current.index }
+        : { type: 'custom', name: next },
+    );
+  };
+
+  const addModel = (providerName: string) => {
+    let index = 0;
+    mutateProviders((providers) => {
+      const provider = providers[providerName];
+      if (provider === undefined) return;
+      const models = [...(provider.models ?? [])];
+      let id = 'new-model';
+      let n = 1;
+      while (models.some((model) => model.id === id)) id = `new-model-${n++}`;
+      index = models.length;
+      models.push({ id });
+      providers[providerName] = { ...provider, models };
+    });
+    setSelection({ type: 'custom-model', provider: providerName, index });
+  };
+
+  const removeModel = (providerName: string, index: number) => {
+    mutateProviders((providers) => {
+      const provider = providers[providerName];
+      if (provider === undefined) return;
+      const models = (provider.models ?? []).filter((_, i) => i !== index);
+      providers[providerName] = { ...provider, models };
+    });
+    setSelection({ type: 'custom', name: providerName });
   };
 
   const activeProviders = authProviders.filter((provider) => provider.configured);
@@ -1040,8 +690,13 @@ export function ModelsSection({
 
   const selectedAuth =
     selection?.type === 'auth' ? (authProviders.find((p) => p.id === selection.id) ?? null) : null;
-  const selectedCustomEntry =
-    selection?.type === 'custom' ? (draft?.providers[selection.name] ?? null) : null;
+
+  const expandedProvider =
+    selection?.type === 'custom'
+      ? selection.name
+      : selection?.type === 'custom-model'
+        ? selection.provider
+        : null;
 
   const detail = (() => {
     if (selection === null || authProvidersLoading) return null;
@@ -1058,37 +713,118 @@ export function ModelsSection({
         />
       );
     }
-    if (selection.type === 'custom' && selectedCustomEntry !== null) {
+    if (selection.type === 'custom') {
+      const entry = draft?.providers[selection.name];
+      if (entry === undefined) return null;
       return (
-        <CustomProviderDetail
-          key={selection.name}
-          name={selection.name}
-          entry={selectedCustomEntry}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          <CustomProviderDetail
+            key={selection.name}
+            name={selection.name}
+            entry={entry}
+            canEdit={config.error === null && config.parseError === null}
+            onRename={(next) => renameCustomProvider(selection.name, next)}
+            onChange={(next) => mutateProvider(selection.name, next)}
+            onDelete={() => {
+              mutateProviders((providers) => {
+                delete providers[selection.name];
+              });
+              const remaining = Object.keys(draft?.providers ?? {}).filter(
+                (name) => name !== selection.name,
+              );
+              setSelection(
+                remaining.length > 0
+                  ? { type: 'custom', name: remaining[0] ?? '' }
+                  : activeProviders.length > 0
+                    ? { type: 'auth', id: activeProviders[0]?.id ?? '' }
+                    : null,
+              );
+            }}
+            onDiscover={() =>
+              onDiscover(selection.name, {
+                baseUrl: entry.baseUrl ?? '',
+                api: entry.api ?? 'openai-completions',
+                ...(entry.apiKey !== undefined ? { apiKey: entry.apiKey } : {}),
+              })
+            }
+            onAddModels={(models) => {
+              mutateProviders((providers) => {
+                const provider = providers[selection.name];
+                if (provider === undefined) return;
+                const existing = provider.models ?? [];
+                const existingIds = new Set(existing.map((model) => model.id));
+                const additions = models
+                  .filter((model) => !existingIds.has(model.id))
+                  .map((model): CustomModelEntry => ({ id: model.id, name: model.name }));
+                providers[selection.name] = {
+                  ...provider,
+                  models: [...existing, ...additions],
+                };
+              });
+            }}
+          />
+          <EnabledModelsBlock
+            models={enabled.models.filter((model) => model.provider === selection.name)}
+            enabled={enabled}
+            refresh={refresh}
+          />
+        </div>
+      );
+    }
+    if (selection.type === 'custom-model') {
+      const provider = draft?.providers[selection.provider];
+      const model = provider?.models?.[selection.index];
+      if (provider === undefined || model === undefined) return null;
+      const test =
+        testing !== null && testing.index === selection.index
+          ? { testing: testing.pending, result: testing.result, ok: testing.ok }
+          : { testing: false, result: null, ok: null };
+      return (
+        <CustomModelDetail
+          key={`${selection.provider}:${selection.index}`}
+          providerName={selection.provider}
+          provider={provider}
+          model={model}
           canEdit={config.error === null && config.parseError === null}
-          onRename={(next) => renameCustomProvider(selection.name, next)}
-          onSearchCatalog={onSearchCatalog}
-          onChange={(next) =>
-            mutateProviders((providers) => {
-              providers[selection.name] = next;
-            })
-          }
-          onDelete={() => {
-            mutateProviders((providers) => {
-              delete providers[selection.name];
-            });
-            const remaining = Object.keys(draft?.providers ?? {}).filter(
-              (name) => name !== selection.name,
-            );
-            setSelection(
-              remaining.length > 0
-                ? { type: 'custom', name: remaining[0] ?? '' }
-                : activeProviders.length > 0
-                  ? { type: 'auth', id: activeProviders[0]?.id ?? '' }
-                  : null,
-            );
+          test={test}
+          onChange={(next) => mutateModel(selection.provider, selection.index, next)}
+          onRemove={() => removeModel(selection.provider, selection.index)}
+          onTest={() => {
+            const baseUrl = model.baseUrl ?? provider.baseUrl ?? '';
+            const api = model.api ?? provider.api ?? 'openai-completions';
+            const apiKey = provider.apiKey;
+            const index = selection.index;
+            setTesting({ index, pending: true, result: null, ok: null });
+            void (async () => {
+              try {
+                const result = await onTestModel(
+                  selection.provider,
+                  { baseUrl, api, ...(apiKey !== undefined ? { apiKey } : {}) },
+                  model.id ?? '',
+                );
+                setTesting({
+                  index,
+                  pending: false,
+                  result: result.ok
+                    ? `${t('i18n.connected')} · ${result.latencyMs ?? 0}ms${
+                        result.text !== undefined ? ` · ${result.text}` : ''
+                      }`
+                    : `${t('i18n.failed')}: ${result.error ?? ''}`,
+                  ok: result.ok,
+                });
+              } catch (error) {
+                setTesting({
+                  index,
+                  pending: false,
+                  result: `${t('i18n.failed')}: ${
+                    error instanceof Error ? error.message : String(error)
+                  }`,
+                  ok: false,
+                });
+              }
+            })();
           }}
-          enabledModels={enabled.models}
-          enabled={enabled}
+          onSearchCatalog={onSearchCatalog}
         />
       );
     }
@@ -1132,31 +868,100 @@ export function ModelsSection({
                 {t('i18n.loading')}
               </div>
             ) : (
-              customProviders.map(([name]) => {
-                const selected = selection?.type === 'custom' && selection.name === name;
+              customProviders.map(([name, entry]) => {
+                const selected =
+                  (selection?.type === 'custom' && selection.name === name) ||
+                  (selection?.type === 'custom-model' && selection.provider === name);
+                const models = entry.models ?? [];
                 return (
-                  <ConfigSidebarItem
-                    key={name}
-                    active={selected}
-                    onClick={() => setSelection({ type: 'custom', name })}
-                  >
-                    <svg
-                      width="11"
-                      height="11"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      style={{ color: 'var(--text-dim)', flexShrink: 0 }}
-                      aria-hidden={true}
+                  <div key={name}>
+                    <ConfigSidebarItem
+                      active={selected}
+                      onClick={() => setSelection({ type: 'custom', name })}
                     >
-                      <rect x="4" y="4" width="16" height="16" rx="2" />
-                      <rect x="9" y="9" width="6" height="6" />
-                    </svg>
-                    <ConfigSidebarText className={styles.isGrow}>{name}</ConfigSidebarText>
-                  </ConfigSidebarItem>
+                      <svg
+                        width="11"
+                        height="11"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        style={{ color: 'var(--text-dim)', flexShrink: 0 }}
+                        aria-hidden={true}
+                      >
+                        <rect x="4" y="4" width="16" height="16" rx="2" />
+                        <rect x="9" y="9" width="6" height="6" />
+                      </svg>
+                      <ConfigSidebarText className={styles.isGrow}>{name}</ConfigSidebarText>
+                      {models.length > 0 && (
+                        <span
+                          style={{
+                            fontFamily: 'var(--font-mono)',
+                            fontSize: 10,
+                            color: 'var(--text-dim)',
+                          }}
+                        >
+                          {models.length}
+                        </span>
+                      )}
+                    </ConfigSidebarItem>
+
+                    {expandedProvider === name && (
+                      <div
+                        style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: 1,
+                          margin: '1px 0 4px 8px',
+                          paddingLeft: 8,
+                          borderLeft: '1px solid var(--border)',
+                        }}
+                      >
+                        {models.map((model, index) => {
+                          const modelSelected =
+                            selection?.type === 'custom-model' &&
+                            selection.provider === name &&
+                            selection.index === index;
+                          return (
+                            <ConfigSidebarItem
+                              key={model.id ?? ''}
+                              active={modelSelected}
+                              onClick={() =>
+                                setSelection({ type: 'custom-model', provider: name, index })
+                              }
+                              style={{ height: 26, fontSize: 11.5 }}
+                            >
+                              <ConfigSidebarText className={styles.isGrow}>
+                                {(model.id ?? '') === '' ? t('i18n.newModel') : model.id}
+                              </ConfigSidebarText>
+                              {model.reasoning === true && (
+                                <span
+                                  style={{
+                                    fontSize: 9,
+                                    padding: '1px 4px',
+                                    background: 'rgba(99,102,241,0.12)',
+                                    color: 'rgba(99,102,241,0.8)',
+                                    borderRadius: 3,
+                                    flexShrink: 0,
+                                  }}
+                                >
+                                  T
+                                </span>
+                              )}
+                            </ConfigSidebarItem>
+                          );
+                        })}
+                        <ConfigSidebarItem
+                          onClick={() => addModel(name)}
+                          style={{ height: 26, fontSize: 11.5, color: 'var(--text-muted)' }}
+                        >
+                          + {t('i18n.model')}
+                        </ConfigSidebarItem>
+                      </div>
+                    )}
+                  </div>
                 );
               })
             )}
@@ -1211,9 +1016,4 @@ export function ModelsSection({
       )}
     </ConfigPanelShell>
   );
-}
-
-/** 清空对象自身的键（rename 时复用同一个对象引用） */
-function providersClear(providers: Record<string, CustomProviderEntry>): void {
-  for (const key of Object.keys(providers)) delete providers[key];
 }

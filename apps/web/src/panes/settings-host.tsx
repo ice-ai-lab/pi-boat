@@ -2,6 +2,7 @@ import { parseModelsConfigDraft, sendAgentCommand } from '@ice-ai/client';
 import {
   useAuthProvidersQuery,
   useCheckPluginUpdatesMutation,
+  useDiscoverModelsMutation,
   useCheckSkillUpdatesMutation,
   useEnabledModelsQuery,
   useInstallSkillMutation,
@@ -16,6 +17,7 @@ import {
   useSearchSkillsMutation,
   useSetApiKeyMutation,
   useSkillsQuery,
+  useTestModelMutation,
   useUpdateEnabledModelsMutation,
   useUpdateModelsConfigMutation,
   useUpdateSkillsMutation,
@@ -80,6 +82,8 @@ export function SettingsHost({ projectRoot, sessionId, onClose, onNotice }: Sett
   const saveConfig = useUpdateModelsConfigMutation();
   const refreshModels = useRefreshModelsMutation();
   const catalog = useModelCatalogMutation();
+  const discover = useDiscoverModelsMutation();
+  const testModel = useTestModelMutation();
   const authProviders = useAuthProvidersQuery(projectRoot ?? undefined);
   const setApiKey = useSetApiKeyMutation();
   const removeApiKey = useRemoveApiKeyMutation();
@@ -260,6 +264,10 @@ export function SettingsHost({ projectRoot, sessionId, onClose, onNotice }: Sett
           }}
           onQueryUsage={(providerId) => queryUsage.mutateAsync(providerId)}
           onSearchCatalog={(q) => catalog.mutateAsync(q)}
+          onDiscover={(providerName, provider) => discover.mutateAsync({ providerName, provider })}
+          onTestModel={(providerName, provider, modelId) =>
+            testModel.mutateAsync({ providerName, provider, model: { id: modelId } })
+          }
           refresh={{
             busy: refreshModels.isPending,
             lastResult: refreshResult,

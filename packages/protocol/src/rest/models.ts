@@ -16,6 +16,15 @@ import type { ModelRef } from '../domain/session-info';
  * 入参用 zod（server 校验），出参只是类型（ADR-0017）。
  */
 
+/**
+ * models.json 的 provider / model 形状复用 SDK 公开导出（ADR-0017）：
+ * `ProviderModelConfig` 是 `registerProvider` 的模型定义，`ModelCostRates` / `ThinkingLevelMap`
+ * 来自 pi-ai 的 `Model`。面板要按 models.json 的「全字段可选」语义编辑，故 UI 侧用
+ * `Partial<…>` 派生，不手写第二份。
+ */
+export type { ModelCostRates, ThinkingLevelMap } from '@earendil-works/pi-ai';
+export type { ProviderModelConfig } from '@earendil-works/pi-coding-agent';
+
 // ---------------------------------------------------------------------------
 // §6.4 可见模型与思考档位
 // ---------------------------------------------------------------------------
@@ -107,7 +116,13 @@ export type CatalogModel = {
   provider: string;
   /** 上下文窗口（目录里给得出时才带） */
   contextWindow?: number;
+  /** 最大输出 tokens（models.dev `limit.output`） */
+  maxTokens?: number;
   reasoning?: boolean;
+  /** 输入模态（models.dev `modalities.input`；含 `"image"` 即支持图片输入） */
+  input?: string[];
+  /** 每百万 token 美元价（models.dev `cost`；缺项省略，不补 0） */
+  cost?: { input?: number; output?: number; cacheRead?: number; cacheWrite?: number };
 };
 
 // ---------------------------------------------------------------------------

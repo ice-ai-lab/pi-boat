@@ -635,18 +635,61 @@ function parseModelsDevCatalog(body: unknown): CatalogModel[] {
     for (const [modelId, model] of Object.entries(providerModels as Record<string, unknown>)) {
       const record =
         typeof model === 'object' && model !== null ? (model as Record<string, unknown>) : {};
+      // models.dev 把上下文/输出分别放在 `limit.context` / `limit.output`，
+      // 输入模态在 `modalities.input`，价格为 `cost.{input,output,cache_read,cache_write}`（美元/百万 token）
+      const limit = asRecord(record.limit);
+      const modalities = asRecord(record.modalities);
+      const cost = asRecord(record.cost);
+      const costInput = asFiniteNumber(cost?.input);
+      const costOutput = asFiniteNumber(cost?.output);
+      const costCacheRead = asFiniteNumber(cost?.cache_read);
+      const costCacheWrite = asFiniteNumber(cost?.cache_write);
+      const hasCost =
+        costInput !== undefined ||
+        costOutput !== undefined ||
+        costCacheRead !== undefined ||
+        costCacheWrite !== undefined;
+      const rawInput = Array.isArray(modalities?.input) ? modalities.input : undefined;
+      const input =
+        rawInput === undefined
+          ? undefined
+          : rawInput.filter((item): item is string => typeof item === 'string');
       models.push({
         id: modelId,
         name: typeof record.name === 'string' ? record.name : modelId,
         provider: typeof providerName === 'string' ? providerName : providerId,
-        ...(typeof record.contextWindow === 'number'
-          ? { contextWindow: record.contextWindow }
+        ...(asFiniteNumber(limit?.context) !== undefined
+          ? { contextWindow: asFiniteNumber(limit?.context) }
+          : {}),
+        ...(asFiniteNumber(limit?.output) !== undefined
+          ? { maxTokens: asFiniteNumber(limit?.output) }
           : {}),
         ...(typeof record.reasoning === 'boolean' ? { reasoning: record.reasoning } : {}),
+        ...(input !== undefined ? { input } : {}),
+        ...(hasCost
+          ? {
+              cost: {
+                ...(costInput !== undefined ? { input: costInput } : {}),
+                ...(costOutput !== undefined ? { output: costOutput } : {}),
+                ...(costCacheRead !== undefined ? { cacheRead: costCacheRead } : {}),
+                ...(costCacheWrite !== undefined ? { cacheWrite: costCacheWrite } : {}),
+              },
+            }
+          : {}),
       });
     }
   }
   return models;
+}
+
+function asRecord(value: unknown): Record<string, unknown> | undefined {
+  return typeof value === 'object' && value !== null
+    ? (value as Record<string, unknown>)
+    : undefined;
+}
+
+function asFiniteNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 }
 
 function filterCatalog(models: CatalogModel[], q: string | undefined): CatalogModel[] {
