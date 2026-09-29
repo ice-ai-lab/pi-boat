@@ -737,7 +737,9 @@ export function ChatPane({
   const thinkingLevel =
     sessionId !== null
       ? (session.liveState?.thinkingLevel ?? session.pendingThinkingLevel)
-      : (session.pendingThinkingLevel ?? models.data?.thinkingLevelDefaults[modelKey] ?? null);
+      : (session.pendingThinkingLevel ??
+        (modelKey === null ? undefined : models.data?.thinkingLevelDefaults[modelKey]) ??
+        null);
   /** 模型选择器候选（T2-1）：来自 /api/models 的可用清单 */
   const modelOptions = useMemo(
     () =>
