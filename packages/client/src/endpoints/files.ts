@@ -15,15 +15,20 @@ import { getJson, http } from '../http';
 
 export type FileByteType = 'read' | 'download' | 'preview';
 
+/** `files/<encoded-path>?type=…`（相对 baseURL；`fileByteUrl` 再补 `/api`，Axios 直接消费这一段） */
+function fileBytePath(path: string, type: FileByteType, sessionId?: string | null): string {
+  const params = new URLSearchParams({ type });
+  if (sessionId !== undefined && sessionId !== null) params.set('sessionId', sessionId);
+  return `files/${encodeFilePathForApi(path)}?${params.toString()}`;
+}
+
 /** 字节流 URL（`sessionId` = 引用放行开关：roots 之外但被该会话读过的文件） */
 export function fileByteUrl(
   path: string,
   type: FileByteType = 'read',
   sessionId?: string | null,
 ): string {
-  const params = new URLSearchParams({ type });
-  if (sessionId !== undefined && sessionId !== null) params.set('sessionId', sessionId);
-  return `/api/files/${encodeFilePathForApi(path)}?${params.toString()}`;
+  return `/api/${fileBytePath(path, type, sessionId)}`;
 }
 
 /**
@@ -50,7 +55,10 @@ export function getFileMeta(path: string, sessionId?: string | null): Promise<Fi
 
 /** GET /api/files/<path>?type=read —— 文本内容（二进制请走 fileByteUrl） */
 export async function readFileText(path: string, sessionId?: string | null): Promise<string> {
-  const res = await http.get<string>(fileByteUrl(path, 'read', sessionId), {
+  // ⚠️ 必须用**不含 `/api` 前缀**的相对路径：http 的 baseURL 已是 `/api`，
+  // 直接拿 fileByteUrl 会拼成 `/api/api/files/...`，被 SPA 兜底成 index.html
+  // （查看器曾因此恒显 index.html；回归见 test/files-endpoints.test.ts）。
+  const res = await http.get<string>(`/${fileBytePath(path, 'read', sessionId)}`, {
     responseType: 'text',
     transformResponse: [(data: string) => data],
   });
