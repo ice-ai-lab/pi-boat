@@ -8,6 +8,7 @@ import {
   isImagePath,
 } from '@ice-ai/client';
 import { AlertTriangle, Download, ExternalLink, Loader2 } from 'lucide-react';
+import { shikiLanguageFor } from '../highlight/code-highlight';
 import { useI18n } from '../i18n/i18n-provider';
 import { CodeViewer } from './code-viewer';
 import { DiffView } from './diff-view';
@@ -16,7 +17,7 @@ import { ImagePreview } from './image-preview';
 
 /**
  * FileViewer（docs/06 §4.3）：按文件类型分发查看方式。
- * - 文本/代码 → CodeViewer（行号；F5 接 shiki 高亮）
+ * - 文本/代码 → CodeViewer（行号 + shiki 高亮）
  * - 图片 → ImagePreview（字节走 preview URL）
  * - PDF → iframe 原生渲染
  * - 有 git 改动且切到 diff → DiffView（unified patch 由宿主取）
@@ -113,6 +114,8 @@ export function FileViewer({
   const pdf = documentPreviewKind(tab.path) !== null;
   const docx = isDocxPath(tab.path);
   const sourceMode = tab.displayMode !== 'diff';
+  /** 源码与 diff 共用同一份语言推断（F5 高亮，ADR-0009） */
+  const language = shikiLanguageFor(tab.path);
   const lines = text === undefined || text === null ? null : text.split('\n').length;
   const meta =
     size === undefined
@@ -256,7 +259,7 @@ export function FileViewer({
 
       {!loading && (error === undefined || error === null) && (
         <>
-          {!sourceMode && <DiffView patch={patch ?? ''} />}
+          {!sourceMode && <DiffView patch={patch ?? ''} language={language} />}
           {sourceMode && image && <ImagePreview src={byteUrl('preview')} alt={name} />}
           {sourceMode && !image && pdf && (
             <iframe title={name} src={byteUrl('preview')} className="min-h-0 flex-1 border-0" />
@@ -277,7 +280,7 @@ export function FileViewer({
             </div>
           )}
           {sourceMode && !image && !pdf && !docx && text !== undefined && text !== null && (
-            <CodeViewer code={text} wrapLines={tab.wrapLines} />
+            <CodeViewer code={text} wrapLines={tab.wrapLines} language={language} />
           )}
           {sourceMode && !image && !pdf && !docx && (text === undefined || text === null) && (
             <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6 text-center">

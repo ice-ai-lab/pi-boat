@@ -1,6 +1,8 @@
 import type { ToolRow as ToolRowModel } from '@ice-ai/client';
 import { formatDuration } from '@ice-ai/client';
 import { useState } from 'react';
+import { shikiLanguageFor } from '../highlight/code-highlight';
+import { HighlightedCode } from '../highlight/highlighted-code';
 import { cn } from '../utils/cn';
 import { ChatImageList } from './chat-image';
 import { TrailTag } from './trail';
@@ -16,6 +18,47 @@ const TAG_TONE: Record<string, string | undefined> = {
   find: styles.tagFind,
   ls: styles.tagLs,
 };
+
+/**
+ * 工具输出的 shiki 语言（F5）：只按形态能确定的才高亮——
+ * `read` 的标题是文件路径，`bash` 是命令行产物，`edit` 吐 patch；其余（grep/find/ls 的表格文本）保持纯文本。
+ */
+function outputLanguage(row: ToolRowModel): string | null {
+  if (row.output === null || row.output.length === 0) return null;
+  if (row.toolName === 'read') return shikiLanguageFor(row.title);
+  if (row.toolName === 'bash') return 'bash';
+  if (row.toolName === 'edit') return 'diff';
+  return null;
+}
+
+/**
+ * 展开态详情块（淡底）。单独一个组件是为了让高亮 hook 只在展开时跑：
+ * 长会话里折叠的工具有几百条，不能为它们各自算一遍高亮。
+ */
+function ToolRowDetail({ row }: { row: ToolRowModel }) {
+  const output = row.output;
+  const hasOutput = output !== null && output.length > 0;
+
+  return (
+    <div className={styles.discInner}>
+      {row.images !== undefined && row.images.length > 0 && (
+        <div className={styles.discImages}>
+          <ChatImageList sources={row.images} />
+        </div>
+      )}
+      <pre className={styles.discInnerPre}>
+        {/* 参数原文是 JSON（流式中可能是半截 JSON，shiki 认得下） */}
+        <HighlightedCode code={row.argsText} language="json" />
+        {hasOutput && (
+          <>
+            {'\n'}
+            <HighlightedCode code={output} language={outputLanguage(row)} />
+          </>
+        )}
+      </pre>
+    </div>
+  );
+}
 
 /**
  * ToolRow：结构/样式按设计规范 的 `.disc`（docs/06 §6 组件表）
@@ -44,19 +87,7 @@ export function ToolRowView({ row }: { row: ToolRowModel }) {
           <span className={styles.discDur}>{formatDuration(row.durationMs)}</span>
         )}
       </button>
-      {expanded && (
-        <div className={styles.discInner}>
-          {row.images !== undefined && row.images.length > 0 && (
-            <div className={styles.discImages}>
-              <ChatImageList sources={row.images} />
-            </div>
-          )}
-          <pre className={styles.discInnerPre}>
-            {row.argsText}
-            {row.output !== null && row.output.length > 0 ? `\n${row.output}` : ''}
-          </pre>
-        </div>
-      )}
+      {expanded && <ToolRowDetail row={row} />}
     </div>
   );
 }

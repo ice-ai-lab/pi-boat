@@ -99,7 +99,7 @@
  C6 已完成、C10-C33（候选浮层双形态、输入历史浮层、用户气泡图片/hover 行、助手 cache W/cost、
  工具行 split diff、灯箱、katex/mermaid、`NoticeShelf` 左上角页内通知、phase 文案等）。
 2. **阶段 4（右栏）**：F2 `MermaidBlock`、F3 md/HTML preview 三模式、F4 `FrontmatterCard`、
- F5 语法高亮（Q3 待拍板）、F8 上传交互、F9 图片查看器、F10 音视频/PDF、F16 `@ 提及`、
+ ~~F5 语法高亮（已落地，ADR-0029）~~、F8 上传交互、F9 图片查看器、F10 音视频/PDF、F16 `@ 提及`、
  F17 每页签查看器状态、F18 diff 折叠、F20/F21/F22 收尾。
 3. **阶段 5（设置）**：G1-G5（模型/Skills/扩展包三节套 `ConfigPanelShell + SplitView`、
  `EnabledModelsSection` 整块、目录选择器接线）、G6 选中文字浮窗、G7 控件层对齐、
@@ -551,7 +551,7 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 | F2 | **Mermaid 完全缺失** | （329 行）+ zoom dialog，**文件预览与聊天都渲染** | 无组件；CSS 已备但零消费 | **P0** |
 | F3 | **markdown / HTML 预览模式** | `displayModes = ['source','preview','diff']`，md 走 Markdown、HTML 走 sandbox iframe，且 md/html **默认进 preview** | 只有「内容 / diff」；markdown 当纯文本（`file-viewer.tsx`） | **P0** |
 | F4 | FrontmatterCard | `parseFrontmatter` + 卡片，md 预览顶部渲染 | 缺失 | P1 |
-| F5 | 源码语法高亮 | `react-syntax-highlighter`（Prism `vs`/`vscDarkPlus`）+ **>1000 行降级** | 无高亮；截断 5000 行（`code-viewer.tsx`） | P1（**库选型待拍板**，见 §7 Q3） |
+| F5 | 源码语法高亮 | ~~`react-syntax-highlighter`（Prism `vs`/`vscDarkPlus`）~~ 改用本仓既有 `shiki`（ADR-0029）+ **>1000 行降级** | **已落地**：`CodeViewer`/`DiffView`/工具面板接 shiki，双主题走 `--shiki-light/--shiki-dark` + `[data-theme]`；仍截断 5000 行 | P1（**已关闭**，仅剩行号列几何见 T4-4） |
 | F6 | live 文件监听 | `EventSource(...?type=watch)` + `.file-viewer-live-indicator` 绿点 | 无。⛔ **阻塞：本仓协议 `FileByteType` 无 `watch`** | P1 |
 | F7 | 大文件 load-more | `.file-viewer-load-more`：已读/总大小 + 续拉 `nextOffset` | 截断 + 「请下载」（`code-viewer.tsx`）。⛔ **阻塞：`type=read` 回裸字节、无 offset 参数** | P1 |
 | F8 | 上传交互 | 头部图标 + 进度条 + 冲突三选一 + 结果汇总 + 树内蓝点 | 「上传」文字按钮 + `uploadFiles('rename')` + toast（`file-explorer-pane.tsx`） | P1（后端已就绪） |
@@ -710,7 +710,8 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 - [ ] **T4-1** 落地 `MermaidBlock`（329 行 + zoom dialog + SVG 下载）并在 md 预览与聊天 markdown 加分支。〔F2〕
 - [ ] **T4-2** FileViewer 补 `displayModes` 三态 + md/HTML preview（iframe sandbox）+ 默认进 preview。〔F3〕
 - [ ] **T4-3** 落地 `FrontmatterCard` +，md 预览顶部渲染。〔F4〕
-- [ ] **T4-4** `CodeViewer` 接语法高亮 + 1000 行降级（**库选型见 §7 Q3**）；补行号列几何（固定 48 宽 + `data-line-number`）。〔F5/F21〕
+- [x] **T4-4（高亮部分 2026-09-29，ADR-0029）** `CodeViewer` / `DiffView` / 工具面板接 shiki 高亮 + 1000 行降级；
+ **仍缺**行号列几何（固定 48 宽 + `data-line-number`）。〔F5/F21〕
 - [ ] **T4-5** ~~live watch~~ ⛔ **阻塞：本仓协议无 `type=watch`**，需先扩后端
 - [ ] **T4-6** ~~load-more 续拉~~ ⛔ **阻塞：`type=read` 回裸字节，无 offset**
 - [ ] **T4-7** 上传交互升级（头部图标 + 进度条 + 冲突三选一 + 汇总 + 蓝点）；后端已就绪。〔F8〕
@@ -780,7 +781,7 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 |---|---|---|
 | Q1 | 品牌名 | ✅ 已关闭（ADR-0022）：界面品牌与页面标题统一取 `PiBoat` |
 | Q2 | 设置节清单 | 规范侧含 Sub-agents 一节；本仓保持 4 节（子代理为排除域）。**确认维持 4 节？** |
-| Q3 | 源码高亮库 | 规范侧用 `react-syntax-highlighter`（Prism），本仓已有 `shiki`（ADR-0009）。**换成规范侧库，还是沿用 shiki 只补暗色主题 + 行号？** |
+| Q3 | 源码高亮库 | ✅ 已关闭（ADR-0029）：沿用 `shiki`（ADR-0009），补双主题（`--shiki-*` 变量 + `[data-theme]`）与 >1000 行降级，不引第二套高亮器 |
 | Q4 | 文件查看器模式文案 | 规范侧硬编码英文 `Source / Preview / Diff`；本仓现为「内容 / diff」。**统一走 i18n，还是照英文原文？** |
 | Q5 | F6/F7（live watch / load-more） | 二者都**需要先扩后端 + 协议**（`type=watch`、`type=read` 带 offset）。**这轮是否排期后端？** |
 | Q6 | DOCX 预览 | 需要后端 DOCX→HTML 转换。**是否排期？** |

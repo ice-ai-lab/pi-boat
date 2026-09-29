@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { highlightToHtml, shikiLanguageFor } from './code-highlight';
+import { highlightToHtml, shikiLanguageFor } from '../highlight/code-highlight';
+import highlightStyles from '../highlight/highlight.module.css';
 import styles from './markdown.module.css';
 
 /** 代码块正文底/内边距 ——按设计规范 `CodeBlock` 的 customStyle */
@@ -69,6 +70,7 @@ export function CodeBlock({
         </pre>
       ) : (
         <div
+          className={highlightStyles.html}
           style={PRE_STYLE}
           // biome-ignore lint/security/noDangerouslySetInnerHtml: shiki 输出是它自己转义后的 HTML（从不塞用户 HTML）
           dangerouslySetInnerHTML={{ __html: html }}

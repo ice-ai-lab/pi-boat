@@ -33,3 +33,4 @@
 | [0026](0026-project-scoped-session-list.md) | 会话列表按项目取数——`projectKey` 下推到扫描层 + 按范围缓存 + 运行态会话随列表带回 cwd（`runningSessionIds` → `runningSessions`，提交标注 `!`） | 已接受 | 2026-09-27 |
 | [0027](0027-drop-model-scope-prune-resync.md) | 删除可见范围的 prune / resync 批量修复操作——只留 toggle（修订 0011①） | 已接受 | 2026-09-27 |
 | [0028](0028-css-modules-by-domain.md) | 组件级 CSS 按域就近模块化（CSS Modules）——全局表只留共享钩子与未接线规范类 | 已接受 | 2026-01 |
+| [0029](0029-source-highlight-shiki-reuse.md) | 源码高亮统一复用 shiki——双主题经 CSS 变量下发，ui 不订阅宿主主题（关闭 `docs/09` §7 Q3） | 已接受 | 2026-09-29 |

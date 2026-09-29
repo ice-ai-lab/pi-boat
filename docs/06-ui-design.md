@@ -312,7 +312,7 @@ AppShell 三栏布局 + 拖拽/折叠（`makeDrag`）、主题切换、路由、
 | 2 | `#trajScroll` 在脚本中被查询，DOM 里无此元素 | 死代码，删 |
 | 3 | 演示文案残留旧架构/端口：`core:8787`、`localhost:5173`、`VITE v6.3.5` | 改为 9527 / 9528（`PORTS` 单一来源） |
 | 4 | 侧栏会话项写死"19 条消息""昨天"分组等假数据 | 接 `SessionInfo.modified/messageCount` |
-| 5 | `.viewer-code` 自养高亮（`.kw/.st/.fn/.cm`） | 换 shiki（与 `MarkdownView` 的 `CodeBlock` 同源，不要两套高亮器） |
+| 5 | `.viewer-code` 自养高亮（`.kw/.st/.fn/.cm`） | ~~换 shiki（与 `MarkdownView` 的 `CodeBlock` 同源）~~ **已落地**：统一 `packages/ui/src/highlight/`，一套高亮器（ADR-0029） |
 | 6 | `.tnode`/`.mm-bar` 用 `div` 承担点击 | 改 `button`（§8.3、§9.2） |
 | 7 | 原型 hero 版本文案 `web v0.1.0` | 接构建期注入的真实版本号 |
 
