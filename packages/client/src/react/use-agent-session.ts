@@ -59,6 +59,8 @@ export interface UseAgentSessionResult {
   refreshLiveState(): Promise<void>;
   compact(customInstructions?: string): Promise<string | null>;
   setThinkingLevel(level: ThinkingLevel): Promise<string | null>;
+  /** 清掉空态待生效的档位（切到不支持它的模型时用）；活动会话的档位是会话文件里的追加条目，删不掉 */
+  clearPendingThinkingLevel(): void;
   /** 切换模型（provider + modelId，服务端逐会话生效） */
   setModel(provider: string, modelId: string): Promise<string | null>;
   abortCompaction(): Promise<void>;
@@ -511,6 +513,15 @@ export function useAgentSession(): UseAgentSessionResult {
     [requireSession, refreshLiveState],
   );
 
+  /**
+   * 空态下清掉待生效档位（回落服务端按模型算出的生效档位）。
+   * 只清空态：活动会话的档位是 `thinking_level_change` 追加条目，pi 没有删除语义（见 setThinkingLevel 注释）。
+   */
+  const clearPendingThinkingLevel = useCallback((): void => {
+    pendingThinkingLevelRef.current = null;
+    setPendingThinkingLevel(null);
+  }, []);
+
   const setModel = useCallback(
     async (provider: string, modelId: string): Promise<string | null> => {
       const id = requireSession();
@@ -731,6 +742,7 @@ export function useAgentSession(): UseAgentSessionResult {
     refreshLiveState,
     compact,
     setThinkingLevel,
+    clearPendingThinkingLevel,
     setModel,
     abortCompaction,
     setTools,

@@ -1,5 +1,6 @@
 import type { ModelRuntime, ScopedModel } from '@earendil-works/pi-coding-agent';
 import { resolveModelScopeWithDiagnostics } from '@earendil-works/pi-coding-agent';
+import type { ThinkingLevel } from '@ice-ai/protocol';
 import type { SdkModelRef } from '../agent/sdk-types';
 
 /**
@@ -27,8 +28,8 @@ const providerGlob = (providerId: string): string => `${providerId}/**`;
 export interface VisibleScope {
   /** 解析出的可见模型（选择器数据源） */
   visible: ScopedModel[];
-  /** `provider:id` → 模式里钉住的档位 */
-  thinkingLevelPins: Record<string, string>;
+  /** `provider:id` → 模式里钉住的档位（`model:high` 这种；非法后缀已被 SDK 丢弃并转成 warning） */
+  thinkingLevelPins: Record<string, ThinkingLevel>;
   /** 诊断文本（匹配不到 / 非法档位） */
   warnings: string[];
 }
@@ -56,7 +57,7 @@ export async function resolveVisibleModels(
     [...patterns],
     modelRuntime,
   );
-  const thinkingLevelPins: Record<string, string> = {};
+  const thinkingLevelPins: Record<string, ThinkingLevel> = {};
   for (const scoped of scopedModels) {
     if (scoped.thinkingLevel !== undefined) {
       thinkingLevelPins[modelKey(scoped.model)] = scoped.thinkingLevel;

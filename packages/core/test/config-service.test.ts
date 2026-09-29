@@ -1,7 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { THINKING_LEVELS, type ThinkingLevel } from '@ice-ai/protocol';
+import { THINKING_LEVELS } from '@ice-ai/protocol';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { ConfigService } from '../src/config/config-service';
 
@@ -33,17 +33,19 @@ describe('ConfigService（模型面板主路径）', () => {
     const response = await new ConfigService().models(process.cwd());
 
     expect(Array.isArray(response.modelList)).toBe(true);
-    expect(response.defaultThinkingLevel).toBeDefined();
-    expect(THINKING_LEVELS).toContain(response.defaultThinkingLevel as ThinkingLevel);
 
     const vocabulary = new Set<string>(THINKING_LEVELS);
     for (const [key, levels] of Object.entries(response.thinkingLevels)) {
       expect(levels.length, `${key} 至少要有 off 一档`).toBeGreaterThan(0);
       for (const level of levels) expect(vocabulary.has(level), `${key}: ${level}`).toBe(true);
     }
-    // 每个可见模型都必须有档位条目（否则面板上选不了思考级别）
+    // 每个可见模型都必须有档位条目（否则面板上选不了思考级别）；
+    // 生效档位也必须有，且落在该模型的支持集里（服务端已按模型能力 clamp）
     for (const model of response.modelList) {
-      expect(response.thinkingLevels[`${model.provider}:${model.id}`]).toBeDefined();
+      const key = `${model.provider}:${model.id}`;
+      expect(response.thinkingLevels[key], key).toBeDefined();
+      expect(response.thinkingLevelDefaults[key], key).toBeDefined();
+      expect(response.thinkingLevels[key], key).toContain(response.thinkingLevelDefaults[key]);
     }
   });
 

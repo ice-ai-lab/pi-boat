@@ -731,18 +731,13 @@ export function ChatPane({
   const modelKey =
     effectiveModel === null ? null : `${effectiveModel.provider}:${effectiveModel.modelId}`;
   const thinkingLevels = modelKey === null ? [] : (models.data?.thinkingLevels[modelKey] ?? []);
-  // 档位回显：会话看 liveState；空态先用户 pending，再回落服务端 defaultThinkingLevel——
-  // 它是按 defaultModel 解析的（pin/按模型设置/全局默认，见 core ConfigService.models），
-  // 仅在展示的就是默认模型时可用；用户已另选模型则档位未定，不回显（选了才生效）
-  const isDefaultModelShown =
-    effectiveModel !== null &&
-    effectiveModel.provider === models.data?.defaultModel?.provider &&
-    effectiveModel.modelId === models.data?.defaultModel?.modelId;
+  // 思考档位回显：会话看 liveState；空态先用户 pending，再回落服务端按**该模型**算出的生效档位
+  // （pin → 按模型设置 → 全局默认 → medium，已按模型能力 clamp，与建会话同源）——
+  // 不再只在「展示的就是默认模型」时才回显，否则切到别的模型档位会空着
   const thinkingLevel =
     sessionId !== null
       ? (session.liveState?.thinkingLevel ?? session.pendingThinkingLevel)
-      : (session.pendingThinkingLevel ??
-        (isDefaultModelShown ? (models.data?.defaultThinkingLevel ?? null) : null));
+      : (session.pendingThinkingLevel ?? models.data?.thinkingLevelDefaults[modelKey] ?? null);
   /** 模型选择器候选（T2-1）：来自 /api/models 的可用清单 */
   const modelOptions = useMemo(
     () =>
@@ -909,11 +904,23 @@ export function ChatPane({
             onAttachClick={() => fileInputRef.current?.click()}
             modelOptions={modelOptions}
             model={effectiveModel}
-            onModelChange={(provider, modelId) =>
+            onModelChange={(provider, modelId) => {
+              // 空态切模型：新模型没有当前档位就清掉 pending——胶囊随即回落到该模型的生效档位，
+              // 与建会话时 pi 自己解析出的值一致（不清的话胶囊会显示一个该模型跑不出来的档位）
+              const nextLevels = models.data?.thinkingLevels[`${provider}:${modelId}`] ?? [];
+              const pendingLevel = session.pendingThinkingLevel;
+              if (
+                sessionId === null &&
+                pendingLevel !== null &&
+                nextLevels.length > 0 &&
+                !nextLevels.includes(pendingLevel)
+              ) {
+                session.clearPendingThinkingLevel();
+              }
               void session.setModel(provider, modelId).then((error) => {
                 if (error !== null) pushToast(error, 'error');
-              })
-            }
+              });
+            }}
             busy={chat.streaming}
             thinkingLevel={thinkingLevel}
             thinkingLevels={thinkingLevels}

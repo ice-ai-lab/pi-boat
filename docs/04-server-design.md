@@ -68,7 +68,7 @@
 | 端点 | core 方法 | 语义要点 |
 |---|---|---|
 | `GET /api/projects?force` | `projectService.listProjects()` | ✅ ADR-0008：项目清单（会话目录派生视图）。`readdir`+`stat`+每目录一次首行头，不解析正文（实测 3–7 ms / 1.8 KB）；按 `projectKey` 合并子目录与 worktree；空目录跳过；**不分页**。内存会话（未落盘）的 cwd 一并合入（ADR-0026），否则新目录里的新会话在侧栏无项目可选 |
-| `GET /api/models?cwd` | `ConfigService` | 可见模型 + 思考档位 + `thinkingLevelPins` / `modelScopeWarnings` / `defaultModel` |
+| `GET /api/models?cwd` | `ConfigService` | 可见模型 + 思考档位 + `thinkingLevelDefaults`（每模型生效档位，与建会话同源）/ `modelScopeWarnings` / `defaultModel` |
 | `GET/PUT /api/models-config` | `ConfigService` | models.json 原文读写（PUT 校验后落盘） |
 | `POST /api/models-config/discover` | `ConfigService` | 按 provider `/models` 端点发现（20s 超时） |
 | `POST /api/models-config/test` | `ConfigService` | 真实补全测连通（临时 models.json，20s 超时） |

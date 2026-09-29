@@ -235,10 +235,9 @@ function fakeConfigService() {
       models: { 'anthropic:claude-x': 'Claude X' },
       modelList: enabledResponse.models,
       defaultModel: { provider: 'anthropic', modelId: 'claude-x' },
-      defaultThinkingLevel: 'medium' as const,
+      thinkingLevelDefaults: { 'anthropic:claude-x': 'high' },
       thinkingLevels: { 'anthropic:claude-x': ['off', 'high'] },
       thinkingLevelMaps: {},
-      thinkingLevelPins: {},
     })),
     readConfig: vi.fn(() => ({ modelsPath: '/tmp/agent/models.json', config: { providers: {} } })),
     writeConfig: vi.fn(() => ({ modelsPath: '/tmp/agent/models.json' })),
@@ -1022,12 +1021,13 @@ describe('GET /api/agent/:id/events（SSE）', () => {
 // ---------------------------------------------------------------------------
 
 describe('模型域路由', () => {
-  it('GET /api/models：只读快照（含 thinkingLevels / defaultModel）', async () => {
+  it('GET /api/models：只读快照（含 thinkingLevels / thinkingLevelDefaults / defaultModel）', async () => {
     const { app } = makeApp();
     const res = await request(app, '/api/models?cwd=/tmp');
     expect(res.status).toBe(200);
     expect(await res.json()).toMatchObject({
       defaultModel: { provider: 'anthropic', modelId: 'claude-x' },
+      thinkingLevelDefaults: { 'anthropic:claude-x': 'high' },
       thinkingLevels: { 'anthropic:claude-x': ['off', 'high'] },
     });
   });

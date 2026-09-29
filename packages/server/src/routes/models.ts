@@ -75,10 +75,9 @@ export function registerModelRoutes(app: Hono, deps: ModelRouteDeps): void {
         models: {},
         modelList: [],
         defaultModel: null,
-        defaultThinkingLevel: null,
+        thinkingLevelDefaults: {},
         thinkingLevels: {},
         thinkingLevelMaps: {},
-        thinkingLevelPins: {},
         error: 'Failed to load model configuration',
       });
     }

@@ -37,13 +37,12 @@ export type ModelsResponse = {
   models: Record<string, string>;
   modelList: ModelListItem[];
   defaultModel: ModelRef | null;
-  defaultThinkingLevel: import('../constants').ThinkingLevel | null;
+  /** `provider:id` → 该模型**生效**的思考档位（pin → 按模型设置 → 全局默认 → medium，已按模型能力收口） */
+  thinkingLevelDefaults: Record<string, import('../constants').ThinkingLevel>;
   /** `provider:id` → 该模型支持的思考档位 */
   thinkingLevels: Record<string, string[]>;
   /** `provider:id` → 档位映射（`null` = 该档位不可用；缺键 = 用默认语义） */
   thinkingLevelMaps: Record<string, Record<string, string | null>>;
-  /** `provider:id` → 模式里钉住的档位（`model:high` 这种） */
-  thinkingLevelPins: Record<string, string>;
   /** 作用域解析的诊断（匹配不到的 pattern / 非法档位后缀） */
   modelScopeWarnings?: string[];
   /** 模型源加载错误（如 models.json 崩了）；有值时上方各表可能为空 */

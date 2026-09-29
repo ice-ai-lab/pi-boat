@@ -240,7 +240,7 @@
 
 | 端点 | 形状 |
 |---|---|
-| `GET /api/models?cwd` | → `{ models: Record<provider:id, name>, modelList: [{id,name,provider,input}], defaultModel, thinkingLevels: Record<key, string[]>, thinkingLevelMaps, thinkingLevelPins, modelScopeWarnings?, error? }` |
+| `GET /api/models?cwd` | → `{ models: Record<provider:id, name>, modelList: [{id,name,provider,input}], defaultModel, thinkingLevelDefaults: Record<key, 生效档位>, thinkingLevels: Record<key, string[]>, thinkingLevelMaps, modelScopeWarnings?, error? }` |
 | `GET/PUT /api/models-config` | models.json 原文读写（PUT 校验后落盘） |
 | `POST /api/models-config/discover` | `{providerName, provider:{baseUrl, api, apiKey?}}` → 按 /models 端点发现模型列表（20s 超时） |
 | `POST /api/models-config/test` | `{providerName, provider, model:{id}}` → `{ok, error?, …}` 真实补全请求测连通（临时 models.json，20s 超时） |

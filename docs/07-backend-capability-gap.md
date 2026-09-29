@@ -132,7 +132,7 @@
 
 | 端点 | 状态 | 说明 |
 |---|---|---|
-| `GET /api/models?cwd` | ✅ | 已含 `thinkingLevelPins` / `modelScopeWarnings` / `defaultModel` / `defaultThinkingLevel` |
+| `GET /api/models?cwd` | ✅ | 已含 `thinkingLevelDefaults`（每模型生效档位）/ `modelScopeWarnings` / `defaultModel` |
 | `GET/PUT /api/models-config` | ✅ | models.json 原文读写 + 校验落盘。**一期唯一的模型凭据入口**（见 §8） |
 | `GET /api/models-config/catalog?q` | ✅ | 远端目录（1h 缓存，服务端代理） |
 | `POST /api/models-config/discover` | ✅ | 按 provider `/models` 端点发现（20s 超时） |

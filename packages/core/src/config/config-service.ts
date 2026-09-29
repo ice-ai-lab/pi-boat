@@ -1,7 +1,12 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { type Api, getSupportedThinkingLevels, type Model } from '@earendil-works/pi-ai';
+import {
+  type Api,
+  clampThinkingLevel,
+  getSupportedThinkingLevels,
+  type Model,
+} from '@earendil-works/pi-ai';
 import {
   CONFIG_DIR_NAME,
   createAgentSessionServices,
@@ -25,6 +30,7 @@ import type {
   ModelsResponse,
   ProviderDraft,
   ProviderUsageResponse,
+  ThinkingLevel,
 } from '@ice-ai/protocol';
 import { UserInputError } from '../agent/agent-session-service';
 import { removeStoredCredentialIfType, storeProviderCredential } from './auth-store';
@@ -86,12 +92,23 @@ export class ConfigService {
     const nameMap: Record<string, string> = {};
     const thinkingLevels: Record<string, string[]> = {};
     const thinkingLevelMaps: Record<string, Record<string, string | null>> = {};
+    const thinkingLevelDefaults: Record<string, ThinkingLevel> = {};
+    // 全局默认档位。`'medium'` 即 SDK 的 `DEFAULT_THINKING_LEVEL`——它未导出，只能写死（ADR-0017）
+    const globalThinkingLevel = settingsManager.getDefaultThinkingLevel() ?? 'medium';
     const modelList = scope.visible
       .map((scoped) => {
         const model = scoped.model;
         const key = modelKey(model);
         nameMap[key] = model.name;
         thinkingLevels[key] = getSupportedThinkingLevels(model);
+        // 生效档位：与 SDK 建会话时的链路同源（scope pin → 按模型设置 → 全局默认 → DEFAULT），
+        // 再 clamp 到模型能力——UI 显示的就是这一轮真正会用到的档位
+        thinkingLevelDefaults[key] = clampThinkingLevel(
+          model,
+          scope.thinkingLevelPins[key] ??
+            settingsManager.getModelThinkingLevel(model.provider, model.id) ??
+            globalThinkingLevel,
+        );
         const map = model.thinkingLevelMap;
         if (map !== undefined) {
           thinkingLevelMaps[key] = Object.fromEntries(
@@ -117,23 +134,14 @@ export class ConfigService {
         : firstVisible !== undefined
           ? { provider: firstVisible.provider, modelId: firstVisible.id }
           : null;
-    const defaultThinkingLevel =
-      (defaultModel !== null
-        ? (scope.thinkingLevelPins[`${defaultModel.provider}:${defaultModel.modelId}`] ??
-          settingsManager.getModelThinkingLevel(defaultModel.provider, defaultModel.modelId))
-        : undefined) ??
-      settingsManager.getDefaultThinkingLevel() ??
-      'medium';
-
     const runtimeError = modelRuntime.getError();
     return {
       models: nameMap,
       modelList,
       defaultModel,
-      defaultThinkingLevel: defaultThinkingLevel as ModelsResponse['defaultThinkingLevel'],
+      thinkingLevelDefaults,
       thinkingLevels,
       thinkingLevelMaps,
-      thinkingLevelPins: scope.thinkingLevelPins,
       ...(scope.warnings.length > 0 ? { modelScopeWarnings: scope.warnings } : {}),
       ...(runtimeError !== undefined
         ? { error: runtimeError }
