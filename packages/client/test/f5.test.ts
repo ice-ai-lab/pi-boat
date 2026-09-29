@@ -161,6 +161,7 @@ describe('本轮改动文件', () => {
     final: null,
     usage: null,
     model: null,
+    errorMessage: null,
     status: 'done',
   });
 
