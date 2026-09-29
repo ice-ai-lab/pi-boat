@@ -79,14 +79,6 @@ export interface SkillsSectionProps {
     onInstall(packageName: string, scope: 'global' | 'project'): void;
     installingPackage: string | null;
   };
-
-  updates: {
-    results: SkillUpdateView[];
-    checking: boolean;
-    updating: boolean;
-    onCheck(): void;
-    onUpdate(packageName?: string): void;
-  };
 }
 
 function shortenPath(p: string): string {
@@ -207,28 +199,38 @@ function AddSkillPanel({
   cwd,
   projectResourcesLoaded,
   search,
-  updates,
   onInstalledFocus,
 }: {
   cwd: string | null;
   projectResourcesLoaded: boolean;
   search: SkillsSectionProps['search'];
-  updates: SkillsSectionProps['updates'];
   onInstalledFocus(): void;
 }) {
   const { t } = useI18n();
   const [scope, setScope] = useState<'global' | 'project'>('global');
-  const hasUpdatable = updates.results.length > 0;
-  const pendingCount = updates.results.filter(
-    (result) => result.state === 'update-available',
-  ).length;
   const installPath =
     scope === 'global' ? '~/.pi/agent/skills/' : `${shortenPath(cwd ?? '')}/.pi/skills/`;
 
   return (
     <ConfigDetailStack className={styles.isFill}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 12 }}>
-        <ConfigDetailTitle>{t('i18n.addSkill')}</ConfigDetailTitle>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <ConfigDetailTitle>{t('i18n.addSkill')}</ConfigDetailTitle>
+          <button
+            type="button"
+            onClick={onInstalledFocus}
+            style={{
+              marginLeft: 'auto',
+              border: 'none',
+              background: 'none',
+              color: 'var(--text-dim)',
+              fontSize: 11,
+              cursor: 'pointer',
+            }}
+          >
+            ← {t('skills.backToList')}
+          </button>
+        </div>
 
         <div style={{ display: 'flex', gap: 8 }}>
           <input
@@ -371,90 +373,6 @@ function AddSkillPanel({
           </div>
         )}
       </div>
-
-      {/* 更新检查（作用于已安装的 npm 技能包） */}
-      <div
-        style={{
-          borderTop: '1px solid var(--border)',
-          paddingTop: 12,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 8,
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>
-            {t('i18n.checkUpdates')}
-          </span>
-          <ConfigButton size="small" disabled={updates.checking} onClick={updates.onCheck}>
-            {updates.checking ? t('i18n.checking') : t('i18n.check')}
-          </ConfigButton>
-          <ConfigButton
-            size="small"
-            disabled={
-              updates.updating ||
-              !updates.results.some((result) => result.state === 'update-available')
-            }
-            onClick={() => updates.onUpdate()}
-          >
-            {updates.updating ? t('i18n.updating') : t('i18n.update')}
-          </ConfigButton>
-          {pendingCount > 0 && (
-            <span style={{ fontSize: 11, color: 'var(--amber)' }}>
-              {pendingCount} {t('i18n.updates')}
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={onInstalledFocus}
-            style={{
-              marginLeft: 'auto',
-              border: 'none',
-              background: 'none',
-              color: 'var(--text-dim)',
-              fontSize: 11,
-              cursor: 'pointer',
-            }}
-          >
-            ← {t('skills.backToList')}
-          </button>
-        </div>
-        {hasUpdatable &&
-          updates.results.map((result) => (
-            <div
-              key={result.package}
-              style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 11.5 }}
-            >
-              <span
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  color: 'var(--text-muted)',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  flex: 1,
-                  minWidth: 0,
-                }}
-              >
-                {result.package}
-              </span>
-              <span style={{ color: 'var(--text-dim)', flexShrink: 0 }}>
-                {result.state === 'update-available'
-                  ? `${result.currentVersion ?? '?'} → ${result.latestVersion ?? '?'}`
-                  : (result.error ?? t(UPDATE_LABEL[result.state]))}
-              </span>
-              {result.state === 'update-available' && (
-                <ConfigButton
-                  size="small"
-                  disabled={updates.updating}
-                  onClick={() => updates.onUpdate(result.package)}
-                >
-                  {t('i18n.update')}
-                </ConfigButton>
-              )}
-            </div>
-          ))}
-      </div>
     </ConfigDetailStack>
   );
 }
@@ -470,7 +388,6 @@ export function SkillsSection({
   busy,
   onToggle,
   search,
-  updates,
 }: SkillsSectionProps) {
   const { t } = useI18n();
   const [selected, setSelected] = useState<string | null>(null);
@@ -585,7 +502,6 @@ export function SkillsSection({
                     cwd={cwd}
                     projectResourcesLoaded={projectResourcesLoaded}
                     search={search}
-                    updates={updates}
                     onInstalledFocus={() => setAddMode(false)}
                   />
                 ) : loading ? null : selectedSkill !== null ? (

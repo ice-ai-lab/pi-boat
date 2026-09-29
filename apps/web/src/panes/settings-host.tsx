@@ -3,7 +3,6 @@ import {
   useAuthProvidersQuery,
   useCheckPluginUpdatesMutation,
   useDiscoverModelsMutation,
-  useCheckSkillUpdatesMutation,
   useEnabledModelsQuery,
   useInstallSkillMutation,
   useModelCatalogMutation,
@@ -20,7 +19,6 @@ import {
   useTestModelMutation,
   useUpdateEnabledModelsMutation,
   useUpdateModelsConfigMutation,
-  useUpdateSkillsMutation,
 } from '@ice-ai/client/react';
 import {
   GeneralSection,
@@ -139,8 +137,6 @@ export function SettingsHost({ projectRoot, sessionId, onClose, onNotice }: Sett
   const patchSkill = usePatchSkillMutation(resourceCwd);
   const searchSkills = useSearchSkillsMutation();
   const installSkill = useInstallSkillMutation(resourceCwd);
-  const checkSkills = useCheckSkillUpdatesMutation(resourceCwd);
-  const updateSkills = useUpdateSkillsMutation(resourceCwd);
   const plugins = usePluginsQuery(resourceCwd);
   const pluginAction = usePluginActionMutation(resourceCwd);
   const checkPlugins = useCheckPluginUpdatesMutation(resourceCwd);
@@ -332,17 +328,6 @@ export function SettingsHost({ projectRoot, sessionId, onClose, onNotice }: Sett
                 },
               );
             },
-          }}
-          updates={{
-            results: updateSkills.data?.results ?? checkSkills.data?.results ?? [],
-            checking: checkSkills.isPending,
-            updating: updateSkills.isPending,
-            onCheck: () => checkSkills.mutate(undefined),
-            onUpdate: (pkg) =>
-              updateSkills.mutate(pkg, {
-                onSuccess: () => onNotice('更新完成'),
-                onError: (error) => onNotice(`更新失败：${error.message}`, 'error'),
-              }),
           }}
         />
       );
