@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  formatDateTime,
   formatRelativeTime,
   formatUpdatedTime,
   interpolateMessage,
@@ -44,6 +45,17 @@ describe('formatRelativeTime / formatUpdatedTime', () => {
     );
     expect(formatUpdatedTime(earlier.getTime(), 'zh-CN', localNow)).toBe('3天前');
     expect(formatUpdatedTime(earlier.getTime(), 'ja', localNow)).toBe('3 日前');
+  });
+});
+
+describe('formatDateTime', () => {
+  it('按本机时区输出 yyyy-MM-dd HH:mm:ss', () => {
+    const date = new Date(2026, 8, 22, 9, 5, 3);
+    expect(formatDateTime(date.getTime())).toBe('2026-09-22 09:05:03');
+  });
+
+  it('非法时间戳返回空串', () => {
+    expect(formatDateTime(Number.NaN)).toBe('');
   });
 });
 

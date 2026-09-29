@@ -65,6 +65,7 @@ export { FileViewer, type FileViewerProps } from './files/file-viewer';
 export { ImagePreview, type ImagePreviewProps, nextZoom } from './files/image-preview';
 // i18n（docs/06 §1 第 5 处 ui 容器例外）
 export {
+  formatDateTime,
   formatRelativeTime,
   formatUpdatedTime,
   interpolateMessage,

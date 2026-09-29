@@ -2,6 +2,7 @@ import type { Turn } from '@ice-ai/client';
 import { groupTrail, isLiveTail } from '@ice-ai/client';
 import type { Usage } from '@ice-ai/protocol';
 import { memo } from 'react';
+import { formatDateTime } from '../i18n/format';
 import { cn } from '../utils/cn';
 import { ChatImageList } from './chat-image';
 import styles from './markdown.module.css';
@@ -42,6 +43,17 @@ export function UserBubble({ turn }: { turn: Turn }) {
         alignItems: 'flex-end',
       }}
     >
+      <div
+        style={{
+          marginBottom: 4,
+          fontSize: 11,
+          lineHeight: 1,
+          color: 'var(--text-dim)',
+          fontVariantNumeric: 'tabular-nums',
+        }}
+      >
+        {formatDateTime(turn.user.at)}
+      </div>
       <div
         style={{
           maxWidth: '85%',

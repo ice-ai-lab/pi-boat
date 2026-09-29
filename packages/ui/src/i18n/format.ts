@@ -80,3 +80,18 @@ export function formatUpdatedTime(timestamp: number, locale: Locale, now = new D
   if (isToday) return target.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
   return formatRelativeTime(target, locale, now);
 }
+
+/**
+ * 按本机时区输出固定格式 `yyyy-MM-dd HH:mm:ss`（与语言无关，故不接收 locale）。
+ * @param timestamp 毫秒时间戳
+ * @returns 固定格式的时间文本；非法时间戳返回空串
+ */
+export function formatDateTime(timestamp: number): string {
+  const target = new Date(timestamp);
+  if (Number.isNaN(target.getTime())) return '';
+  const pad = (value: number): string => String(value).padStart(2, '0');
+  return (
+    `${target.getFullYear()}-${pad(target.getMonth() + 1)}-${pad(target.getDate())} ` +
+    `${pad(target.getHours())}:${pad(target.getMinutes())}:${pad(target.getSeconds())}`
+  );
+}
