@@ -1,10 +1,11 @@
 import { parseUnifiedDiff } from '@ice-ai/client';
 import { useMemo } from 'react';
-import { cn } from '../utils/cn';
+import styles from './diff-view.module.css';
 
 /**
  * DiffView（docs/06 §4.2/§4.3）：unified diff 行渲染（行号 + `+`/`-`/上下文前缀）。
  * 无需 diff 库：patch 由服务端给（git diff），解析是纯函数（client/files/unified-diff）。
+ * 视觉对齐 dsh-file-explorer：无表格描边，行号走三级文字色，增删行用语义软底。
  */
 export interface DiffViewProps {
   patch: string;
@@ -17,23 +18,27 @@ export function DiffView({ patch, emptyHint = '没有改动', className }: DiffV
   const parsed = useMemo(() => parseUnifiedDiff(patch), [patch]);
 
   if (parsed.rows.length === 0) {
-    return <p className={cn('px-3 py-3 text-[12px] text-fg-faint', className)}>{emptyHint}</p>;
+    return (
+      <p className={`${styles.empty}${className === undefined ? '' : ` ${className}`}`}>
+        {emptyHint}
+      </p>
+    );
   }
 
   return (
-    <div className={cn('min-h-0 flex-1 overflow-auto', className)}>
-      <div className="hairline-b sticky top-0 z-10 flex items-center gap-3 border-line-2 bg-surface-raised px-3 py-1.5 text-[11.5px]">
-        <span className="text-success">+{parsed.additions}</span>
-        <span className="text-danger">-{parsed.deletions}</span>
+    <div className={`${styles.scroll}${className === undefined ? '' : ` ${className}`}`}>
+      <div className={styles.summary}>
+        <span className={styles.additions}>+{parsed.additions}</span>
+        <span className={styles.deletions}>-{parsed.deletions}</span>
       </div>
-      <table className="w-full border-collapse font-mono text-[12px] leading-[1.6]">
+      <table className={styles.table}>
         <tbody>
           {parsed.rows.map((row, index) => {
             if (row.kind === 'hunk') {
               return (
                 // biome-ignore lint/suspicious/noArrayIndexKey: patch 变化时整表重算，位置即身份
-                <tr key={index} className="bg-surface-side">
-                  <td colSpan={3} className="px-3 py-1 text-[11px] text-fg-subtle">
+                <tr key={index}>
+                  <td colSpan={3} className={styles.hunk}>
                     {row.header}
                   </td>
                 </tr>
@@ -43,7 +48,7 @@ export function DiffView({ patch, emptyHint = '没有改动', className }: DiffV
               return (
                 // biome-ignore lint/suspicious/noArrayIndexKey: 同上
                 <tr key={index}>
-                  <td colSpan={3} className="px-3 py-0.5 text-[11px] text-fg-faint">
+                  <td colSpan={3} className={styles.meta}>
                     {row.text}
                   </td>
                 </tr>
@@ -51,24 +56,20 @@ export function DiffView({ patch, emptyHint = '没有改动', className }: DiffV
             }
             const tone =
               row.kind === 'add'
-                ? 'bg-success-soft text-fg'
+                ? styles.rowAdd
                 : row.kind === 'remove'
-                  ? 'bg-danger-soft text-fg'
-                  : 'text-fg-muted';
+                  ? styles.rowRemove
+                  : styles.rowContext;
             const marker = row.kind === 'add' ? '+' : row.kind === 'remove' ? '-' : ' ';
             const oldNo = row.kind === 'add' ? '' : row.oldLine;
             const newNo = row.kind === 'remove' ? '' : row.newLine;
             return (
               // biome-ignore lint/suspicious/noArrayIndexKey: 同上
               <tr key={index} className={tone}>
-                <td className="w-px select-none border-r border-line-1 px-2 text-right text-[11px] text-fg-faint">
-                  {oldNo}
-                </td>
-                <td className="w-px select-none border-r border-line-1 px-2 text-right text-[11px] text-fg-faint">
-                  {newNo}
-                </td>
-                <td className="whitespace-pre px-3">
-                  <span className="select-none text-fg-faint">{marker}</span>
+                <td className={styles.gutter}>{oldNo}</td>
+                <td className={styles.gutter}>{newNo}</td>
+                <td className={styles.code}>
+                  <span className={styles.marker}>{marker}</span>
                   {row.text}
                 </td>
               </tr>

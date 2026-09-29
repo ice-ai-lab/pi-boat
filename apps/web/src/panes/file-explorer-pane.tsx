@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { fileTabsStore } from '../services/file-tabs-store';
 import { useFileTree } from '../services/use-file-tree';
+import styles from './file-explorer-pane.module.css';
 
 /**
  * FileExplorerPane（T2 重排）：EXPLORER 区内容——文件树 + 文件搜索面板 + 变更文件区块。
@@ -175,7 +176,7 @@ export const FileExplorerPane = forwardRef<FileExplorerHandle, FileExplorerPaneP
 
         {/* 变更文件区块（T2-11；折叠由 EXPLORER 头部图标控制） */}
         {!changesCollapsed && gitFiles.length > 0 && (
-          <div style={{ padding: '0 4px 2px' }}>
+          <div className={styles.changesSection}>
             <div
               role="status"
               aria-label={t('files.changeStats', {
@@ -183,22 +184,13 @@ export const FileExplorerPane = forwardRef<FileExplorerHandle, FileExplorerPaneP
                 additions: gitStatus.data?.additions ?? 0,
                 deletions: gitStatus.data?.deletions ?? 0,
               })}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                height: 24,
-                padding: '0 10px',
-                fontSize: 12,
-              }}
+              className={styles.changesSummary}
             >
-              <span style={{ color: 'var(--text-dim)' }}>
-                {t('files.changedCount', { count: gitFiles.length })}
-              </span>
-              <span style={{ color: GIT_STATUS_COLORS.added, fontFamily: 'var(--font-mono)' }}>
+              <span>{t('files.changedCount', { count: gitFiles.length })}</span>
+              <span className={`${styles.delta} ${styles.additions}`}>
                 +{gitStatus.data?.additions ?? 0}
               </span>
-              <span style={{ color: GIT_STATUS_COLORS.deleted, fontFamily: 'var(--font-mono)' }}>
+              <span className={`${styles.delta} ${styles.deletions}`}>
                 -{gitStatus.data?.deletions ?? 0}
               </span>
             </div>
@@ -213,19 +205,12 @@ export const FileExplorerPane = forwardRef<FileExplorerHandle, FileExplorerPaneP
                     : `${effectiveRoot}/${status.path}`;
                   openFile(absolute, true);
                 }}
-                className="flex w-full cursor-pointer items-center gap-1.5 rounded-[4px] px-2 py-[3px] text-left hover:bg-bg-hover"
-                style={{ height: 24 }}
+                className={styles.row}
               >
                 <span
                   aria-hidden="true"
-                  style={{
-                    flexShrink: 0,
-                    fontSize: 10,
-                    fontFamily: 'var(--font-mono)',
-                    fontWeight: 600,
-                    color: GIT_STATUS_COLORS[status.kind] ?? 'var(--text-dim)',
-                    minWidth: 10,
-                  }}
+                  className={styles.rowKind}
+                  style={{ color: GIT_STATUS_COLORS[status.kind] ?? 'var(--text-dim)' }}
                 >
                   {status.kind === 'modified'
                     ? 'M'
@@ -239,49 +224,16 @@ export const FileExplorerPane = forwardRef<FileExplorerHandle, FileExplorerPaneP
                             ? 'C'
                             : 'U'}
                 </span>
-                <span
-                  style={{
-                    minWidth: 0,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    fontSize: 11,
-                    color: 'var(--text-muted)',
-                  }}
-                >
-                  {status.path}
-                </span>
+                <span className={styles.rowPath}>{status.path}</span>
               </button>
             ))}
           </div>
         )}
 
-        {/* 文件搜索面板（T2-11） */}
+        {/* 文件搜索面板（T2-11）；样式对齐 dsh-file-explorer 的筛选框 */}
         {fileSearchOpen && (
-          <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)' }}>
-            <div style={{ position: 'relative' }}>
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-                style={{
-                  position: 'absolute',
-                  left: 8,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  color: 'var(--text-dim)',
-                  pointerEvents: 'none',
-                }}
-              >
-                <circle cx="11" cy="11" r="7" />
-                <path d="m20 20-4-4" />
-              </svg>
+          <div className={styles.searchPanel}>
+            <div className={styles.searchField}>
               <input
                 ref={searchInputRef}
                 value={searchQuery}
@@ -291,18 +243,8 @@ export const FileExplorerPane = forwardRef<FileExplorerHandle, FileExplorerPaneP
                 }}
                 placeholder={t('sidebar.searchFilesPlaceholder')}
                 aria-label={t('sidebar.searchFiles')}
-                style={{
-                  width: '100%',
-                  boxSizing: 'border-box',
-                  padding: '6px 24px',
-                  border: '1px solid var(--border)',
-                  borderRadius: 5,
-                  outline: 'none',
-                  background: 'var(--bg)',
-                  color: 'var(--text)',
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 11,
-                }}
+                spellCheck={false}
+                className={styles.filter}
               />
               {searchQuery && (
                 <button
@@ -310,31 +252,7 @@ export const FileExplorerPane = forwardRef<FileExplorerHandle, FileExplorerPaneP
                   onClick={() => setSearchQuery('')}
                   title={t('sidebar.clearSearch')}
                   aria-label={t('sidebar.clearSearch')}
-                  style={{
-                    position: 'absolute',
-                    right: 4,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 18,
-                    height: 18,
-                    padding: 0,
-                    border: 'none',
-                    borderRadius: 4,
-                    background: 'none',
-                    color: 'var(--text-dim)',
-                    cursor: 'pointer',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'var(--bg-hover)';
-                    e.currentTarget.style.color = 'var(--text)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'none';
-                    e.currentTarget.style.color = 'var(--text-dim)';
-                  }}
+                  className={styles.clear}
                 >
                   <svg
                     width="10"
@@ -356,25 +274,17 @@ export const FileExplorerPane = forwardRef<FileExplorerHandle, FileExplorerPaneP
             {hasSearchQuery && (
               <div style={{ paddingTop: 3 }}>
                 {searchLoading && (
-                  <div
-                    role="status"
-                    style={{ padding: '6px 2px', fontSize: 10, color: 'var(--text-dim)' }}
-                  >
+                  <div role="status" className={styles.searchHint}>
                     {t('sidebar.searchingFiles')}
                   </div>
                 )}
                 {!searchLoading && searchError && (
-                  <div
-                    role="alert"
-                    style={{ padding: '6px 2px', fontSize: 10, color: 'var(--red)' }}
-                  >
+                  <div role="alert" className={`${styles.searchHint} ${styles.searchError}`}>
                     {t('i18n.networkError')}
                   </div>
                 )}
                 {!searchLoading && !searchError && searchPaths.length === 0 && (
-                  <div style={{ padding: '6px 2px', fontSize: 10, color: 'var(--text-dim)' }}>
-                    {t('sidebar.noMatchingFiles')}
-                  </div>
+                  <div className={styles.searchHint}>{t('sidebar.noMatchingFiles')}</div>
                 )}
                 {!searchLoading && !searchError && searchPaths.length > 0 && (
                   <div>
@@ -384,19 +294,9 @@ export const FileExplorerPane = forwardRef<FileExplorerHandle, FileExplorerPaneP
                         type="button"
                         title={path}
                         onClick={() => openFile(path, false)}
-                        className="flex w-full cursor-pointer items-center rounded-[4px] px-2 text-left hover:bg-bg-hover"
-                        style={{ height: 24 }}
+                        className={styles.row}
                       >
-                        <span
-                          style={{
-                            minWidth: 0,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                            fontSize: 11,
-                            color: 'var(--text)',
-                          }}
-                        >
+                        <span className={styles.rowPath} style={{ color: 'var(--text)' }}>
                           {path}
                         </span>
                       </button>

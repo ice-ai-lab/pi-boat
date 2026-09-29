@@ -1,0 +1,97 @@
+/* FilesPane 样式（CSS Modules，web 宿主）。
+   2026 视觉对齐 dsh-file-explorer：顶栏 36px，标签与图标按钮走 28px 圆角（8 / 50%），
+   去掉标签与工具行之间的描边，hover 统一浮 `--bg-hover`。 */
+
+.topBar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  height: calc(36px + env(safe-area-inset-top));
+  padding-top: env(safe-area-inset-top);
+  padding-left: 6px;
+  padding-right: 6px;
+  background: var(--bar-tint);
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  user-select: none;
+  transition: background 0.12s, color 0.12s;
+}
+
+.tab:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.tabActive {
+  background: var(--bg);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.tabActive:hover {
+  background: var(--bg);
+}
+
+.tabIcon {
+  flex-shrink: 0;
+  color: var(--text-dim);
+}
+
+.tabActive .tabIcon {
+  color: var(--accent);
+}
+
+.tabsSlot {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.iconButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: color 0.12s, background 0.12s;
+}
+
+.iconButton:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.iconButtonActive {
+  background: var(--bg-selected);
+  color: var(--text);
+}
+
+.toolRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+  padding: 2px 6px;
+}

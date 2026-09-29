@@ -2,12 +2,12 @@ import { fileByteUrl, getFileName, getRelativeFilePath, isImagePath } from '@ice
 import { useGitStatusQuery } from '@ice-ai/client/react';
 import { FileTabs, FileViewer, useI18n } from '@ice-ai/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import workspace from '../layout/workspace.module.css';
 import { fileTabsStore } from '../services/file-tabs-store';
 import { insertMention } from '../services/mention-bus';
 import { useFileContent } from '../services/use-file-content';
 import { useFileTabs } from '../services/use-file-tabs';
 import { type FileExplorerHandle, FileExplorerPane } from './file-explorer-pane';
+import styles from './files-pane.module.css';
 
 /**
  * FilesPane（F3，右栏）：固定「文件浏览器」标签页（不可关闭）+ 打开文件页签 + 查看器。
@@ -104,18 +104,8 @@ export function FilesPane({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      {/* 顶行：固定「文件浏览器」页签 + 文件页签 + 全宽展开 + 隐藏（按设计规范） */}
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          flexShrink: 0,
-          height: 'calc(36px + env(safe-area-inset-top))',
-          paddingTop: 'env(safe-area-inset-top)',
-          background: 'var(--bar-tint)',
-          borderBottom: '1px solid var(--border)',
-        }}
-      >
+      {/* 顶行：固定「文件浏览器」页签 + 文件页签 + 全宽展开 + 隐藏（按 dsh-file-explorer 视觉） */}
+      <div className={styles.topBar}>
         <div
           role="tab"
           aria-selected={treeActive}
@@ -129,56 +119,42 @@ export function FilesPane({
             }
           }}
           onClick={() => setTreeActive(true)}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            height: 36,
-            paddingLeft: 12,
-            paddingRight: 12,
-            borderRight: '1px solid var(--border)',
-            background: treeActive ? 'var(--bg)' : 'transparent',
-            cursor: 'pointer',
-            fontSize: 12,
-            color: treeActive ? 'var(--text)' : 'var(--text-muted)',
-            whiteSpace: 'nowrap',
-            flexShrink: 0,
-            userSelect: 'none',
-            transition: 'background 0.1s, color 0.1s',
-          }}
+          className={`${styles.tab}${treeActive ? ` ${styles.tabActive}` : ''}`}
         >
           <svg
             aria-hidden="true"
-            width="12"
-            height="12"
+            width="14"
+            height="14"
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
+            className={styles.tabIcon}
           >
             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
           </svg>
-          <span style={{ fontWeight: treeActive ? 500 : 400 }}>{t('files.explorer')}</span>
+          <span>{t('files.explorer')}</span>
         </div>
-        {!treeActive && (
-          <div style={{ flex: 1, overflow: 'hidden' }}>
-            <FileTabs
-              tabs={state.tabs}
-              activePath={state.activePath}
-              relativePathOf={(path) =>
-                root === null ? getFileName(path) : getRelativeFilePath(path, root)
-              }
-              onActivate={(path) => fileTabsStore.activate(path)}
-              onClose={(path) => fileTabsStore.close(path)}
-            />
-          </div>
-        )}
-        {treeActive && <div style={{ flex: 1 }} />}
+        {/* 文件页签常驻：切回文件浏览器时不再把它们藏起来（否则无法切回） */}
+        <div className={styles.tabsSlot}>
+          <FileTabs
+            tabs={state.tabs}
+            activePath={treeActive ? null : state.activePath}
+            relativePathOf={(path) =>
+              root === null ? getFileName(path) : getRelativeFilePath(path, root)
+            }
+            onActivate={(path) => {
+              setTreeActive(false);
+              fileTabsStore.activate(path);
+            }}
+            onClose={(path) => fileTabsStore.close(path)}
+          />
+        </div>
         <button
           type="button"
-          className={workspace.filePanelExpandButton}
+          className={`${styles.iconButton}${expanded ? ` ${styles.iconButtonActive}` : ''}`}
           onClick={onToggleExpand}
           aria-controls="file-panel"
           aria-pressed={expanded}
@@ -212,27 +188,7 @@ export function FilesPane({
           aria-expanded={open}
           title="隐藏文件面板"
           aria-label="隐藏文件面板"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: 36,
-            height: 36,
-            padding: 0,
-            background: 'var(--bg-selected)',
-            border: 'none',
-            borderLeft: '1px solid var(--border)',
-            color: 'var(--text)',
-            cursor: 'pointer',
-            flexShrink: 0,
-            transition: 'color 0.12s',
-          }}
-          onMouseEnter={(event) => {
-            event.currentTarget.style.color = 'var(--accent)';
-          }}
-          onMouseLeave={(event) => {
-            event.currentTarget.style.color = 'var(--text)';
-          }}
+          className={styles.iconButton}
         >
           <svg
             width="16"
@@ -253,17 +209,7 @@ export function FilesPane({
       {treeActive ? (
         <div className="flex min-h-0 flex-1 flex-col">
           {/* 浏览器工具行（原左栏 EXPLORER 头部）：变更折叠 / 文件搜索 / 上传 / 刷新 */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'flex-end',
-              gap: 2,
-              flexShrink: 0,
-              padding: '3px 6px',
-              borderBottom: '1px solid var(--border)',
-            }}
-          >
+          <div className={styles.toolRow}>
             {changesCount > 0 && (
               <ExplorerToolButton
                 onClick={() => setChangesCollapsed((collapsed) => !collapsed)}
@@ -468,14 +414,14 @@ function ExplorerToolButton({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: 26,
-        height: 26,
+        width: 28,
+        height: 28,
         padding: 0,
         background,
         border: 'none',
         color,
         cursor: disabled ? 'default' : 'pointer',
-        borderRadius: 5,
+        borderRadius: '50%',
         flexShrink: 0,
         opacity: disabled ? 0.6 : 1,
         transition: 'color 0.3s, background 0.3s',

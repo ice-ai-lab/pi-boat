@@ -22,9 +22,10 @@ import { ImagePreview } from './image-preview';
  * - 有 git 改动且切到 diff → DiffView（unified patch 由宿主取）
  * - DOCX / 二进制 → 不假装能预览，给下载（后端不做 DOCX 转换，docs/07 §9）
  *
- * 抬头（`.file-viewer-toolbar`）按 参考实现 同形：路径 + `语言 · N lines · 体积` + 监听小圆点 +
- * （有改动才出现）内容/diff 切换 + 图标动作（提及 / 折行 / 下载）。尺寸一律走
- * `.file-viewer-icon-button` 的 24×24，别在组件里覆写 width，否则与 参考实现 并排看就会错位。
+ * 抬头（`.file-viewer-toolbar`）按 dsh-file-explorer 的标题行同形：路径 + `语言 · N lines · 体积`
+ * + 监听小圆点 + （有改动才出现）内容/diff 切换 + 图标动作（提及 / 折行 / 下载）。图标动作一律
+ * 走 `.file-viewer-icon-button` 的 28×28 圆形幽灵按钮，别在组件里覆写 width，否则与参照实现并排
+ * 看就会错位。
  */
 export interface FileViewerProps {
   tab: FileTab;
@@ -136,15 +137,12 @@ export function FileViewer({
           display: 'flex',
           alignItems: 'center',
           gap: 8,
-          padding: '5px 12px',
+          padding: '0 8px 0 12px',
           borderBottom: '1px solid var(--border)',
-          fontSize: 11,
-          color: 'var(--text-dim)',
           background: 'var(--bg)',
-          flexShrink: 0,
         }}
       >
-        <span className={styles.path} style={{ fontFamily: 'var(--font-mono)' }} title={tab.path}>
+        <span className={styles.path} title={tab.path}>
           {displayPath}
         </span>
         {meta !== null && (
@@ -170,7 +168,7 @@ export function FileViewer({
                 aria-pressed={sourceMode}
                 className={styles.modeButton}
                 style={{
-                  background: sourceMode ? 'var(--bg-selected)' : 'transparent',
+                  background: sourceMode ? 'var(--bg)' : 'transparent',
                   color: sourceMode ? 'var(--text)' : 'var(--text-muted)',
                 }}
               >
@@ -183,7 +181,7 @@ export function FileViewer({
                 aria-pressed={!sourceMode}
                 className={styles.modeButton}
                 style={{
-                  background: !sourceMode ? 'var(--bg-selected)' : 'transparent',
+                  background: !sourceMode ? 'var(--bg)' : 'transparent',
                   color: !sourceMode ? 'var(--text)' : 'var(--text-muted)',
                 }}
               >

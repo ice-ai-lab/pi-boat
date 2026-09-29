@@ -3,12 +3,15 @@ import type { FileListEntry, GitFileStatus, GitFileStatusKind } from '@ice-ai/pr
 import { useRef, useState } from 'react';
 import { useScrollbarVisibility } from '../utils/use-scrollbar-visibility';
 import { FileIcon } from './file-icon';
+import styles from './file-tree.module.css';
 
 /**
- * FileTree（T2-16：行几何 / git 徽标 / 行内「提及·下载」逐条按设计规范 `FileExplorer`）：
- * - 行：`paddingLeft: 8 + depth*14` / `height:24` / `gap:4` / `radius:4` / 文字 `var(--text)`
- * - git 徽标：14×14 / mono 11 / 600 / untracked 绿（var(--green)） / **仅未 hover 显示**
- * - hover 时右侧出现「提及」（`@`）与「下载」
+ * FileTree（2026 视觉替换自 dsh-file-explorer）：
+ * - 行：`height:28` / `paddingLeft: 8 + depth*12` / `gap:6` / `radius:8` / 文字 13px
+ * - chevron 12px（目录才显示，展开旋转 90°），图标 16px（目录走 `--accent`）
+ * - hover / 选中同为 `--bg-hover`（参照实现无边框、无底纹）
+ * - git 徽标：14×14 / mono 11 / 600 / **仅未 hover 显示**
+ * - hover 时右侧出现「提及」（`@`）与「下载」圆形幽灵按钮
  */
 export interface FileTreeProps {
   /** 根目录绝对路径（展示用） */
@@ -56,24 +59,41 @@ const GIT_STATUS_CODES: Record<GitFileStatusKind, string> = {
   conflict: 'C',
 };
 
+/** 缩进几何：参照实现的 `8 + depth * 12` */
+function indentOf(depth: number): number {
+  return 8 + depth * 12;
+}
+
+/** 展开箭头（dsh-file-explorer 同款 16viewBox / 12px 描边箭头） */
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      width={12}
+      height={12}
+      fill="none"
+      aria-hidden="true"
+      className={`${styles.chev}${open ? ` ${styles.chevOpen}` : ''}`}
+    >
+      <path
+        d="M6 3.5 10.5 8 6 12.5"
+        stroke="currentColor"
+        strokeWidth={1.7}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function GitStatusBadge({ status, label }: { status: GitFileStatus; label: string }) {
   return (
     <span
       role="img"
       title={label}
       aria-label={label}
-      style={{
-        width: 14,
-        height: 14,
-        flexShrink: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: GIT_STATUS_COLORS[status.kind],
-        fontFamily: 'var(--font-mono)',
-        fontSize: 11,
-        fontWeight: 600,
-      }}
+      className={styles.badge}
+      style={{ color: GIT_STATUS_COLORS[status.kind] }}
     >
       {GIT_STATUS_CODES[status.kind]}
     </span>
@@ -96,12 +116,12 @@ export function FileTree({
   const rootEntries = entriesByPath.get(root);
 
   if (rootEntries === undefined) {
-    return <p className="px-2 py-2 text-[11.5px] text-fg-faint">展开以加载文件…</p>;
+    return <p className={styles.hint}>展开以加载文件…</p>;
   }
 
   return (
     // ARIA tree 模式要求 role=tree/item/group（无等价原生元素）
-    <div ref={scrollRef} className="scrollbar-subtle min-h-0 flex-1 overflow-y-auto" role="tree">
+    <div ref={scrollRef} className={`scrollbar-subtle ${styles.tree}`} role="tree">
       <TreeLevel
         entries={sortEntries(rootEntries)}
         depth={0}
@@ -128,12 +148,12 @@ interface TreeLevelProps extends Omit<FileTreeProps, 'root'> {
 function TreeLevel({ entries, depth, ...rest }: TreeLevelProps) {
   return (
     // biome-ignore lint/a11y/useSemanticElements: ARIA tree 模式的 group 角色（无等价原生元素）
-    <div role="group">
+    <div role="group" className={styles.group}>
       {entries.map((entry) => (
         <TreeNode key={entry.path} entry={entry} depth={depth} {...rest} />
       ))}
       {entries.length === 0 && (
-        <p className="px-2 py-1 text-[11px] text-fg-faint" style={{ paddingLeft: depth * 14 + 8 }}>
+        <p className={styles.hint} style={{ paddingLeft: indentOf(depth) }}>
           空目录
         </p>
       )}
@@ -161,59 +181,32 @@ function TreeNode({
   const status = gitStatus?.get(relative);
   const [hovered, setHovered] = useState(false);
   const loading = loadingPaths?.has(entry.path) === true;
+  const active = activePath === entry.path;
 
   return (
     <div role="treeitem" tabIndex={-1} aria-expanded={isDir ? expanded : undefined}>
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: 按设计规范文件树行（点击展开/打开） */}
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: 按参照实现文件树行（点击展开/打开） */}
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: 同上——键盘入口由 role=tree 的容器与行内按钮提供 */}
       <div
+        className={`${styles.row}${active ? ` ${styles.rowActive}` : ''}`}
+        style={{ paddingLeft: indentOf(depth) }}
         onClick={() => (isDir ? onToggleDir(entry.path) : onOpenFile(entry.path))}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        style={{
-          position: 'relative',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 4,
-          paddingLeft: 8 + depth * 14,
-          paddingRight: 8,
-          height: 24,
-          cursor: 'pointer',
-          background: hovered ? 'var(--bg-hover)' : 'transparent',
-          borderRadius: 4,
-          userSelect: 'none',
-        }}
       >
         {isDir ? (
-          <svg
-            width="10"
-            height="10"
-            viewBox="0 0 10 10"
-            fill="none"
-            stroke="var(--text-dim)"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-            style={{
-              flexShrink: 0,
-              transform: expanded ? 'rotate(90deg)' : 'none',
-              transition: 'transform 0.1s',
-            }}
-          >
-            <polyline points="3 2 7 5 3 8" />
-          </svg>
+          <Chevron open={expanded} />
         ) : (
-          <span style={{ width: 10, flexShrink: 0 }} />
+          <span className={`${styles.chev} ${styles.chevNone}`} />
         )}
-        <span style={{ flexShrink: 0, display: 'flex', alignItems: 'center' }}>
+        <span className={styles.icon}>
           {loading ? (
             <svg
-              width="10"
-              height="10"
+              width="12"
+              height="12"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="var(--text-dim)"
+              stroke="currentColor"
               strokeWidth="2"
               strokeLinecap="round"
               aria-hidden="true"
@@ -221,58 +214,36 @@ function TreeNode({
               <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4" />
             </svg>
           ) : (
-            <FileIcon name={entry.name} isDir={isDir} expanded={expanded} />
+            <FileIcon
+              name={entry.name}
+              isDir={isDir}
+              expanded={expanded}
+              tone={isDir ? 'accent' : 'muted'}
+            />
           )}
         </span>
-        <span
-          style={{
-            fontSize: 12,
-            color: 'var(--text)',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            flex: 1,
-          }}
-          title={entry.path}
-        >
+        <span className={styles.name} title={entry.path}>
           {entry.name}
         </span>
         {!hovered && !isDir && status !== undefined && (
           <GitStatusBadge status={status} label={status.kind} />
         )}
-        {/* hover：右侧「提及 / 下载」（T2-16 / L22） */}
+        {/* hover：右侧「提及 / 下载」 */}
         {onAtMention !== undefined && hovered && (
           <button
             type="button"
+            className={styles.action}
+            style={{ right: isDir ? 4 : 30 }}
             onClick={(e) => {
               e.stopPropagation();
               onAtMention(relative, isDir);
             }}
             title="插入路径"
-            style={{
-              position: 'absolute',
-              right: isDir ? 4 : 28,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 4,
-              padding: '0 8px',
-              height: 20,
-              background: 'var(--bg-panel)',
-              border: '1px solid var(--border)',
-              borderRadius: 4,
-              color: 'var(--accent)',
-              cursor: 'pointer',
-              fontSize: 11,
-              fontWeight: 600,
-              whiteSpace: 'nowrap',
-            }}
+            aria-label="插入路径"
           >
             <svg
-              width="10"
-              height="10"
+              width="12"
+              height="12"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -284,7 +255,6 @@ function TreeNode({
               <circle cx="12" cy="12" r="4" />
               <path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8" />
             </svg>
-            提及
           </button>
         )}
         {hovered && !isDir && (
@@ -293,31 +263,13 @@ function TreeNode({
             download
             onClick={(e) => e.stopPropagation()}
             title="下载"
-            style={{
-              position: 'absolute',
-              right: 4,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 4,
-              padding: '0 5px',
-              height: 20,
-              background: 'var(--bg-panel)',
-              border: '1px solid var(--border)',
-              borderRadius: 4,
-              color: 'var(--text-muted)',
-              cursor: 'pointer',
-              fontSize: 11,
-              fontWeight: 600,
-              whiteSpace: 'nowrap',
-              textDecoration: 'none',
-            }}
+            aria-label="下载"
+            className={styles.action}
+            style={{ right: 4 }}
           >
             <svg
-              width="11"
-              height="11"
+              width="12"
+              height="12"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -330,17 +282,7 @@ function TreeNode({
               <polyline points="7 10 12 15 17 10" />
               <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
-            <span
-              style={{
-                position: 'absolute',
-                width: 1,
-                height: 1,
-                overflow: 'hidden',
-                clip: 'rect(0,0,0,0)',
-              }}
-            >
-              下载
-            </span>
+            <span className="sr-only">下载</span>
           </a>
         )}
       </div>

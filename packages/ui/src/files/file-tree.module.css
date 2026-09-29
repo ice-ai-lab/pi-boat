@@ -1,0 +1,123 @@
+/* FileTree 样式（CSS Modules，files 域）。
+   2026 视觉替换为 dsh-file-explorer 的行几何：28px 行 / 圆角 8 / 缩进 12·depth /
+   chevron 12 + 图标 16 + 名字 13px；hover 与选中同为 `--bg-hover`（无边框、无底纹）。 */
+
+.tree {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-bottom: 4px;
+}
+
+.group {
+  display: block;
+}
+
+.hint {
+  padding: 2px 8px;
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.error {
+  color: var(--red);
+}
+
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  user-select: none;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.row:hover,
+.rowActive {
+  background: var(--bg-hover);
+}
+
+.chev {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  flex: none;
+  color: var(--text-dim);
+  transition: transform 0.15s ease;
+}
+
+.chevOpen {
+  transform: rotate(90deg);
+}
+
+/* 非目录行占位：保持名字的起始列一致（对齐 dsh-file-explorer 的 .dshfx-chev-none） */
+.chevNone {
+  visibility: hidden;
+}
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--text-dim);
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.badge {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* hover 才出现的行内动作（提及 / 下载）：圆形幽灵按钮，进深由 `--bg` 提供 */
+.action {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text-dim);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.action:hover {
+  background: var(--bg-selected);
+  color: var(--text);
+}

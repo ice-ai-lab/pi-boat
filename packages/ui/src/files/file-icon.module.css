@@ -1,4 +1,6 @@
-/* Catppuccin 文件图标（CSS Modules，阶段二批次 2）：.icon → .icon（T2-18） */
+/* Catppuccin 文件图标（CSS Modules，阶段二批次 2）：.icon → .icon（T2-18）。
+   2026 视觉对齐 dsh-file-explorer：目录图标走强调色、文件图标走三级文字色，
+   由调用方通过 `--icon-color` 覆盖（默认 `--text-dim`）。 */
 .icon {
   display: block;
   flex-shrink: 0;
@@ -9,12 +11,12 @@
 }
 @supports (mask-image: url("mask.svg")) or (-webkit-mask-image: url("mask.svg")) {
   .icon {
-    background: var(--text-dim);
+    background: var(--icon-color, var(--text-dim));
     mask: center / contain no-repeat var(--catppuccin-icon-light);
     -webkit-mask: center / contain no-repeat var(--catppuccin-icon-light);
   }
   :global(html.dark) .icon {
-    background: var(--text-dim);
+    background: var(--icon-color, var(--text-dim));
     mask-image: var(--catppuccin-icon-dark);
     -webkit-mask-image: var(--catppuccin-icon-dark);
   }

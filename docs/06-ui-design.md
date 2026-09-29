@@ -144,6 +144,13 @@
 `.branch-kids` / `.git M|A|U` 徽标）、`ChangesList`（`.chg-row` + `+/-` delta）、`CodeViewer`
 （`.viewer-*`）、`DockTabs`（`.dtab`）、`WorkspaceMenu`（`.ws-menu`）。
 
+> **2026（F3 文件域视觉替换）**：右栏文件浏览器 / 文件查看器不再对齐原型 v3，改用外部参考
+> `mabaoguo9527/dsh-file-explorer` 的语言：树行 28px / 圆角 8 / 缩进 `8 + 12·depth`、chevron 12 +
+> 图标 16（目录走 `--accent`、文件走 `--text-dim`）、hover 与选中同为 `--bg-hover`、无行内分隔线；
+> 查看器标题行 36px、图标动作改 28×28 圆形幽灵按钮、内容/diff 分段改填充底；筛选框 28px /
+> 圆角 10 / 透明底、聚焦才描边；标签与工具行改 28px 圆角胶囊。样式落在 `files/*.module.css`
+> 与 `apps/web/src/panes/*.module.css`（ADR-0028 的按域就近模块化口径）。
+
 ### 4.4 不进 ui（留 `apps/web`）
 
 AppShell 三栏布局 + 拖拽/折叠（`makeDrag`）、主题切换、路由、QueryClient、Suspense/ErrorBoundary

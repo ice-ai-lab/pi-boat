@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { cn } from '../utils/cn';
+import styles from './code-viewer.module.css';
 
 /**
  * CodeViewer（docs/06 §4.3）：行号 + 等宽正文。
@@ -29,25 +29,15 @@ export function CodeViewer({
   }, [code, maxLines]);
 
   return (
-    <div className={cn('min-h-0 flex-1 overflow-auto', className)}>
-      <table className="w-full border-collapse font-mono text-[12.5px] leading-[1.6]">
+    <div className={`${styles.scroll}${className === undefined ? '' : ` ${className}`}`}>
+      <table className={styles.table}>
         <tbody>
           {lines.map((line, index) => (
             // 代码行以行号为身份（文件内容整体替换时才重算）
             // biome-ignore lint/suspicious/noArrayIndexKey: 见上行说明
-            <tr key={index} className="align-top">
-              <td
-                className="select-none border-r border-line-1 pr-3 pl-2 text-right text-[11px] text-fg-faint"
-                style={{ width: 1, whiteSpace: 'nowrap' }}
-              >
-                {index + 1}
-              </td>
-              <td
-                className={cn(
-                  'pl-3 pr-4 text-fg',
-                  wrapLines ? 'whitespace-pre-wrap break-all' : 'whitespace-pre',
-                )}
-              >
+            <tr key={index} className={styles.row}>
+              <td className={styles.gutter}>{index + 1}</td>
+              <td className={`${styles.code} ${wrapLines ? styles.wrap : styles.nowrap}`}>
                 {line.length === 0 ? ' ' : line}
               </td>
             </tr>
@@ -55,7 +45,7 @@ export function CodeViewer({
         </tbody>
       </table>
       {truncated && (
-        <p className="px-3 py-2 text-[11.5px] text-fg-faint">
+        <p className={styles.truncated}>
           文件过大，仅显示前 {maxLines.toLocaleString()} 行（完整内容请下载）
         </p>
       )}

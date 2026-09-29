@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { cn } from '../utils/cn';
+import styles from './image-preview.module.css';
 
 /**
  * ImagePreview（docs/06 §4.3）：自适应/原始尺寸切换 + 缩放。
@@ -28,12 +28,12 @@ export function ImagePreview({ src, alt, className }: ImagePreviewProps) {
   const [zoom, setZoom] = useState(1);
 
   return (
-    <div className={cn('flex min-h-0 flex-1 flex-col', className)}>
-      <div className="hairline-b flex shrink-0 items-center gap-2 border-line-1 px-3 py-1.5 text-[11.5px]">
+    <div className={`${styles.root}${className === undefined ? '' : ` ${className}`}`}>
+      <div className={styles.bar}>
         <button
           type="button"
           onClick={() => setFit((previous) => !previous)}
-          className="sq px-2 py-0.5 text-fg-subtle hover:bg-hover hover:text-fg"
+          className={styles.button}
         >
           {fit ? '原始尺寸' : '适应窗口'}
         </button>
@@ -44,11 +44,11 @@ export function ImagePreview({ src, alt, className }: ImagePreviewProps) {
             setFit(false);
             setZoom((previous) => nextZoom(previous, 'out'));
           }}
-          className="sq h-6 w-6 text-fg-subtle hover:bg-hover hover:text-fg"
+          className={styles.iconButton}
         >
           −
         </button>
-        <span className="font-mono text-fg-faint">{Math.round(zoom * 100)}%</span>
+        <span className={styles.zoom}>{Math.round(zoom * 100)}%</span>
         <button
           type="button"
           aria-label="放大"
@@ -56,17 +56,21 @@ export function ImagePreview({ src, alt, className }: ImagePreviewProps) {
             setFit(false);
             setZoom((previous) => nextZoom(previous, 'in'));
           }}
-          className="sq h-6 w-6 text-fg-subtle hover:bg-hover hover:text-fg"
+          className={styles.iconButton}
         >
           +
         </button>
       </div>
-      <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-3">
+      <div className={styles.stage}>
         <img
           src={src}
           alt={alt}
-          className={cn('sq', fit ? 'max-h-full max-w-full object-contain' : 'max-w-none')}
-          style={fit ? undefined : { width: `${zoom * 100}%` }}
+          className={styles.image}
+          style={
+            fit
+              ? { maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }
+              : { maxWidth: 'none', width: `${zoom * 100}%` }
+          }
         />
       </div>
     </div>

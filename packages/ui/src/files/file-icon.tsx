@@ -42,19 +42,39 @@ type CatppuccinIconName =
 
 const CATPPUCCIN_ICONS_ROOT = '/icons/catppuccin';
 
-function CatppuccinIcon({ name, size = 14 }: { name: CatppuccinIconName; size?: number }) {
+/** 图标着色：muted = 三级文字色（默认），accent = 强调色（文件树里的目录，对齐 dsh-file-explorer） */
+export type FileIconTone = 'muted' | 'accent';
+
+function CatppuccinIcon({
+  name,
+  size = 14,
+  tone = 'muted',
+}: {
+  name: CatppuccinIconName;
+  size?: number;
+  tone?: FileIconTone;
+}) {
   const style = {
     width: size,
     height: size,
     '--catppuccin-icon-light': `url(${CATPPUCCIN_ICONS_ROOT}/latte/${name}.svg)`,
     '--catppuccin-icon-dark': `url(${CATPPUCCIN_ICONS_ROOT}/mocha/${name}.svg)`,
+    '--icon-color': tone === 'accent' ? 'var(--accent)' : 'var(--text-dim)',
   } as CSSProperties;
 
   return <span aria-hidden="true" className={styles.icon} style={style} />;
 }
 
-function FolderGlyph({ size = 14, open = false }: { size?: number; open?: boolean }) {
-  return <CatppuccinIcon name={open ? '_folder_open' : '_folder'} size={size} />;
+function FolderGlyph({
+  size = 14,
+  open = false,
+  tone = 'muted',
+}: {
+  size?: number;
+  open?: boolean;
+  tone?: FileIconTone;
+}) {
+  return <CatppuccinIcon name={open ? '_folder_open' : '_folder'} size={size} tone={tone} />;
 }
 
 const EXTENSION_ICONS: Record<string, CatppuccinIconName> = {
@@ -141,12 +161,14 @@ export interface FileIconProps {
   name: string;
   isDir?: boolean;
   expanded?: boolean;
+  /** 目录图标默认走三级文字色；文件树里传 `accent` 让目录有辨识度 */
+  tone?: FileIconTone;
   className?: string;
 }
 
 /** 文件/目录图标（FileTree 消费；等价设计规范的 FolderIcon + getFileIcon 组合） */
-export function FileIcon({ name, isDir = false, expanded = false }: FileIconProps) {
-  return isDir ? <FolderGlyph open={expanded} /> : getFileIcon(name, 14);
+export function FileIcon({ name, isDir = false, expanded = false, tone = 'muted' }: FileIconProps) {
+  return isDir ? <FolderGlyph open={expanded} tone={tone} /> : getFileIcon(name, 14);
 }
 
 export { FileIcon as default };

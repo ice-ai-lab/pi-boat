@@ -1,7 +1,7 @@
 /* 工作区布局（CSS Modules，web 自有）：
    sidebar-container → .sidebar（+ .isOpen/.isClosed/.isResizing）、sidebar-overlay-backdrop → .sidebarBackdrop、
    right-panel-container → .rightPanel（+ 同上 + .isFullWidth）、right-panel-overlay-backdrop → .rightPanelBackdrop、
-   right-panel-resize-handle → .rightPanelResizeHandle、file-panel-expand-button → .filePanelExpandButton。
+   right-panel-resize-handle → .rightPanelResizeHandle。
    原属 ui 的规则已迁回：panel-resize-handle → ui/styles/resize-handles.css、
    directory-picker-* → ui/settings/directory-picker.module.css、chat-input-textarea → ui/chat/chat.module.css。 */
 .rightPanelBackdrop {
@@ -149,26 +149,6 @@
 
 }
 
-.filePanelExpandButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  padding: 0;
-  background: var(--bg-selected);
-  border: none;
-  border-left: 1px solid var(--border);
-  color: var(--text);
-  cursor: pointer;
-}
-
-.filePanelExpandButton:hover,
-.filePanelExpandButton[aria-pressed="true"] {
-  color: var(--accent);
-}
-
 /* 侧栏底栏：毛玻璃条（原型 `.sb-foot` 的顶边发丝线 + 向上渐变）。
    它绝对定位压在会话列表之上（不占流程空间，列表一直铺到侧栏底边），列表滚到末端时从玻璃后面
    滤过——这才是毛玻璃看得见的来源；列表末端的内边距由 `--sidebar-list-bottom-inset` 补给
@@ -305,7 +285,6 @@
       min-width: 0;
     }
 
-    .filePanelExpandButton,
     .rightPanelBackdrop {
       display: none;
     }
