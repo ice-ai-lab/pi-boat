@@ -85,7 +85,7 @@ export const jaLocale: LocalePlugin = {
     'session.inputUncached': '未キャッシュ読み取り',
     'session.output': '出力',
     'session.cacheRead': 'キャッシュ読み取り',
-    'session.cost': 'コスト',
+    'session.cost': 'コスト（USD）',
     'session.context': 'コンテキスト',
     'session.cacheHitRate': '平均キャッシュヒット率',
     'session.statsTitle': 'セッション統計',

@@ -103,7 +103,7 @@ function PopoverBody({
   const ctx = contextUsage ?? stats.contextUsage ?? null;
   if (stats.cost > 0) {
     // 金额是 SDK 按模型目录费率算好的 USD（docs/06 §3：本仓不换汇），显式标出币种
-    tokenRows.push({ label: t('session.cost'), value: `$${stats.cost.toFixed(4)} USD` });
+    tokenRows.push({ label: t('session.cost'), value: `$${stats.cost.toFixed(4)}` });
   }
   if (ctx?.contextWindow) {
     tokenRows.push({

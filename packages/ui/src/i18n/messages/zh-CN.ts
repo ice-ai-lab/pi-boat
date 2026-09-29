@@ -84,7 +84,7 @@ export const zhCNLocale: LocalePlugin = {
     'session.inputUncached': '未缓存读取',
     'session.output': '输出',
     'session.cacheRead': '缓存读取',
-    'session.cost': '费用',
+    'session.cost': '费用（美元）',
     'session.context': '上下文',
     'session.cacheHitRate': '平均缓存命中率',
     'session.statsTitle': '会话统计',

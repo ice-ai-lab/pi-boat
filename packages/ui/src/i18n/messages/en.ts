@@ -85,7 +85,7 @@ export const enLocale: LocalePlugin = {
     'session.inputUncached': 'Uncached read',
     'session.output': 'Output',
     'session.cacheRead': 'Cache Read',
-    'session.cost': 'Cost',
+    'session.cost': 'Cost (USD)',
     'session.context': 'Context',
     'session.cacheHitRate': 'Avg cache hit rate',
     'session.statsTitle': 'Session stats',
