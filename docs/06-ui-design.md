@@ -341,6 +341,13 @@ Lucide、`cva` + `clsx` + `tailwind-merge`（`cn()`）、markdown 走 `react-mar
   不得加版本号 / token 估算，也不依赖「上下文文件重载后 prompt 会变」以外的任何实时性。
   纯聊天会话会带上 pi 的身份/`<tools>(none)</tools>`/`<docs>`/`<cwd>` 与 `<project_context>` 包装，属**有意**结果
 
+**顶部面板壳（系统提示词 / 工具定义共用 `PanelCard`）**：
+
+- 材质：与会话统计浮层同款「弹层渐变毛玻璃」——`--glass-pop` 渐变底 + `--glass-pop-blur`（64px）+
+  顶边高光 `--glass-pop-rim` + `--glass-pop-shadow` 三层落地阴影 + 12px 圆角（用户 2026-09-28 要求统一）
+- 工具定义两栏（列表 + 参数/准则详情）高度按内容撑，上限 `min(600px, 68dvh)`；
+  上限落在外层 `.bodyFlush` 而不是网格 `.split`（否则网格自动行不收缩、两栏内滚失效）
+
 ### 11.3 已收口的 M1 流程/规格细节（2026-09-22）
 
 这五项不是架构分叉，但不确认就会先卡住第一行代码。**现已全部定案**：

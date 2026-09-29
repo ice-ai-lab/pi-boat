@@ -2,12 +2,12 @@
    sidebar/list/item/empty=tool-definitions-*、detail/scroll/section/sectionLabel/description/fields/field/fieldName/fieldValue/type/meta/noParameters/guidelines=tool-definition-*。原全局类：web-ui.css 拆分
    卡片壳（head / rule / body）在 panel-card.module.css；本文件只管两栏主体 `.split`。 */
 
-/* 两栏主体（左：工具列表，右：参数/准则详情） */
+/* 两栏主体（左：工具列表，右：参数/准则详情）。
+   高度按内容撑（短内容不再在底部留一大片空白），上限由宿主 `.bodyFlush` 的 max-height 收口 */
 .split {
   display: grid;
   grid-template-columns: clamp(112px, 26%, 220px) minmax(0, 1fr);
   width: 100%;
-  height: min(600px, 68dvh);
   min-height: 240px;
   overflow: hidden;
 }

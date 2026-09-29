@@ -1,7 +1,9 @@
 /* 顶部活动面板的通用玻璃卡（系统提示词 / 工具定义）。
-   版面与材质照 docs/design/piboat-web-v3.html 的 `.pop` / `.pop-head` / `.pop-rule` / `.pop-body`：
+   版面照 docs/design/piboat-web-v3.html 的 `.pop` / `.pop-head` / `.pop-rule` / `.pop-body`：
    head（图标 + 标题 + 右侧元信息 + 收起键）+ 0.5px 发丝线 + body。
-   材质：`--menu` 平涂玻璃 + 40px 强模糊 + 14px 圆角 + 双段落影，不是纯色卡。
+   材质与会话统计浮层（session-info-popover）统一走「弹层渐变毛玻璃」`--glass-pop*`：
+   渐变底（左上镜面 + 竖向冷调渐变）+ 64px 强模糊 + 顶边高光描边 + 三层落地阴影 + 12px 圆角
+   （用户 2026-09-28 要求系统 / 工具弹窗与统计浮层同款效果）。
    可用高度由宿主经 `--panel-max-height` 传入（`top` 之下的视口余量）。 */
 
 @keyframes panelCardIn {
@@ -20,15 +22,17 @@
   flex-direction: column;
   max-height: var(--panel-max-height, min(72dvh, 680px));
   overflow: hidden;
-  border-radius: 14px;
-  background: var(--menu);
-  -webkit-backdrop-filter: blur(40px) saturate(150%);
-  backdrop-filter: blur(40px) saturate(150%);
+  border-radius: 12px; /* 与会话统计浮层一致（--r-md） */
+  background: var(--glass-pop);
+  -webkit-backdrop-filter: var(--glass-pop-blur);
+  backdrop-filter: var(--glass-pop-blur);
+  /* 外发丝线 → 顶边高光 → 玻璃内描边 → 三层落地阴影（同 session-info-popover） */
   box-shadow:
     0 0 0 0.5px var(--border),
-    var(--elev-panel),
-    0 16px 48px rgba(0, 0, 0, 0.12);
-  animation: panelCardIn 0.18s cubic-bezier(0.4, 0, 0.2, 1) both;
+    inset 0 0.5px 0 var(--glass-pop-rim),
+    inset 0 0 0 0.5px color-mix(in srgb, var(--glass-pop-rim) 55%, transparent),
+    var(--glass-pop-shadow);
+  animation: panelCardIn 0.18s cubic-bezier(0.32, 0.72, 0, 1) both;
 }
 
 .head {
@@ -36,9 +40,9 @@
   flex: none;
   align-items: center;
   gap: 8px;
-  padding: 13px 12px 11px 16px;
-  font-size: 13px;
-  font-weight: 600;
+  padding: 10px 14px 8px;
+  font-size: 12.5px;
+  font-weight: 650;
   color: var(--text);
 }
 
@@ -92,20 +96,25 @@
 .rule {
   flex: none;
   height: 0.5px;
+  margin: 0 14px;
   background: var(--border);
 }
 
 /* 带内边距、自身滚动的 body（系统提示词） */
 .body {
   min-height: 0;
-  padding: 14px 16px 16px;
+  padding: 14px;
   overflow-y: auto;
 }
 
-/* 无内边距、不滚动的 body（工具面板自行管理两栏滚动） */
+/* 无内边距、不滚动的 body（工具面板自行管理两栏滚动）。
+   ⚠️ `max-height` 必须落在这层而不是 `.split`：网格容器一旦被 max-height 截断，
+   自动行仍按内容撑高（子项不收缩、内层 overflow 也不滚），内容会被裁掉。
+   放在 flex 容器上，`.split` 作为被拉伸的 flex 子项拿到确定高度，两栏才恢复自滚。 */
 .bodyFlush {
   display: flex;
   min-height: 0;
   flex: 1;
+  max-height: min(600px, 68dvh);
   overflow: hidden;
 }
