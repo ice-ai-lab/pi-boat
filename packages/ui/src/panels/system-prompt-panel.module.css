@@ -1,33 +1,54 @@
-/* 系统提示词面板（CSS Modules）：panel/scroll/text/empty（原组件内联 <style> 收敛，2026 清理） */
+/* 系统提示词面板：内嵌正文框 + 底部 chips。
+   版面照 docs/design/piboat-web-v3.html 的 `.sysprompt` / `.pop-chips` / `.chip`；
+   卡片壳（head / rule / body）在 panel-card.module.css。 */
 
-.panel {
-  display: flex;
-  height: min(600px, 75dvh);
-  min-height: 220px;
-  flex-direction: column;
-  background: var(--bg-panel);
-  border-bottom: 1px solid var(--border);
-}
-
-.scroll {
-  min-height: 0;
-  flex: 1;
-  overflow: auto;
-  padding: 12px 16px;
-}
-
-.text {
-  color: var(--text-muted);
+.prompt {
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 12px 14px;
+  border: 0.5px solid var(--border);
+  border-radius: 10px;
+  background: var(--code-bg);
+  color: var(--text-2);
   font-family: var(--font-mono);
-  font-size: 12px;
-  line-height: 1.6;
+  font-size: 11.5px;
+  /* 原型 .sysprompt：17px 行高（不用 1.65 倍，会偏大） */
+  line-height: 17px;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
 
-.empty {
-  padding: 10px 0;
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.chip,
+.chipAct {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 9px;
+  border: none;
+  border-radius: 7px;
+  background: var(--bg-hover);
   color: var(--text-muted);
-  font-size: 12px;
-  font-style: italic;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.chipAct {
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+
+.chipAct:hover {
+  background: var(--bg-selected);
+  color: var(--text);
 }

@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import { useEffect, useMemo, useState } from 'react';
 import { useI18n } from '../i18n/i18n-provider';
+import { PanelCard } from './panel-card';
 import styles from './tool-definitions-panel.module.css';
 
 /** 工具项（协议 `ToolInfo` 的展示子集：`parameters` / `promptGuidelines` 来自 SDK） */
@@ -118,9 +119,29 @@ function EmptyState({ children }: { children: string }) {
 export interface ToolDefinitionsPanelProps {
   tools: ToolDefinitionView[] | null;
   loading: boolean;
+  onClose(): void;
 }
 
-export function ToolDefinitionsPanel({ tools, loading }: ToolDefinitionsPanelProps) {
+function WrenchIcon() {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      {/* 原型 #i-wrench */}
+      <path d="M14.7 6.3a4.5 4.5 0 0 0-6 5.6L3 17.6V21h3.4l5.7-5.7a4.5 4.5 0 0 0 5.6-6L14.5 12 12 9.5l2.7-3.2Z" />
+    </svg>
+  );
+}
+
+export function ToolDefinitionsPanel({ tools, loading, onClose }: ToolDefinitionsPanelProps) {
   const { t } = useI18n();
   const activeTools = useMemo(() => tools?.filter((tool) => tool.active) ?? null, [tools]);
   const [selectedToolName, setSelectedToolName] = useState<string | null>(null);
@@ -138,98 +159,106 @@ export function ToolDefinitionsPanel({ tools, loading }: ToolDefinitionsPanelPro
   const fields = selectedTool ? getToolParameterFields(selectedTool.parameters) : [];
 
   return (
-    <div className={styles.panel}>
-      <nav className={styles.sidebar} aria-label={t('tools.title')}>
-        <div className={styles.list}>
-          {activeTools && activeTools.length > 0 ? (
-            activeTools.map((tool) => {
-              const selected = tool.name === selectedTool?.name;
-              return (
-                <button
-                  key={tool.name}
-                  type="button"
-                  className={clsx(styles.item, selected && styles.selected)}
-                  aria-pressed={selected}
-                  onClick={() => setSelectedToolName(tool.name)}
-                >
-                  <code>{tool.name}</code>
-                </button>
-              );
-            })
-          ) : activeTools ? (
-            <EmptyState>{t('tools.noTools')}</EmptyState>
-          ) : (
-            <EmptyState>{loading ? t('tools.loading') : t('tools.load')}</EmptyState>
-          )}
-        </div>
-      </nav>
-
-      <section className={styles.detail} aria-label={t('tools.details')}>
-        {selectedTool ? (
-          <div className={styles.scroll}>
-            {selectedTool.description !== '' && (
-              <section className={styles.section}>
-                <div className={styles.sectionLabel}>{t('tools.description')}</div>
-                <div className={styles.description}>{selectedTool.description}</div>
-              </section>
+    <PanelCard
+      icon={<WrenchIcon />}
+      title={t('tools.title')}
+      meta={activeTools ? t('tools.count', { count: activeTools.length }) : undefined}
+      onClose={onClose}
+      padded={false}
+    >
+      <div className={styles.split}>
+        <nav className={styles.sidebar} aria-label={t('tools.title')}>
+          <div className={styles.list}>
+            {activeTools && activeTools.length > 0 ? (
+              activeTools.map((tool) => {
+                const selected = tool.name === selectedTool?.name;
+                return (
+                  <button
+                    key={tool.name}
+                    type="button"
+                    className={clsx(styles.item, selected && styles.selected)}
+                    aria-pressed={selected}
+                    onClick={() => setSelectedToolName(tool.name)}
+                  >
+                    <code>{tool.name}</code>
+                  </button>
+                );
+              })
+            ) : activeTools ? (
+              <EmptyState>{t('tools.noTools')}</EmptyState>
+            ) : (
+              <EmptyState>{loading ? t('tools.loading') : t('tools.load')}</EmptyState>
             )}
+          </div>
+        </nav>
 
-            <section className={styles.section}>
-              <div className={styles.sectionLabel}>
-                <span>{t('tools.parameters')}</span>
-                <span>{t('tools.parameterCount', { count: fields.length })}</span>
-              </div>
-              {fields.length > 0 ? (
-                <div className={styles.fields}>
-                  {fields.map((field) => (
-                    <div className={styles.field} key={field.name}>
-                      <div className={styles.fieldName}>
-                        <code>{field.name}</code>
-                        <span className={field.required ? styles.required : undefined}>
-                          {t(field.required ? 'tools.required' : 'tools.optional')}
-                        </span>
-                      </div>
-                      <div className={styles.fieldValue}>
-                        <code className={styles.type}>{field.type}</code>
-                        {field.description !== undefined && <div>{field.description}</div>}
-                        {field.allowedValues !== undefined && (
-                          <div className={styles.meta}>
-                            {t('tools.allowedValues')}: <code>{field.allowedValues}</code>
-                          </div>
-                        )}
-                        {field.defaultValue !== undefined && (
-                          <div className={styles.meta}>
-                            {t('tools.defaultValue')}: <code>{field.defaultValue}</code>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className={styles.noParameters}>{t('tools.noParameters')}</div>
-              )}
-            </section>
-
-            {selectedTool.promptGuidelines !== undefined &&
-              selectedTool.promptGuidelines.length > 0 && (
+        <section className={styles.detail} aria-label={t('tools.details')}>
+          {selectedTool ? (
+            <div className={styles.scroll}>
+              {selectedTool.description !== '' && (
                 <section className={styles.section}>
-                  <div className={styles.sectionLabel}>{t('tools.guidelines')}</div>
-                  <ul className={styles.guidelines}>
-                    {selectedTool.promptGuidelines.map((guideline, index) => (
-                      // biome-ignore lint/suspicious/noArrayIndexKey: 准则文本可能重复，位置即身份
-                      <li key={`${selectedTool.name}:${index}`}>{guideline}</li>
-                    ))}
-                  </ul>
+                  <div className={styles.sectionLabel}>{t('tools.description')}</div>
+                  <div className={styles.description}>{selectedTool.description}</div>
                 </section>
               )}
-          </div>
-        ) : (
-          <EmptyState>
-            {activeTools ? t('tools.noTools') : loading ? t('tools.loading') : t('tools.load')}
-          </EmptyState>
-        )}
-      </section>
-    </div>
+
+              <section className={styles.section}>
+                <div className={styles.sectionLabel}>
+                  <span>{t('tools.parameters')}</span>
+                  <span>{t('tools.parameterCount', { count: fields.length })}</span>
+                </div>
+                {fields.length > 0 ? (
+                  <div className={styles.fields}>
+                    {fields.map((field) => (
+                      <div className={styles.field} key={field.name}>
+                        <div className={styles.fieldName}>
+                          <code>{field.name}</code>
+                          <span className={field.required ? styles.required : undefined}>
+                            {t(field.required ? 'tools.required' : 'tools.optional')}
+                          </span>
+                        </div>
+                        <div className={styles.fieldValue}>
+                          <code className={styles.type}>{field.type}</code>
+                          {field.description !== undefined && <div>{field.description}</div>}
+                          {field.allowedValues !== undefined && (
+                            <div className={styles.meta}>
+                              {t('tools.allowedValues')}: <code>{field.allowedValues}</code>
+                            </div>
+                          )}
+                          {field.defaultValue !== undefined && (
+                            <div className={styles.meta}>
+                              {t('tools.defaultValue')}: <code>{field.defaultValue}</code>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className={styles.noParameters}>{t('tools.noParameters')}</div>
+                )}
+              </section>
+
+              {selectedTool.promptGuidelines !== undefined &&
+                selectedTool.promptGuidelines.length > 0 && (
+                  <section className={styles.section}>
+                    <div className={styles.sectionLabel}>{t('tools.guidelines')}</div>
+                    <ul className={styles.guidelines}>
+                      {selectedTool.promptGuidelines.map((guideline, index) => (
+                        // biome-ignore lint/suspicious/noArrayIndexKey: 准则文本可能重复，位置即身份
+                        <li key={`${selectedTool.name}:${index}`}>{guideline}</li>
+                      ))}
+                    </ul>
+                  </section>
+                )}
+            </div>
+          ) : (
+            <EmptyState>
+              {activeTools ? t('tools.noTools') : loading ? t('tools.loading') : t('tools.load')}
+            </EmptyState>
+          )}
+        </section>
+      </div>
+    </PanelCard>
   );
 }

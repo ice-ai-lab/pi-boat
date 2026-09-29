@@ -25,6 +25,12 @@ export interface MessageListProps {
   onLoadOlder?(): void;
   /** 助手消息末尾的「本轮改动」chip 点击（宿主在右栏打开该文件） */
   onOpenWrittenFile(path: string): void;
+  /**
+   * 顶部内边距（CSS 长度，如 `calc(36px + env(safe-area-inset-top))`）。宿主把工具条做成
+   * 覆盖层时传它，让首条消息起始位置避开工具条；消息仍会滚到覆盖层下方（毛玻璃背板）。
+   * 不传则沿用 16px。
+   */
+  topInset?: string;
 }
 
 /** 距顶部多少像素内触发自动翻页 */
@@ -36,6 +42,7 @@ export function MessageList({
   loadingOlder = false,
   onLoadOlder,
   onOpenWrittenFile,
+  topInset,
 }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const attachedRef = useRef(true);
@@ -132,7 +139,8 @@ export function MessageList({
         ref={scrollRef}
         onScroll={onScroll}
         data-chat-scroll=""
-        className="scrollbar-subtle min-w-0 flex-1 overflow-x-hidden overflow-y-auto pt-4 [scrollbar-gutter:stable] [overflow-anchor:none]"
+        className="scrollbar-subtle min-w-0 flex-1 overflow-x-hidden overflow-y-auto [scrollbar-gutter:stable] [overflow-anchor:none]"
+        style={{ paddingTop: topInset === undefined ? 16 : `calc(16px + ${topInset})` }}
         aria-live="polite"
       >
         {/* 正文列：`--chat-content-max-width` 居中栏 + 16px 列内边距 */}

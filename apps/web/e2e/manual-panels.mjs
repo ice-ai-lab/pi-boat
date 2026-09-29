@@ -1,7 +1,7 @@
 /**
  * 手动验收脚本（**不进 CI**）：F5 对话增强与高级面板。
  * 覆盖：主题切换（含深色生效）/ 斜杠命令候选 / 输入历史 ↑↓ / 工具面板 /
- * 系统提示词面板 / 统计面板 / 分支面板 / minimap / 控制条（压缩·自动命名·导出）/
+ * 系统提示词面板 / 分支面板 / minimap / 控制条（压缩·自动命名·导出）/
  * 快捷键 ⌘B 折叠侧栏。
  *
  * 用法（两个 dev server 已在跑）：node apps/web/e2e/manual-panels.mjs
@@ -64,19 +64,23 @@ await page.waitForTimeout(1500);
 ok('斜杠命令候选打开', (await page.locator('[role="listbox"][aria-label="命令"]').count()) > 0);
 await page.keyboard.press('Escape');
 
-// 四个面板
-for (const [label, aria, pattern] of [
-  ['工具', '关闭工具', /个已激活/],
-  ['系统', '关闭系统提示词', /./],
-  ['统计', '关闭会话统计', /tokens|花费/],
-  ['分支', '关闭分支', /叶节点|线性会话/],
+// 三个顶部面板（关闭键统一是「收起面板」）+ 底部指标行的会话信息浮层（Escape 关）
+for (const [label, pattern] of [
+  ['工具', /个工具/],
+  ['系统', /./],
+  ['分支', /叶节点|线性会话/],
 ]) {
   await page.click(`main button:has-text("${label}")`);
   await page.waitForTimeout(1800);
   ok(`${label}面板渲染`, pattern.test(await text('main section')));
-  await page.click(`main button[aria-label="${aria}"]`);
+  await page.click('main button[aria-label="收起面板"]');
   await page.waitForTimeout(300);
 }
+await page.click('main button[aria-expanded]');
+await page.waitForTimeout(1200);
+ok('底部指标行打开会话信息浮层', /tokens|缓存/.test(await text('main')));
+await page.keyboard.press('Escape');
+await page.waitForTimeout(300);
 
 ok('minimap 渲染 bar', (await page.locator('main button[aria-label*="跳转到第"]').count()) > 0);
 ok(

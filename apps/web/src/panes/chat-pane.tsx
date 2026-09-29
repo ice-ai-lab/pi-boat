@@ -133,6 +133,20 @@ function DropOverlay() {
 /** 设计规范 `AppShell` 的 `TOP_BAR_ICON_BUTTON_SIZE` */
 const TOP_BAR_ICON_BUTTON_SIZE = 36;
 
+/**
+ * 顶部下拉面板宽度（用户 2026 要求：不占满整个会话列，按设计规范 `.pop` 的 560px 口径）。
+ * 左对齐锚在工具条左侧，列更窄时由宿主 `min(列宽, 该值)` 兜底。
+ */
+const SYSTEM_PANEL_WIDTH = 560;
+const TOOLS_PANEL_WIDTH = 560;
+
+/**
+ * 工具条高度（36 图标高 + 顶部安全区）。工具条是**覆盖层**（见下），不占文档流，
+ * 消息区靠这份高度做顶部内边距，消息才会滚到毛玻璃条下面（MessageList 的 topInset）。
+ * 单一来源：工具条自身高度与 MessageList 内边距都引用它。
+ */
+const CHAT_TOOLBAR_HEIGHT = 'calc(44px + env(safe-area-inset-top))';
+
 /** 中栏工具条最左侧的侧栏开关（按设计规范 `AppShell`：36×36 图标按钮） */
 function SidebarToggleButton({ open, onToggle }: { open: boolean; onToggle: () => void }) {
   const { t } = useI18n();
@@ -171,28 +185,29 @@ function SidebarToggleButton({ open, onToggle }: { open: boolean; onToggle: () =
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
-          strokeWidth="2"
+          strokeWidth="1.8"
           strokeLinecap="round"
           strokeLinejoin="round"
           aria-hidden="true"
         >
-          <rect x="3" y="3" width="18" height="18" rx="2" />
-          <line x1="9" y1="3" x2="9" y2="21" />
+          {/* 原型 #i-panel */}
+          <rect x="3" y="4" width="18" height="16" rx="3" />
+          <path d="M9.5 4v16" />
         </svg>
       ) : (
         <svg
-          width="18"
-          height="18"
+          width="16"
+          height="16"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
-          strokeWidth="2"
+          strokeWidth="1.8"
           strokeLinecap="round"
+          strokeLinejoin="round"
           aria-hidden="true"
         >
-          <line x1="3" y1="6" x2="21" y2="6" />
-          <line x1="3" y1="12" x2="21" y2="12" />
-          <line x1="3" y1="18" x2="21" y2="18" />
+          <rect x="3" y="4" width="18" height="16" rx="3" />
+          <path d="M9.5 4v16" />
         </svg>
       )}
     </button>
@@ -202,7 +217,7 @@ function SidebarToggleButton({ open, onToggle }: { open: boolean; onToggle: () =
 /**
  * ChatPane（F1→F5）：对话主面板。URL `?s=` 是会话的唯一真相（ADR-0019-5）。
  * 工具条按设计规范 `AppShell` 的桌面向：
- * 侧栏开关 → 信任警示 → 历史/分支/系统/工具 → 会话统计 → 文件面板开关；
+ * 侧栏开关 → 信任警示 → 「对话」页签 / 分支 → 「系统 / 工具」芯片 → 文件面板开关；
  * 顶部面板为 `position:fixed` 贴顶下拉（T1-3），一次只开一个。
  */
 export interface ChatPaneProps {
@@ -232,27 +247,69 @@ export interface ChatPaneProps {
 const TOOL_PRESET_OPTIONS = TOOL_PRESETS.map((value) => ({ value, label: value }));
 
 /**
- * 设计规范中栏工具条按钮（`AppShell` 的 `renderChatToolbarActions`）：
- * 2px 顶部描边表示激活态，右侧 1px 分隔线，图标 12–13px + 11px 文案。
+ * 视图页签（照 `docs/design/piboat-web-v3.html` 的 `.view-tabs` / `.vtab`）：
+ * 13px 文案，`--accent` 字体 + 2px 底部 accent 下划线。
+ * 目前只有「对话」一个视图：它常驻 `.on`，其余会话级入口走右侧的 `HeaderChip`。
  */
-function TopBarAction({
+function ViewTab({ label, onClick }: { label: string; onClick(): void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed
+      style={{
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        height: '100%',
+        padding: '0 2px',
+        background: 'none',
+        border: 'none',
+        color: 'var(--accent)',
+        cursor: 'pointer',
+        flexShrink: 0,
+        fontSize: 13,
+        fontWeight: 500,
+        whiteSpace: 'nowrap',
+        transition: 'color 0.12s',
+      }}
+    >
+      {label}
+      <span
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: 2,
+          borderRadius: 2,
+          background: 'var(--accent)',
+        }}
+      />
+    </button>
+  );
+}
+
+/**
+ * 头部芯片按钮（照 `docs/design/piboat-web-v3.html` 的 `.hchip`）：
+ * 26px 高、8px 圆角，图标 + 文案；hover 填充、选中 `--accent-weak` 底 + `--accent` 文字。
+ * 承载「系统 / 工具」这两个弹出面板入口。
+ */
+function HeaderChip({
   label,
   title,
-  pressed = false,
+  icon,
+  active = false,
   disabled = false,
   onClick,
-  icon,
-  trailing,
-  style,
 }: {
-  label?: string;
+  label: string;
   title: string;
-  pressed?: boolean;
+  icon?: ReactNode;
+  active?: boolean;
   disabled?: boolean;
   onClick(): void;
-  icon?: ReactNode;
-  trailing?: ReactNode;
-  style?: CSSProperties;
 }) {
   return (
     <button
@@ -261,41 +318,59 @@ function TopBarAction({
       disabled={disabled}
       title={title}
       aria-label={title}
-      aria-pressed={pressed}
+      aria-pressed={active}
       style={{
-        display: 'flex',
+        display: 'inline-flex',
         alignItems: 'center',
-        justifyContent: 'center',
         gap: 6,
-        height: '100%',
-        padding: '0 12px',
-        background: pressed ? 'var(--bg-selected)' : 'none',
+        height: 26,
+        padding: '0 10px',
+        background: active ? 'var(--accent-weak)' : 'none',
         border: 'none',
-        borderTop: `2px solid ${pressed ? 'var(--accent)' : 'transparent'}`,
-        borderRight: '1px solid var(--border)',
-        color: pressed ? 'var(--text)' : 'var(--text-muted)',
+        borderRadius: 8,
+        color: active ? 'var(--accent)' : 'var(--text-muted)',
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.45 : 1,
         flexShrink: 0,
-        fontSize: 11,
+        fontSize: 12,
+        fontWeight: 500,
         whiteSpace: 'nowrap',
-        transition: 'color 0.1s, background 0.1s, opacity 0.1s',
-        ...style,
+        transition: 'background 0.12s, color 0.12s',
       }}
       onMouseEnter={(event) => {
-        if (disabled) return;
+        if (disabled || active) return;
+        event.currentTarget.style.background = 'var(--bg-hover)';
         event.currentTarget.style.color = 'var(--text)';
-        event.currentTarget.style.background = pressed ? 'var(--bg-selected)' : 'var(--bg-hover)';
       }}
       onMouseLeave={(event) => {
-        event.currentTarget.style.color = pressed ? 'var(--text)' : 'var(--text-muted)';
-        event.currentTarget.style.background = pressed ? 'var(--bg-selected)' : 'none';
+        if (disabled || active) return;
+        event.currentTarget.style.background = 'none';
+        event.currentTarget.style.color = 'var(--text-muted)';
       }}
     >
       {icon}
-      {label !== undefined && <span>{label}</span>}
-      {trailing}
+      <span>{label}</span>
     </button>
+  );
+}
+
+/** 工具条页签图标：14px 线性，颜色随页签 currentColor（原型 .ico.s14：stroke 1.8） */
+function TabIcon({ children }: { children: ReactNode }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      style={{ flexShrink: 0 }}
+    >
+      {children}
+    </svg>
   );
 }
 
@@ -381,12 +456,16 @@ export function ChatPane({
   const topBarRef = useRef<HTMLDivElement>(null);
   /** 指标行（输入卡下方）的 DOM 基准：会话信息面板从它向上弹出（⑥b） */
   const metricsRef = useRef<HTMLDivElement>(null);
+  /** 工具条上「系统 / 工具」芯片组：顶部面板的左对齐锚（原型 `.pop` 贴 `.tools-bar` 左缘） */
+  const toolsBarRef = useRef<HTMLDivElement>(null);
   /** 面板宿主（fixed 容器）：外点关闭时算「内侧」⑦b */
   const panelHostRef = useRef<HTMLDivElement>(null);
   const [topPanelPos, setTopPanelPos] = useState<{
     top: number;
     left: number;
     width: number;
+    /** 左对齐锚（芯片组左缘）；窄列时与列右缘一起夹取，见顶部面板渲染处 */
+    anchorLeft: number;
   } | null>(null);
   const [metricsPanelPos, setMetricsPanelPos] = useState<{
     /** 指标行水平中点（面板 left 用这个值 + translateX(-50%) 居中，面板宽度不用先量） */
@@ -501,7 +580,13 @@ export function ChatPane({
     const update = () => {
       const topBarRect = topBarRef.current?.getBoundingClientRect();
       if (topBarRect === undefined) return;
-      setTopPanelPos({ top: topBarRect.bottom, left: topBarRect.left, width: topBarRect.width });
+      const anchorLeft = toolsBarRef.current?.getBoundingClientRect().left ?? topBarRect.left;
+      setTopPanelPos({
+        top: topBarRect.bottom,
+        left: topBarRect.left,
+        width: topBarRect.width,
+        anchorLeft,
+      });
     };
     update();
     const ro = new ResizeObserver(update);
@@ -922,6 +1007,7 @@ export function ChatPane({
           />
         }
         belowInput={
+          // 指标行既是读数也是会话信息浮层的开关（点击上弹，T1-3 / ⑥b）
           showMetrics ? (
             <div ref={metricsRef}>
               <ComposerMetrics
@@ -947,15 +1033,62 @@ export function ChatPane({
     </div>
   );
 
+  // 顶部面板宽度（原型 `.pop` 560px）与左缘：左对齐到「系统 / 工具」芯片组，
+  // 避免贴住左侧栏（用户 2026）；窄列时用 `Math.min/max` 夹在会话列内。
+  const topPanelWidth =
+    topPanelPos === null
+      ? 0
+      : Math.min(
+          topPanelPos.width,
+          activePanel === 'tools' ? TOOLS_PANEL_WIDTH : SYSTEM_PANEL_WIDTH,
+        );
+  const topPanelLeft =
+    topPanelPos === null
+      ? 0
+      : Math.min(
+          Math.max(topPanelPos.anchorLeft, topPanelPos.left),
+          topPanelPos.left + topPanelPos.width - topPanelWidth,
+        );
+
   const toolbar = (
-    <div ref={topBarRef} style={{ flexShrink: 0, background: 'var(--bar-tint)' }}>
+    // 工具条：iOS 毛玻璃。必须是**覆盖层**（absolute）——只有消息区滚到它下方，
+    // backdrop-filter 才有东西可模糊（用户 2026 反馈「看着没变化」：留在文档流里背板只有
+    // 中栏实色 --bg，模糊白色仍是白色）。高度由 CHAT_TOOLBAR_HEIGHT 单一来源给出，
+    // 消息区用同一值做 topInset 让位。
+    <div
+      ref={topBarRef}
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 30,
+      }}
+    >
+      {/* 毛玻璃背板**单独一层**：backdrop-filter 会给 fixed 后代当包含块，而顶部面板宿主
+          就渲染在本子树里（否则 fixed 面板会被再叠一次工具条偏移，2026-09-29 实测 left 翻倍）。
+          背板当兄弟层后，宿主仍以视口为基准。 */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          pointerEvents: 'none',
+          background: 'var(--glass-pane)',
+          WebkitBackdropFilter: 'blur(30px) saturate(180%)',
+          backdropFilter: 'blur(30px) saturate(180%)',
+          boxShadow:
+            'inset 0 1px 0 var(--glass-pop-rim), inset 0 0 0 0.5px color-mix(in srgb, var(--glass-pop-rim) 45%, transparent)',
+        }}
+      />
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           position: 'relative',
-          borderBottom: '1px solid var(--border)',
-          height: 'calc(36px + env(safe-area-inset-top))',
+          // 原型 .conv-header：0.5px 发丝线（--l3 档），这里用 --border
+          borderBottom: '0.5px solid var(--border)',
+          height: CHAT_TOOLBAR_HEIGHT,
           paddingTop: 'env(safe-area-inset-top)',
         }}
       >
@@ -1006,98 +1139,80 @@ export function ChatPane({
             <span>{t('trust.resourcesNotLoaded')}</span>
           </button>
         )}
-        {/* 分支 / 系统 / 工具（空态也渲染，页签 disabled，T1-2） */}
-        {showChat && (
-          <div style={{ display: 'flex', alignItems: 'stretch', height: '100%' }}>
-            {/* 分支：仅在会话存在分支时渲染（T1-7/T3-15，设计规范 `BranchNavigator inline`） */}
-            {hasBranches && (
-              <BranchNavigator
-                tree={detail.data?.tree ?? []}
-                activeLeafId={detail.data?.leafId ?? null}
-                onLeafChange={(leafId) => {
-                  if (leafId === null) return;
-                  void session.navigateTree(leafId).then((result) => {
-                    if (result.error !== undefined) pushToast(result.error, 'error');
-                    else if (result.editorText !== undefined) setDraft(result.editorText);
-                    void detail.refetch();
-                  });
-                }}
-                inline
-                containerRef={topBarRef}
-                open={activePanel === 'branches'}
-                onToggle={() => setActivePanel(activePanel === 'branches' ? null : 'branches')}
-                hasSession
-              />
-            )}
-            <TopBarAction
-              title={t('system.prompt')}
+        {/* 工具条页签（照 docs/design/piboat-web-v3.html 的 `.tab-row`）：
+            「对话」是 `.vtab` 视图页签；系统 / 工具是右侧的 `.hchip` 芯片入口。
+            空态下系统 / 工具 disabled（T1-2）。 */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 20,
+            height: '100%',
+            // 原型 .tab-row：与前一个控件间也是 20px 间距
+            marginLeft: 20,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'stretch', gap: 24, height: '100%' }}>
+            <ViewTab label={t('view.chat')} onClick={() => setActivePanel(null)} />
+          </div>
+          <div ref={toolsBarRef} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <HeaderChip
               label={t('system.label')}
-              pressed={activePanel === 'system'}
+              title={t('system.prompt')}
+              active={activePanel === 'system'}
+              disabled={!showChat}
               onClick={() => {
                 const next = activePanel === 'system' ? null : 'system';
                 setActivePanel(next);
                 if (next === 'system') void session.refreshLiveState();
               }}
               icon={
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{
-                    color:
-                      session.liveState?.systemPrompt !== null &&
-                      session.liveState?.systemPrompt !== undefined
-                        ? 'var(--accent)'
-                        : 'var(--text-dim)',
-                    flexShrink: 0,
-                  }}
-                  aria-hidden="true"
-                >
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                  <line x1="8" y1="13" x2="16" y2="13" />
-                  <line x1="8" y1="17" x2="13" y2="17" />
-                </svg>
+                <TabIcon>
+                  {/* 原型 #i-book */}
+                  <path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5Z" />
+                  <path d="M4 19a2 2 0 0 1 2-2h13" />
+                </TabIcon>
               }
             />
-            <TopBarAction
-              title={t('tools.title')}
+            <HeaderChip
               label={t('tools.label')}
-              pressed={activePanel === 'tools'}
+              title={t('tools.title')}
+              active={activePanel === 'tools'}
+              disabled={!showChat}
               onClick={() => {
                 const next = activePanel === 'tools' ? null : 'tools';
                 setActivePanel(next);
                 if (next === 'tools') void session.loadTools();
               }}
               icon={
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{
-                    color: session.tools.some((tool) => tool.active)
-                      ? 'var(--accent)'
-                      : 'var(--text-dim)',
-                    flexShrink: 0,
-                  }}
-                  aria-hidden="true"
-                >
-                  <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9z" />
-                </svg>
+                <TabIcon>
+                  {/* 原型 #i-wrench */}
+                  <path d="M14.7 6.3a4.5 4.5 0 0 0-6 5.6L3 17.6V21h3.4l5.7-5.7a4.5 4.5 0 0 0 5.6-6L14.5 12 12 9.5l2.7-3.2Z" />
+                </TabIcon>
               }
             />
           </div>
-        )}
+          {/* 分支：仅在会话存在分支时渲染（T1-7/T3-15，设计规范 `BranchNavigator inline`） */}
+          {showChat && hasBranches && (
+            <BranchNavigator
+              tree={detail.data?.tree ?? []}
+              activeLeafId={detail.data?.leafId ?? null}
+              onLeafChange={(leafId) => {
+                if (leafId === null) return;
+                void session.navigateTree(leafId).then((result) => {
+                  if (result.error !== undefined) pushToast(result.error, 'error');
+                  else if (result.editorText !== undefined) setDraft(result.editorText);
+                  void detail.refetch();
+                });
+              }}
+              inline
+              containerRef={topBarRef}
+              open={activePanel === 'branches'}
+              onToggle={() => setActivePanel(activePanel === 'branches' ? null : 'branches')}
+              hasSession
+            />
+          )}
+        </div>
         {/* 文件面板开合（T1-1，按设计规范 `renderMainFileToggle`） */}
         {onToggleRightPanel !== undefined && (
           <button
@@ -1115,7 +1230,9 @@ export function ChatPane({
               width: TOP_BAR_ICON_BUTTON_SIZE,
               height: TOP_BAR_ICON_BUTTON_SIZE,
               padding: 0,
-              background: rightPanelOpen ? 'var(--bg-selected)' : 'none',
+              background: rightPanelOpen
+                ? 'color-mix(in srgb, var(--text) 10%, transparent)'
+                : 'none',
               border: 'none',
               borderLeft: '1px solid var(--border)',
               color: rightPanelOpen ? 'var(--text)' : 'var(--text-muted)',
@@ -1138,18 +1255,22 @@ export function ChatPane({
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              strokeWidth="2"
+              strokeWidth="1.8"
               strokeLinecap="round"
               strokeLinejoin="round"
               aria-hidden="true"
             >
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <line x1="15" y1="3" x2="15" y2="21" />
+              {/* 原型 #i-panel 的镜像（右侧面板） */}
+              <rect x="3" y="4" width="18" height="16" rx="3" />
+              <path d="M14.5 4v16" />
             </svg>
           </button>
         )}
         {/* 顶部面板：fixed 贴顶下拉（T1-3，一次只开一个）；会话信息面板例外——
-            它的入口在输入卡下方的指标行，所以从指标行**向上**弹出（⑥b） */}
+            它的入口在输入卡下方的指标行，所以从指标行**向上**弹出（⑥b）。面板（系统提示词 /
+            工具定义）都是自带滚动与圆角投影的玻璃卡，故宿主**不能** overflow:auto——
+            否则圆角外的投影会被裁（2026-09-28 用户报告）。宽度不占满会话列，
+            系统 / 工具各按 `.pop` 的 560px 口径夹取（列更窄时用列宽）。 */}
         {activePanel !== null &&
           activePanel !== 'branches' &&
           (activePanel === 'session' ? metricsPanelPos !== null : topPanelPos !== null) &&
@@ -1165,20 +1286,20 @@ export function ChatPane({
                     // 宿主一旦 overflow:auto，弹窗的投影会被裁到弹窗自己的矩形里（四周无影、圆角外冒方角）
                     '--popover-max-height': `${metricsPanelPos.maxHeight}px`,
                   } as CSSProperties)
-                : {
-                    top: topPanelPos?.top ?? 0,
-                    left: topPanelPos?.left ?? 0,
-                    width: topPanelPos?.width ?? 0,
-                    maxHeight: `calc(100dvh - ${topPanelPos?.top ?? 0}px)`,
-                  };
+                : ({
+                    // 与工具条留 8px 间隙，卡片浮在下方；左缘对齐芯片组
+                    top: topPanelPos?.top !== undefined ? topPanelPos.top + 8 : 0,
+                    left: topPanelLeft,
+                    width: topPanelWidth,
+                    // 卡片可用高度 = 视口 − 面板顶 − 底部留白
+                    '--panel-max-height': `calc(100dvh - ${(topPanelPos?.top ?? 0) + 8}px - 12px)`,
+                  } as CSSProperties);
             return (
               <div
                 ref={panelHostRef}
                 style={{
                   position: 'fixed',
                   ...anchored,
-                  // 会话统计弹窗自己滚，宿主不能裁（见上）；其余面板（系统提示词 / 工具）仍用宿主滚
-                  overflowY: activePanel === 'session' ? 'visible' : 'auto',
                   zIndex: 500,
                 }}
               >
@@ -1196,6 +1317,7 @@ export function ChatPane({
                   toolsLoading={false}
                   stats={sessionStats}
                   contextUsage={contextUsage}
+                  onClose={() => setActivePanel(null)}
                 />
               </div>
             );
@@ -1244,6 +1366,7 @@ export function ChatPane({
           loadingOlder={session.loadingOlder}
           onLoadOlder={() => void session.loadOlder()}
           onOpenWrittenFile={openWrittenFile}
+          topInset={CHAT_TOOLBAR_HEIGHT}
         />
         <ContentWidthHandles
           width={resolvedContentWidth}

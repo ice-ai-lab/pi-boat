@@ -1,14 +1,15 @@
-/* 工具定义面板样式（CSS Modules，阶段二试点）：kebab → camelCase，映射：panel=tool-definitions-panel、sidebar/list/item/empty=tool-definitions-*、detail/scroll/section/sectionLabel/description/fields/field/fieldName/fieldValue/type/meta/noParameters/guidelines=tool-definition-*。原全局类：web-ui.css 拆分 */
+/* 工具定义面板样式（CSS Modules，阶段二试点）：kebab → camelCase，映射：
+   sidebar/list/item/empty=tool-definitions-*、detail/scroll/section/sectionLabel/description/fields/field/fieldName/fieldValue/type/meta/noParameters/guidelines=tool-definition-*。原全局类：web-ui.css 拆分
+   卡片壳（head / rule / body）在 panel-card.module.css；本文件只管两栏主体 `.split`。 */
 
-/* Tool definitions panel（组件内联 style 收录，T7-11） */
-.panel {
+/* 两栏主体（左：工具列表，右：参数/准则详情） */
+.split {
   display: grid;
   grid-template-columns: clamp(112px, 26%, 220px) minmax(0, 1fr);
-  height: min(600px, 75dvh);
+  width: 100%;
+  height: min(600px, 68dvh);
   min-height: 240px;
   overflow: hidden;
-  background: var(--bg-panel);
-  border-bottom: 1px solid var(--border);
 }
 .sidebar,
 .detail {
@@ -19,7 +20,8 @@
 }
 .sidebar {
   border-right: 1px solid var(--border);
-  background: color-mix(in srgb, var(--bg-panel) 94%, var(--bg));
+  /* 玻璃面板上的列表栏：半透明灰调（--bar-tint），让玻璃背板透出来 */
+  background: var(--bar-tint);
 }
 .list,
 .scroll {
@@ -41,11 +43,11 @@
   text-align: left;
 }
 .item:hover {
-  background: var(--bg-hover);
+  background: color-mix(in srgb, var(--text) 6%, transparent);
   color: var(--text);
 }
 .item.selected {
-  background: var(--bg-selected);
+  background: color-mix(in srgb, var(--text) 10%, transparent);
   box-shadow: inset 2px 0 0 var(--accent);
   color: var(--text);
 }

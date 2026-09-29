@@ -1,0 +1,111 @@
+/* 顶部活动面板的通用玻璃卡（系统提示词 / 工具定义）。
+   版面与材质照 docs/design/piboat-web-v3.html 的 `.pop` / `.pop-head` / `.pop-rule` / `.pop-body`：
+   head（图标 + 标题 + 右侧元信息 + 收起键）+ 0.5px 发丝线 + body。
+   材质：`--menu` 平涂玻璃 + 40px 强模糊 + 14px 圆角 + 双段落影，不是纯色卡。
+   可用高度由宿主经 `--panel-max-height` 传入（`top` 之下的视口余量）。 */
+
+@keyframes panelCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  max-height: var(--panel-max-height, min(72dvh, 680px));
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--menu);
+  -webkit-backdrop-filter: blur(40px) saturate(150%);
+  backdrop-filter: blur(40px) saturate(150%);
+  box-shadow:
+    0 0 0 0.5px var(--border),
+    var(--elev-panel),
+    0 16px 48px rgba(0, 0, 0, 0.12);
+  animation: panelCardIn 0.18s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 12px 11px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.headIcon {
+  display: inline-flex;
+  flex: none;
+  /* 原型 .pop-head .ico：--t3 → 本仓 --text-muted（比 --text-dim 更接近） */
+  color: var(--text-muted);
+}
+
+.title {
+  white-space: nowrap;
+}
+
+/* 右侧元信息（字符数 / 工具数 …）：贴右、等宽数字 */
+.sub {
+  margin-left: auto;
+  overflow: hidden;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.close {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin-left: 4px;
+  padding: 0;
+  border: none;
+  border-radius: 7px;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition:
+    background 0.12s,
+    color 0.12s;
+}
+
+.close:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.rule {
+  flex: none;
+  height: 0.5px;
+  background: var(--border);
+}
+
+/* 带内边距、自身滚动的 body（系统提示词） */
+.body {
+  min-height: 0;
+  padding: 14px 16px 16px;
+  overflow-y: auto;
+}
+
+/* 无内边距、不滚动的 body（工具面板自行管理两栏滚动） */
+.bodyFlush {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  overflow: hidden;
+}
