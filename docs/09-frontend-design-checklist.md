@@ -279,7 +279,7 @@ T1-10（三节 i18n，与套壳同批，避免写两遍）。
 
 ## 0.5 第五轮实施进度（2026-09-28，composer 区对齐原型 v3「玻璃」）
 
-> 基准换到 `docs/design/piboat-ui-redesign-v3.html`（与 `b1e2366` 起的「玻璃 Glass」色板同一份原型）。
+> 基准换到 `docs/design/piboat-ui-redesign-v3.html`（与 `efee687` 起的「玻璃 Glass」色板同一份原型）。
 > 本轮只动**对话框区域**（原型 §8）：一张玻璃卡 + 卡内控件条 + 卡下指标行 + 卡上排队条。
 
 - **输入卡合并为一张**：`Composer` 从「卡片（输入 + 发送动作）+ 卡下工具行」改为原型 `.inputcard`

@@ -34,7 +34,7 @@
   + 组件内联样式/类名。组件层结构与样式逐条对齐（口径见 ADR-0020）。
   旧原型 `docs/design/piboat-web-v3.html` 退役：其 0.5px hairline、superellipse、`#4176E6`、毛玻璃浮层**不再保留**。
   同目录的 `docs/design/piboat-ui-redesign-v3.html`（原型代号「玻璃 Glass」）**是当前在逐步对齐的那一份**
-  （自 `b1e2366` 起的色板、侧栏 `.sb-item`、composer 区 `.inputcard`/`.queue`/`.statusline` 均以它为准）；
+  （自 `efee687` 起的色板、侧栏 `.sb-item`、composer 区 `.inputcard`/`.queue`/`.statusline` 均以它为准）；
   它与 ADR-0020 不冲突：同一套运行变量，只是提供了逐块的组件级结构与内联样式细节。
 - **token 单一来源**：`packages/ui/src/theme.css`（规范变量 `:root` + `[data-theme="dark"]` 两套）
 - **组件级 CSS 组织形式（2026 两阶段重构定案）**：
