@@ -51,7 +51,9 @@ ADR-0014 当时就写明了恢复成本：**「若日后只想恢复『在 Web �
   自定义 provider 紧凑编辑；底部保存条写整份 models.json（可见范围引擎不变，ADR-0011）
 - 技能：左侧按作用域分组的清单（状态点 = 是否允许模型自动调用）+「添加技能」，右侧详情或安装面板
 - 插件：左侧独立扩展 + 按作用域分组的包清单（状态点按 status 着色）+「添加插件」，右侧包详情
-  （动作行 / 信息栅格 / 已解析资源）；底部 totals + 检查更新 + 刷新
+  （动作行 / 信息栅格 / 已解析资源）；底部 totals + 检查更新 + 刷新〔**2026-09-29 修订**（用户定案）：
+  底部两个按钮**删除**——检查/更新入口只在**包详情**里，选本地来源或独立扩展时没有检查入口
+  （接受此缺口，不用「打开面板自动检查」代替）；`action: "update"` 随之不再支持「不给 source = 全部」〕
 - `PluginsResponse` 升级：包增加 `status`（loaded/installed/missing/disabled）、`version`、
   `packageName`、`counts`、`resources`；独立扩展从 `string[]` 变为结构化对象（name/path/scope/enabled）；
   totals 扩为四类资源计数

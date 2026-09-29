@@ -1494,12 +1494,24 @@ describe('资源域路由', () => {
     expect(badInstall.status).toBe(400);
 
     expect((await request(app, '/api/skills/check', { method: 'POST' })).status).toBe(400);
-    expect((await request(app, '/api/skills/check?cwd=/repo', { method: 'POST' })).status).toBe(
-      200,
-    );
-    expect((await request(app, '/api/skills/update?cwd=/repo', { method: 'POST' })).status).toBe(
-      200,
-    );
+    expect(
+      (
+        await request(app, '/api/skills/check', {
+          method: 'POST',
+          headers: JSON_HEADERS,
+          body: JSON.stringify({ cwd: '/repo' }),
+        })
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await request(app, '/api/skills/update', {
+          method: 'POST',
+          headers: JSON_HEADERS,
+          body: JSON.stringify({ cwd: '/repo' }),
+        })
+      ).status,
+    ).toBe(200);
   });
 
   it('plugins：列表 / 动作 / 更新检查', async () => {
@@ -1539,9 +1551,16 @@ describe('资源域路由', () => {
       ).status,
     ).toBe(400);
 
-    expect((await request(app, '/api/plugins/check?cwd=/repo', { method: 'POST' })).status).toBe(
-      200,
-    );
+    expect(
+      (
+        await request(app, '/api/plugins/check', {
+          method: 'POST',
+          headers: JSON_HEADERS,
+          body: JSON.stringify({ cwd: '/repo' }),
+        })
+      ).status,
+    ).toBe(200);
+    expect((await request(app, '/api/plugins/check', { method: 'POST' })).status).toBe(400);
   });
 
   it('GET/PUT /api/tools/settings：PowerShell 开关', async () => {

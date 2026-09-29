@@ -26,15 +26,19 @@ import {
   ConfigSwitch,
 } from './settings-ui';
 import skillStyles from './skills.module.css';
-import type { SkillUpdateView } from './skills-section';
+import { type SkillUpdateView, UPDATE_LABEL } from './skills-section';
 
 /**
- * PluginsSection（docs/06 §4.4；对齐 参考实现 PluginsConfig 的主从布局）：
+ * PluginsSection（对齐 参考实现 PluginsConfig 的主从布局）：
  * 左侧独立扩展 + 按作用域分组的包清单（状态点按 status 着色）+ 底部「添加插件」；
- * 右侧包详情（动作行 + 信息栅格 + 已解析资源）或安装面板；底部 totals + 更新/刷新。
+ * 右侧包详情（动作行 + 信息栅格 + 已解析资源）或安装面板；footer 只留 totals 计数。
  *
  * 「禁用」= settings 里保留来源但清空资源过滤器（行不消失，可再开）；
  * 「移除」= 连磁盘副本一起删。
+ *
+ * 检查/更新入口只在包详情里（`Check` / `Update` 二态，见 PackageDetail）；footer 的
+ * 全局「检查更新 / 刷新」已于 2026-09-29 删除（ADR-0025 §4 修订）——选中本地来源或
+ * 独立扩展时没有检查入口，这是已知取舍。
  */
 
 export interface PluginResourceView {
@@ -94,9 +98,7 @@ export interface PluginsSectionProps {
     results: SkillUpdateView[];
     checking: boolean;
     onCheck(): void;
-    onUpdateAll(): void;
   };
-  onRefresh(): void;
 }
 
 function shortenPath(path: string): string {
@@ -285,6 +287,7 @@ function PackageDetail({
   updateStatus,
   checkingUpdate,
   onAction,
+  onCheck,
   onReloadSession,
 }: {
   pkg: PluginPackageView;
@@ -294,13 +297,19 @@ function PackageDetail({
   updateStatus?: SkillUpdateView;
   checkingUpdate: boolean;
   onAction(action: 'enable' | 'disable' | 'remove' | 'update', source: string): void;
+  /** 单个包的「检查」= 走整表检查（服务端只有这一个入口），结果按 source 回显在该包上 */
+  onCheck(): void;
   onReloadSession(): void;
 }) {
   const { t } = useI18n();
   const enabled = pkg.enabled;
   const updateAvailable = updateStatus?.state === 'update-available';
-  const canCheckForUpdates = pkg.type !== 'local';
+  // 本地来源没有 registry 版本可拉（改的是磁盘上那份代码本身），不给「更新」按钮；
+  // 让新代码生效靠旁边的「重新加载会话」
+  const canUpdate = pkg.type !== 'local';
   const description = pkg.description?.trim();
+  // 检查结论（未检查过 = undefined）：已是最新 / 有可用更新 / 不支持自动检查 / 检查失败
+  const updateLabel = updateStatus === undefined ? null : t(UPDATE_LABEL[updateStatus.state]);
 
   return (
     <ConfigDetailStack>
@@ -349,19 +358,29 @@ function PackageDetail({
         </ConfigDetailHeaderInfo>
 
         <ConfigDetailActions>
-          <ConfigButton
-            size="small"
-            variant={updateAvailable ? 'primary' : 'secondary'}
-            onClick={() => onAction('update', pkg.source)}
-            disabled={busy || checkingUpdate}
-            title={updateAvailable ? t('i18n.updateAvailable') : undefined}
-          >
-            {checkingUpdate
-              ? t('i18n.checking')
-              : updateAvailable || !canCheckForUpdates
-                ? t('i18n.update')
-                : t('i18n.check')}
-          </ConfigButton>
+          {canUpdate &&
+            (updateAvailable ? (
+              <ConfigButton
+                size="small"
+                variant="primary"
+                onClick={() => onAction('update', pkg.source)}
+                disabled={busy || checkingUpdate}
+                title={t('i18n.updateAvailable')}
+              >
+                {t('i18n.update')}
+              </ConfigButton>
+            ) : (
+              // 尚无更新结论 → 「检查」：只联网比对版本，不落盘。文案与动作必须一致
+              // （旧实现两种文案都执行更新，点「检查」也会真装）
+              <ConfigButton
+                size="small"
+                onClick={onCheck}
+                disabled={busy || checkingUpdate}
+                title={t('i18n.checkUpdates')}
+              >
+                {checkingUpdate ? t('i18n.checking') : t('i18n.check')}
+              </ConfigButton>
+            ))}
           <ConfigButton
             size="small"
             onClick={onReloadSession}
@@ -412,18 +431,24 @@ function PackageDetail({
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
           <div className={skillStyles.versionRow}>
             <span className={skillStyles.versionValue}>{versionSummary(pkg, t)}</span>
-            {updateAvailable && (
-              <span
-                className={cn(skillStyles.versionValue, skillStyles.isUpdate)}
-                title={updateStatus?.latestVersion}
-              >
-                {t('i18n.updateAvailable')}
-              </span>
-            )}
-            {canCheckForUpdates && checkingUpdate && (
+            {checkingUpdate ? (
               <span className={cn(skillStyles.updateStatus, skillStyles.isChecking)}>
                 {t('i18n.checking')}
               </span>
+            ) : (
+              updateLabel !== null && (
+                <span
+                  className={cn(
+                    skillStyles.updateStatus,
+                    updateAvailable && skillStyles.isUpdate,
+                    updateStatus?.state === 'up-to-date' && skillStyles.isSuccess,
+                    updateStatus?.state === 'error' && skillStyles.isError,
+                  )}
+                  title={updateAvailable ? updateStatus?.latestVersion : undefined}
+                >
+                  {updateLabel}
+                </span>
+              )
             )}
           </div>
         </div>
@@ -678,7 +703,6 @@ export function PluginsSection({
   onReloadSession,
   install,
   updates,
-  onRefresh,
 }: PluginsSectionProps) {
   const { t } = useI18n();
   const [selected, setSelected] = useState<string | null>(null);
@@ -722,12 +746,8 @@ export function PluginsSection({
     [packages],
   );
 
-  const availableUpdateCount = updates.results.filter(
-    (result) => result.state === 'update-available',
-  ).length;
   const updateFor = (pkg: PluginPackageView) =>
     updates.results.find((result) => result.package === pkg.source);
-  const footerBusy = loading || busy || updates.checking;
 
   return (
     <ConfigPanelShell
@@ -860,6 +880,7 @@ export function PluginsSection({
                     updateStatus={updateFor(selectedPackage)}
                     checkingUpdate={updates.checking}
                     onAction={onAction}
+                    onCheck={updates.onCheck}
                     onReloadSession={onReloadSession}
                   />
                 ) : (
@@ -875,23 +896,7 @@ export function PluginsSection({
                 {`${totals.extensions} ext · ${totals.skills} skills · ${totals.prompts} prompts · ${totals.themes} themes`}
               </span>
             }
-          >
-            <ConfigButton
-              variant={availableUpdateCount > 0 ? 'primary' : 'secondary'}
-              onClick={() => (availableUpdateCount > 0 ? updates.onUpdateAll() : updates.onCheck())}
-              disabled={footerBusy}
-              title={availableUpdateCount > 0 ? t('i18n.updateAllPluginsHint') : undefined}
-            >
-              {updates.checking
-                ? t('i18n.checking')
-                : availableUpdateCount > 0
-                  ? `${t('i18n.updateAllPlugins')} (${availableUpdateCount})`
-                  : t('i18n.checkUpdates')}
-            </ConfigButton>
-            <ConfigButton variant="secondary" onClick={onRefresh} disabled={footerBusy}>
-              {t('i18n.refresh')}
-            </ConfigButton>
-          </ConfigFooter>
+          />
         </>
       )}
     </ConfigPanelShell>

@@ -25,6 +25,7 @@ import type {
   SkillSearchResponse,
   SkillsResponse,
   SkillUpdateResult,
+  SkillUpdateState,
   ToolSettingsResponse,
 } from '@ice-ai/protocol';
 import { InvalidScopeEditError } from '../config/config-service';
@@ -262,6 +263,9 @@ export class ResourceService {
    * `disable` 与 `remove` 的区别：前者**只从 settings 的来源列表移除**（磁盘副本留着，
    * 再次 enable 不必重新下载），后者连磁盘一起删。这个区别必须保留——用户点
    * "暂时关掉这个插件"不该触发一次网络往返。
+   * 五个动作都需指定 source（协议层 `PluginActionRequestSchema` 里是必填）：曾经的
+   * "update 不给 source = 更新全部"在客户端已无调用方（footer 的「更新全部」按钮已删），
+   * 留在 API 里只会是一份没人走的期权。
    */
   async pluginAction(input: PluginActionRequest): Promise<PluginsResponse> {
     const ctx = await this.createCtx(input.cwd);
@@ -274,19 +278,28 @@ export class ResourceService {
 
     switch (input.action) {
       case 'install': {
-        if (input.source === undefined) {
-          throw new InvalidScopeEditError('install requires a source');
-        }
         await manager.installAndPersist(input.source, { local });
         break;
       }
       case 'remove': {
-        const source = this.requireSource(input.source);
-        await manager.removeAndPersist(source, { local });
+        await manager.removeAndPersist(input.source, { local });
         break;
       }
       case 'update': {
-        await manager.update(input.source);
+        const source = input.source;
+        // SDK 的 `update(source)` 用**无 scope** 的 identity 去比 settings 条目的
+        // **带 scope** identity（相对路径分别按进程 cwd / scope 基准目录解析），所以
+        // `../packages/foo` 这类相对本地来源永远匹配不上，会抛 "No matching package
+        // found"。本地来源改传已解析的绝对安装路径即命中同一条 identity（npm/git 的
+        // identity 与 scope 无关，原样传）。本地来源没有版本可拉——这里只是让这个
+        // 动作不报错，真正的"让新代码生效"是重载会话。
+        const localEntry =
+          sourceType(source) === 'local'
+            ? manager
+                .listConfiguredPackages()
+                .find((pkg) => pkg.source === source && pkg.scope === (local ? 'project' : 'user'))
+            : undefined;
+        await manager.update(localEntry?.installedPath ?? source);
         break;
       }
       case 'disable': {
@@ -295,7 +308,7 @@ export class ResourceService {
         if (
           !setPackageDisabled(
             ctx.settingsManager,
-            this.requireSource(input.source),
+            input.source,
             input.scope === 'project' ? 'project' : 'user',
             true,
           )
@@ -309,24 +322,19 @@ export class ResourceService {
         if (
           !setPackageDisabled(
             ctx.settingsManager,
-            this.requireSource(input.source),
+            input.source,
             input.scope === 'project' ? 'project' : 'user',
             false,
           )
         ) {
           // settings 里没有这个来源（旧版语义留下的缺口）：补上
-          manager.addSourceToSettings(this.requireSource(input.source), { local });
+          manager.addSourceToSettings(input.source, { local });
         }
         await ctx.settingsManager.flush();
         break;
       }
     }
     return this.collectPlugins(ctx);
-  }
-
-  private requireSource(source: string | undefined): string {
-    if (source === undefined) throw new InvalidScopeEditError('This action requires a source');
-    return source;
   }
 
   /** 更新检查：SDK 的 `checkForAvailableUpdates()` 已经做了 registry 对比 */
@@ -339,15 +347,14 @@ export class ResourceService {
     });
     try {
       const updates = await manager.checkForAvailableUpdates();
-      const pending = new Map(updates.map((update) => [update.source, update]));
+      const pending = new Set(updates.map((update) => update.source));
       const configured = manager.listConfiguredPackages();
       return {
         results: configured.map((entry) => {
-          const update = pending.get(entry.source);
           const current = readPackageMetadata(entry.installedPath).version;
           return {
             package: entry.source,
-            state: update !== undefined ? 'update-available' : 'up-to-date',
+            state: pluginUpdateState(entry.source, pending.has(entry.source)),
             ...(current !== undefined ? { currentVersion: current } : {}),
           } satisfies SkillUpdateResult;
         }),
@@ -669,6 +676,17 @@ export function sourceType(source: string): 'npm' | 'git' | 'local' {
     return 'git';
   }
   return 'npm';
+}
+
+/**
+ * 单个已配置包的更新检查结论。
+ * 本地来源（`../packages/foo`）SDK 的 `checkForAvailableUpdates()` **直接跳过**
+ * （它只比对 npm dist-tags 与 git 远端）——如实回 `unsupported`，不当成 `up-to-date`：
+ * 那等于把"没检查过"说成"检查过了，没问题"（与 `checkSkillUpdates` 对非 npm 来源同口径）。
+ */
+export function pluginUpdateState(source: string, hasUpdate: boolean): SkillUpdateState {
+  if (hasUpdate) return 'update-available';
+  return sourceType(source) === 'local' ? 'unsupported' : 'up-to-date';
 }
 
 function displayNameOf(source: string): string {

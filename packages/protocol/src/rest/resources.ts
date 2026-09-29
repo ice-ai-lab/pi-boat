@@ -129,8 +129,18 @@ export type SkillCheckResponse = {
   results: SkillUpdateResult[];
 };
 
+/**
+ * `POST /api/skills/check` 与 `POST /api/plugins/check` 的入参：只需 `cwd`。
+ * 检查要读该项目的 settings 才知道项目级装了什么，所以 POST 也必须带 cwd；
+ * 走 body 而不是 query，与资源域其余带副作用的 POST 一致。
+ */
+export const ResourceCheckRequestSchema = z.object({
+  cwd: z.string().min(1),
+});
+
 export const SkillUpdateRequestSchema = z.object({
   package: z.string().optional(),
+  cwd: z.string().min(1),
 });
 // ---------------------------------------------------------------------------
 // plugins（扩展包）
@@ -209,8 +219,8 @@ export const PLUGIN_ACTIONS = ['install', 'remove', 'update', 'disable', 'enable
 export const PluginActionSchema = z.enum(PLUGIN_ACTIONS);
 export const PluginActionRequestSchema = z.object({
   action: PluginActionSchema,
-  /** install 必填；其余动作也可用（指定要操作哪个包） */
-  source: z.string().optional(),
+  /** 要操作哪个包：五个动作全部必填（2026-09-29 起没有「不给 source = 全部」这条路） */
+  source: z.string().min(1),
   scope: z.enum(['global', 'project']).optional(),
   cwd: z.string().min(1),
 });

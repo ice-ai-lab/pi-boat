@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   isPowerShellEnabled,
+  pluginUpdateState,
   replaceShellTool,
   setDisableModelInvocation,
   sourceType,
@@ -110,6 +111,23 @@ describe('包来源判定', () => {
     expect(sourceType('/abs/path')).toBe('local');
     expect(sourceType('./rel')).toBe('local');
     expect(sourceType('~/x')).toBe('local');
+  });
+});
+
+describe('包更新结论（pluginUpdateState）', () => {
+  it('本地来源 = unsupported：SDK 根本不比对本地路径，不许报成 up-to-date', () => {
+    expect(pluginUpdateState('../packages/permission-gate', false)).toBe('unsupported');
+    expect(pluginUpdateState('/abs/plugin', false)).toBe('unsupported');
+  });
+
+  it('npm / git 按 registry 与远端结论两态', () => {
+    expect(pluginUpdateState('npm:pi-x', true)).toBe('update-available');
+    expect(pluginUpdateState('npm:pi-x', false)).toBe('up-to-date');
+    expect(pluginUpdateState('github:user/repo', false)).toBe('up-to-date');
+  });
+
+  it('有结论就照实说：哪怕 SDK 反而对本地来源报了更新', () => {
+    expect(pluginUpdateState('../packages/permission-gate', true)).toBe('update-available');
   });
 });
 

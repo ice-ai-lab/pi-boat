@@ -135,7 +135,7 @@ export function SettingsHost({ projectRoot, sessionId, onClose, onNotice }: Sett
   const patchSkill = usePatchSkillMutation(resourceCwd);
   const searchSkills = useSearchSkillsMutation();
   const installSkill = useInstallSkillMutation(resourceCwd);
-  const checkSkills = useCheckSkillUpdatesMutation();
+  const checkSkills = useCheckSkillUpdatesMutation(resourceCwd);
   const updateSkills = useUpdateSkillsMutation(resourceCwd);
   const plugins = usePluginsQuery(resourceCwd);
   const pluginAction = usePluginActionMutation(resourceCwd);
@@ -362,7 +362,12 @@ export function SettingsHost({ projectRoot, sessionId, onClose, onNotice }: Sett
             pluginAction.mutate(
               { action, source },
               {
-                onSuccess: () => onNotice(`${action} 完成`),
+                onSuccess: () => {
+                  onNotice(`${action} 完成`);
+                  // 更新成功后重跑检查：checkPlugins 是 mutation，结果不会自己失效，
+                  // 否则侧栏 ↑ 不消、按钮停在「更新」，这份结论就一直是旧的
+                  if (action === 'update') checkPlugins.mutate(undefined);
+                },
                 onError: (error) => onNotice(`${action} 失败：${error.message}`, 'error'),
               },
             )
@@ -400,16 +405,7 @@ export function SettingsHost({ projectRoot, sessionId, onClose, onNotice }: Sett
             results: checkPlugins.data?.results ?? [],
             checking: checkPlugins.isPending,
             onCheck: () => checkPlugins.mutate(undefined),
-            onUpdateAll: () =>
-              pluginAction.mutate(
-                { action: 'update' },
-                {
-                  onSuccess: () => onNotice('全部插件已更新'),
-                  onError: (error) => onNotice(`更新失败：${error.message}`, 'error'),
-                },
-              ),
           }}
-          onRefresh={() => void plugins.refetch()}
         />
       );
     }

@@ -32,6 +32,7 @@
 }
 
 .versionValue.isUpdate,
+.updateStatus.isUpdate,
 .updateIndicator {
   color: var(--accent);
 }

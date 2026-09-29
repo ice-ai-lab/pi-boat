@@ -55,14 +55,14 @@ export function installSkill(request: {
 }
 
 /** POST /api/skills/check —— 版本对比（联网） */
-export function checkSkillUpdates(): Promise<SkillCheckResponse> {
-  return http.post<SkillCheckResponse>('/skills/check', {}).then((res) => res.data);
+export function checkSkillUpdates(cwd: string): Promise<SkillCheckResponse> {
+  return http.post<SkillCheckResponse>('/skills/check', { cwd }).then((res) => res.data);
 }
 
 /** POST /api/skills/update —— 更新（缺省全部可更新的） */
-export function updateSkills(pkg?: string): Promise<{ results: SkillUpdateResult[] }> {
+export function updateSkills(cwd: string, pkg?: string): Promise<{ results: SkillUpdateResult[] }> {
   return http
-    .post('/skills/update', pkg === undefined ? {} : { package: pkg })
+    .post('/skills/update', pkg === undefined ? { cwd } : { cwd, package: pkg })
     .then((res) => res.data);
 }
 

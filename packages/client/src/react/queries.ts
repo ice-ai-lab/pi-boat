@@ -369,14 +369,14 @@ export function useInstallSkillMutation(cwd: string | null) {
   });
 }
 
-export function useCheckSkillUpdatesMutation() {
-  return useMutation({ mutationFn: () => checkSkillUpdates() });
+export function useCheckSkillUpdatesMutation(cwd: string | null) {
+  return useMutation({ mutationFn: () => checkSkillUpdates(cwd as string) });
 }
 
 export function useUpdateSkillsMutation(cwd: string | null) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (pkg?: string) => updateSkills(pkg),
+    mutationFn: (pkg?: string) => updateSkills(cwd as string, pkg),
     onSuccess: () => void client.invalidateQueries({ queryKey: settingsKeys.skills(cwd ?? '') }),
   });
 }

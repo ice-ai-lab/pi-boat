@@ -6,6 +6,7 @@ import {
   PluginsQuerySchema,
   ProjectTrustQuerySchema,
   ProjectTrustRequestSchema,
+  ResourceCheckRequestSchema,
   SkillInstallRequestSchema,
   SkillPatchRequestSchema,
   SkillSearchRequestSchema,
@@ -121,24 +122,21 @@ export function registerResourceRoutes(app: Hono, deps: ResourceRouteDeps): void
   });
 
   app.post('/api/skills/check', async (c) => {
-    const cwd = c.req.query('cwd');
-    if (cwd === undefined) {
-      return c.json<CommandError>({ error: 'Missing cwd' }, 400);
-    }
-    return c.json(await resourceService.checkSkillUpdates(cwd));
-  });
-
-  app.post('/api/skills/update', async (c) => {
-    const raw = await c.req.json().catch(() => ({}));
-    const parsed = SkillUpdateRequestSchema.safeParse(raw ?? {});
+    const raw = await c.req.json().catch(() => null);
+    const parsed = ResourceCheckRequestSchema.safeParse(raw);
     if (!parsed.success) {
       return c.json<CommandError>({ error: firstIssueMessage(parsed.error.issues) }, 400);
     }
-    const cwd = c.req.query('cwd');
-    if (cwd === undefined) {
-      return c.json<CommandError>({ error: 'Missing cwd' }, 400);
+    return c.json(await resourceService.checkSkillUpdates(parsed.data.cwd));
+  });
+
+  app.post('/api/skills/update', async (c) => {
+    const raw = await c.req.json().catch(() => null);
+    const parsed = SkillUpdateRequestSchema.safeParse(raw);
+    if (!parsed.success) {
+      return c.json<CommandError>({ error: firstIssueMessage(parsed.error.issues) }, 400);
     }
-    return c.json(await resourceService.updateSkills(cwd, parsed.data.package));
+    return c.json(await resourceService.updateSkills(parsed.data.cwd, parsed.data.package));
   });
 
   // ------------------------------------------------------------------
@@ -168,11 +166,12 @@ export function registerResourceRoutes(app: Hono, deps: ResourceRouteDeps): void
   });
 
   app.post('/api/plugins/check', async (c) => {
-    const cwd = c.req.query('cwd');
-    if (cwd === undefined) {
-      return c.json<CommandError>({ error: 'Missing cwd' }, 400);
+    const raw = await c.req.json().catch(() => null);
+    const parsed = ResourceCheckRequestSchema.safeParse(raw);
+    if (!parsed.success) {
+      return c.json<CommandError>({ error: firstIssueMessage(parsed.error.issues) }, 400);
     }
-    return c.json(await resourceService.checkPluginUpdates(cwd));
+    return c.json(await resourceService.checkPluginUpdates(parsed.data.cwd));
   });
 
   // ------------------------------------------------------------------

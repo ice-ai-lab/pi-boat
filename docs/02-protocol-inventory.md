@@ -310,10 +310,11 @@
 | `PATCH /api/skills` | 切换 disable-model-invocation |
 | `POST /api/skills/search` | `{query, limit?}` → `{package, installs, url}[]` |
 | `POST /api/skills/install` | `{package, scope:"global"\|"project", cwd?}` |
-| `POST /api/skills/check` / `update` | → `SkillUpdateResult {package, state, currentVersion?, latestVersion?}`（state: up-to-date/update-available/unsupported/error） |
+| `POST /api/skills/check` | `{cwd}` → `{results: SkillUpdateResult[]}`（只比对版本，不改磁盘） |
+| `POST /api/skills/update` | `{cwd, package?}`（缺 package = 全部）→ 更新后重跑 check |
 | `GET /api/plugins?cwd` | → `{packages: PluginPackageInfo[], standaloneExtensions, totals, diagnostics, projectResourcesLoaded}` |
-| `POST /api/plugins` | `{action: "install"\|"remove"\|"update"\|"disable"\|"enable", source?, scope?, cwd}` |
-| `POST /api/plugins/check` | → `PluginUpdateResult[]` |
+| `POST /api/plugins` | `{action: "install"\|"remove"\|"update"\|"disable"\|"enable", source, scope?, cwd}`（source 必填；旧版"update 缺 source = 全部"已删，无调用方） |
+| `POST /api/plugins/check` | `{cwd}` → `{results: SkillUpdateResult[]}` |
 | `GET/PUT /api/tools/settings` | → `{isWindows, powerShellEnabled}` |
 | `GET/PUT /api/subagents/settings` | → `{enabled, maxConcurrent}` |
 | `GET/PUT/PATCH/DELETE /api/subagents/profiles?cwd` | subagent 档案 CRUD |

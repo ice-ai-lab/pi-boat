@@ -117,7 +117,8 @@ function orderSkillsByDormancy(skills: SkillItemView[]): SkillItemView[] {
   ];
 }
 
-const UPDATE_LABEL: Record<SkillUpdateView['state'], string> = {
+/** 检查结论的四态文案（skills 与 plugins 两个节共用；`error` 要说清是失败，不能装作“无更新”） */
+export const UPDATE_LABEL: Record<SkillUpdateView['state'], string> = {
   'up-to-date': 'i18n.upToDate',
   'update-available': 'i18n.updateAvailable',
   unsupported: 'i18n.automaticChecksUnavailable',
