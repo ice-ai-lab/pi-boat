@@ -7,9 +7,15 @@ import {
   CHAT_CONTENT_WIDTH_MIN,
   type ChatAppearance,
 } from '@ice-ai/client';
+import type { CSSProperties } from 'react';
 import { useI18n } from '../i18n/i18n-provider';
 import styles from './settings-panel.module.css';
 import { ConfigButton } from './settings-ui';
+
+/** 滑条已填充段的比例（`--slider-fill`）；把原生 range 的灰杆改成强调色蓝杆 */
+function sliderFillStyle(value: number, min: number, max: number): CSSProperties {
+  return { '--slider-fill': `${((value - min) / (max - min)) * 100}%` } as CSSProperties;
+}
 
 /**
  * GeneralSection（T5-3 / T8-4）：按设计规范 的 `GeneralSettings`。
@@ -51,6 +57,7 @@ export function GeneralSection({ chat }: GeneralSectionProps) {
                 max={CHAT_CONTENT_WIDTH_MAX}
                 step={10}
                 value={chat.width}
+                style={sliderFillStyle(chat.width, CHAT_CONTENT_WIDTH_MIN, CHAT_CONTENT_WIDTH_MAX)}
                 onChange={(event) => chat.onWidthChange(Number(event.target.value))}
               />
               <output htmlFor="settings-chat-content-width">{chat.width}px</output>
@@ -95,6 +102,11 @@ export function GeneralSection({ chat }: GeneralSectionProps) {
                 max={CHAT_CONTENT_FONT_SIZE_MAX}
                 step={1}
                 value={chat.fontSize}
+                style={sliderFillStyle(
+                  chat.fontSize,
+                  CHAT_CONTENT_FONT_SIZE_MIN,
+                  CHAT_CONTENT_FONT_SIZE_MAX,
+                )}
                 onChange={(event) => chat.onFontSizeChange(Number(event.target.value))}
               />
               <output htmlFor="settings-chat-content-font-size">{chat.fontSize}px</output>

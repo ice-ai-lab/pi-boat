@@ -272,13 +272,19 @@
   width: 300px;
 }
 
+/* 原型 .slider 的灰杆改为强调色：已填充段（值左侧）用 --accent，其余留 --bg-selected；
+   填充比例来自组件的 `--slider-fill`（2026-09 用户要求滑条改蓝） */
 .slider input[type="range"] {
   flex: 1;
   min-width: 0;
   height: 4px;
   margin: 0;
   border-radius: 999px;
-  background: var(--bg-selected);
+  background: linear-gradient(
+    to right,
+    var(--accent) var(--slider-fill, 0%),
+    var(--bg-selected) var(--slider-fill, 0%)
+  );
   outline: none;
   -webkit-appearance: none;
   appearance: none;
@@ -294,6 +300,17 @@
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3), 0 0 0 0.5px rgba(0, 0, 0, 0.06);
   -webkit-appearance: none;
   cursor: grab;
+}
+
+/* Firefox 的轨道是独立伪元素，需再给一次同款底色，否则仍是默认灰 */
+.slider input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--accent) var(--slider-fill, 0%),
+    var(--bg-selected) var(--slider-fill, 0%)
+  );
 }
 
 .slider input[type="range"]::-moz-range-thumb {
