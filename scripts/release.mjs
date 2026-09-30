@@ -12,10 +12,13 @@ import { fileURLToPath } from 'node:url';
  * publishes to npm, and creates a GitHub Release with the packed tarball attached.
  *
  * Usage:
- *   pnpm release [patch|minor|major|x.y.z] [--dry-run] [--yes]
+ *   pnpm release [patch|minor|major|x.y.z] [--dry-run] [--yes] [--otp <code>]
+ *   pnpm release --resume [--otp <code>]     # finish a release that failed midway
  *
  * The working tree must be clean and on `main`; the version is bumped in
  * packages/pi-boat/package.json and committed as `chore(pi-boat): release vX.Y.Z`.
+ * With `--resume` no bump/commit/tag/push happens: it only (re)packs, publishes the
+ * tarball to npm if missing, and creates the GitHub Release if missing.
  */
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const packageDir = join(repoRoot, 'packages/pi-boat');
@@ -25,15 +28,31 @@ const PACKAGE_NAME = '@ice-ai/pi-boat';
 const NPM_REGISTRY = 'https://registry.npmjs.org';
 const RELEASE_BRANCH = 'main';
 
-const args = process.argv.slice(2);
-const dryRun = args.includes('--dry-run');
-const assumeYes = args.includes('--yes') || args.includes('-y');
-const bump = args.find((arg) => !arg.startsWith('-')) ?? 'patch';
-
 const pkg = JSON.parse(readFileSync(packagePath, 'utf8'));
-const currentVersion = pkg.version;
-const nextVersion = resolveVersion(currentVersion, bump);
-const tag = `v${nextVersion}`;
+const options = parseOptions(process.argv.slice(2));
+
+function parseOptions(argv) {
+  const parsed = {
+    dryRun: false,
+    yes: false,
+    resume: false,
+    bump: 'patch',
+    otp: undefined,
+  };
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i];
+    if (arg === '--dry-run') parsed.dryRun = true;
+    else if (arg === '--yes' || arg === '-y') parsed.yes = true;
+    else if (arg === '--resume') parsed.resume = true;
+    else if (arg === '--otp') {
+      parsed.otp = argv[i + 1];
+      i += 1;
+    } else if (arg.startsWith('--otp=')) parsed.otp = arg.slice('--otp='.length);
+    else if (arg.startsWith('-')) throw new Error(`Unknown option: ${arg}`);
+    else parsed.bump = arg;
+  }
+  return parsed;
+}
 
 function capture(command, commandArgs, options = {}) {
   return execFileSync(command, commandArgs, {
@@ -44,7 +63,7 @@ function capture(command, commandArgs, options = {}) {
   }).trim();
 }
 
-function run(command, commandArgs, options = {}) {
+function run(command, commandArgs, { dryRun = false, ...options } = {}) {
   const label = [command, ...commandArgs].join(' ');
   if (dryRun) {
     console.log(`[dry-run] ${label}`);
@@ -68,19 +87,28 @@ function resolveVersion(current, spec) {
 
 function isPublished(version) {
   try {
-    const output = capture('npm', [
-      'view',
-      `${PACKAGE_NAME}@${version}`,
-      'version',
-      `--registry=${NPM_REGISTRY}`,
-    ]);
-    return output.length > 0;
+    return (
+      capture('npm', [
+        'view',
+        `${PACKAGE_NAME}@${version}`,
+        'version',
+        `--registry=${NPM_REGISTRY}`,
+      ]) !== ''
+    );
   } catch {
     return false;
   }
 }
 
-function checkPreconditions() {
+function hasRelease(tag) {
+  try {
+    return capture('gh', ['release', 'view', tag, '--json', 'tagName']) !== '';
+  } catch {
+    return false;
+  }
+}
+
+function checkEnvironment() {
   if (capture('git', ['status', '--porcelain']) !== '') {
     throw new Error('Working tree is not clean; commit or stash your changes before releasing.');
   }
@@ -98,10 +126,7 @@ function checkPreconditions() {
   } catch {
     throw new Error(`npm is not authenticated against ${NPM_REGISTRY}; run \`npm login\`.`);
   }
-  if (isPublished(nextVersion)) {
-    throw new Error(`${PACKAGE_NAME}@${nextVersion} is already published on npm.`);
-  }
-  run('git', ['fetch', 'origin', RELEASE_BRANCH]);
+  capture('git', ['fetch', 'origin', RELEASE_BRANCH]);
   try {
     capture('git', ['merge-base', '--is-ancestor', `origin/${RELEASE_BRANCH}`, 'HEAD']);
   } catch {
@@ -111,17 +136,17 @@ function checkPreconditions() {
   }
 }
 
-async function confirm() {
+async function confirm(version, tag) {
   const plan = [
-    `Release ${PACKAGE_NAME} ${currentVersion} -> ${nextVersion}`,
-    `  1. bump packages/pi-boat/package.json and build the bundle`,
+    `Release ${PACKAGE_NAME} ${pkg.version} -> ${version}`,
+    '  1. bump packages/pi-boat/package.json and build the bundle',
     `  2. commit "chore(pi-boat): release ${tag}" and create tag ${tag}`,
     `  3. push ${RELEASE_BRANCH} and ${tag} to origin`,
     `  4. publish to ${NPM_REGISTRY}`,
     `  5. create GitHub Release ${tag} with the packed tarball`,
   ].join('\n');
   console.log(plan);
-  if (assumeYes || dryRun) return;
+  if (options.yes || options.dryRun) return;
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   const answer = await rl.question('\nProceed? [y/N] ');
   rl.close();
@@ -139,26 +164,51 @@ function packTarball() {
 }
 
 async function main() {
-  checkPreconditions();
-  await confirm();
+  const version = options.resume ? pkg.version : resolveVersion(pkg.version, options.bump);
+  const tag = `v${version}`;
 
-  console.log(`\n[release] ${PACKAGE_NAME} ${currentVersion} -> ${nextVersion}`);
-  if (!dryRun) {
-    writeFileSync(packagePath, `${JSON.stringify({ ...pkg, version: nextVersion }, null, 2)}\n`);
+  checkEnvironment();
+  if (!options.resume && isPublished(version)) {
+    throw new Error(`${PACKAGE_NAME}@${version} is already published on npm.`);
   }
 
-  run('pnpm', ['run', 'bundle']);
+  if (options.resume) {
+    console.log(`[release] resuming ${PACKAGE_NAME}@${version} (${tag})`);
+    run('pnpm', ['run', 'bundle'], { dryRun: options.dryRun });
+  } else {
+    console.log(`[release] ${PACKAGE_NAME} ${pkg.version} -> ${version}`);
+    await confirm(version, tag);
+    if (!options.dryRun) {
+      writeFileSync(packagePath, `${JSON.stringify({ ...pkg, version }, null, 2)}\n`);
+    }
+    run('pnpm', ['run', 'bundle'], { dryRun: options.dryRun });
+    run('git', ['add', 'packages/pi-boat/package.json'], { dryRun: options.dryRun });
+    run('git', ['commit', '-m', `chore(pi-boat): release ${tag}`], { dryRun: options.dryRun });
+    run('git', ['tag', tag], { dryRun: options.dryRun });
+    run('git', ['push', 'origin', RELEASE_BRANCH], { dryRun: options.dryRun });
+    run('git', ['push', 'origin', tag], { dryRun: options.dryRun });
+  }
 
-  run('git', ['add', 'packages/pi-boat/package.json']);
-  run('git', ['commit', '-m', `chore(pi-boat): release ${tag}`]);
-  run('git', ['tag', tag]);
+  const tarball = options.dryRun ? join(repoRoot, `ice-ai-pi-boat-${version}.tgz`) : packTarball();
 
-  const tarball = dryRun ? join(repoRoot, `ice-ai-pi-boat-${nextVersion}.tgz`) : packTarball();
+  if (options.dryRun || !isPublished(version)) {
+    const otpArgs = options.otp ? [`--otp=${options.otp}`] : [];
+    run(
+      'npm',
+      ['publish', tarball, `--registry=${NPM_REGISTRY}`, '--access', 'public', ...otpArgs],
+      { dryRun: options.dryRun },
+    );
+  } else {
+    console.log(`[release] ${PACKAGE_NAME}@${version} is already on npm; skipping publish`);
+  }
 
-  run('git', ['push', 'origin', RELEASE_BRANCH]);
-  run('git', ['push', 'origin', tag]);
-  run('npm', ['publish', tarball, `--registry=${NPM_REGISTRY}`, '--access', 'public']);
-  run('gh', ['release', 'create', tag, tarball, '--title', tag, '--generate-notes']);
+  if (options.dryRun || !hasRelease(tag)) {
+    run('gh', ['release', 'create', tag, tarball, '--title', tag, '--generate-notes'], {
+      dryRun: options.dryRun,
+    });
+  } else {
+    console.log(`[release] GitHub Release ${tag} already exists; skipping`);
+  }
 
   console.log(`\n[release] ${tag} is live (npm + GitHub Release).`);
 }
