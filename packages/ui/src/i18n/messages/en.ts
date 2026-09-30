@@ -315,6 +315,7 @@ export const enLocale: LocalePlugin = {
     'chat.back': 'Back',
     'chat.currentReasoning': 'Reasoning level for this turn: {level}',
     'chat.changeToolPreset': 'Change tool preset',
+    'chat.customToolPreset': 'Custom',
     'chat.stopCompaction': 'Stop compaction',
     'chat.compactContext': 'Compact context',
     'chat.busyDisabled': 'Task in progress; available once it finishes',

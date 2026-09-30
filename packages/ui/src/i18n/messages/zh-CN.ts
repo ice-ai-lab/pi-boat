@@ -311,6 +311,7 @@ export const zhCNLocale: LocalePlugin = {
     'chat.back': '返回',
     'chat.currentReasoning': '本轮使用的推理级别：{level}',
     'chat.changeToolPreset': '更改工具预设',
+    'chat.customToolPreset': '自定义',
     'chat.stopCompaction': '停止压缩',
     'chat.compactContext': '压缩上下文',
     'chat.busyDisabled': '任务进行中，结束后可修改',

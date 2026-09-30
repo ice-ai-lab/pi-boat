@@ -213,6 +213,9 @@ server 新增「冷会话走 rename / resident 走命令通道」两条。
   工具预设改自定义按钮 + 上弹面板（勾选 SVG + 译文描述）
   （思考档位分段已并进 `ModelSelector` 的二级菜单，见 §0.5）；工具预设标签直接用 protocol 的
   `TOOL_PRESETS` 值，不再手写中文。
+  - 补充（2026-09-30）：当前工具集反查不上任何一项预设时（settings 改过 / 扩展塞进工具，
+    如 web-access 的 `web_enable`），标签回落 `t('chat.customToolPreset')`（「自定义」）——
+    此前回落空串，按钮只剩一枚扳手图标（用户报「模式为空」）。预设命中时仍显示 `TOOL_PRESETS` 值。
 - **T2-7** 声音改 SVG 两态（开/静音）。
 - **T2-8** 占位符三态（`steerPlaceholder`/`agentPlaceholder`/`messagePlaceholder`）走 `t()`。
 - **T2-9** 新建输入历史浮层（30px 头 + 时钟 SVG + 序号 + 2 行截断 + active `--bg-selected`）；

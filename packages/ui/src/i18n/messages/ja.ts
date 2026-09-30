@@ -315,6 +315,7 @@ export const jaLocale: LocalePlugin = {
     'chat.back': '戻る',
     'chat.currentReasoning': 'このターンの推論レベル: {level}',
     'chat.changeToolPreset': 'ツールプリセットを変更',
+    'chat.customToolPreset': 'カスタム',
     'chat.stopCompaction': '圧縮を停止',
     'chat.compactContext': 'コンテキストを圧縮',
     'chat.busyDisabled': 'タスク実行中のため、終了後に変更できます',

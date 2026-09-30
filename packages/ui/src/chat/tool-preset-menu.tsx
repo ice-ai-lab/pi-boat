@@ -51,7 +51,12 @@ export function ToolPresetMenu({
     if (disabled) setOpen(false);
   }, [disabled]);
 
-  const label = toolPresets.find((preset) => preset.value === toolPreset)?.label ?? '';
+  // 四项预设都不命中时（settings 被改过 / 扩展塞进了工具，如 web-access 的 web_enable）
+  // 按「当前工具集」反查 `presetForToolNames` 会得到 null：此时按钮仍要有文字，
+  // 否则只剩一枚扳手图标（用户看到的「模式为空」）。fallback 是对当前状态的诚实描述
+  // ——「不是任何一项预设」，不假装命中了某一项（AGENTS.md：命名不得暗示它做不到的事）。
+  const label =
+    toolPresets.find((preset) => preset.value === toolPreset)?.label ?? t('chat.customToolPreset');
   if (toolPresets.length === 0) return null;
 
   return (
