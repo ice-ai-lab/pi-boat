@@ -87,7 +87,7 @@ export function createAgentEventStream(
         unsubscribe?.();
         if (closeController === 'error') {
           try {
-            controller.error(new Error('piboat-server shutting down'));
+            controller.error(new Error('pi-boat-server shutting down'));
           } catch {
             // 已关闭
           }

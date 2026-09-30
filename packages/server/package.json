@@ -1,11 +1,11 @@
 {
   "name": "@ice-ai/server",
-  "description": "PiBoat HTTP/SSE 服务（Hono，组装 core，bin: piboat-server）",
+  "description": "PiBoat HTTP/SSE 服务（Hono，组装 core，bin: pi-boat-server）",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "bin": {
-    "piboat-server": "dist/main.js"
+    "pi-boat-server": "dist/main.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

@@ -25,8 +25,8 @@ ADR-0004 定了主分发包 `@ice-ai/pi-boat` 与 `publishConfig`，但一直没
 |---|---|
 | 包名 / 版本 | `@ice-ai/pi-boat`（ADR-0004）；本次 `1.2.5` |
 | 包目录 | `packages/pi-boat/`（加入 workspace） |
-| bin | `piboat` → `dist/piboat.mjs` |
-| 产物 | `dist/piboat.mjs`（单文件 ESM）+ `dist/web/`（`apps/web/dist` 原样拷贝） |
+| bin | `piboat` → `dist/piboat.mjs`（已修订：ADR-0031 改为 `pi-boat` → `dist/pi-boat.mjs`，2026-09-30） |
+| 产物 | `dist/piboat.mjs`（单文件 ESM）+ `dist/web/`（`apps/web/dist` 原样拷贝）（文件名随 ADR-0031 改为 `dist/pi-boat.mjs`） |
 | 打包器 | esbuild（已是 vite 依赖链成员，不新增重型工具） |
 | external | `@earendil-works/pi-coding-agent`、`@earendil-works/pi-ai`、`proper-lockfile`——列为 `dependencies` |
 | 发布源 | `publishConfig` 固化 `registry.npmjs.org` + `access: public`（ADR-0004） |

@@ -9,7 +9,7 @@ import * as esbuild from 'esbuild';
  * npm 分发包 `@ice-ai/pi-boat` 的组装脚本（ADR-0004 主分发包；打包问题见 docs/04 §8-7）。
  *
  * 产出一个自包含的 CLI：
- *   dist/piboat.mjs   server + core + protocol 打成单文件（ESM）
+ *   dist/pi-boat.mjs   server + core + protocol 打成单文件（ESM）
  *   dist/web/         apps/web 的静态产物（由 CLI 作为 staticRoot 托管）
  *
  * SDK（pi-coding-agent / pi-ai）保持 external：它含运行时资源与动态导入，打进 bundle
@@ -43,7 +43,7 @@ await esbuild.build({
   platform: 'node',
   format: 'esm',
   target: 'node22',
-  outfile: join(dist, 'piboat.mjs'),
+  outfile: join(dist, 'pi-boat.mjs'),
   external: EXTERNAL,
   banner: {
     js: "import { createRequire } from 'node:module';\nconst require = createRequire(import.meta.url);",

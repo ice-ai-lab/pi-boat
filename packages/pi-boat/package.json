@@ -1,6 +1,6 @@
 {
   "name": "@ice-ai/pi-boat",
-  "version": "1.2.5",
+  "version": "1.3.1",
   "description": "PiBoat —— 载着 pi 航行的船：基于 pi-coding-agent SDK 的本机 AI 编程助手。一条命令启动，浏览器即用（一核多端，当前交付 Web 端）。",
   "keywords": [
     "pi",
@@ -13,7 +13,7 @@
   ],
   "type": "module",
   "bin": {
-    "piboat": "dist/piboat.mjs"
+    "pi-boat": "dist/pi-boat.mjs"
   },
   "files": [
     "dist"
@@ -24,7 +24,7 @@
   "scripts": {
     "bundle": "node scripts/build.mjs",
     "prepack": "node scripts/build.mjs",
-    "start": "node dist/piboat.mjs",
+    "start": "node dist/pi-boat.mjs",
     "test": "vitest run --passWithNoTests",
     "lint": "biome check .",
     "typecheck": "tsc --noEmit"

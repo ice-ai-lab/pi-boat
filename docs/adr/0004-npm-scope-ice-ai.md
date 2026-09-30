@@ -19,7 +19,7 @@ ADR-0001 定名时选定 scope `@pi-boat/*`（彼时因 `pi-studio` 撞名改道
 |---|---|
 | workspace 包名 | `@pi-boat/*` → **`@ice-ai/*`**（protocol / core / server / client / ui / typescript-config，含全部 import 与 tsconfig extends） |
 | 主分发包（未来） | **`@ice-ai/pi-boat`**；`publishConfig` 固化 `{ "access": "public", "registry": "https://registry.npmjs.org" }`（对冲开发者本地镜像源误发） |
-| 不变项 | 仓库名 `pi-boat`、根 package.json（private）、bin 命令 `piboat` / `piboat-server` |
+| 不变项 | 仓库名 `pi-boat`、根 package.json（private）、bin 命令 `pi-boat` / `pi-boat-server`（已修订：ADR-0031，2026-09-30；原 `piboat` / `piboat-server`） |
 
 ## 备选方案
 

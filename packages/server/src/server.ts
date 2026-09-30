@@ -54,7 +54,7 @@ export function createAgentServer(deps: AgentServerDeps): Hono {
   app.use('/api/*', securityMiddleware());
 
   app.get('/api/health', (c) => {
-    const body: HealthResponse = { ok: true, name: 'piboat-server', piVersion: PI_VERSION };
+    const body: HealthResponse = { ok: true, name: 'pi-boat-server', piVersion: PI_VERSION };
     return c.json(body);
   });
 

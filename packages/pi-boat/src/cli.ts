@@ -11,7 +11,7 @@ declare const __PIBOAT_VERSION__: string;
 const USAGE = `PiBoat ${__PIBOAT_VERSION__} —— 本机 AI 编程助手（Web 端）
 
 用法:
-  piboat [选项]
+  pi-boat [选项]
 
 选项:
   -p, --port <端口>   监听端口（默认 ${PORTS.server}，等价环境变量 PORT）
@@ -56,7 +56,7 @@ function parseArgs(argv: string[]): ParsedArgs {
       i += 1;
       continue;
     }
-    throw new CliError(`未知选项：${arg}（用 piboat --help 查看用法）`);
+    throw new CliError(`未知选项：${arg}（用 pi-boat --help 查看用法）`);
   }
 
   if (!Number.isInteger(port) || port < 0 || port > 65535) {
@@ -76,7 +76,7 @@ function openBrowser(url: string): void {
 
   const child = spawn(command, args, { stdio: 'ignore', detached: true });
   child.on('error', () => {
-    console.error(`[piboat] 无法自动打开浏览器，请手动访问 ${url}`);
+    console.error(`[pi-boat] 无法自动打开浏览器，请手动访问 ${url}`);
   });
   child.unref();
 }
@@ -85,14 +85,14 @@ function main(): void {
   const parsed = parseArgs(process.argv.slice(2));
   if (parsed.kind === 'exit') return;
 
-  // dist/piboat.mjs 与静态产物同处 dist 下（构建脚本把 apps/web/dist 拷到 dist/web）
+  // dist/pi-boat.mjs 与静态产物同处 dist 下（构建脚本把 apps/web/dist 拷到 dist/web）
   const staticRoot = join(dirname(fileURLToPath(import.meta.url)), 'web');
 
   startPiboatServer({
     port: parsed.port,
     staticRoot,
     onReady: (url) => {
-      console.log(`[piboat] 打开 ${url} 开始使用（Ctrl+C 停止）`);
+      console.log(`[pi-boat] 打开 ${url} 开始使用（Ctrl+C 停止）`);
       if (parsed.open) openBrowser(url);
     },
   });
@@ -101,6 +101,6 @@ function main(): void {
 try {
   main();
 } catch (error) {
-  console.error(`[piboat] ${error instanceof Error ? error.message : String(error)}`);
+  console.error(`[pi-boat] ${error instanceof Error ? error.message : String(error)}`);
   process.exit(1);
 }

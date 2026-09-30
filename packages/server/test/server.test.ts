@@ -476,7 +476,7 @@ describe('安全层（docs/04 §6）', () => {
     // piVersion 是运行时读数（core 从 SDK VERSION 取），只断言形状
     const body = (await res.json()) as { ok: boolean; name: string; piVersion: string };
     expect(body.ok).toBe(true);
-    expect(body.name).toBe('piboat-server');
+    expect(body.name).toBe('pi-boat-server');
     expect(body.piVersion).toMatch(/^\d+\.\d+\.\d+$/);
   });
 

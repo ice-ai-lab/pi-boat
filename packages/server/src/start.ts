@@ -16,8 +16,8 @@ import { activeStreamCount, closeAllAgentEventStreams } from './sse';
 /**
  * 可复用的启动序列（docs/04 §2）：实例化 core → 组装路由 → listen → 优雅退出。
  *
- * 从 main.ts 提取，供两条入口共用：仓库内开发/生产用的 `piboat-server`（main.ts），
- * 以及 npm 分发包 `@ice-ai/pi-boat` 的 `piboat` CLI（它自带 web 静态产物，必须显式
+ * 从 main.ts 提取，供两条入口共用：仓库内开发/生产用的 `pi-boat-server`（main.ts），
+ * 以及 npm 分发包 `@ice-ai/pi-boat` 的 `pi-boat` CLI（它自带 web 静态产物，必须显式
  * 传入 staticRoot，不能靠仓库布局推导）。
  * 安全层无凭据参数（Host/Origin/Sec-Fetch-Site 三闸常开，ADR-0007）。
  */
@@ -80,16 +80,18 @@ export function startPiboatServer(options: StartPiboatServerOptions): PiboatServ
   const server = serve({ fetch: app.fetch, hostname: '127.0.0.1', port: options.port }, (info) => {
     const url = `http://${info.address}:${info.port}`;
     // stdout 就绪信号（Electron 健康检查依赖，docs/01 §5.2.1）
-    console.log(`[piboat-server] listening on ${url}`);
+    console.log(`[pi-boat-server] listening on ${url}`);
     options.onReady?.(url);
   });
 
   // 端口占用等 listen 失败：打印人话再以非零码退出，不甩 Node 堆栈（CLI 首屏体验）
   server.on('error', (error: NodeJS.ErrnoException) => {
     if (error.code === 'EADDRINUSE') {
-      console.error(`[piboat] port ${options.port} is already in use (set --port to pick another)`);
+      console.error(
+        `[pi-boat] port ${options.port} is already in use (set --port to pick another)`,
+      );
     } else {
-      console.error('[piboat] server failed to start:', error);
+      console.error('[pi-boat] server failed to start:', error);
     }
     process.exit(1);
   });
@@ -112,11 +114,11 @@ export function startPiboatServer(options: StartPiboatServerOptions): PiboatServ
   }
 
   process.on('SIGINT', () => {
-    console.log('[piboat-server] SIGINT received, shutting down…');
+    console.log('[pi-boat-server] SIGINT received, shutting down…');
     close();
   });
   process.on('SIGTERM', () => {
-    console.log('[piboat-server] SIGTERM received, shutting down…');
+    console.log('[pi-boat-server] SIGTERM received, shutting down…');
     close();
   });
 
