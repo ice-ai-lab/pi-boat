@@ -19,6 +19,11 @@ import { fileURLToPath } from 'node:url';
  * packages/pi-boat/package.json and committed as `chore(pi-boat): release vX.Y.Z`.
  * With `--resume` no bump/commit/tag/push happens: it only (re)packs, publishes the
  * tarball to npm if missing, and creates the GitHub Release if missing.
+ *
+ * GitHub Release steps deliberately ignore `GH_TOKEN` / `GITHUB_TOKEN` from the
+ * environment and use the keyring `gh auth login` account instead: the env token is
+ * usually a fine-grained PAT without `Contents: write`, and gh prefers it over the
+ * keyring, so `gh release create` fails with HTTP 403 *after* npm has already published.
  */
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const packageDir = join(repoRoot, 'packages/pi-boat');
@@ -73,6 +78,27 @@ function run(command, commandArgs, { dryRun = false, ...options } = {}) {
   execFileSync(command, commandArgs, { cwd: repoRoot, stdio: 'inherit', ...options });
 }
 
+/**
+ * gh 调用的环境：剔除 `GH_TOKEN` / `GITHUB_TOKEN`。
+ *
+ * 壳里常驻的那份是 fine-grained PAT，通常没有 org 仓库的 `Contents: write`，而 gh 会
+ * **优先**用它、把 keyring 里的 `gh auth login` 登录晾在一边——两次发布（v1.3.2 / v1.3.3）
+ * 都因此倒在最后一步：npm 已经 publish 完，`gh release create` 吃 `HTTP 403`，
+ * 留下一个没有 GitHub Release 的版本。剔除后 gh 回落 keyring，才能拿到 release 权限。
+ */
+function releaseGhEnv() {
+  const env = { ...process.env };
+  delete env.GH_TOKEN;
+  delete env.GITHUB_TOKEN;
+  return env;
+}
+
+/** 环境里是否带了会被 gh 优先采用的 token（用于把提示说清楚） */
+function hasGhTokenEnv() {
+  // biome-ignore lint/suspicious/noUndeclaredEnvVars: release 脚本不走 turbo（根 package.json 的 `pnpm release` 直调 node），turbo.json 的 env 声明与它无关
+  return Boolean(process.env.GH_TOKEN || process.env.GITHUB_TOKEN);
+}
+
 function resolveVersion(current, spec) {
   if (/^\d+\.\d+\.\d+$/.test(spec)) return spec;
   const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(current);
@@ -102,7 +128,9 @@ function isPublished(version) {
 
 function hasRelease(tag) {
   try {
-    return capture('gh', ['release', 'view', tag, '--json', 'tagName']) !== '';
+    return (
+      capture('gh', ['release', 'view', tag, '--json', 'tagName'], { env: releaseGhEnv() }) !== ''
+    );
   } catch {
     return false;
   }
@@ -116,10 +144,22 @@ function checkEnvironment() {
   if (branch !== RELEASE_BRANCH) {
     throw new Error(`Releases must be cut from ${RELEASE_BRANCH} (currently on ${branch}).`);
   }
+  // Release 权限的预检做在 bump/publish **之前**：否则 npm 已经发出去、最后一步才挂，
+  // 又得手动收尾（--resume 只能补对，不能撤）。
+  if (hasGhTokenEnv()) {
+    console.log(
+      '[release] GH_TOKEN/GITHUB_TOKEN is set; GitHub Release steps use the keyring `gh auth login` account instead',
+    );
+  }
   try {
-    capture('gh', ['auth', 'status']);
+    capture('gh', ['auth', 'status'], { env: releaseGhEnv() });
   } catch {
-    throw new Error('gh is not authenticated; run `gh auth login` first.');
+    throw new Error(
+      hasGhTokenEnv()
+        ? 'No usable gh account for GitHub Releases: GH_TOKEN/GITHUB_TOKEN is skipped on purpose ' +
+            '(it usually lacks Contents:write) and no keyring login was found; run `gh auth login`.'
+        : 'gh is not authenticated; run `gh auth login` first.',
+    );
   }
   try {
     capture('npm', ['whoami', `--registry=${NPM_REGISTRY}`]);
@@ -203,9 +243,21 @@ async function main() {
   }
 
   if (options.dryRun || !hasRelease(tag)) {
-    run('gh', ['release', 'create', tag, tarball, '--title', tag, '--generate-notes'], {
-      dryRun: options.dryRun,
-    });
+    try {
+      run('gh', ['release', 'create', tag, tarball, '--title', tag, '--generate-notes'], {
+        dryRun: options.dryRun,
+        env: releaseGhEnv(),
+      });
+    } catch (error) {
+      // 到这里 npm 已经 publish 成功，只差 GitHub Release：把失败原因和收尾命令说清楚，
+      // 不把 execFileSync 的 `Command failed ... HTTP 403` 原样丢出来。
+      throw new Error(
+        `Failed to create GitHub Release ${tag} (npm publish already succeeded).\n` +
+          `  ${error instanceof Error ? error.message : String(error)}\n` +
+          '  Finish it manually, or re-run `pnpm release --resume`:\n' +
+          `    env -u GH_TOKEN -u GITHUB_TOKEN gh release create ${tag} ${tarball} --title ${tag} --generate-notes`,
+      );
+    }
   } else {
     console.log(`[release] GitHub Release ${tag} already exists; skipping`);
   }
