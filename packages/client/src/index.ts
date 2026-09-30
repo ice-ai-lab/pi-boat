@@ -15,7 +15,7 @@ export {
 } from './endpoints/files';
 export { queryProviderUsage } from './endpoints/models';
 
-export { browseCwd, getDefaultCwd, getHome } from './endpoints/system';
+export { browseCwd, getDefaultCwd, getHome, pickDirectory } from './endpoints/system';
 export {
   getGitDiff,
   searchSessions,

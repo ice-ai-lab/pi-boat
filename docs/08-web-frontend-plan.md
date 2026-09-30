@@ -35,7 +35,7 @@
 
 SSE 连接管理（`agent-event-connection` / `agent-event-stream` / `agent-event-wire`：seq 对账、重连、idle 宽限）、命令发送、事件→UI 状态折叠、分支树维护、lease 续期（30s）、notices、模型列表加载与重试、系统提示词/工具懒加载、会话统计轮询、prompt 提交恢复（`prompt-recovery`）、`!bash` 执行（排除）。
 
-> **就绪度**：以上除 §5 排除项外，后端 55 端点 / 24 命令 / 27 类 wire 事件**全部就绪**（`docs/07` §1）。
+> **就绪度**：以上除 §5 排除项外，后端 56 端点 / 24 命令 / 27 类 wire 事件**全部就绪**（`docs/07` §1）。
 > 唯一后端缺口 G2-11（启动偏好落盘）用前端 localStorage 绕过（本仓自持，见 §6-4）。
 
 ---

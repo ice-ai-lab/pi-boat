@@ -85,7 +85,7 @@
 | 端点 | core 方法 | 语义要点 |
 |---|---|---|
 | `GET /api/home` · `POST /api/default-cwd` | `SystemService` | 家目录；`~/pi-cwd-YYYYMMDD` 并加入 allowed-roots |
-| `GET /api/cwd/browse?path` · `POST /api/cwd/validate` | `SystemService` | 目录选择器（Windows 盘符）；`~` 展开 + 项目归一 + 选定即入 allowed-roots |
+| `GET /api/cwd/browse?path` · `POST /api/cwd/validate` · `POST /api/cwd/pick` | `SystemService` | 目录选择器（Windows 盘符 / macOS 原生 choose folder，不支持平台回 501 由前端回落内建选择器）；`~` 展开 + 项目归一 + 选定即入 allowed-roots |
 | `GET /api/files/*?type=&sessionId=` | `SystemService` + `PathGuard` | `list/read/download/meta/preview`（`watch` 返 400，`docs/07` §9）；`sessionId` = 会话引用放行 |
 | `POST /api/files/*?type=` | `SystemService` | `upload`（单文件 ≤ 25MB / 总量 ≤ 100MB、文件名校验、冲突策略）/ `upload-check` |
 | `GET /api/file-index?cwd&q` | `SystemService` | git 仓库走 tracked 文件；无 q ≤ 5000、硬上限 20 万；per-cwd 缓存 |

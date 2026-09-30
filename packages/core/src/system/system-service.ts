@@ -127,6 +127,12 @@ export interface SystemServiceOptions {
   resolver?: ProjectResolverLike;
 }
 
+/** 原生目录选择结果（canceled = 用户关掉对话框；unsupported = 平台没有对应实现，前端回落内建选择器） */
+export type DirectoryPickResult =
+  | { status: 'picked'; path: string }
+  | { status: 'canceled' }
+  | { status: 'unsupported' };
+
 /** 会话引用集合（由 server 从读服务取：该会话碰过的文件路径） */
 export type SessionReferences = readonly string[];
 
@@ -225,6 +231,32 @@ export class SystemService {
       projectRoot: resolution?.projectRoot ?? path,
       projectKey: resolution?.projectKey ?? path,
     };
+  }
+
+  /**
+   * 打开系统原生目录选择器（「添加工作区」入口）。
+   * 为什么由 server 进程弹而不是浏览器：浏览器侧的 webkitdirectory / showDirectoryPicker
+   * 都拿不到**绝对路径**（安全模型只给名字/相对路径），而本服务就跑在用户本机上，
+   * macOS 的 `osascript choose folder` 弹的正是 Finder 式选目录对话框且直接返回 POSIX 绝对路径。
+   * 其余平台暂回 `unsupported`（前端回落内建 DirectoryPicker），有真实需求再各加一行实现。
+   * 同 `browseCwd`：弹窗/选择本身不受 allowed-roots 限制，选中后的登记仍走 `cwd/validate`。
+   */
+  async pickDirectory(): Promise<DirectoryPickResult> {
+    if (platform() !== 'darwin') return { status: 'unsupported' };
+    try {
+      const { stdout } = await execFileAsync('osascript', ['-e', 'POSIX path of (choose folder)']);
+      // osascript 给的是带尾斜杠的 POSIX 路径（`/` 根目录去掉尾斜杠会变空，保住它）
+      const path = stdout.trim().replace(/\/+$/, '') || '/';
+      return { status: 'picked', path };
+    } catch (error) {
+      // 用户点「取消」：osascript 退出码 1，stderr 带 `User canceled. (-128)`（错误码 (-128) 不随系统语言变）
+      const stderr =
+        typeof error === 'object' && error !== null && 'stderr' in error
+          ? String((error as { stderr: unknown }).stderr)
+          : '';
+      if (stderr.includes('(-128)')) return { status: 'canceled' };
+      throw error;
+    }
   }
 
   // ------------------------------------------------------------------

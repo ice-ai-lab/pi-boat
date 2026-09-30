@@ -297,6 +297,9 @@ function fakeSystemService() {
         ? { success: true, cwd, projectRoot: cwd, projectKey: cwd }
         : { success: false, cwd, projectRoot: cwd, projectKey: '' },
     ),
+    pickDirectory: vi.fn(
+      async () => ({ status: 'picked', path: '/Users/tester/NewProject' }) as const,
+    ),
     listDirectory: vi.fn(async (path: string) =>
       path.startsWith('/repo')
         ? {
@@ -1231,6 +1234,24 @@ describe('系统域路由', () => {
     const { app } = makeApp();
     expect((await request(app, '/api/cwd/browse')).status).toBe(200);
     expect((await request(app, '/api/cwd/browse?path=/nope')).status).toBe(404);
+  });
+
+  it('POST /api/cwd/pick：选中 → path；取消 → null；平台不支持 → 501', async () => {
+    const { app, systemService } = makeApp();
+    const picked = await request(app, '/api/cwd/pick', { method: 'POST' });
+    expect(picked.status).toBe(200);
+    expect(await picked.json()).toEqual({ path: '/Users/tester/NewProject' });
+
+    systemService.pickDirectory.mockResolvedValueOnce({ status: 'canceled' });
+    const canceled = await request(app, '/api/cwd/pick', { method: 'POST' });
+    expect(await canceled.json()).toEqual({ path: null });
+
+    systemService.pickDirectory.mockResolvedValueOnce({ status: 'unsupported' });
+    const unsupported = await request(app, '/api/cwd/pick', { method: 'POST' });
+    expect(unsupported.status).toBe(501);
+    expect(await unsupported.json()).toEqual({
+      error: 'Native directory picker is not supported on this platform',
+    });
   });
 
   it('POST /api/cwd/validate：success:false 也是 200（业务结果而非传输错误）', async () => {

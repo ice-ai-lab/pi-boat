@@ -19,7 +19,7 @@
 
 | 类别 | 数量 | 说明 |
 |---|---|---|
-| REST 路由 | **一期范围内全部落地**（55 个端点：`packages/server/src/routes/` 54 + `server.ts` 的 `/api/health`） | 九大功能域（§6）；§6.5 认证与用量、§6.8 终端按 ADR-0014 排除；后台推送（§7 的 `/api/push/*`）按 ADR-0016 删除 |
+| REST 路由 | **一期范围内全部落地**（56 个端点：`packages/server/src/routes/` 55 + `server.ts` 的 `/api/health`） | 九大功能域（§6）；§6.5 认证与用量、§6.8 终端按 ADR-0014 排除；后台推送（§7 的 `/api/push/*`）按 ADR-0016 删除 |
 | SSE 事件流 | 1（agent 事件流；auth 登录流一期排除） | `agent/[id]/events`；~~`auth/login/[provider]`~~（2026-01 排除，见 §6.5） |
 | RPC 命令 | **24 已全部实现**（命令通道 24 个；2026-09-22 删 Shell 直连组，2026-01 删不存在的 `extension_ui_input`） | `POST /api/agent/:id` 请求体判别联合（§4） |
 | 领域类型 | ~40 个（其中消息/条目/工具/状态为 SDK 导出或派生，ADR-0017） | domain/ 六文件（§3、§10） |

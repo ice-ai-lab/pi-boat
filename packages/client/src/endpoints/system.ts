@@ -18,3 +18,8 @@ export function browseCwd(path?: string): Promise<CwdBrowseResponse> {
   const qs = path === undefined || path.length === 0 ? '' : `?path=${encodeURIComponent(path)}`;
   return getJson<CwdBrowseResponse>(`/cwd/browse${qs}`);
 }
+
+/** POST /api/cwd/pick —— 打开系统原生目录选择器（macOS）；`path: null` = 用户取消；501 = 平台不支持 */
+export function pickDirectory(): Promise<{ path: string | null }> {
+  return http.post<{ path: string | null }>('/cwd/pick', {}).then((res) => res.data);
+}

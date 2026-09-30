@@ -59,6 +59,7 @@ export {
 } from './resources/resource-service';
 
 export {
+  type DirectoryPickResult,
   SystemAccessError,
   SystemService,
   UserInputErrorLite,

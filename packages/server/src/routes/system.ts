@@ -82,6 +82,17 @@ export function registerSystemRoutes(app: Hono, deps: SystemRouteDeps): void {
     return c.json(result, result.success ? 200 : 200);
   });
 
+  // POST /api/cwd/pick —— 系统原生目录选择器（macOS Finder 式对话框）；
+  // 取消 → { path: null }；平台不支持 → 501（前端回落内建 DirectoryPicker）；
+  // 路径的登记仍走 /api/cwd/validate，这里只负责弹与返回，不碰文件系统
+  app.post('/api/cwd/pick', async (c) => {
+    const result = await systemService.pickDirectory();
+    if (result.status === 'unsupported') {
+      return c.json({ error: 'Native directory picker is not supported on this platform' }, 501);
+    }
+    return c.json(result.status === 'picked' ? { path: result.path } : { path: null });
+  });
+
   // ------------------------------------------------------------------
   // §6.6 文件读写（路径走通配）
   // ------------------------------------------------------------------
