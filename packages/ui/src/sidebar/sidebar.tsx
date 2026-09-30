@@ -2,6 +2,7 @@ import {
   buildSessionListRows,
   getSessionListVisibleRows,
   groupSessionsByDay,
+  pickDirectory,
   SESSION_LIST_HEIGHTS_DESKTOP,
   SESSION_LIST_HEIGHTS_NARROW,
   SESSION_LIST_OVERSCAN,
@@ -82,7 +83,7 @@ function PathLabel({ text, style }: { text: string; style?: CSSProperties }) {
   );
 }
 
-const DROPDOWN_ANIMATION_MS = 140;
+const DROPDOWN_ANIMATION_MS = 180;
 
 function AnimatedDropdown({
   open,
@@ -124,9 +125,9 @@ function AnimatedDropdown({
       style={{
         ...style,
         opacity: visible ? 1 : 0,
-        transform: visible ? 'translateY(0) scale(1)' : 'translateY(-8px) scale(0.96)',
+        transform: visible ? 'translateY(0) scale(1)' : 'translateY(-4px) scale(0.97)',
         transformOrigin: 'top center',
-        transition: `opacity ${DROPDOWN_ANIMATION_MS}ms ease, transform ${DROPDOWN_ANIMATION_MS}ms ease`,
+        transition: `opacity ${DROPDOWN_ANIMATION_MS}ms cubic-bezier(0.32, 0.72, 0, 1), transform ${DROPDOWN_ANIMATION_MS}ms cubic-bezier(0.32, 0.72, 0, 1)`,
         pointerEvents: open ? 'auto' : 'none',
       }}
     >
@@ -882,9 +883,7 @@ export interface SidebarProps {
   onSelectSession(session: SessionInfo): void;
   onNewSession(): void;
   onSelectProjectRoot(root: string): void;
-  /** 「使用默认目录」：创建 ~/pi-cwd-YYYYMMDD；失败返回错误文案 */
-  onUseDefaultDirectory(): Promise<string | null>;
-  /** 「自定义路径…」选中目录后验证；失败返回错误文案 */
+  /** 「添加工作区」/ 内建选择器选定目录后验证；失败返回错误文案 */
   onCommitCustomPath(path: string): Promise<string | null>;
   onRenameSession(id: string, name: string): Promise<void>;
   onDeleteSession(id: string): Promise<void>;
@@ -989,6 +988,9 @@ export function Sidebar(props: SidebarProps) {
       setCustomPathValidating(false);
       if (error !== null) {
         setCustomPathError(error);
+        // 从原生选择器过来时内建选择器没开：打开它把错误亮出来（可就地改选）
+        setCustomPathOpen(true);
+        setDropdownOpen(false);
         return;
       }
       setCustomPathValue(path);
@@ -1004,14 +1006,24 @@ export function Sidebar(props: SidebarProps) {
     setDropdownOpen(false);
   }, []);
 
-  const handleDefaultCwd = useCallback(async () => {
-    const error = await props.onUseDefaultDirectory();
-    if (error === null) {
-      setCustomPathOpen(false);
-      setCustomPathError(null);
-      setDropdownOpen(false);
+  // 「添加工作区」：优先弹系统原生目录选择器（macOS Finder 式对话框）
+  const [nativePicking, setNativePicking] = useState(false);
+  const handleAddWorkspace = useCallback(async () => {
+    if (nativePicking) return;
+    setNativePicking(true);
+    let path: string | null;
+    try {
+      path = (await pickDirectory()).path;
+    } catch {
+      // 非 macOS / 原生调用失败：回落内建目录选择器
+      setNativePicking(false);
+      handleCustomPathClick();
+      return;
     }
-  }, [props]);
+    setNativePicking(false);
+    if (path === null) return; // 用户在原生对话框里点了取消
+    void commitCustomPath(path);
+  }, [commitCustomPath, handleCustomPathClick, nativePicking]);
 
   const sessionListHeights = useSessionListHeights();
   const sessionListRows = useMemo(
@@ -1346,15 +1358,23 @@ export function Sidebar(props: SidebarProps) {
               left: 0,
               right: 0,
               zIndex: 100,
+              /* 不透明面板（用户 2026-09-30 要求弹窗不要透明）：玻璃材质撤下，保留圆角 + 发丝线 + 落地阴影 */
               background: 'var(--bg)',
               border: '1px solid var(--border)',
-              borderRadius: 8,
-              boxShadow: '0 6px 20px rgba(0,0,0,0.10)',
+              borderRadius: 12,
+              boxShadow: '0 10px 28px rgba(0,0,0,0.13), 0 2px 8px rgba(0,0,0,0.06)',
+              padding: 4,
               overflow: 'hidden',
             }}
           >
             {showProjectFilter && (
-              <div style={{ padding: '6px 8px', borderBottom: '1px solid var(--border)' }}>
+              <div
+                style={{
+                  padding: '2px 2px 6px',
+                  borderBottom: '1px solid var(--border)',
+                  marginBottom: 2,
+                }}
+              >
                 <input
                   value={projectFilter}
                   onChange={(e) => setProjectFilter(e.target.value)}
@@ -1375,7 +1395,7 @@ export function Sidebar(props: SidebarProps) {
                     border: '1px solid var(--border)',
                     borderRadius: 5,
                     outline: 'none',
-                    background: 'var(--bg)',
+                    background: 'var(--bg-subtle)',
                     color: 'var(--text)',
                     boxSizing: 'border-box',
                   }}
@@ -1394,15 +1414,21 @@ export function Sidebar(props: SidebarProps) {
                     setCustomPathError(null);
                     setDropdownOpen(false);
                   }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'var(--bg-hover)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent';
+                  }}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: 7,
                     width: '100%',
-                    padding: '8px 10px',
-                    background: 'var(--bg)',
+                    padding: '7px 8px',
+                    background: 'transparent',
                     border: 'none',
-                    borderBottom: '1px solid var(--border)',
+                    borderRadius: 6,
                     color:
                       project.key === props.selectedProject?.key
                         ? 'var(--text)'
@@ -1441,70 +1467,40 @@ export function Sidebar(props: SidebarProps) {
                 </button>
               ))}
               {visibleProjects.length === 0 && projectFilter.trim() && (
-                <div style={{ padding: '8px 10px', fontSize: 11, color: 'var(--text-dim)' }}>
+                <div style={{ padding: '8px 8px', fontSize: 11, color: 'var(--text-dim)' }}>
                   {t('sidebar.noMatchingProjects')}
                 </div>
               )}
             </div>
 
-            {/* 默认目录快捷项 */}
-            {!customPathOpen && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void handleDefaultCwd();
-                }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 7,
-                  width: '100%',
-                  padding: '8px 10px',
-                  background: 'none',
-                  border: 'none',
-                  borderTop: visibleProjects.length > 0 ? '1px solid var(--border)' : 'none',
-                  color: 'var(--text-muted)',
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  fontSize: 11,
-                }}
-              >
-                <svg
-                  aria-hidden="true"
-                  width="10"
-                  height="10"
-                  viewBox="0 0 10 10"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.1"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  style={{ flexShrink: 0 }}
-                >
-                  <path d="M1 3A1 1 0 0 1 2 2H4L5 3.5H8.5a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-.5.5h-7A.5.5 0 0 1 1 8V3Z" />
-                </svg>
-                <span>{t('sidebar.useDefaultDirectory')}</span>
-              </button>
-            )}
-
-            {/* 自定义路径 */}
+            {/* 添加工作区：原生目录选择器（不支持时回落内建选择器）*/}
             <button
               type="button"
+              disabled={nativePicking}
               onClick={(e) => {
                 e.stopPropagation();
-                handleCustomPathClick();
+                void handleAddWorkspace();
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--bg-hover)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'none';
               }}
               style={{
                 display: 'flex',
                 alignItems: 'center',
                 gap: 7,
                 width: '100%',
-                padding: '8px 10px',
+                padding: '7px 8px',
                 background: 'none',
                 border: 'none',
+                borderRadius: 6,
+                borderTop: visibleProjects.length > 0 ? '1px solid var(--border)' : 'none',
+                marginTop: 2,
                 color: 'var(--text-muted)',
-                cursor: 'pointer',
+                cursor: nativePicking ? 'default' : 'pointer',
+                opacity: nativePicking ? 0.6 : 1,
                 textAlign: 'left',
                 fontSize: 11,
               }}
@@ -1523,7 +1519,7 @@ export function Sidebar(props: SidebarProps) {
                 <line x1="5" y1="1" x2="5" y2="9" />
                 <line x1="1" y1="5" x2="9" y2="5" />
               </svg>
-              <span>{t('sidebar.customPath')}</span>
+              <span>{t('sidebar.addWorkspace')}</span>
             </button>
           </AnimatedDropdown>
         </div>

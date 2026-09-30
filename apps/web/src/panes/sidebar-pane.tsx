@@ -1,5 +1,4 @@
 import {
-  getDefaultCwd,
   getHome,
   getProjectActivity,
   projectKeyForCwd,
@@ -265,16 +264,6 @@ export function SidebarPane({
     }
   }, []);
 
-  const useDefaultDirectory = useCallback(async (): Promise<string | null> => {
-    try {
-      const created = await getDefaultCwd();
-      setSelectedCwd(created.cwd);
-      return null;
-    } catch (caught) {
-      return caught instanceof Error ? caught.message : String(caught);
-    }
-  }, []);
-
   const renameSession = useCallback(
     async (id: string, name: string) => {
       await renameMutation.mutateAsync({ sessionId: id, name });
@@ -318,7 +307,6 @@ export function SidebarPane({
         setSelectedCwd(root);
         void validateCwd(root).catch(() => null);
       }}
-      onUseDefaultDirectory={useDefaultDirectory}
       onCommitCustomPath={commitCustomPath}
       onRenameSession={renameSession}
       onDeleteSession={deleteSession}

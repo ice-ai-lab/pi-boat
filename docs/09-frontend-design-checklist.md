@@ -67,7 +67,7 @@
  配套扩了协议与 core——见 ADR-0022）/ T2-4（独立 worktree/分支行 + 只读引导态）/
  T2-5+T2-6（EXPLORER 可折叠标题 + 26×26 `ToolbarIconButton` 图标行；终端按钮按排除域跳过）/
  T2-7（会话行 meta 三段语义 + 运行/未读指示器）/ T2-9+T2-10（项目下拉：筛选/对勾/活动徽标/
- 「使用默认目录」/「自定义路径…」+ `DirectoryPicker` portal 模态 520×620）/
+ 「添加工作区…」+ `DirectoryPicker` portal 模态 520×620）/
  T2-11（文件搜索面板 150ms 防抖 + 变更文件区块）/ T2-12 部分（上传入口改为头部图标 +
  `openUploadPicker()` 命令式接口；进度/冲突三选一/树内蓝点未做）/ T2-13（hover 两个 32×32 图标按钮 +
  行内删除确认 + Shift 跳过；删「复制 id」）/ T2-14（新建按钮归位标题行右侧）/ T2-15（`PiBoat` 字标 +
@@ -352,7 +352,7 @@ abort_compaction`、应答 `extension_ui_response`、只读 `get_state` 等）�
 |---|---|---|
 | `/` → → `<AppShell/>` | `/` → `router.tsx` 单路由 → `<WorkspacePage/>` → `<WorkspaceLayout/>` | ✅ 结构等价 |
 | `/login` | — | ✅ 有意删除 |
-| `/api/*` 53 个 route handler | `packages/server` Hono 55 端点 | ✅ 后端形态不同（ADR-0004），前端不关心 |
+| `/api/*` 53 个 route handler | `packages/server` Hono 56 端点 | ✅ 后端形态不同（ADR-0004），前端不关心 |
 
 **页面层没有缺口。差异 100% 在组件层。**
 
@@ -487,8 +487,8 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 | L5 | **缺独立 worktree/分支行** | `height:29` / mono 分支名 / `main` 标注 / 9×9 chevron；另有只读引导态 | 完全没有（worktree 塞在项目浮层内 `project-picker.tsx`） | **P0** |
 | L6 | **EXPLORER 头部图标行** | 折叠 chevron + 大写标签 + 4 个 26×26 `ToolbarIconButton`（变更文件/搜索文件/上传/刷新） | 一行路径文字 + 一个自造「上传」文字按钮（`file-explorer-pane.tsx`） | **P0** |
 | L7 | 会话行 meta 语义 | `[运行/未读/时间] + [{n} 条消息] + [仅 worktree 的分支，accent + 9×9 图标]` | `[时间] + [{n} 条] + [任意 branch 纯灰字、无条件]`，运行指示在标题行内（`session-row.tsx`） | **P0** |
-| L8 | 项目下拉内容 | 筛选框(>8) + 对勾 + 活动徽标 +「使用默认目录」+「自定义路径…」 | 圆角 pill + 计数；无筛选/对勾/徽标/底部两项（`project-picker.tsx`） | P1 |
-| L9 | `DirectoryPicker` | portal 模态 520×620，从「自定义路径…」打开 | **只 export，全仓无调用方**（`index.ts`） | P1 |
+| L8 | 项目下拉内容 | 筛选框(>8) + 对勾 + 活动徽标 +「添加工作区…」 | 圆角不透明面板 + 对勾 + 徽标 + 底部一项（`sidebar.tsx`） | P1 |
+| L9 | `DirectoryPicker` | portal 模态 520×620，「添加工作区…」的原生选择器不可用（非 macOS / 调用失败 / 校验失败）时回落打开 | **已接线**（`sidebar.tsx`） | P1 |
 | L10 | 缺「变更文件」区块（`+a -d`） | | 无 | P1 |
 | L11 | 缺文件搜索面板 | （150ms 防抖 + 结果树） | 无 | P1 |
 | L12 | 会话行 hover 操作 | 两个 32×32 图标按钮 + **行内删除确认** + Shift 跳过 | 三个文字按钮「改名/复制/删除」，无确认，多一个 规范侧没有的「复制 id」（`session-row.tsx`） | P1 |
@@ -666,8 +666,8 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 - [x] **T2-6** EXPLORER 头部 26×26 图标行（变更文件/搜索文件/上传/刷新；终端按钮跳过）；新建 `ToolbarIconButton` 原语。〔L6〕
 - [x] **T2-7** 会话行 meta 改三段语义（`时间·运行·未读` / `t('sidebar.messagesCount')` / 仅 worktree 的 accent+9×9 图标，`:2366-2391,2019-2082`）。〔L7/L13〕
 - [ ] **T2-8（新·M2）** 会话行右键菜单：落地 + 接 `onContextMenu`。〔L15〕
-- [x] **T2-9** 项目下拉重写（筛选框/对勾/活动徽标/「使用默认目录」/「自定义路径…」，）。〔L8〕
-- [x] **T2-10** `DirectoryPicker` 改 portal 模态并接线到「自定义路径…」。〔L9 / G5〕
+- [x] **T2-9** 项目下拉重写（筛选框/对勾/活动徽标/「添加工作区…」，）。〔L8〕
+- [x] **T2-10** `DirectoryPicker` 改 portal 模态并接线到「添加工作区…」的回落。〔L9 / G5〕
 - [x] **T2-11** 补「变更文件」区块 + 文件搜索面板。〔L10/L11〕
 - [ ] **T2-12（新·M4）** 侧栏上传交互升级：头部图标 + 进度条 + 冲突三选一 + 结果汇总 + 树内蓝点。〔L16〕
 - [x] **T2-13** 会话行 hover 改两个 32×32 图标按钮 + 行内删除确认 + Shift 跳过；删「复制 id」（`:2415-2473,2273-2313`）。〔L12〕
