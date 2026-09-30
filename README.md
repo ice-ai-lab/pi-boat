@@ -1,5 +1,7 @@
 # PiBoat
 
+**English** | [简体中文](./README.zh-CN.md)
+
 > The ship that carries pi — a **local AI coding assistant** built on the [@earendil-works/pi-coding-agent](https://www.npmjs.com/package/@earendil-works/pi-coding-agent) SDK. One core, many front ends.
 
 PiBoat shares the same local configuration and session files as the pi CLI: conversations you start in the terminal can be resumed in the browser, and models or credentials you configure in the browser are visible to the terminal. Everything runs on your own machine (it binds `127.0.0.1` by default) — no account, no cloud relay, no telemetry.
@@ -141,3 +143,12 @@ Dependencies flow strictly downward and never backward: `apps/* → client → p
 ## Third-party notices
 
 See [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md).
+
+---
+
+## References
+
+This project draws on and improves upon these projects:
+
+- <https://github.com/agegr/pi-web>
+- <https://github.com/deepseek-ai/deepseek-harness>
