@@ -1,4 +1,3 @@
-import { CLIENT_VERSION } from '@ice-ai/client';
 import { useEffect, useState } from 'react';
 
 export type ServerHealth = 'checking' | 'up' | 'down';
@@ -9,8 +8,11 @@ export interface ServerInfo {
   piVersion: string | null;
 }
 
-/** 应用版本（web 侧唯一来源：client 包从 protocol 派生的版本串，如 `0.1.0 (protocol v1)`） */
-export const APP_VERSION = CLIENT_VERSION.split(' ')[0] ?? '0.0.0';
+/** 构建期由 vite 从 @ice-ai/pi-boat/package.json 注入（单一来源，见 vite.config.ts） */
+declare const __APP_VERSION__: string;
+
+/** 应用版本（品牌胶囊里的 `vX.Y.Z`） */
+export const APP_VERSION = __APP_VERSION__;
 
 /**
  * 服务信息探针：`/api/health` 同时给出连通性与运行时 pi 版本（侧栏品牌胶囊里的 `pi vX` 用；

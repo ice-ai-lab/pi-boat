@@ -42,8 +42,11 @@ ADR-0004 定了主分发包 `@ice-ai/pi-boat` 与 `publishConfig`，但一直没
 4. **构建脚本负责组装**：`packages/pi-boat/scripts/build.mjs` 先跑 `turbo run build`
    （保证各包 dist 与 `apps/web/dist` 最新），再 bundle、拷贝静态产物、把根 README 复制进包内
    （npm 页面读包内 README）。挂 `prepack`，故 `npm publish` 一条命令即可复现。
-5. **版本号单源**：bundle 时用 esbuild `define` 注入 `__PIBOAT_VERSION__`；
-   界面展示的应用版本（`packages/client/src/version.ts` 的 `CLIENT_VERSION`）随本次发布同步到 `1.2.5`。
+5. **版本号单源**：分发包 `packages/pi-boat/package.json` 是唯一版本源（`release.mjs` 只 bump 它）。
+   CLI 侧 bundle 时用 esbuild `define` 注入 `__PIBOAT_VERSION__`；界面侧由 `apps/web/vite.config.ts`
+   构建期直读同一份 package.json，`define` 注入 `__APP_VERSION__`。原先手写的
+   `packages/client/src/version.ts` `CLIENT_VERSION` 已删除——它不在版本单点里，`1.3.2` / `1.3.3`
+   两次发布都漏改、页面停在旧版本（2026-09-30 修复根因）。
 
 ## 备选方案
 

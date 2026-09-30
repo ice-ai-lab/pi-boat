@@ -17,6 +17,8 @@ import { fileURLToPath } from 'node:url';
  *
  * The working tree must be clean and on `main`; the version is bumped in
  * packages/pi-boat/package.json and committed as `chore(pi-boat): release vX.Y.Z`.
+ * That file is the single source of the app version: the web bundle reads it at build time
+ * (apps/web/vite.config.ts), so the in-app label follows automatically.
  * With `--resume` no bump/commit/tag/push happens: it only (re)packs, publishes the
  * tarball to npm if missing, and creates the GitHub Release if missing.
  *
@@ -179,7 +181,7 @@ function checkEnvironment() {
 async function confirm(version, tag) {
   const plan = [
     `Release ${PACKAGE_NAME} ${pkg.version} -> ${version}`,
-    '  1. bump packages/pi-boat/package.json and build the bundle',
+    '  1. bump packages/pi-boat/package.json (single source of the app version), build the bundle',
     `  2. commit "chore(pi-boat): release ${tag}" and create tag ${tag}`,
     `  3. push ${RELEASE_BRANCH} and ${tag} to origin`,
     `  4. publish to ${NPM_REGISTRY}`,

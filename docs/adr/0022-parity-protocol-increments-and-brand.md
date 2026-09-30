@@ -52,7 +52,8 @@
   只有 core 允许 import SDK（AGENTS.md 依赖铁律）。
 - protocol：`HealthResponse` 增 `piVersion: string`；server 在 `/api/health` 回应。
 - web：`useServerInfo()` 一次拿到连通性与 `piVersion`，空态版本块展示 `web v<APP_VERSION>` /
-  `pi v<piVersion>`（2026-09-28 起改在侧栏品牌胶囊同行展示，见上方修订）；`APP_VERSION` 从 client 的 `CLIENT_VERSION` 派生。
+  `pi v<piVersion>`（2026-09-28 起改在侧栏品牌胶囊同行展示，见上方修订）；`APP_VERSION` 为构建期
+  注入的 `__APP_VERSION__`（源 = `packages/pi-boat/package.json`，见 ADR-0030）。
 
 **4. `apps/web/public/` 纳入版本管理并排除出 Biome。**
 

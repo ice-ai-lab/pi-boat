@@ -84,7 +84,6 @@ export type {
   TrailItem,
   Turn,
 } from './stream/view-model';
-export { CLIENT_VERSION } from './version';
 export {
   applyChatAppearance,
   CHAT_CONTENT_FONT_SIZE_DEFAULT,

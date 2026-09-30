@@ -1,11 +1,20 @@
 /// <reference types="vitest/config" />
+import { readFileSync } from 'node:fs';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
 // 端口单一来源：protocol 的 PORTS（源码直读，不依赖构建产物；docs/01 §5.2）
 import { PORTS } from '../../packages/protocol/src/constants';
 
+// 应用版本单一来源：分发包 @ice-ai/pi-boat 的 package.json（发布脚本 bump 的那一份，ADR-0030）。
+// web 产物最终被打进该包的 dist/web，二者版本必然一致——构建期注入，不再在 client 里手抄
+// 第二份（此前的 CLIENT_VERSION 两次发布漏改，页面停在旧版本）。
+const { version: APP_VERSION } = JSON.parse(
+  readFileSync(new URL('../../packages/pi-boat/package.json', import.meta.url), 'utf8'),
+) as { version: string };
+
 export default defineConfig({
+  define: { __APP_VERSION__: JSON.stringify(APP_VERSION) },
   plugins: [
     tailwindcss(),
     // React Compiler（ADR-0009）；F1 若遇不兼容组件可局部跳过（compiler 配置 filter）
