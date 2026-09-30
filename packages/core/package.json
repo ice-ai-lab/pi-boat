@@ -1,6 +1,6 @@
 {
   "name": "@ice-ai/core",
-  "description": "PiBoat Agent 业务核心（全仓唯一允许依赖 pi-coding-agent SDK 的包，传输无关）",
+  "description": "PiBoat agent business core (the only package in the repo allowed to depend on the pi-coding-agent SDK; transport-agnostic)",
   "version": "0.0.0",
   "private": true,
   "type": "module",

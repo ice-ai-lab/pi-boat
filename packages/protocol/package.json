@@ -1,6 +1,6 @@
 {
   "name": "@ice-ai/protocol",
-  "description": "PiBoat 前后端唯一契约：API 类型 + 事件 wire 格式（复用 SDK 类型 + 入参 Zod，零业务逻辑）",
+  "description": "PiBoat single contract between front end and back end: API types + event wire format (reuses SDK types + Zod input schemas, zero business logic)",
   "version": "0.0.0",
   "private": true,
   "type": "module",

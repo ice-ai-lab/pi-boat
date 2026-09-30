@@ -5,19 +5,19 @@ import { fileURLToPath } from 'node:url';
 import { PORTS } from '@ice-ai/protocol';
 import { startPiboatServer } from '@ice-ai/server';
 
-/** 构建期由 esbuild 注入（值取自本包 package.json 的 version） */
+/** Injected at build time by esbuild (value read from this package's package.json version) */
 declare const __PIBOAT_VERSION__: string;
 
-const USAGE = `PiBoat ${__PIBOAT_VERSION__} —— 本机 AI 编程助手（Web 端）
+const USAGE = `PiBoat ${__PIBOAT_VERSION__} — local AI coding assistant (web)
 
-用法:
-  pi-boat [选项]
+Usage:
+  pi-boat [options]
 
-选项:
-  -p, --port <端口>   监听端口（默认 ${PORTS.server}，等价环境变量 PORT）
-      --no-open       启动后不自动打开浏览器
-  -h, --help          显示本帮助并退出
-  -v, --version       显示版本并退出
+Options:
+  -p, --port <port>   Port to listen on (default ${PORTS.server}, same as the PORT env var)
+      --no-open       Do not open the browser automatically after startup
+  -h, --help          Show this help and exit
+  -v, --version       Show the version and exit
 `;
 
 interface StartOptions {
@@ -26,7 +26,7 @@ interface StartOptions {
   open: boolean;
 }
 
-/** 纯解析：--help/--version 是正常退出，不抛错（调用方据 kind 决定是否启动） */
+/** Pure parsing: --help/--version are a normal exit, not an error (the caller decides whether to start based on kind) */
 type ParsedArgs = StartOptions | { kind: 'exit' };
 
 class CliError extends Error {}
@@ -51,21 +51,21 @@ function parseArgs(argv: string[]): ParsedArgs {
     }
     if (arg === '-p' || arg === '--port') {
       const value = argv[i + 1];
-      if (value === undefined) throw new CliError(`${arg} 需要一个端口值`);
+      if (value === undefined) throw new CliError(`${arg} requires a port value`);
       port = Number(value);
       i += 1;
       continue;
     }
-    throw new CliError(`未知选项：${arg}（用 pi-boat --help 查看用法）`);
+    throw new CliError(`Unknown option: ${arg} (run pi-boat --help for usage)`);
   }
 
   if (!Number.isInteger(port) || port < 0 || port > 65535) {
-    throw new CliError(`端口不合法：${port}`);
+    throw new CliError(`Invalid port: ${port}`);
   }
   return { kind: 'start', port, open };
 }
 
-/** 用系统默认浏览器打开 URL；失败只提示，不阻断服务（headless 环境下属正常） */
+/** Open the URL in the system default browser; failures only warn and never block the server (expected in headless environments) */
 function openBrowser(url: string): void {
   const [command, args] =
     process.platform === 'darwin'
@@ -76,7 +76,9 @@ function openBrowser(url: string): void {
 
   const child = spawn(command, args, { stdio: 'ignore', detached: true });
   child.on('error', () => {
-    console.error(`[pi-boat] 无法自动打开浏览器，请手动访问 ${url}`);
+    console.error(
+      `[pi-boat] Could not open the browser automatically, please visit ${url} manually`,
+    );
   });
   child.unref();
 }
@@ -85,14 +87,14 @@ function main(): void {
   const parsed = parseArgs(process.argv.slice(2));
   if (parsed.kind === 'exit') return;
 
-  // dist/pi-boat.mjs 与静态产物同处 dist 下（构建脚本把 apps/web/dist 拷到 dist/web）
+  // dist/pi-boat.mjs and the static assets live side by side under dist (the build script copies apps/web/dist to dist/web)
   const staticRoot = join(dirname(fileURLToPath(import.meta.url)), 'web');
 
   startPiboatServer({
     port: parsed.port,
     staticRoot,
     onReady: (url) => {
-      console.log(`[pi-boat] 打开 ${url} 开始使用（Ctrl+C 停止）`);
+      console.log(`[pi-boat] Open ${url} to start (Ctrl+C to stop)`);
       if (parsed.open) openBrowser(url);
     },
   });

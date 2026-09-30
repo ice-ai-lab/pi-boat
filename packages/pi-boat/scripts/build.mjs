@@ -6,35 +6,38 @@ import { fileURLToPath } from 'node:url';
 import * as esbuild from 'esbuild';
 
 /**
- * npm 分发包 `@ice-ai/pi-boat` 的组装脚本（ADR-0004 主分发包；打包问题见 docs/04 §8-7）。
+ * Assembly script for the npm distribution package `@ice-ai/pi-boat` (ADR-0004 main distribution package; packaging details in docs/04 §8-7).
  *
- * 产出一个自包含的 CLI：
- *   dist/pi-boat.mjs   server + core + protocol 打成单文件（ESM）
- *   dist/web/         apps/web 的静态产物（由 CLI 作为 staticRoot 托管）
+ * Produces a self-contained CLI:
+ *   dist/pi-boat.mjs   server + core + protocol bundled into a single file (ESM)
+ *   dist/web/         static build output of apps/web (served by the CLI as staticRoot)
  *
- * SDK（pi-coding-agent / pi-ai）保持 external：它含运行时资源与动态导入，打进 bundle
- * 得不偿失，作为 dependencies 由用户安装；其余全部内联，故内部包无需另行发布。
+ * The SDK (pi-coding-agent / pi-ai) stays external: it ships runtime assets and dynamic imports, so
+ * bundling it is not worth it — users install it as a dependency. Everything else is inlined,
+ * so the internal packages do not need to be published separately.
  */
 const packageDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = resolve(packageDir, '../..');
 const webDist = join(repoRoot, 'apps/web/dist');
 
-/** 内联包之外的运行时依赖：与 package.json 的 dependencies 保持一一对应 */
+/** Runtime dependencies kept outside the bundle: one-to-one with package.json dependencies */
 const EXTERNAL = ['@earendil-works/pi-ai', '@earendil-works/pi-coding-agent', 'proper-lockfile'];
 
 const pkg = JSON.parse(await readFile(join(packageDir, 'package.json'), 'utf8'));
 
-// 1. 全量构建：bundle 的输入是各包 dist（core / server / protocol）与 apps/web/dist
+// 1. Full build: the bundle inputs are each package's dist (core / server / protocol) and apps/web/dist
 execFileSync('pnpm', ['exec', 'turbo', 'run', 'build'], {
   cwd: repoRoot,
   stdio: 'inherit',
 });
 
 if (!existsSync(join(webDist, 'index.html'))) {
-  throw new Error(`web 静态产物缺失：${webDist}（pnpm turbo run build 应已生成）`);
+  throw new Error(
+    `Missing web static build output: ${webDist} (pnpm turbo run build should have produced it)`,
+  );
 }
 
-// 2. 打单文件 CLI（banner 提供 CJS require：bundle 内依赖仍可能用它取可选模块）
+// 2. Bundle the single-file CLI (banner provides CJS require: bundled dependencies may still use it to load optional modules)
 const dist = join(packageDir, 'dist');
 await rm(dist, { recursive: true, force: true });
 await esbuild.build({
@@ -52,8 +55,8 @@ await esbuild.build({
   logLevel: 'info',
 });
 
-// 3. 静态产物进 dist/web；README 一并落包（npm 页面读包内 README）
+// 3. Move static assets into dist/web; copy the README along too (the npm page reads the package README)
 await cp(webDist, join(dist, 'web'), { recursive: true });
 await cp(join(repoRoot, 'README.md'), join(packageDir, 'README.md'));
 
-console.log(`[pi-boat] @ice-ai/pi-boat@${pkg.version} 已就绪：${dist}`);
+console.log(`[pi-boat] @ice-ai/pi-boat@${pkg.version} is ready: ${dist}`);

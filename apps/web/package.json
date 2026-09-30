@@ -1,6 +1,6 @@
 {
   "name": "@ice-ai/web",
-  "description": "PiBoat Web 前端 SPA（Vite + React 19，ADR-0002；一期实施规划 docs/08）",
+  "description": "PiBoat web front-end SPA (Vite + React 19, ADR-0002; phase-one implementation plan in docs/08)",
   "version": "0.0.0",
   "private": true,
   "type": "module",
