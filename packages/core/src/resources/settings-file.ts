@@ -43,11 +43,6 @@ export function globalSettingsPath(agentDir: string): string {
   return join(agentDir, 'settings.json');
 }
 
-/** 项目设置文件路径（`<cwd>/<configDirName>/settings.json`，默认 `.pi`） */
-export function projectSettingsPath(cwd: string, configDirName: string): string {
-  return join(cwd, configDirName, 'settings.json');
-}
-
 export function readSettingsObject(path: string): Record<string, unknown> {
   if (!existsSync(path)) return {};
   let parsed: unknown;

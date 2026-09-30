@@ -3,7 +3,7 @@
 > `@ice-ai/client`：类型安全的客户端 SDK。本文是 `docs/01-overview.md` §3.1 的实现细化，
 > API 契约以 `docs/02-protocol-inventory.md` 与 `@ice-ai/protocol` 为准，服务端语义见
 > `docs/04-server-design.md`，组件侧消费契约见 `docs/06-ui-design.md`。
-> 状态：**开工前设计稿**（2026-09-22，随 Web 原型 v3 定稿）。技术栈基准已由 ADR-0009 收口（Axios / TanStack Query 边界 / 路由）。
+> 状态：**已随一期前端落地**（client 包已实现；本文为设计稿，与代码不一致时以代码为准并当天更新本文）。技术栈基准已由 ADR-0009 收口（Axios / TanStack Query 边界 / 路由）。
 > 与代码不一致时以代码为准并当天更新本文档。
 
 ---

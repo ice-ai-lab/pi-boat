@@ -7,7 +7,7 @@ import { useI18n } from '../i18n/i18n-provider';
  * 点击在新标签打开原图——设计规范的灯箱（`image-preview-dialog`）是 T3-9，
  * 本组件不假装提供它（AGENTS.md：命名不得暗示做不到的事）。
  */
-export function ChatImage({ src }: { src: string }) {
+function ChatImage({ src }: { src: string }) {
   const { t } = useI18n();
   const label = t('chat.previewImage');
   return (

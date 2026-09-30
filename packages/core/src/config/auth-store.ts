@@ -19,7 +19,7 @@ export type CredentialRemovalResult =
   | { status: 'type_mismatch'; storedType: string };
 
 /** auth.json 的路径（测试可注入） */
-export function authStoragePath(agentDir: string = getAgentDir()): string {
+function authStoragePath(agentDir: string = getAgentDir()): string {
   return join(agentDir, 'auth.json');
 }
 

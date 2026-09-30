@@ -24,7 +24,7 @@ import {
   type CustomProviderEntry,
 } from './model-config';
 
-export interface CatalogMatchResult {
+interface CatalogMatchResult {
   models: CatalogModel[];
   error?: string;
 }

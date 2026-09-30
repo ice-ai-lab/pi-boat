@@ -25,120 +25,41 @@
  *   - resources/ResourceService          skills / plugins / 工具设置 / 项目信任
  *   - system/SystemService + PathGuard   文件系统 / git / worktree（allowed-roots 唯一实现）
  *
- * 下一步不在本包：前端（client / ui / web）尚未开工（docs/01 §7.1）。
+ * 本入口只导出 server / pi-boat 实际消费的服务与错误类型；包内互用的符号不走这里。
  */
 
 export {
   AgentSessionService,
-  type AgentSessionServiceOptions,
-  type CreateRuntimeFn,
-  type CreateRuntimeInput,
-  defaultCreateRuntime,
   PromptRejectedError,
   SessionBusyError,
   SessionNotFoundError,
   UserInputError,
 } from './agent/agent-session-service';
-export {
-  DEFAULT_UI_TIMEOUT_MS,
-  ExtensionUiBridge,
-} from './agent/extension-ui-bridge';
-export {
-  DEFAULT_LEASE_TTL_MS,
-  DEFAULT_REAP_INTERVAL_MS,
-  type LivenessOptions,
-  LivenessRegistry,
-} from './agent/liveness';
-export {
-  SessionRegistryEntry,
-  type WireAgentEventListener,
-} from './agent/session-entry';
-export {
-  readSessionToolSelection,
-  TOOL_SELECTION_CUSTOM_TYPE,
-  writeToolSelection,
-} from './agent/session-tool-selection';
-export {
-  type CredentialRemovalResult,
-  removeStoredCredentialIfType,
-  storeProviderCredential,
-} from './config/auth-store';
+
+export { LivenessRegistry } from './agent/liveness';
+
 export {
   ConfigService,
   InvalidScopeEditError,
   ProjectShadowedError,
 } from './config/config-service';
-export {
-  LastModelRejectionError,
-  modelKey,
-  parsePattern,
-  resolveVisibleModels,
-  toggleModelInPatterns,
-  type VisibleScope,
-} from './config/model-scope';
-export {
-  ModelsConfigReadError,
-  modelsConfigPath,
-  normalizeModelsConfigCosts,
-  readModelsConfig,
-  writeModelsConfig,
-} from './config/models-config-store';
-export {
-  isProviderUsageId,
-  normalizeProviderUsagePayload,
-  PROVIDER_USAGE_IDS,
-  type ProviderUsageId,
-} from './config/provider-usage';
-export {
-  toWireAgentEvent,
-  toWireAgentEventPayload,
-  type WireAgentEventPayload,
-} from './events/wire-event';
+export { LastModelRejectionError } from './config/model-scope';
+export { ModelsConfigReadError } from './config/models-config-store';
+
 export { PI_VERSION } from './pi-version';
+export { ProjectReadService } from './read/project-read-service';
+export { ProjectResolver } from './read/project-resolver';
 export {
-  type ProjectReadOptions,
-  ProjectReadService,
-} from './read/project-read-service';
-export {
-  type ProjectResolution,
-  ProjectResolver,
-  type ProjectResolverLike,
-  projectKeyOf,
-} from './read/project-resolver';
-export {
-  computeStats,
   type SessionListOptions,
-  type SessionReadOptions,
   SessionReadService,
 } from './read/session-read-service';
 export {
-  isPowerShellEnabled,
   ResourceService,
-  replaceShellTool,
   SkillInstallError,
-  setDisableModelInvocation,
-  sourceType,
 } from './resources/resource-service';
-export {
-  globalSettingsPath,
-  projectSettingsPath,
-  readSettingsObject,
-  SettingsWriteError,
-  updateSettingsObject,
-} from './resources/settings-file';
-export {
-  displayPath,
-  expandTilde,
-  IGNORED_DIRECTORY_NAMES,
-  isInsideRoot,
-  isSensitivePath,
-  type PathDecision,
-  PathGuard,
-  samePath,
-} from './system/path-guard';
+
 export {
   SystemAccessError,
   SystemService,
-  type SystemServiceOptions,
   UserInputErrorLite,
 } from './system/system-service';

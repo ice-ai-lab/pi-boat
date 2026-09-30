@@ -3,8 +3,8 @@ import { z } from 'zod';
 /**
  * 工具与斜杠命令（docs/02 §3.4 尾部两组）。
  *
- * **不重新定义**（ADR-0017）：`SourceInfo` / `SourceScope` / `SourceOrigin` /
- * `ToolInfo` / `SlashCommandInfo` 全部来自 pi-coding-agent 的公开导出。
+ * **不重新定义**（ADR-0017）：`SourceInfo` / `ToolInfo` / `SlashCommandInfo`
+ * 全部来自 pi-coding-agent 的公开导出。
  * `active` 是 PiBoat 叠加的运行时标记（服务端按当前激活工具集标注），故用 `&` 派生。
  */
 export type {
@@ -13,11 +13,7 @@ export type {
   SourceInfo,
 } from '@earendil-works/pi-coding-agent';
 
-import type { ToolInfo as SdkToolInfo, SourceInfo } from '@earendil-works/pi-coding-agent';
-
-// SDK 未从包根导出这两个别名（定义在 core/source-info.ts），从 SourceInfo 提取
-export type SourceScope = SourceInfo['scope'];
-export type SourceOrigin = SourceInfo['origin'];
+import type { ToolInfo as SdkToolInfo } from '@earendil-works/pi-coding-agent';
 
 /** 工具信息 + 运行时激活标记（`active` 仅 get_tools 场景叠加） */
 export type ToolInfo = SdkToolInfo & { active?: boolean };

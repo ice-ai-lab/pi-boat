@@ -7,7 +7,6 @@ import type {
   SkillSearchResponse,
   SkillsResponse,
   SkillUpdateResult,
-  ToolSettingsResponse,
 } from '@ice-ai/protocol';
 import { getJson, http } from '../http';
 
@@ -79,16 +78,5 @@ export function pluginAction(request: PluginActionRequest): Promise<unknown> {
 export function checkPluginUpdates(cwd: string): Promise<{ results: SkillUpdateResult[] }> {
   return http
     .post<{ results: SkillUpdateResult[] }>('/plugins/check', { cwd })
-    .then((res) => res.data);
-}
-
-// —— 工具设置 ——
-export function getToolsSettings(): Promise<ToolSettingsResponse> {
-  return getJson<ToolSettingsResponse>('/tools/settings');
-}
-
-export function putToolsSettings(powerShellEnabled: boolean): Promise<ToolSettingsResponse> {
-  return http
-    .put<ToolSettingsResponse>('/tools/settings', { powerShellEnabled })
     .then((res) => res.data);
 }

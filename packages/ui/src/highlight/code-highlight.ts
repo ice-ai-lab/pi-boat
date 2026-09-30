@@ -17,7 +17,7 @@ const THEMES = { light: 'github-light-default', dark: 'github-dark-default' } as
 export const MAX_HIGHLIGHT_LINES = 1000;
 
 /** 高亮后的一个 token：一段文本 + 行内 CSS 变量（`--shiki-light`/`--shiki-dark`）；空对象 = 沿用继承色 */
-export interface HighlightToken {
+interface HighlightToken {
   content: string;
   style: Record<string, string>;
 }

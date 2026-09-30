@@ -1,5 +1,5 @@
 import type { Turn } from '@ice-ai/client';
-import { groupTrail, isLiveTail } from '@ice-ai/client';
+import { groupTrail } from '@ice-ai/client';
 import type { Usage } from '@ice-ai/protocol';
 import { memo } from 'react';
 import { formatDateTime } from '../i18n/format';
@@ -185,6 +185,3 @@ export const AssistantTurn = memo(function AssistantTurn({
     </div>
   );
 });
-
-/** 会话级末轮判定（供列表层传给 AssistantTurn） */
-export { isLiveTail };

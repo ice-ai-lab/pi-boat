@@ -35,8 +35,10 @@
 1. **protocol 只写三类东西**
    - **HTTP 入参**：`z.object` 校验（query / body）——这是本仓自己的边界，SDK 管不到，zod 在此处**保留**（ADR-0005 的"校验只落边界"不变）
    - **PiBoat 自有概念**：资源域/文件/git/模型面板的 REST 形状、工具预设、`relation`/`projectRoot`/`revision` 等扩展字段
-   - **SDK 未导出的形状**：用 SDK 已导出类型**派生**（`Extract`/`Omit`/分配律 Omit），不抄字段。目前只有四处：
-     `AgentMessage`（`SessionMessageEntry['message']`）、`UsageEntry`/`LabelEntry`（按 `type` 从 `SessionEntry` 提取）、`SourceScope`/`SourceOrigin`（`SourceInfo` 的字段）、`ExtensionUiRequest`/`Response`（去掉 RPC 顶层判别字段的派生）
+   - **SDK 未导出的形状**：用 SDK 已导出类型**派生**（`Extract`/`Omit`/分配律 Omit），不抄字段。目前主要两处：
+     `AgentMessage`（`SessionMessageEntry['message']`）、`ExtensionUiRequest`/`Response`（去掉 RPC 顶层判别字段的派生）。
+     > 勘误：原文另列的 `UsageEntry`/`LabelEntry`（按 `type` 从 `SessionEntry` 提取）与 `SourceScope`/`SourceOrigin`
+     > （`SourceInfo` 的字段）已按「零消费方即删」移除——它们仍是 SDK 联合/字段的成员，只是不再另立具名别名。
 
 2. **出参不再有 zod**：响应/事件/命令结果的形状是**类型**（由 SDK 类型派生），不再维护运行时 schema。
    - 代价（明示）：SSE 逐帧与响应体的运行时校验能力随之取消。ADR-0005 计划的三条校验边界里，"REST 入参"已接线并保留；"会话文件解析""SSE 逐帧"从未接线，本次正式撤回（需要时可再从类型生成校验器，而不是手写第二份）。

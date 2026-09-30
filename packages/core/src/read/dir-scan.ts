@@ -26,7 +26,7 @@ export interface SessionFileMeta {
   mtimeMs: number;
 }
 
-export interface ProjectDirScan {
+interface ProjectDirScan {
   /** 项目目录名（encoded-cwd，编码有损，仅作诊断/指纹用） */
   dirName: string;
   /** 已按文件名降序（最新在前）；空目录为 [] */

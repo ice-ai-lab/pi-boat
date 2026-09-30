@@ -21,7 +21,6 @@ import type {
 } from '@ice-ai/protocol';
 import type { ProjectResolverLike } from '../read/project-resolver';
 import {
-  displayPath,
   IGNORED_DIRECTORY_NAMES,
   isSensitivePath,
   type PathDecision,
@@ -882,5 +881,3 @@ function expandHome(path: string): string {
   if (path.startsWith('~/')) return join(homedir(), path.slice(2));
   return path;
 }
-
-export { displayPath };

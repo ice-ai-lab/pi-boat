@@ -1,4 +1,4 @@
-import { joinFilePath, listDirectory } from '@ice-ai/client';
+import { listDirectory } from '@ice-ai/client';
 import type { FileListEntry } from '@ice-ai/protocol';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -112,5 +112,3 @@ export function useFileTree(root: string | null): FileTreeController {
     reset,
   };
 }
-
-export { joinFilePath };

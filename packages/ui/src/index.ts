@@ -2,192 +2,49 @@
  * @ice-ai/ui —— 纯展示组件库（只依赖 protocol 类型与 client hooks，不依赖任何宿主框架）。
  * 三册目录（docs/06 §4）：primitives / chat / inspect；容器组件例外登记见 docs/06 §1（ADR-0019）。
  * 视觉 token 单一来源：./theme.css（Tailwind 消费方式见 docs/06 §2）。
+ * 本入口只导出宿主（apps/web）实际消费的组件与工具——包内互用的组件不走这里。
  */
 
 // chat 册（docs/06 §4.2）
-export { AssistantTurn, UsageLine, UserBubble } from './chat/assistant-turn';
-// chat 册（F5 增补）
-export { CodeBlock } from './chat/code-block';
-export { Composer, type ComposerProps } from './chat/composer';
-export { ComposerMetrics, type ComposerMetricsProps } from './chat/composer-metrics';
-export { ComposerToolbar, type ComposerToolbarProps } from './chat/composer-toolbar';
-export {
-  ContentWidthHandles,
-  type ContentWidthHandlesProps,
-} from './chat/content-width-handles';
-export { EmptyState, type EmptyStateProps } from './chat/empty-state';
-export { MarkdownBody, MarkdownView } from './chat/markdown-view';
-export { MessageList, type MessageListProps } from './chat/message-list';
-export {
-  filterModelOptions,
-  ModelSelector,
-  type ModelSelectorOption,
-  type ModelSelectorProps,
-} from './chat/model-selector';
-export { ProcessGroup } from './chat/process-group';
-export { QueueBar, type QueueBarProps } from './chat/queue-bar';
-export {
-  type SuggestionItem,
-  SuggestionMenu,
-  type SuggestionMenuProps,
-} from './chat/suggestion-menu';
-export { SystemRowView, ThinkingRowView } from './chat/thinking-row';
-export { ToolPresetMenu, type ToolPresetMenuProps } from './chat/tool-preset-menu';
-export { ToolRowView } from './chat/tool-row';
-export { TurnWrittenFiles, type TurnWrittenFilesProps } from './chat/turn-written-files';
+export { Composer } from './chat/composer';
+export { ComposerMetrics } from './chat/composer-metrics';
+export { ComposerToolbar } from './chat/composer-toolbar';
+export { ContentWidthHandles } from './chat/content-width-handles';
+export { EmptyState } from './chat/empty-state';
+export { MessageList } from './chat/message-list';
+export { QueueBar } from './chat/queue-bar';
+export type { SuggestionItem } from './chat/suggestion-menu';
 export { WorkspacePlaceholder } from './chat/workspace-placeholder';
-export { stripAnsi } from './extension/ansi';
+
 // extension 册（ADR-0012）
-export { AnsiText } from './extension/ansi-text';
-export {
-  ExtensionRequestDialog,
-  type ExtensionRequestDialogProps,
-} from './extension/extension-request-dialog';
-export {
-  ExtensionStatusBar,
-  formatExtensionStatusLine,
-  sanitizeExtensionStatusText,
-} from './extension/extension-status-bar';
-export {
-  DEFAULT_EXPANDED_WIDGET_LINES,
-  ExtensionWidgets,
-  formatExtensionWidgetContent,
-  snapshotExtensionWidgetContents,
-  WIDGET_UPDATE_IDLE_MS,
-} from './extension/extension-widgets';
+export { ExtensionRequestDialog } from './extension/extension-request-dialog';
+export { ExtensionStatusBar } from './extension/extension-status-bar';
+
 // files 册（docs/06 §4.3）
-export { CodeViewer, type CodeViewerProps } from './files/code-viewer';
-export { DiffView, type DiffViewProps } from './files/diff-view';
-export { FileIcon, type FileIconProps } from './files/file-icon';
-export { FileTabs, type FileTabsProps } from './files/file-tabs';
-export { FileTree, type FileTreeProps, sortEntries } from './files/file-tree';
-export { FileViewer, type FileViewerProps } from './files/file-viewer';
-export { ImagePreview, type ImagePreviewProps, nextZoom } from './files/image-preview';
+export { FileIcon } from './files/file-icon';
+export { FileTabs } from './files/file-tabs';
+export { FileTree } from './files/file-tree';
+export { FileViewer } from './files/file-viewer';
+
 // i18n（docs/06 §1 第 5 处 ui 容器例外）
-export {
-  formatDateTime,
-  formatRelativeTime,
-  formatUpdatedTime,
-  interpolateMessage,
-  translateMessage,
-} from './i18n/format';
+export { formatRelativeTime } from './i18n/format';
 export { I18nProvider, useI18n } from './i18n/i18n-provider';
-export { getLocalePlugin, getSupportedLocales, resolveBrowserLocale } from './i18n/registry';
-export type { Locale, LocalePlugin, TranslationParams } from './i18n/types';
+
 // panels 册（docs/06 §4.4）
-export {
-  BranchNavigator,
-  buildActivePath,
-  compressChain,
-  hasSessionBranches,
-  selectTopLevelBranches,
-} from './panels/branch-navigator';
-export { PanelShell, type PanelShellProps } from './panels/panel-shell';
-export {
-  SessionInfoPopover,
-  type SessionInfoPopoverProps,
-} from './panels/session-info-popover';
-export {
-  SystemPromptPanel,
-  type SystemPromptPanelProps,
-} from './panels/system-prompt-panel';
-export {
-  ToolDefinitionsPanel,
-  type ToolDefinitionsPanelProps,
-  type ToolDefinitionView,
-} from './panels/tool-definitions-panel';
-export { Button, type ButtonProps, buttonStyles } from './primitives/button';
-export { IconButton, type IconButtonProps } from './primitives/icon-button';
-export { Input } from './primitives/input';
-export { isDismissTarget, Popover, type PopoverProps } from './primitives/popover';
-export { ScrollArea, type ScrollAreaProps } from './primitives/scroll-area';
-export {
-  clampTextareaHeight,
-  Textarea,
-  type TextareaProps,
-} from './primitives/textarea';
-export {
-  TOAST_MAX_VISIBLE,
-  type ToastAction,
-  ToastHost,
-  type ToastItem,
-  toastQueueReducer,
-} from './primitives/toast';
+export { BranchNavigator, hasSessionBranches } from './panels/branch-navigator';
+export { SessionInfoPopover } from './panels/session-info-popover';
+export { SystemPromptPanel } from './panels/system-prompt-panel';
+export { ToolDefinitionsPanel } from './panels/tool-definitions-panel';
+export { ToastHost, type ToastItem, toastQueueReducer } from './primitives/toast';
+
 // settings 册（docs/06 §4.4）
-export {
-  DirectoryPicker,
-  type DirectoryPickerProps,
-} from './settings/directory-picker';
-export { GeneralSection, type GeneralSectionProps } from './settings/general-section';
-export {
-  type AuthProviderView,
-  type ModelItemView,
-  ModelsSection,
-  type ModelsSectionProps,
-} from './settings/models-section';
-export {
-  type PluginPackageView,
-  type PluginResourceView,
-  PluginsSection,
-  type PluginsSectionProps,
-  type StandaloneExtensionView,
-} from './settings/plugins-section';
-export {
-  ProjectTrustDialog,
-  type ProjectTrustDialogProps,
-} from './settings/project-trust-dialog';
-export { ProviderIcon } from './settings/provider-icon';
-export { ProviderUsageSummary } from './settings/provider-usage-summary';
-export {
-  SettingsNotice,
-  SettingsPanel,
-  type SettingsPanelProps,
-  SettingsRow,
-  SettingsSectionIcon,
-  type SettingsSectionItem,
-  SettingsSectionTitle,
-} from './settings/settings-panel';
-export {
-  ConfigButton,
-  ConfigDetail,
-  ConfigDetailActions,
-  ConfigDetailHeader,
-  ConfigDetailHeaderInfo,
-  ConfigDetailStack,
-  ConfigDetailTitle,
-  ConfigEmptyState,
-  ConfigField,
-  ConfigFooter,
-  ConfigListAction,
-  ConfigPanelShell,
-  ConfigSectionTitle,
-  ConfigSidebar,
-  ConfigSidebarGroupLabel,
-  ConfigSidebarItem,
-  ConfigSidebarList,
-  ConfigSidebarText,
-  ConfigSplitView,
-  ConfigStatusDot,
-  ConfigSwitch,
-} from './settings/settings-ui';
-export {
-  type SkillItemView,
-  type SkillSearchItemView,
-  SkillsSection,
-  type SkillsSectionProps,
-  type SkillUpdateView,
-} from './settings/skills-section';
-export { ThemeIcon } from './settings/theme-icon';
-export {
-  SessionSearch,
-  type SessionSearchProps,
-} from './sidebar/session-search';
+export { GeneralSection } from './settings/general-section';
+export { type ModelItemView, ModelsSection } from './settings/models-section';
+export { PluginsSection } from './settings/plugins-section';
+export { ProjectTrustDialog } from './settings/project-trust-dialog';
+export { SettingsPanel, type SettingsSectionItem } from './settings/settings-panel';
+export { SkillsSection } from './settings/skills-section';
+
 // sidebar 册（docs/06 §4.3；T2 重排后结构按设计规范 `SessionSidebar`）
-export {
-  displayCwd,
-  Sidebar,
-  type SidebarProject,
-  type SidebarProps,
-} from './sidebar/sidebar';
+export { Sidebar, type SidebarProject } from './sidebar/sidebar';
 export { cn } from './utils/cn';
-export { useScrollbarVisibility } from './utils/use-scrollbar-visibility';

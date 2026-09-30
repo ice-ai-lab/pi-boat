@@ -22,7 +22,7 @@ core 是 pi SDK 之上的**传输无关**业务层，补齐 SDK 没有的三件�
 
 ## 2. 模块地图
 
-20 个源文件 / 12 个 `.test.ts`（+`test/helpers/`，共 180 用例）。按目录分四组：**agent**（运行时）、**read**（磁盘只读）、
+23 个源文件 / 14 个 `.test.ts`（+`test/helpers/`，共 218 用例）。按目录分四组：**agent**（运行时）、**read**（磁盘只读）、
 **config**（模型与配置）、**resources + system**（资源与宿主能力）。
 
 ### 2.1 agent（会话运行时）
@@ -258,7 +258,7 @@ id**：SDK 建会话时命名 `<ISO 时间戳>_<id>.jsonl`（`newSession`/`forkF
 
 ## 9. 测试与事件快照回归
 
-- **12 个测试文件 / 180 用例（约 3300 行）**：service（FIFO/create/late-join/fork/命令全集）、
+- **14 个测试文件 / 218 用例（约 3300 行）**：service（FIFO/create/late-join/fork/命令全集）、
   entry（seq/dispose/销账）、wire-event（**事件快照回归**）、read（分页/压缩边界/正文搜索/指纹）、
   project-resolver（归一/缓存）、project-read（项目聚合）、extension-ui-bridge（超时/结清/代际）、
   liveness（lease/idle 回收）、model-scope（编辑引擎/最后模型拒绝）、

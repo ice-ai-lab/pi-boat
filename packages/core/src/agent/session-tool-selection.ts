@@ -24,7 +24,7 @@ import type { SessionEntry, SessionManager } from '@earendil-works/pi-coding-age
 /** 本仓自有磁盘标记；只在 session-tool-selection 出现一次（改名即破坏既有文件） */
 export const TOOL_SELECTION_CUSTOM_TYPE = 'piboat:tool-selection';
 
-export interface SessionToolSelectionData {
+interface SessionToolSelectionData {
   version: 1;
   tools: string[];
 }

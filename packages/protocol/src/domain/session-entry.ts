@@ -1,5 +1,3 @@
-import type { SessionEntry } from '@earendil-works/pi-coding-agent';
-
 /**
  * 会话文件条目（`.jsonl` 每行，docs/02 §3.1）。
  *
@@ -21,14 +19,3 @@ export type {
   SessionMessageEntry,
   ThinkingLevelChangeEntry,
 } from '@earendil-works/pi-coding-agent';
-
-/** 分支命名书签（SDK 未单独导出，按 type 从联合提取） */
-export type LabelEntry = Extract<SessionEntry, { type: 'label' }>;
-
-/**
- * 用量条目（SDK ≥ 0.86）：记录不进模型上下文但计费的用量（如 `kind: "cache_warm"`
- * 的 prompt 缓存预热）。**统计必须计入**，否则 token / cost 与 SDK `/session` 不一致。
- *
- * SDK 未从包根单独导出它（成员在 `SessionEntry` 联合里），故按 type 提取。
- */
-export type UsageEntry = Extract<SessionEntry, { type: 'usage' }>;

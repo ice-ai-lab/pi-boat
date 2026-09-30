@@ -91,15 +91,3 @@ export async function uploadFiles(
   );
   return res.data;
 }
-
-/** POST /api/files/<dir>?type=upload-check —— 上传前冲突预检（纯 JSON） */
-export function checkUploadConflicts(
-  directory: string,
-  fileNames: string[],
-): Promise<{ conflicts: string[] }> {
-  return http
-    .post<{ conflicts: string[] }>(`/files/${encodeFilePathForApi(directory)}?type=upload-check`, {
-      fileNames,
-    })
-    .then((res) => res.data);
-}

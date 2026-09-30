@@ -28,8 +28,8 @@ PiBoat is not "yet another web version of pi". It is a **single core with multip
 
 - **Session workspace**: browse, resume, rename, export, and delete conversations grouped by project, with running state, context usage, cost, and compaction details.
 - **Two ways to branch**: create an independent session from an earlier message, or fork inside the current session by editing from here.
-- **Project file tools**: browse and upload files, inspect Git diffs, and preview source, Markdown, images, audio, PDFs, and DOCX files with automatic refresh.
-- **Git worktrees**: switch checkouts from the sidebar while sessions from the same repository stay grouped together.
+- **Project file tools**: browse and upload files, inspect Git diffs, and preview source, Markdown, images, audio, and PDFs with automatic refresh (DOCX and other binaries are offered as a download).
+- **Git worktrees**: sessions from the same repository — including its worktrees — stay grouped under one project, and each session shows its worktree branch.
 - **In-browser configuration**: manage provider login and API keys, models, model connectivity tests, plugin packages, and skills without leaving the page.
 - **English, Simplified Chinese, and Japanese UI**: PiBoat follows the browser language initially and provides a language switcher in Settings.
 
@@ -55,11 +55,11 @@ The CLI opens a browser once the server is ready. If it does not, open <http://1
 
 If no model provider is configured yet, open the **Models** panel after startup to sign in or add an API key.
 
-To install the `piboat` command globally:
+To install the `pi-boat` command globally:
 
 ```bash
 npm install -g @ice-ai/pi-boat@latest
-piboat
+pi-boat
 ```
 
 To update, stop the running process with `Ctrl+C` and run the same install command again. To uninstall, run `npm uninstall -g @ice-ai/pi-boat`.
@@ -76,9 +76,9 @@ Command-line options override environment variables.
 | `--no-open` | Do not open a browser automatically | Browser opens |
 
 ```bash
-piboat --help
-piboat -p 8080 --no-open
-PORT=8080 piboat
+pi-boat --help
+pi-boat -p 8080 --no-open
+PORT=8080 pi-boat
 ```
 
 ---
@@ -109,7 +109,7 @@ pnpm turbo run lint  # Biome 2
 
 `pnpm turbo run dev` starts two processes: the agent server provides the API and SSE, while the vite dev server serves the pages with hot reload and proxies `/api` to the server — so the browser sees the same single origin as in production. In production the server hosts the web build output directly, and that one process is the complete product.
 
-To build the npm distribution (`dist/piboat.mjs` plus `dist/web/`):
+To build the npm distribution (`dist/pi-boat.mjs` plus `dist/web/`):
 
 ```bash
 pnpm bundle
@@ -122,10 +122,10 @@ apps/web            Front-end SPA: Vite + React 19 (the front end shipped today)
 apps/desktop        Electron desktop shell (phase two, not built yet)
 packages/protocol   API contract and event wire format (types + Zod, no business logic)
 packages/core       Agent business core (the only package allowed to depend on the pi SDK; transport-agnostic)
-packages/server     Hono HTTP/SSE server assembling core (bin: piboat-server)
+packages/server     Hono HTTP/SSE server assembling core (bin: pi-boat-server)
 packages/client     Type-safe client SDK plus React hooks
 packages/ui         Presentational component library (protocol types and client hooks only)
-packages/pi-boat    npm distribution: the `piboat` CLI (bundles the server and the web build output)
+packages/pi-boat    npm distribution: the `pi-boat` CLI (bundles the server and the web build output)
 ```
 
 Dependencies flow strictly downward and never backward: `apps/* → client → protocol` and `apps/server → core → protocol`. No package may bypass core to import the pi SDK directly.

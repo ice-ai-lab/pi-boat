@@ -385,7 +385,7 @@ function SegmentedControl({
   );
 }
 
-export const iconButtonStyle = {
+const iconButtonStyle = {
   flexShrink: 0,
   width: 32,
   height: 32,

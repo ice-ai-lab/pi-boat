@@ -220,7 +220,6 @@ export type ApiKeyRemoveResult =
 export const ProviderUsageRequestSchema = z.object({
   providerId: z.string().min(1),
 });
-export type ProviderUsageRequest = z.infer<typeof ProviderUsageRequestSchema>;
 
 export type UsageUnit = 'percent' | 'currency' | 'count';
 

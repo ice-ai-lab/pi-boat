@@ -26,7 +26,7 @@ export function snapshotExtensionWidgetContents(
   return new Map(widgets.map((widget) => [widget.widgetKey, [...widget.widgetLines]]));
 }
 
-export function getUpdatedExtensionWidgetKeys(
+function getUpdatedExtensionWidgetKeys(
   previous: ReadonlyMap<string, readonly string[]> | null,
   next: ReadonlyMap<string, readonly string[]>,
 ): string[] {
@@ -49,10 +49,7 @@ function getDefaultExpandedWidgetKey(widgets: ExtensionWidgetItem[]): string | n
   );
 }
 
-export function getNextExpandedWidgetKey(
-  currentKey: string | null,
-  requestedKey: string,
-): string | null {
+function getNextExpandedWidgetKey(currentKey: string | null, requestedKey: string): string | null {
   return currentKey === requestedKey ? null : requestedKey;
 }
 

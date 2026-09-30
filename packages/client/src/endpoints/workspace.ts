@@ -4,8 +4,6 @@ import type {
   ProjectInfo,
   SessionListResponse,
   SessionSearchResponse,
-  WorktreeInfo,
-  WorktreesResponse,
 } from '@ice-ai/protocol';
 import { getJson, http } from '../http';
 
@@ -66,24 +64,3 @@ export function getGitDiff(
   if (options.staged === true) params.set('staged', '1');
   return getJson<GitDiffResponse>(`/git/diff?${params.toString()}`);
 }
-
-/** GET /api/worktrees?cwd= */
-export function listWorktrees(cwd: string): Promise<WorktreesResponse> {
-  return getJson<WorktreesResponse>(`/worktrees?cwd=${encodeURIComponent(cwd)}`);
-}
-
-/** POST /api/worktrees —— 分支已存在则检出，否则新建并检出 */
-export async function createWorktree(
-  cwd: string,
-  branch: string,
-): Promise<{ path: string; branch: string }> {
-  const res = await http.post<{ path: string; branch: string }>('/worktrees', { cwd, branch });
-  return res.data;
-}
-
-/** DELETE /api/worktrees —— 脏 worktree 返回 409（ApiError.status=409） */
-export async function removeWorktree(cwd: string, path: string, force = false): Promise<void> {
-  await http.delete('/worktrees', { data: { cwd, path, force } });
-}
-
-export type { WorktreeInfo };

@@ -40,11 +40,7 @@ import {
   scanSessionsDir,
 } from '../read/dir-scan';
 import { SessionRegistryEntry, type WireAgentEventListener } from './session-entry';
-import {
-  readSessionToolSelection,
-  TOOL_SELECTION_CUSTOM_TYPE,
-  writeToolSelection,
-} from './session-tool-selection';
+import { readSessionToolSelection, writeToolSelection } from './session-tool-selection';
 
 /**
  * Agent 命令通道 + 事件总线的核心服务（docs/01 §3.1、§5.5 transport-agnostic 接口）。
@@ -1072,5 +1068,3 @@ function toUiResponse(
   if (command.value !== undefined) return { id: command.id, value: command.value };
   throw new UserInputError('extension_ui_response requires value, confirmed or cancelled');
 }
-
-export { TOOL_SELECTION_CUSTOM_TYPE };

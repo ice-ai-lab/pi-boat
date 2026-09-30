@@ -3,7 +3,6 @@ import { useI18n } from '../i18n/i18n-provider';
 import { cn } from '../utils/cn';
 import configStyles from './config-ui.module.css';
 import styles from './settings-panel.module.css';
-import { ConfigSectionTitle } from './settings-ui';
 
 /**
  * SettingsPanel（T5-1）：按设计规范 的外壳——
@@ -196,38 +195,6 @@ export function SettingsSectionIcon({
     <svg {...common} aria-hidden="true">
       <path d="M9 7V2M15 7V2M6 13V8a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v5a6 6 0 0 1-12 0ZM12 19v3" />
     </svg>
-  );
-}
-
-/** @deprecated 待改造区仍在使用；设计规范没有 `.settings-row`，改完后删除（T5-10）。 */
-export function SettingsRow({
-  label,
-  hint,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  children?: ReactNode;
-}) {
-  return (
-    <div className="hairline-b flex items-start gap-4 border-line-1 py-3 last:border-b-0">
-      <div className="min-w-0 flex-1">
-        <p className="text-[12.5px] text-fg">{label}</p>
-        {hint !== undefined && <p className="mt-0.5 text-[11.5px] text-fg-faint">{hint}</p>}
-      </div>
-      {children !== undefined && <div className="shrink-0">{children}</div>}
-    </div>
-  );
-}
-
-/** 设定节内的行内小标题（T1-11）：大写小字走设计规范的 `.config-section-title`（11px/600/uppercase/--text-dim）。
- *  @deprecated 待改造区仍在使用；设计规范用 `ConfigSectionTitle` + 独立 hint（T1-7 套壳后删）。 */
-export function SettingsSectionTitle({ title, hint }: { title: string; hint?: string }) {
-  return (
-    <div className="mb-2">
-      <ConfigSectionTitle>{title}</ConfigSectionTitle>
-      {hint !== undefined && <p className="mt-1 text-[11px] text-text-dim">{hint}</p>}
-    </div>
   );
 }
 

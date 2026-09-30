@@ -36,11 +36,6 @@ export async function newAgentSession(
   return { sessionId: res.data.sessionId, model: res.data.model };
 }
 
-/** SSE 事件流地址（EventSource 用；浏览器同源，无需凭据） */
-export function agentEventsUrl(sessionId: string): string {
-  return `/api/agent/${encodeURIComponent(sessionId)}/events`;
-}
-
 /** POST /api/agent/:id —— 发送任意命令（24 条，AgentCommand 判别联合） */
 export function sendAgentCommand<K extends AgentCommand['type']>(
   sessionId: string,
@@ -172,17 +167,6 @@ export function navigateAgentTree(
 /** fork —— **破坏性原地替换**：返回新 sessionId 后旧 id 立即失效（docs/01 §8-1） */
 export function forkAgentSession(sessionId: string, entryId: string): Promise<BranchResult> {
   return sendAgentCommand(sessionId, { type: 'fork', entryId });
-}
-
-export function forkAgentBranch(sessionId: string, entryId: string): Promise<BranchResult> {
-  return sendAgentCommand(sessionId, { type: 'fork_branch', entryId });
-}
-
-export function cloneAgentSession(sessionId: string, leafId?: string): Promise<BranchResult> {
-  return sendAgentCommand(
-    sessionId,
-    leafId === undefined ? { type: 'clone' } : { type: 'clone', leafId },
-  );
 }
 
 /** extension_ui_response —— 应答扩展 UI 的阻塞型请求（ADR-0012） */

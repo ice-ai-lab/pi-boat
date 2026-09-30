@@ -112,7 +112,7 @@ export async function queryProviderUsage(
   }
 }
 
-export function isOfficialProviderUsageOrigin(
+function isOfficialProviderUsageOrigin(
   providerId: ProviderUsageId,
   baseUrl: string | undefined,
 ): boolean {

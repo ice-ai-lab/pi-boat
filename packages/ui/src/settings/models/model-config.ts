@@ -86,15 +86,6 @@ export const API_OPTIONS = [
   'google-generative-ai',
 ] as const;
 
-/** 数字输入的统一解析：空串 = undefined（不写该键），非法 = 原样返回 null 由调用方拦 */
-export function parseOptionalNumber(raw: string): number | undefined | null {
-  const trimmed = raw.trim();
-  if (trimmed === '') return undefined;
-  const value = Number(trimmed);
-  if (!Number.isFinite(value) || value < 0) return null;
-  return value;
-}
-
 /** 价格四列（美元 / 百万 token）；缺项不补 0，保存时省略 */
 export const COST_KEYS = ['input', 'output', 'cacheRead', 'cacheWrite'] as const;
 export type CostKey = (typeof COST_KEYS)[number];

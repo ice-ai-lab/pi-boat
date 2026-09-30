@@ -1,15 +1,12 @@
 import type {
-  GitStatusResponse,
   ModelsConfigTestRequest,
   ModelsEnabledUpdate,
   ModelsRefreshRequest,
   PluginActionRequest,
-  ProjectInfo,
   ProviderDraft,
   SessionDetailResponse,
   SessionInfo,
   SkillPatchRequest,
-  WorktreesResponse,
 } from '@ice-ai/protocol';
 import type { QueryClient } from '@tanstack/react-query';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -31,31 +28,22 @@ import {
 } from '../endpoints/models';
 import {
   checkPluginUpdates,
-  checkSkillUpdates,
   getPlugins,
   getProjectTrust,
   getSkills,
-  getToolsSettings,
   installSkill,
   patchSkill,
   pluginAction,
   putProjectTrust,
-  putToolsSettings,
   searchSkills,
-  updateSkills,
 } from '../endpoints/resources';
 import { getSessionDetail } from '../endpoints/sessions';
-import { browseCwd, getHome } from '../endpoints/system';
 import {
-  createWorktree,
   deleteSession,
   getGitStatus,
   listProjects,
   listSessions,
-  listWorktrees,
-  removeWorktree,
   renameSession,
-  searchSessions,
 } from '../endpoints/workspace';
 
 /**
@@ -64,7 +52,6 @@ import {
  */
 export const queryKeys = {
   sessions: (projectKey?: string) => ['sessions', { projectKey: projectKey ?? null }] as const,
-  sessionSearch: (q: string) => ['sessions', 'search', q] as const,
   /** 会话详情：`useAgentSession.open()` 与 `useSessionDetailQuery` **共用同一个 key**，
    *  一次切换只拉一份（见 useSessionDetailQuery 注释） */
   sessionDetail: (sessionId: string) => ['sessionDetail', sessionId] as const,
@@ -72,7 +59,6 @@ export const queryKeys = {
   /** cwd → 项目身份（POST /api/cwd/validate 的结果，兼作 allowed-roots 授权） */
   cwdProject: (cwd: string) => ['cwdProject', cwd] as const,
   gitStatus: (cwd: string) => ['gitStatus', cwd] as const,
-  worktrees: (cwd: string) => ['worktrees', cwd] as const,
 };
 
 /** 列表轮询：注册表/磁盘变动没有推送，用低频轮询兜底（5s 与 idle 回收周期同量级） */
@@ -118,28 +104,12 @@ export function useCwdProjectQuery(cwd: string | null) {
   });
 }
 
-export function useSessionSearchQuery(q: string) {
-  return useQuery({
-    queryKey: queryKeys.sessionSearch(q),
-    queryFn: () => searchSessions(q),
-    enabled: q.trim().length > 0,
-  });
-}
-
 export function useGitStatusQuery(cwd: string | null) {
   return useQuery({
     queryKey: queryKeys.gitStatus(cwd ?? ''),
     queryFn: () => getGitStatus(cwd as string),
     enabled: cwd !== null,
     refetchInterval: LIST_REFETCH_MS * 2,
-  });
-}
-
-export function useWorktreesQuery(cwd: string | null) {
-  return useQuery({
-    queryKey: queryKeys.worktrees(cwd ?? ''),
-    queryFn: () => listWorktrees(cwd as string),
-    enabled: cwd !== null,
   });
 }
 
@@ -175,38 +145,11 @@ export function useDeleteSessionMutation() {
   });
 }
 
-export function useCreateWorktreeMutation() {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: ({ cwd, branch }: { cwd: string; branch: string }) => createWorktree(cwd, branch),
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: ['worktrees'] });
-      void client.invalidateQueries({ queryKey: ['projects'] });
-      void client.invalidateQueries({ queryKey: ['sessions'] });
-    },
-  });
-}
-
-export function useRemoveWorktreeMutation() {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: ({ cwd, path, force }: { cwd: string; path: string; force?: boolean }) =>
-      removeWorktree(cwd, path, force),
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: ['worktrees'] });
-      void client.invalidateQueries({ queryKey: ['projects'] });
-      void client.invalidateQueries({ queryKey: ['sessions'] });
-    },
-  });
-}
-
-export type { GitStatusResponse, ProjectInfo, WorktreesResponse };
-
 // ---------------------------------------------------------------------------
-// 设置域（F4）：模型 / skills / plugins / 工具设置 / 信任 / 目录选择
+// 设置域（F4）：模型 / skills / plugins / 项目信任
 // ---------------------------------------------------------------------------
 
-export const settingsKeys = {
+const settingsKeys = {
   models: (cwd?: string) => ['models', { cwd: cwd ?? null }] as const,
   modelsConfig: () => ['modelsConfig'] as const,
   authProviders: (cwd?: string) => ['modelsAuthProviders', { cwd: cwd ?? null }] as const,
@@ -214,10 +157,7 @@ export const settingsKeys = {
   catalog: (q: string) => ['modelCatalog', q] as const,
   skills: (cwd: string) => ['skills', cwd] as const,
   plugins: (cwd: string) => ['plugins', cwd] as const,
-  toolsSettings: () => ['toolsSettings'] as const,
   projectTrust: (cwd: string) => ['projectTrust', cwd] as const,
-  cwdBrowse: (path?: string) => ['cwdBrowse', path ?? '~'] as const,
-  home: () => ['home'] as const,
 };
 
 /** GET /api/models（离线）；cwd 决定项目级资源解析 */
@@ -369,18 +309,6 @@ export function useInstallSkillMutation(cwd: string | null) {
   });
 }
 
-export function useCheckSkillUpdatesMutation(cwd: string | null) {
-  return useMutation({ mutationFn: () => checkSkillUpdates(cwd as string) });
-}
-
-export function useUpdateSkillsMutation(cwd: string | null) {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: (pkg?: string) => updateSkills(cwd as string, pkg),
-    onSuccess: () => void client.invalidateQueries({ queryKey: settingsKeys.skills(cwd ?? '') }),
-  });
-}
-
 export function usePluginsQuery(cwd: string | null) {
   return useQuery({
     queryKey: settingsKeys.plugins(cwd ?? ''),
@@ -400,18 +328,6 @@ export function usePluginActionMutation(cwd: string | null) {
 
 export function useCheckPluginUpdatesMutation(cwd: string | null) {
   return useMutation({ mutationFn: () => checkPluginUpdates(cwd ?? '') });
-}
-
-export function useToolsSettingsQuery() {
-  return useQuery({ queryKey: settingsKeys.toolsSettings(), queryFn: () => getToolsSettings() });
-}
-
-export function useUpdateToolsSettingsMutation() {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: (powerShellEnabled: boolean) => putToolsSettings(powerShellEnabled),
-    onSuccess: (data) => client.setQueryData(settingsKeys.toolsSettings(), data),
-  });
 }
 
 export function useProjectTrustQuery(cwd: string | null) {
@@ -434,18 +350,6 @@ export function useUpdateProjectTrustMutation(cwd: string | null) {
   });
 }
 
-export function useCwdBrowseQuery(path?: string) {
-  return useQuery({
-    queryKey: settingsKeys.cwdBrowse(path),
-    queryFn: () => browseCwd(path),
-    staleTime: 5_000,
-  });
-}
-
-export function useHomeQuery() {
-  return useQuery({ queryKey: settingsKeys.home(), queryFn: () => getHome(), staleTime: Infinity });
-}
-
 /**
  * 详情缓存的**新鲜窗口**。存在的唯一原因是「同一份详情的两个消费方」：
  * `useAgentSession.open()` 重建历史要用它，`useSessionDetailQuery` 渲染分支树/统计也
@@ -455,7 +359,7 @@ export function useHomeQuery() {
  * 窗口取 5 s：只需覆盖「open() 完成 → 组件挂载」这几百毫秒；轮次结束后 chat-pane
  * 会显式 `refetch()`，改名/分支导航等写路径自带重取，不依赖窗口长短。
  */
-export const SESSION_DETAIL_STALE_MS = 5_000;
+const SESSION_DETAIL_STALE_MS = 5_000;
 
 /** 会话详情的 query 定义（key + fetcher）——`useSessionDetailQuery` 与 `fetchSessionDetail` 的唯一来源 */
 function sessionDetailQuery(sessionId: string | null) {

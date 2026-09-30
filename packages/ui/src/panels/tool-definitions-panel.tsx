@@ -36,7 +36,7 @@ function formatValue(value: unknown): string {
 }
 
 /** JSON Schema 类型 → 可读字符串（按设计规范 `formatSchemaType`） */
-export function formatSchemaType(schema: Record<string, unknown>): string {
+function formatSchemaType(schema: Record<string, unknown>): string {
   const variants = Array.isArray(schema.anyOf)
     ? schema.anyOf
     : Array.isArray(schema.oneOf)
@@ -81,7 +81,7 @@ export function formatSchemaType(schema: Record<string, unknown>): string {
 }
 
 /** 参数表（按设计规范 `getToolParameterFields`） */
-export function getToolParameterFields(parameters?: unknown): ParameterField[] {
+function getToolParameterFields(parameters?: unknown): ParameterField[] {
   if (parameters === null || parameters === undefined || typeof parameters !== 'object') return [];
   const schemaRoot = parameters as Record<string, unknown>;
   if (!schemaRoot.properties || typeof schemaRoot.properties !== 'object') return [];

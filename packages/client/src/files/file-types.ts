@@ -8,9 +8,6 @@
 
 export type DocumentPreviewKind = 'pdf';
 
-export const TEXT_PREVIEW_MAX_BYTES = 256 * 1024;
-export const IMAGE_PREVIEW_MAX_BYTES = 10 * 1024 * 1024;
-
 const IMAGE_EXT_TO_MIME: Record<string, string> = {
   png: 'image/png',
   jpg: 'image/jpeg',

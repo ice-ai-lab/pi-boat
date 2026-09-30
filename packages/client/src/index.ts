@@ -3,124 +3,39 @@
  * React 绑定在 './react' 子导出。
  */
 
+export { sendAgentCommand } from './endpoints/agent';
 export {
-  abortAgentCompaction,
-  agentEventsUrl,
-  clearAgentQueue,
-  cloneAgentSession,
-  compactAgent,
-  followUpAgent,
-  forkAgentBranch,
-  forkAgentSession,
-  getAgentCommands,
-  getAgentRunningState,
-  getAgentStateLight,
-  getAgentStats,
-  getAgentTools,
-  navigateAgentTree,
-  newAgentSession,
-  renewAgentLease,
-  respondAgentExtensionUi,
-  resumeAgentSession,
-  sendAgentCommand,
-  setAgentModel,
-  setAgentSessionName,
-  setAgentTools,
-  steerAgent,
-} from './endpoints/agent';
-export {
-  checkUploadConflicts,
-  type FileByteType,
   fileByteUrl,
   getFileIndex,
   getFileMeta,
   listDirectory,
   readFileText,
-  type UploadResult,
   uploadFiles,
   validateCwd,
 } from './endpoints/files';
-export {
-  deleteProviderApiKey,
-  discoverModels,
-  getAuthProviders,
-  getEnabledModels,
-  getModelCatalog,
-  getModels,
-  getModelsConfig,
-  putModelsConfig,
-  putProviderApiKey,
-  queryProviderUsage,
-  refreshModels,
-  testModel,
-  updateEnabledModels,
-} from './endpoints/models';
-export {
-  checkPluginUpdates,
-  checkSkillUpdates,
-  getPlugins,
-  getProjectTrust,
-  getSkills,
-  getToolsSettings,
-  installSkill,
-  patchSkill,
-  pluginAction,
-  putProjectTrust,
-  putToolsSettings,
-  searchSkills,
-  updateSkills,
-} from './endpoints/resources';
-export {
-  autoNameSession,
-  getSessionContext,
-  getSessionDetail,
-} from './endpoints/sessions';
+export { queryProviderUsage } from './endpoints/models';
+
 export { browseCwd, getDefaultCwd, getHome } from './endpoints/system';
 export {
-  createWorktree,
-  deleteSession,
   getGitDiff,
-  getGitStatus,
-  listProjects,
-  listSessions,
-  listWorktrees,
-  removeWorktree,
-  renameSession,
   searchSessions,
 } from './endpoints/workspace';
 export {
-  AT_RESULT_LIMIT,
-  type AtInsertion,
-  type AtQueryMatch,
   applyAtInsertion,
-  buildAtInsertText,
   buildEntriesFromFiles,
   extractAtQuery,
-  type FileIndexEntry,
   filterFileEntries,
-  scoreEntry,
 } from './files/file-fuzzy';
 export {
-  encodeFilePathForApi,
-  getFileDirectory,
   getFileName,
   getRelativeFilePath,
-  joinFilePath,
-  normalizeFilePathSlashes,
-  pathBreadcrumbs,
 } from './files/file-paths';
 export {
-  type DocumentPreviewKind,
   documentPreviewKind,
   formatFileSize,
-  getFileExt,
-  getImageMime,
   getLanguageFromPath,
-  IMAGE_PREVIEW_MAX_BYTES,
   isDocxPath,
   isImagePath,
-  isProbablyTextPath,
-  TEXT_PREVIEW_MAX_BYTES,
 } from './files/file-types';
 export {
   activateFileTab,
@@ -135,28 +50,14 @@ export {
   setTabDisplayMode,
   toggleTabWrap,
 } from './files/file-viewer-state';
-export {
-  type DiffRow,
-  hasChanges,
-  type ParsedDiff,
-  parseToolDiff,
-  parseUnifiedDiff,
-} from './files/unified-diff';
-export { ApiError, getJson, http, postCommand } from './http';
-export {
-  EMPTY_CURSOR,
-  type HistoryCursor,
-  historyNext,
-  historyPrev,
-  INPUT_HISTORY_LIMIT,
-  pushHistory,
-} from './input/input-history';
+export { parseUnifiedDiff } from './files/unified-diff';
+
+export { pushHistory } from './input/input-history';
 export {
   applySlashInsertion,
   extractSlashQuery,
   filterSlashCommands,
   parseSlashSubmission,
-  type SlashQueryMatch,
   slashSourceLabel,
 } from './input/slash-commands';
 export {
@@ -164,37 +65,28 @@ export {
   getDefaultRightPanelWidth,
   getRightPanelMaxWidth,
   getSidebarMaxWidth,
-  MOBILE_MAX_WIDTH,
   RIGHT_PANEL_FALLBACK_WIDTH,
   RIGHT_PANEL_MAX_WIDTH,
   RIGHT_PANEL_MIN_WIDTH,
   SIDEBAR_DEFAULT_WIDTH,
   SIDEBAR_MAX_WIDTH,
   SIDEBAR_MIN_WIDTH,
-  SPLIT_PANEL_MIN_WIDTH,
 } from './layout/panel-layout';
-export { AgentEventConnection, parseWireEvent } from './stream/agent-event-connection';
-export { AgentStream, disposeAgentStream, getAgentStream } from './stream/agent-stream';
-export { applyToolResult, assistantFinalText, fold, userText } from './stream/fold';
+
 export { groupTrail } from './stream/group-trail';
-export { rebuildChatState, rebuildTurns } from './stream/rebuild';
-export { formatDuration, resultText, toolTitle } from './stream/tool-display';
-export {
-  type ChatState,
-  emptyChatState,
-  type GroupedTrailItem,
-  isLiveTail,
-  type ProcessGroupData,
-  type SystemRow,
-  type ThinkingRow,
-  type ToolRow,
-  type TrailItem,
-  type Turn,
+
+export { formatDuration } from './stream/tool-display';
+export type {
+  ChatState,
+  ProcessGroupData,
+  ThinkingRow,
+  ToolRow,
+  TrailItem,
+  Turn,
 } from './stream/view-model';
 export { CLIENT_VERSION } from './version';
 export {
   applyChatAppearance,
-  CHAT_CONTENT_EDGE_BUDGET,
   CHAT_CONTENT_FONT_SIZE_DEFAULT,
   CHAT_CONTENT_FONT_SIZE_MAX,
   CHAT_CONTENT_FONT_SIZE_MIN,
@@ -211,58 +103,27 @@ export {
   resolveChatContentWidth,
 } from './view-models/chat-appearance';
 export {
-  CHAT_SCROLL_REATTACH_TOLERANCE,
-  CHAT_SCROLL_TAIL_TOLERANCE,
   captureScrollDistance,
   getLiveFollowAttached,
-  getNextVisibleCount,
-  getVisibleRenderWindow,
-  isScrollAtTail,
   restoreScrollTop,
   shouldShowScrollToLatest,
-  VISIBLE_PAGE_SIZE,
 } from './view-models/chat-lazy-load';
-export {
-  configProviderNames,
-  enabledScopeLabel,
-  groupModelsByProvider,
-  isLastEnabledModel,
-  type ProviderGroup,
-  parseModelsConfigDraft,
-  toggleHint,
-} from './view-models/models';
+export { parseModelsConfigDraft } from './view-models/models';
 export {
   formatRelativeTime,
   getProjectActivity,
-  type ProjectActivity,
   projectKeyForCwd,
-  sessionDisplayTitle,
-  workspaceKeyOf,
 } from './view-models/session-list';
 export {
   buildSessionListRows,
   getSessionListVisibleRows,
   groupSessionsByDay,
-  SESSION_LIST_HEADER_HEIGHT,
-  SESSION_LIST_HEADER_HEIGHT_NARROW,
   SESSION_LIST_HEIGHTS_DESKTOP,
   SESSION_LIST_HEIGHTS_NARROW,
-  SESSION_LIST_ITEM_HEIGHT,
-  SESSION_LIST_ITEM_HEIGHT_NARROW,
   SESSION_LIST_OVERSCAN,
-  type SessionListGroup,
-  type SessionListGroupKey,
   type SessionListHeights,
-  type SessionListRow,
 } from './view-models/session-list-window';
-export {
-  contextPercent,
-  formatCost,
-  formatDurationMs,
-  formatTokens,
-  type StatsSummary,
-  summarizeStats,
-} from './view-models/session-stats';
+
 export {
   applyTheme,
   isDarkTheme,
@@ -272,11 +133,8 @@ export {
   THEME_INIT_SCRIPT,
   THEME_OPTIONS,
   type ThemePreference,
-  themeLabel,
 } from './view-models/theme';
 export {
-  allWrittenFiles,
   extractTurnWrittenFiles,
   shortPath,
-  type WrittenFileGroup,
 } from './view-models/turn-written-files';

@@ -19,7 +19,7 @@ pnpm turbo run test         # Vitest（core/protocol/client/ui）
 pnpm turbo run lint         # Biome 2（lint + format；修复用 pnpm lint:fix）
 ```
 
-server 验收：单测 `packages/server/test/server.test.ts`（64 用例：安全层三闸 403 / 信封映射 / 会话浏览 / 项目 / SSE / 模型 / 资源 / 文件系统）；
+server 验收：单测 `packages/server/test/server.test.ts`（73 用例：安全层三闸 403 / 信封映射 / 会话浏览 / 项目 / SSE / 模型 / 资源 / 文件系统）；
 一期后端已全部落地（55 端点 / 24 命令 / 27 类 wire 事件），进度与遗留见 `docs/01` §7.1 与 `docs/07` §9
 路由与传输语义见 `docs/04-server-design.md`
 
@@ -36,7 +36,7 @@ packages/core     Agent 业务核心 —— 全仓唯一允许依赖 pi SDK 的�
 packages/server   Hono HTTP/SSE 服务，组装 core，原生模块收敛于此
 packages/client   类型安全 client SDK + React hooks
 packages/ui       纯展示组件，只依赖 protocol 类型与 client hooks
-packages/pi-boat  npm 分发包 @ice-ai/pi-boat：piboat CLI（bundle server + web 产物，ADR-0030）
+packages/pi-boat  npm 分发包 @ice-ai/pi-boat：pi-boat CLI（bundle server + web 产物，ADR-0030）
 packages/config/  typescript-config（Biome 配置在根 biome.json，见 ADR-0003）
 ```
 

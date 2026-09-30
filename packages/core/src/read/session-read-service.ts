@@ -909,7 +909,7 @@ function autoNameExcerpt(entries: readonly SessionEntry[]): string {
  *
  * 与 `toWireAgentEvent()` 同一条原则：SDK 形状不许直接出门。
  */
-export function toWireSessionTree(nodes: SdkSessionTreeNode[]): SessionTreeNode[] {
+function toWireSessionTree(nodes: SdkSessionTreeNode[]): SessionTreeNode[] {
   return nodes.map((node) => ({
     entry: toWireTreeEntry(node.entry),
     children: toWireSessionTree(node.children),

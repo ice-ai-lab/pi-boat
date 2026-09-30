@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 /**
  * 页内通知 + 完成提示音（F5；ADR-0016：**不做** Web Push，只做页面存活期的通知）。
@@ -68,11 +68,4 @@ export function useCompletionSignal() {
   );
 
   return { soundEnabled, toggleSound, notifyDone, permission, requestNotificationPermission };
-}
-
-/** 页面标题反映运行中状态（后台标签页也能看出结束） */
-export function useDocumentTitle(title: string) {
-  useEffect(() => {
-    document.title = title;
-  }, [title]);
 }

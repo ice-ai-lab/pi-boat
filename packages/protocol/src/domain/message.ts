@@ -36,10 +36,4 @@ export type { SessionEntry, SessionMessageEntry } from '@earendil-works/pi-codin
  */
 export type AgentMessage = SessionMessageEntry['message'];
 
-// 四个自定义角色按 role 提取（SDK 未逐个导出：定义在 core/messages.ts，不在公开面）
-export type BashExecutionMessage = Extract<AgentMessage, { role: 'bashExecution' }>;
-export type BranchSummaryMessage = Extract<AgentMessage, { role: 'branchSummary' }>;
-export type CompactionSummaryMessage = Extract<AgentMessage, { role: 'compactionSummary' }>;
-export type CustomMessage = Extract<AgentMessage, { role: 'custom' }>;
-
 /** 消息内容块联合（用户侧 text/image；assistant 侧含 thinking/toolCall） */

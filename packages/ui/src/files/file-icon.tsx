@@ -43,7 +43,7 @@ type CatppuccinIconName =
 const CATPPUCCIN_ICONS_ROOT = '/icons/catppuccin';
 
 /** 图标着色：muted = 三级文字色（默认），accent = 强调色（文件树里的目录，对齐 dsh-file-explorer） */
-export type FileIconTone = 'muted' | 'accent';
+type FileIconTone = 'muted' | 'accent';
 
 function CatppuccinIcon({
   name,
@@ -170,5 +170,3 @@ export interface FileIconProps {
 export function FileIcon({ name, isDir = false, expanded = false, tone = 'muted' }: FileIconProps) {
   return isDir ? <FolderGlyph open={expanded} tone={tone} /> : getFileIcon(name, 14);
 }
-
-export { FileIcon as default };

@@ -70,7 +70,7 @@
 
 ### 3.2 消息与内容块
 
-> 本组类型全部来自 pi-ai（`Message` / 内容块 / `Usage` / `StopReason` / `AssistantMessageEvent`）；`AgentMessage` 与 `BashExecutionMessage`/`CustomMessage`/`BranchSummaryMessage`/`CompactionSummaryMessage` 由 `SessionMessageEntry['message']` 提取（SDK 未从包根导出八角色联合）。
+> 本组类型全部来自 pi-ai（`Message` / 内容块 / `Usage` / `StopReason` / `AssistantMessageEvent`）；`AgentMessage` 由 `SessionMessageEntry['message']` 提取（SDK 未从包根导出八角色联合），八个 role 仍是该联合的成员；不为单一 role 另立具名别名（零消费方即删）。
 
 - `AgentMessage = UserMessage | AssistantMessage | ToolResultMessage | CustomMessage | BashExecutionMessage | BranchSummaryMessage | CompactionSummaryMessage | SystemMessage`（与 SDK AgentMessage 完全一致；bashExecution 含 `command/output/exitCode/cancelled/truncated/fullOutputPath`；branch/compactionSummary 为注入 LLM 上下文的合成消息，无 display 字段）
   - ⚠️ `SystemMessage`（`role:"system"`，SDK ≥ 0.86）**载体可达但不进 UI**：携带完整 prompt 与全部工具 schema。两条路径同口径丢弃——实时由 `toWireAgentEvent()` 整条丢（含 `agent_end.messages` 里的），历史由 `context.messages` 投影跳过；条目本身仍留在 `tree` 里（树要的是「发生过什么」，只留 id/角色/预览，见 `SessionTreeEntry`）
@@ -127,7 +127,7 @@
 
 > ⚠️ 2026-09-22 决策：**Shell 直连组（`bash` / `abort_bash`，即 TUI `!`/`!!` 直接执行）不实现**，
 > 随之删除 `bash_execution_update` 事件（§5.1）、`/bash-output` 端点（§6.3）与
-> `AgentState.isBashRunning`（§3.4）。两个边界：① `BashExecutionMessage` 消息角色**保留**
+> `AgentState.isBashRunning`（§3.4）。两个边界：① `bashExecution` 消息角色**保留**
 > （§3.2）——会话文件与 pi CLI 共用，历史中的 `!` 执行记录仍须可读可渲染；
 > ② LLM 的 bash **工具调用**（tool_use）不受影响——那是 Agent 工具，不是直连命令。
 

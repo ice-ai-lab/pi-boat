@@ -46,12 +46,3 @@ export const MarkdownView = memo(function MarkdownView({ markdown }: { markdown:
     </div>
   );
 });
-
-/** markdown 排版容器（`className` 由调用方叠加，如 MarkdownView 外层再加 userMessage） */
-export function MarkdownBody({ markdown, className }: { markdown: string; className?: string }) {
-  return (
-    <div className={className}>
-      <MarkdownView markdown={markdown} />
-    </div>
-  );
-}

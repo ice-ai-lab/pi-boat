@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from 'vitest';
 import { buttonStyles } from '../src/primitives/button';
-import { isDismissTarget } from '../src/primitives/popover';
 import { clampTextareaHeight } from '../src/primitives/textarea';
 import { TOAST_MAX_VISIBLE, type ToastItem, toastQueueReducer } from '../src/primitives/toast';
 import { cn } from '../src/utils/cn';
@@ -34,29 +33,6 @@ describe('buttonStyles', () => {
   it('默认 ghost / md', () => {
     expect(buttonStyles()).toContain('text-text-muted');
     expect(buttonStyles({ variant: 'primary' })).toContain('bg-accent');
-  });
-});
-
-describe('isDismissTarget', () => {
-  it('target 为 null 时不算关闭目标', () => {
-    expect(isDismissTarget(null, null)).toBe(false);
-  });
-
-  it('容器外命中 → 关闭', () => {
-    const container = document.createElement('div');
-    const outside = document.createElement('div');
-    document.body.append(container, outside);
-    expect(isDismissTarget(outside, container)).toBe(true);
-  });
-
-  it('容器内普通元素 → 不关；带 [data-x] 的元素 → 关', () => {
-    const container = document.createElement('div');
-    const plain = document.createElement('button');
-    const closer = document.createElement('button');
-    closer.setAttribute('data-x', '');
-    container.append(plain, closer);
-    expect(isDismissTarget(plain, container)).toBe(false);
-    expect(isDismissTarget(closer, container)).toBe(true);
   });
 });
 

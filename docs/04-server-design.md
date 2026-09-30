@@ -17,7 +17,7 @@
 
 ## 2. 进程形态与启动序列
 
-- bin `piboat-server`（`dist/main.js`）；dev `tsx watch`（turbo dev，9527）
+- bin `pi-boat-server`（`dist/main.js`）；dev `tsx watch`（turbo dev，9527）
 - 端口单一来源 protocol `PORTS`，`PORT` 环境变量覆盖（main.ts 已落地）
 - **仅绑定 127.0.0.1**（已落地）；stdout 就绪行供 Electron 健康检查（已落地）
 - 启动序列：读配置 → 实例化 core 服务 → 组装路由 → listen
@@ -278,16 +278,16 @@ graceful close 可能被 Node 响应管道吞掉——socket 保持 ESTABLISHED�
 
 ### 9.3 验收命令
 
-- `packages/server/test/server.test.ts`（**64 用例**：安全层三闸 / 信封映射 / 浏览 / 项目 / SSE / 模型 / 资源 / 系统均覆盖）；
+- `packages/server/test/server.test.ts`（**73 用例**：安全层三闸 / 信封映射 / 浏览 / 项目 / SSE / 模型 / 资源 / 系统均覆盖）；
   手工验证用 `curl -N` 对 SSE 端点即可（序列与时序见 §5.1）
-- `pnpm turbo run lint build test` 全绿（protocol 33 / core 180 / server 64 用例）
+- `pnpm turbo run lint build test` 全绿（protocol 31 / core 218 / server 73 用例）
 
 ### 9.4 代码地图
 
 `src/server.ts`（DI 装配 + `/api/health`）、`src/security.ts`（三道闸，ADR-0007）、
 `src/sse.ts`（SSE 传输层与关停注册表）、`src/envelope.ts`（信封映射）、
 `src/routes/{agent,sessions,projects,models,system,resources}.ts`（六域路由）、
-`src/main.ts`（启动、core 服务装配、优雅退出）、`test/server.test.ts`（64 用例）；
+`src/main.ts`（启动、core 服务装配、优雅退出）、`test/server.test.ts`（73 用例）；
 core 侧 `read/session-read-service.ts`（列表/详情/导出/auto-name/指纹缓存）、`read/project-resolver.ts`
 （git 归一，ADR-0008）、`system/`（PathGuard + 文件/git/worktree）、`config/`（模型域）、
 `resources/`（技能与插件）、`agent/liveness.ts`（lease + idle 回收）、`agent/extension-ui-bridge.ts`（ADR-0012）。

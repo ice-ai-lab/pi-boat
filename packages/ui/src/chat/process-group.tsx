@@ -83,7 +83,7 @@ export function ProcessGroup({
 }
 
 /** 组内总耗时（思考行与工具行的 duration 之和；无数据返回 null） */
-export function groupDuration(group: ProcessGroupData): number | null {
+function groupDuration(group: ProcessGroupData): number | null {
   const total = group.items.reduce(
     (sum, item) => (item.kind === 'system' ? sum : sum + (item.durationMs ?? 0)),
     0,

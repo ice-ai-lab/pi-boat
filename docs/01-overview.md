@@ -1,9 +1,9 @@
 # PiBoat —— 项目概要设计
 
-> 项目代号 `pi-boat`，包作用域 `@ice-ai/*`（命名决策见 `docs/adr/0001`，scope 修订见 `docs/adr/0004`），bin 命令 `piboat`
-> 版本：v0.4（一期后端已落地） · 状态：一期后端（protocol + core + server）实现完成，前端（client / ui / web）未开工
-> v0.4 变更：阶段状态层刷新——M2/M3 的后端部分随 B0–B7 已交付（`docs/07` §6），里程碑按「后端 / 前端」两段重述；
-> v0.3 变更：Web 前端定为 Vite + React 19 SPA，删 Next.js（ADR-0002）；v0.2 变更：定名 pi-boat（ADR-0001），替换全部占位名
+> 项目代号 `pi-boat`，包作用域 `@ice-ai/*`（命名决策见 `docs/adr/0001`，scope 修订见 `docs/adr/0004`，bin 命令改名见 `docs/adr/0031`），bin 命令 `pi-boat`
+> 版本：v0.5（一期全部交付） · 状态：一期（protocol + core + server + client + ui + web）实现完成；桌面端（Electron）未开工
+> v0.5 变更：阶段状态层刷新——前端一期 F0–F5 已全部落地，删除「前端未开工」的过时描述；
+> v0.4 变更：M2/M3 的后端部分随 B0–B7 已交付（`docs/07` §6）；v0.3 变更：Web 前端定为 Vite + React 19 SPA，删 Next.js（ADR-0002）
 
 ---
 
@@ -68,12 +68,12 @@ packages/ui            ──▶ protocol（仅类型）+ client（仅 hooks 层
 ```
 pi-boat/
 ├── apps/
-│   ├── web/                      # 前端 SPA：Vite + React 19（未建，目录尚未创建，见 ADR-0002）
-│   └── desktop/                  # Electron 桌面端（二期）
+│   ├── web/                      # 前端 SPA：Vite + React 19（ADR-0002）
+│   └── desktop/                  # Electron 桌面端（二期，未建）
 ├── packages/
 │   ├── protocol/                 # @ice-ai/protocol  API 契约 & 事件 wire 格式
 │   ├── core/                     # @ice-ai/core      Agent 核心服务（唯一依赖 pi SDK）
-│   ├── server/                   # @ice-ai/server    HTTP/SSE 服务，组装 core（bin: piboat-server）
+│   ├── server/                   # @ice-ai/server    HTTP/SSE 服务，组装 core（bin: pi-boat-server）
 │   ├── client/                   # @ice-ai/client    前端用类型安全 SDK + React hooks
 │   ├── ui/                       # @ice-ai/ui        共享 React 组件库
 │   ├── config/
@@ -131,8 +131,8 @@ pi-boat/
 
 #### `packages/ui`
 
-- 纯展示组件库，三册目录：`primitives/`（基础件）、`chat/`（对话域）、`inspect/`（统计与检视）
-  ——组件清单、props 契约、token 映射见 `docs/06-ui-design.md` §4
+- 纯展示组件库，按域就近分目录：`primitives/`（基础件）、`chat/`（对话域）、`files/`（文件域）、
+  `panels/`、`settings/`、`sidebar/`、`extension/`、`i18n/` —— 组件清单、props 契约、token 映射见 `docs/06-ui-design.md` §4
 - 只依赖 `protocol` 类型与 `client` hooks，不依赖任何宿主框架（Next.js / Electron 等）→ Web 与桌面端直接复用
 - Tailwind 4 + token 单一来源 `ui/theme.css`（`:root` / `[data-theme="dark"]` 两套变量，经 `@theme inline`
   暴露给 Tailwind；暗色不得写死在 `@theme` 里）
@@ -158,18 +158,17 @@ pi-boat/
 | 路由 | React Router v7（library 模式） | ADR-0002 留白的路由选型，在原型的 `/session/:id` 深链需求下定为库模式（纯 SPA 无 SSR/loader 需求） |
 | 服务端状态 | TanStack Query（仅 `client/react` 层） | REST 读的缓存/失效；`listFingerprint` 作为列表失效键（ADR-0008） |
 | 客户端状态 | Zustand（**M2 起**） | M1 单会话无全局 UI 状态，按需引入（不养期货） |
-| 组件与图标 | shadcn/ui（落位 `ui/primitives`）+ Lucide（ADR-0009） | 无障碍原语不手写；原型 sprite 的 31 个图标逐一换 Lucide（对账表 docs/06 §6） |
+| 组件与图标 | 组件原语手写于 `ui/primitives`（按设计规范结构与 token 落地）+ Lucide 图标（ADR-0009 / ADR-0020） | 规范原语不引入额外组件库；原型 sprite 的图标换 Lucide（对账表 docs/06 §6） |
 | 前端 HTTP | **Axios 统一实例**；响应经 protocol 的 Zod 解析（ADR-0009） | 拦截器只管 baseURL + 错误信封归一（ADR-0007 删 token 后无凭据注入需求） |
 | 前端栈基准 | **ADR-0009 已收口（2026-09-22）** | 含 React Compiler、markdown（react-markdown + shiki）、**不引外部 skills**；唯一遗留：dev 接入方式（ADR-0009 文末） |
 | 实时通道 | **HTTP + SSE**（首期），WebSocket 预留 | 单向事件流足够；浏览器原生 EventSource、断线重连简单；protocol 不绑定传输 |
-| 代码质量 | **Biome 2**（lint + format 一体，ADR-0003）+ husky + lint-staged（待接入） | Rust 单工具替代 ESLint+Prettier；当前仅用非类型感知规则 |
+| 代码质量 | **Biome 2**（lint + format 一体，ADR-0003） | Rust 单工具替代 ESLint+Prettier；当前仅用非类型感知规则 |
 | TypeScript | **7.x 原生版**（Go 实现，ADR-0003） | tsc 亚秒级；lint 与 TS 版本解耦（Biome 自研解析器） |
 | 测试 | Vitest（core/protocol/client/ui）+ Playwright（web E2E） | |
 | 发布 | Changesets（如需发包）；桌面端 electron-builder | |
 
 > **原型登记**：`docs/design/piboat-web-v3.html` 曾是 v0.1 的视觉/交互基准，**已被 ADR-0020 取代**（退役，仅作历史参照）。
-> 它定义了一层文档此前没有的东西——**事件上方的视图模型**（处理详情分组 / 折叠行 / 每轮 usage），
-> 该形状由 client 承载（docs/05 §6），不进 protocol。
+> 它定义了一层文档此前没有的东西——**事件上方的视图模型**（处理详情分组 / 折叠行 / 每轮 usage），该形状由 client 承载（docs/05 §6），不进 protocol。
 
 ---
 
@@ -203,7 +202,7 @@ pi-boat/
 
 #### 5.2.1 agent server 由什么启动
 
-本体是一个**普通 Node.js（≥22）进程**：`packages/server` 提供 bin 入口 `piboat-server`（开发用 `tsx watch src/main.ts`，构建产物为可分发单文件）。启动序列：
+本体是一个**普通 Node.js（≥22）进程**：`packages/server` 提供 bin 入口 `pi-boat-server`（开发用 `tsx watch src/main.ts`，构建产物为可分发单文件）。启动序列：
 
 ```
 解析参数(--port/--root) → 绑定 127.0.0.1
@@ -214,7 +213,7 @@ pi-boat/
 | 场景 | 谁来拉起 | 方式 |
 |---|---|---|
 | 开发 | `turbo run dev` | 并行任务：server（tsx watch，9527）+ web（vite dev，9528） |
-| 生产（本地） | 用户 | 执行 `piboat` 命令（npx/全局安装皆可），单进程即完整产品 |
+| 生产（本地） | 用户 | 执行 `pi-boat` 命令（npx/全局安装皆可），单进程即完整产品 |
 | Electron | 桌面端 main 进程 | `child_process.spawn`（或 utilityProcess）拉起 server 子进程，env 传 port，stdout 健康检查就绪后开窗口 |
 
 #### 5.2.2 web 与 agent server 如何交互
@@ -380,8 +379,8 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 | 层 | 状态 | 说明 |
 |---|---|---|
 | `packages/protocol` | ✅ 一期全量落地 | 24 命令 / 27 类 wire 事件 / rest 七域；见 `docs/02` |
-| `packages/core` | ✅ 一期全量落地 | 8 个服务，20 源文件 / 12 测试文件（180 用例）；见 `docs/03` |
-| `packages/server` | ✅ 一期全量落地 | 55 端点（含 health），6 路由文件 / 64 用例；见 `docs/04` |
+| `packages/core` | ✅ 一期全量落地 | 8 个服务，23 源文件 / 14 测试文件（218 用例）；见 `docs/03` |
+| `packages/server` | ✅ 一期全量落地 | 55 端点（含 health），6 路由文件 / 73 用例；见 `docs/04` |
 | `packages/client` | ✅ F5 一期全量就位 | + F5 命令族（斜杠/工具/压缩/命名/分叉/扩展 UI 应答）+ view-models（minimap/统计/主题/本轮改动文件）+ input（历史/斜杠）（80 用例） |
 | `packages/ui` | ✅ F5 一期全量就位 | + F5 增补（候选菜单/排队条/控制条/minimap/本轮改动文件/四个面板/扩展状态·widgets·对话框/shiki 高亮） |
 | `apps/web` | ✅ **一期前端全部落地（2026-09-27）** | 三栏 + 对话 + 侧栏 + 文件 + 设置 + F5 增强（主题三态/快捷键/提示音与页内通知）|
@@ -397,9 +396,9 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 | 里程碑 | 后端部分 | 前端部分 | 验收标准 |
 |---|---|---|---|
 | **M0 工程骨架**（~0.5 周） | ✅ 完成（2026-09-18）：pnpm+turbo、包脚手架、biome/tsconfig | — | turbo build 全绿 |
-| **M1 对话 MVP**（~1.5 周） | ✅ 完成（protocol/core/server，2026-09-22） | ⬜ 未开工（client / ui / web） | 浏览器完成一轮带工具调用的编程任务 |
-| **M2 会话与模型**（~2 周） | ✅ 完成（B2/B3/B4，含命令通道 24 条、fork/branch、模型域） | ⬜ 未开工 | 日常可替代 TUI 完成编码工作 |
-| **M3 完整体验**（~2 周） | ✅ 完成（B5/B6/B7，文件 / git / worktree / 资源 / 会话生命周期 lease） | ⬜ 未开工 | 功能对齐 §6 一期清单 |
+| **M1 对话 MVP**（~1.5 周） | ✅ 完成（protocol/core/server，2026-09-22） | ✅ 完成（F0/F1，2026-09-27） | 浏览器完成一轮带工具调用的编程任务 |
+| **M2 会话与模型**（~2 周） | ✅ 完成（B2/B3/B4，含命令通道 24 条、fork/branch、模型域） | ✅ 完成（F2，2026-09-27） | 日常可替代 TUI 完成编码工作 |
+| **M3 完整体验**（~2 周） | ✅ 完成（B5/B6/B7，文件 / git / worktree / 资源 / 会话生命周期 lease） | ✅ 完成（F3/F4/F5，2026-09-27） | 功能对齐 §6 一期清单 |
 | **M4 桌面端**（~2 周） | 复用（无新增端点），打包问题遗留（docs/04 §8-7） | ⬜ 未开工 | macOS 安装包可用 |
 
 后端侧唯一有意不做/未做项见 `docs/07` §9「实现期发现的边界」（`type=watch`、上传 Range/分块/DOCX、
@@ -426,7 +425,7 @@ Last-Event-ID 环形缓冲与 gzip/埋点等 B8 可选项）。
 
 ## 9. 待定决策（进入详细设计前敲定）
 
-1. ~~项目命名与 npm scope~~ **✅ 已决策（ADR-0001）**：定名 `pi-boat` / `@ice-ai/*`，bin `piboat` / `piboat-server`，代号 PiBoat（原占位 pi-studio 因 npm 被同生态同类工具占用而出局）
+1. ~~项目命名与 npm scope~~ **✅ 已决策（ADR-0001）**：定名 `pi-boat` / `@ice-ai/*`，bin `pi-boat` / `pi-boat-server`（2026-09-30 由 `piboat`/`piboat-server` 改名，ADR-0031），代号 PiBoat（原占位 pi-studio 因 npm 被同生态同类工具占用而出局）
 2. ~~Web 端实现与进程模型联动选择~~ **✅ 已决策（ADR-0002）**：选 A（独立 server + 纯前端，开发期 2 进程），且 Web 前端采用 Vite + React 19 SPA，不引入 Next.js（理由：纯本地 SPA 无 SSR/RSC 需求，静态产物由 server 托管）。详见 §5.1 与 `docs/adr/0002`
 3. 事件通道是否二期引入 WebSocket（多向交互如扩展 UI 面板实时渲染时再决策）
 4. ~~是否提供局域网访问开关~~ **✅ 已决策（2026-01）：不做**——一期不引入任何访问凭据（无 token / 无口令 / 无 cookie），而 LAN 暴露必须凭据，故绑定仍限 127.0.0.1、不提供 0.0.0.0 开关；手机/平板经局域网连本机 Agent 的路径一并排除（见 `docs/07` §8-1）
@@ -448,7 +447,7 @@ Last-Event-ID 环形缓冲与 gzip/埋点等 B8 可选项）。
 |---|---|---|
 | **鉴权**（本机访问凭据 / LAN） | 口令登录、session cookie、Basic、失败节流、`/api/web-auth`、非回环绑定 | §9-4 的 LAN 开关一并排除；ADR-0007 的三闸与「GET 不得有副作用」**不变** |
 | **登录**（provider 身份认证入口） | `/api/auth/providers`、`/api/auth/login/:provider`、`/api/auth/logout/:provider`、`/api/auth/api-key/:provider` | 模型凭据一期只经 `GET/PUT /api/models-config`（models.json 原文），或由本机 `pi` CLI/TUI 配置后读取 |
-| **终端**（PTY） | `/api/terminal` 全组、`TerminalEvent`、`node-pty`、xterm，以及 Shell 直连命令组（`bash` / `abort_bash`）与 `bash-output` 端点 | 维持 `docs/02` §5.3/§6.8 的移除决策；`BashExecutionMessage` 的历史渲染与 worktree 能力不受影响 |
+| **终端**（PTY） | `/api/terminal` 全组、`TerminalEvent`、`node-pty`、xterm，以及 Shell 直连命令组（`bash` / `abort_bash`）与 `bash-output` 端点 | 维持 `docs/02` §5.3/§6.8 的移除决策；tool 域的 bash 执行历史渲染与 worktree 能力不受影响 |
 | **内建子代理运行时**（延后，非排除） | 内联 extension 与保留工具、profiles / settings / `:id` 端点、家族聚簇 | 子代理不是 SDK 内建能力，将来可以 pi 扩展形式引入（协议侧只加不改）；阶段代价见 `docs/07` §8-4 |
 | **后台推送**（Web Push，2026-09 定案） | `core/src/agent/push-service.ts`、`routes/push.ts`、两个 `/api/push/*` 端点、protocol 三个 schema、core 的 `onSettled` 钩子 | 只做**页内**通知（前端体验项，保留在 §6 清单）；重做路径见 ADR-0016 |
 
@@ -484,6 +483,6 @@ type WireAgentEvent =
 
 ---
 
-*详细设计按包推进：《core 详细设计》见 `docs/03-core-design.md`（✅ 一期已落地）、《server 详细设计》见 `docs/04-server-design.md`（✅ 一期已落地）、《client 详细设计》见 `docs/05-client-design.md`、《ui 详细设计》见 `docs/06-ui-design.md`（后两篇为开工前设计稿，随 Web 原型 v3 定稿，代码未开工）；**前端一期实施规划（页面功能范围、复用策略与 F0–F5 批次）见 `docs/08-web-frontend-plan.md`**（2026-09-27 提案，§6 待决策项确认后生效）；视觉/交互基准为 `docs/design/piboat-web-v3.html`。协议契约以 `docs/02-protocol-inventory.md` 为准（覆盖产品全量 API 面）。**一期后端能力全集的审查与补齐批次见 `docs/07-backend-capability-gap.md`**（它包含已完成的 B0–B7 记录、仍存边界与排除项；排除项见 ADR-0014）。*
+*详细设计按包推进：《core 详细设计》见 `docs/03-core-design.md`（✅ 一期已落地）、《server 详细设计》见 `docs/04-server-design.md`（✅ 一期已落地）、《client 详细设计》见 `docs/05-client-design.md`、《ui 详细设计》见 `docs/06-ui-design.md`（后两篇随 Web 原型 v3 定稿，前端已按一期范围落地）；前端一期实施规划见 `docs/08-web-frontend-plan.md`（F0–F5 已全部交付）。视觉/交互基准为统一 Web 设计规范（ADR-0020，原型 v3 已退役）。协议契约以 `docs/02-protocol-inventory.md` 为准（覆盖产品全量 API 面）。**一期后端能力全集的审查与补齐批次见 `docs/07-backend-capability-gap.md`**（它包含已完成的 B0–B7 记录、仍存边界与排除项；排除项见 ADR-0014）。*
 
-**当前唯一待办：前端三包（client / ui / web）。** 后端不需要任何等项：55 个端点 / 24 条命令 / 27 类 wire 事件均已实现并有测试。
+**当前唯一待办：桌面端（Electron）复用既有 server/core/client/ui，无新增后端。** 一期全部能力（55 个端点 / 24 条命令 / 27 类 wire 事件）均已实现并有测试。
