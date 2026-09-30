@@ -12,6 +12,7 @@
     "lint": "turbo run lint",
     "lint:fix": "biome check --write .",
     "bundle": "node packages/pi-boat/scripts/build.mjs",
+    "release": "node scripts/release.mjs",
     "format": "biome format --write .",
     "typecheck": "turbo run typecheck",
     "clean": "git clean -xdf"
