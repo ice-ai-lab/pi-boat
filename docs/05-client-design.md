@@ -131,7 +131,8 @@ packages/client/src/
 - **`fold.ts`**：`fold(事件, 当前视图模型) → 新视图模型`。「fold」是 reduce 的同义词——把 append-only 的
   事件流**折叠**成一个可直接渲染的结构（`Turn[]`）。例如：`message_update` + `thinking_delta` → 往当前
   `ThinkingRow.text` 追加一个字；`message_end`(assistant) → `final` 定稿（中间轮正文降级进轨迹，
-  只剩最后一个 process 块之后的 text）、快照 `usage`。**无状态、无 IO、不 import React** → 单测就是“喂一串事件，断言 `Turn[]`”。
+  只剩最后一个 process 块之后的 text）、**累计** `usage`（`combineUsage` 轮内求和，2026-10-05 起，
+  旧实现覆盖式只剩最后一次调用的数字）。**无状态、无 IO、不 import React** → 单测就是“喂一串事件，断言 `Turn[]`”。
 - **`rebuild.ts`**：`rebuild(历史 entries) → 视图模型`，产出**同一形状**，供刷新/首屏用（§6.4）。
 - **谁持有它？** `agent-stream.ts` 里的 `AgentStream`（有状态、可订阅）调用 `fold` 并在变更后通知订阅者；
   React 侧只用 `useSyncExternalStore` 订阅，自己不折叠（§7）。
@@ -151,7 +152,8 @@ interface Turn {
   user: { text: string; images?: string[]; at: number };
   trail: TrailItem[];        // 折叠的中间轨迹
   final: { markdown: string } | null;   // 最终回答（流式期间为 draft）
-  usage: Usage | null;       // 每轮用量 → 原型 usage-line
+  usage: Usage | null;       // 每轮用量 = 轮内全部 LLM 调用累计（combineUsage）→ usage-pills
+  endedAt?: number;          // 末条 assistant 消息时间戳（配合 user.at 算轮耗时）
   model: ModelRef | null;
   status: 'streaming' | 'done' | 'stopped' | 'error';
 }
@@ -205,7 +207,7 @@ interface SystemRow { kind: 'system'; text: string; tone: 'info' | 'warn' | 'err
 | `message_update` + `thinking_start/delta/end` | 追加/更新 `ThinkingRow`（`streaming` 用原型的 `.shimmer` 态），`end` 时定稿；`start` 时若回答草稿已有正文，先降级为 `TextRow`（保块序） |
 | `message_update` + `text_start/delta/end` | 写 `Turn.final` draft；草稿被后随 process 块（thinking/toolcall）证明为中间内容时降级为 `TextRow`（§6.5 规则 3） |
 | `message_update` + `toolcall_start/delta/end` | 追加/更新 `ToolRow`（`delta` 期 `preparing`，`end` 补齐 `args`/`title`）；`start` 时先把非空草稿降级为 `TextRow` |
-| `message_end`（assistant） | `stopReason=toolUse`（中间轮）：残余草稿降级为 `TextRow`、`final` 清空——否则中间正文会被逐条覆盖的 `final` 吞掉（2026-09-30 报障回归）；其余（stop/aborted/error）：`final` = 最后一个 process 块之后的 text（§6.5 规则 3）。写 `usage` |
+| `message_end`（assistant） | `stopReason=toolUse`（中间轮）：残余草稿降级为 `TextRow`、`final` 清空——否则中间正文会被逐条覆盖的 `final` 吞掉（2026-09-30 报障回归）；其余（stop/aborted/error）：`final` = 最后一个 process 块之后的 text（§6.5 规则 3）。**累计**写 `usage`（`combineUsage`，含失败尝试的已计费调用，与 SDK 会话统计同口径）+ `endedAt` |
 | `message_end`（toolResult） | 更新对应 `ToolRow.output`（按 `toolCallId` 匹配） |
 | `tool_execution_start/update/end` | `ToolRow.status`（`running`→`ok`/`error`）+ `output` + `durationMs` |
 | `turn_start` / `turn_end` | 边界标记；`turn_end` 兜底封口 |

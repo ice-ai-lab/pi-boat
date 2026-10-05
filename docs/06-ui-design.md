@@ -110,7 +110,7 @@
 |---|---|---|
 | `MessageList` | `turns: Turn[]` `onReachTop` `autoScroll` + 插槽（minimap / 宽度把手） | `.scrollbody` + `.chat-col` |
 | `UserBubble` | `text` `images?` `at` | `.msg-user` `.bub` `.tm` |
-| `AssistantTurn` | `turn: Turn` | `.msg-asst` → `.model-tag` + `.flow` + `.usage-line` |
+| `AssistantTurn` | `turn: Turn` | `.msg-asst` → `.model-tag` + `.flow` + 用量胶囊行（`usage-pills`，2026-10-05 起替代 `.usage-line`） |
 | `MarkdownView` | `markdown`（流式增量） | `.md` 全量排版 + `.tbl` 表格 wrap |
 | `CodeBlock` | `code` `lang` `onCopy` | `.codeblk`（banner + 语言 + 复制 + `pre`） |
 | `DiffView` | `lines`（来自 `toolResult.details.diff`） | `.diff`（行号 + `+`/`-`/ctx 前缀）——**无需 diff 库、无需协议改动**，见 §11.2 行 5 附注 |
@@ -128,7 +128,7 @@
 | `ToolPresetMenu` | `toolPreset` `toolPresets` `onToolPresetChange` | 原型 v3 `.cbar`（工具预设按钮 + 上弹面板） |
 | `ModelBadge` / `ModeChip` | `model` / `mode` `onChange` | `.model-btn` / `.mode-chip` + `.mode-menu`。⚠️ **「模式」与工具预设已合并为同一概念**（2026-09-22 决策，docs/02 §11.1）：本组件与 `ToolList` 的分段控件读写同一状态 |
 | `StatsPills` | `stats` `onSelect(kind)` | `#statsRow` 7 个 pill（in / out / cache / tps / cost / ctx ring）。⚠️ **2026-09-28 起指标行由 `ComposerMetrics` 承担**（原型 v3 §8「指标行并入底部」），顶栏不再有会话统计按钮 |
-| `UsageLine` | `usage` `at` | `.usage-line`（每轮：in · out · cache R · cost · 时间） |
+| `UsageLine` | `usage` `durationMs` | **用量胶囊行（2026-10-05 重做，`usage-pills.tsx`）**：`费用 $x` / `Tokens: N ⓘ` / `耗时 9m 8s` 三胶囊；点 ⓘ 上弹「Token 消耗明细」卡——输入（缓存命中/未命中/写入）、输出（思考/回复，reasoning 取 `Usage.reasoning`）、缓存命中率 + 分段条 + 图例。数据 = 轮内全部 LLM 调用累计（client `combineUsage`）。费用胶囊 hover 标注「目录价估算，非真实账单」；选非 USD 币种时显示层换算（`CurrencyProvider`，汇率来自 `POST /api/fx/rates`，取不到回落 USD） |
 | `SystemPromptPanel` | `prompt: string \| null` `loading` | ✅ **形态已定（2026-09-22）：整宽面板**（不取原型的 560px 锚定浮层）。规格：`height: min(600px, 75dvh)` + `overflow:auto` + `pre-wrap` + `overflow-wrap:anywhere` + 等宽 12px；两态文案（尚未加载 / 加载中；原「空」态已删——不可达，ADR-0015）；触发器为顶栏按钮（`aria-pressed`，有内容时图标转 accent）。原型仍提供视觉 token（`#popSys` 内的 `.sysprompt` 排版） |
 | `MessageMinimap` | `turns` `scrollRef` | `.minimap` + `.mm-bar` + `.mm-tip` 预览，算法见 §8.3 |
 | `ScrollToBottomButton` | `visible` `onClick` | **原型未画，M1 新增件**：圆形按钮 + 下箭头，悬于 composer 上方，`visible = 有溢出 && 未贴底`，`smooth` 滚动，带 `aria-label`（§8.2） |
@@ -333,7 +333,7 @@ Lucide、`cva` + `clsx` + `tailwind-merge`（`cn()`）、markdown 走 `react-mar
 | 工具预设分段 `chat-only/read-only/default/full` | protocol 无枚举 | ✅ **已定且已落地**：预设判定归 **core**——只有 core 知道 SDK 的默认工具集（`default` 无法在客户端静态枚举）；命令形状已入 protocol：`set_tools {preset}` / `{toolNames}` 二选一 |
 | 输入卡「模式：默认/只读/**全自动·免确认执行命令**」 | 与工具预设语义重叠；「免确认」在 SDK 0.87 无对应能力 | ✅ **已定（2026-09-22）：与工具预设合并**，模式菜单直接展示四项预设（标签用工具集描述），**删掉「全自动·免确认」**——AGENTS.md：命名不得暗示它做不到的事 |
 | 系统提示词「版本 r42」 | `AgentState.systemPrompt` **已在 M1 契约内**（core 在 `getRunningState()` 读 `session.systemPrompt`） | ✅ **已定（2026-09-22）：展示，形态取整宽面板**。实现取舍（见下）：**删掉「版本 r42」与「约 700 tokens / 占用上下文 0.07%」**（前端无 tokenizer，硬凑会误导）；「注入于会话创建时」改为「最近一次构建」——上下文文件重载后 prompt 会变。**展示的即 pi 的结构化 prompt，不声称「实际下发」（ADR-0015）** |
-| 每轮 `usage-line` | ✅ `message.usage` 已覆盖 | 无需动作 |
+| 每轮 `usage-line` | ✅ **2026-10-05 重做为用量胶囊行 + 明细浮层**（`usage-pills.tsx`）：轮级累计在 client（`combineUsage`），会话级已有 `computeStats` | 无需动作 |
 
 **系统提示词面板**：
 

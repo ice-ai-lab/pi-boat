@@ -36,6 +36,7 @@ import {
   ExtensionRequestDialog,
   ExtensionStatusBar,
   FileIcon,
+  formatMoney,
   hasSessionBranches,
   MessageList,
   QueueBar,
@@ -43,6 +44,7 @@ import {
   ToastHost,
   type ToastItem,
   toastQueueReducer,
+  useCurrency,
   useI18n,
   WorkspacePlaceholder,
 } from '@ice-ai/ui';
@@ -484,7 +486,7 @@ export function ChatPane({
 
   const history = useInputHistory(sessionId);
   const signal = useCompletionSignal();
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const models = useModelsQuery(session.cwd ?? undefined);
   const updateDefaults = useUpdateModelsDefaultsMutation(session.cwd ?? undefined);
   const gitStatus = useGitStatusQuery(session.cwd);
@@ -951,13 +953,15 @@ export function ChatPane({
   // 指标行（原型 §8：从顶栏搬到输入卡下方）的读数与悬停提示
   const tokens = sessionStats?.tokens;
   const cost = sessionStats?.cost ?? 0;
+  const { currency, rates } = useCurrency();
   const tooltipParts: string[] = [];
   if (tokens) {
     tooltipParts.push(`in: ${tokens.input.toLocaleString()}`);
     tooltipParts.push(`out: ${tokens.output.toLocaleString()}`);
     tooltipParts.push(`cache read: ${tokens.cacheRead.toLocaleString()}`);
     tooltipParts.push(`cache write: ${tokens.cacheWrite.toLocaleString()}`);
-    if (cost > 0) tooltipParts.push(`cost: $${cost.toFixed(4)}`);
+    // 与费用胶囊/会话信息面板同口径：随币种设置换算（formatMoney，取不到汇率回落 USD）
+    if (cost > 0) tooltipParts.push(`cost: ${formatMoney(cost, { currency, rates }, locale)}`);
   }
   if (contextUsage?.contextWindow) {
     const percent = contextUsage.percent;

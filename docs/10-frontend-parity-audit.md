@@ -381,7 +381,7 @@ globals.css    A=288  B=271  仅 A 有 47：
 | **D18** | 输入卡缺流式黄色描边 | `ChatInput.tsx:2119-2121` streaming → `border: rgba(234,179,8,0.4)` | `composer.tsx:167` 恒为 `color-mix(border 70%)` | P2 | 加 streaming 分支（依赖 D4） |
 | **D19** | 右区 gap | `gap: 2`（`ChatInput.tsx:2379`） | `gap-1` = 4px（`chat-pane.tsx:683`） | P2 | 改 `style={{gap:2}}` |
 | **D20** | 过程组多耗时后缀 | `ChatWindow.tsx:203-204`：`[处理详情, "{n} 条消息", "{n} 次工具调用"]` | `process-group.tsx:27-32` 多一个 `formatDuration(duration)` | P2 | 删 `process-group.tsx:26,31` |
-| **D21** | 用量行语序反 + 缺 cache W/cost + 无流式徽标 | 静态 `MessageView.tsx:1849-1853`：`"{n} in" · "{n} out" · "{n} cache R" · "{n} cache W" · "$x"`；流式 `:781-798` `↓ {est}` + 彩色 `t/s`（≥50 `#53b3cb` / ≥30 `#9bc53d` / ≥15 `#f9c22e` / else `#e01a4f`） | `assistant-turn.tsx:21-28`：`"in {n}"·"out {n}"·"cache R {n}"`（语序反、缺 cacheW/cost）；流式徽标**完全没有** | P1 | 改 A 语序 + 补 cacheW/cost；`AssistantTurn` 加流式估算 + `t/s` |
+| **D21** | 用量行语序反 + 缺 cache W/cost + 无流式徽标 | 静态 `MessageView.tsx:1849-1853`：`"{n} in" · "{n} out" · "{n} cache R" · "{n} cache W" · "$x"`；流式 `:781-798` `↓ {est}` + 彩色 `t/s`（≥50 `#53b3cb` / ≥30 `#9bc53d` / ≥15 `#f9c22e` / else `#e01a4f`） | ✅ **已修（2026-10-05）**：整行重做为用量胶囊行（`usage-pills.tsx`，费用/Tokensⓘ/耗时 + Token 明细浮层），轮级数字改为轮内全部 LLM 调用累计（`combineUsage`）；流式估算徽标未做（不追） | P1→已修（流式徽标不追） |
 | **D22** | 空态品牌名 参考实现品牌名（`ChatWindow.tsx:1356`） | `PiBoat`（`empty-state.tsx:62`） | P2 | **见 Q1**，属产品名口径 |
 
 **✅ B 已正确对齐，不要重做**：工具行在输入卡下方（`marginTop:8`）／输入卡 14px 圆角 + `10px 10px 10px 14px` 内边距／双层 boxShadow／`color-mix(border 70%)` 描边／内容宽度锚 820px／`chat-input-textarea` 几何与移动端 16px 覆写／发送按钮几何／Enter+IME 守卫／`↑` 首行接管／空态品牌行结构（32×32 图标 + 22px/700 + 右侧两行 `web v…`/`pi v…` + `paddingRight:52`）／空态容器上 `flex-1` 内容 下 `flex-1`／`@`·`/` 键盘语义／候选浮层定位与上向落影／i18n key 已备齐（`zh-CN.ts:295-302,314,277-279`）

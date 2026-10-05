@@ -252,6 +252,7 @@
 | `PUT /api/models/api-key` | `{provider, apiKey}` → `{success}`（写 `~/.pi/agent/auth.json`；不触发目录联网刷新；不支持的 provider → 400；ADR-0025） |
 | `DELETE /api/models/api-key?provider=` | → `{status:'removed'\|'not_found'\|'type_mismatch'}`（只删 `api_key` 型；OAuth 凭据回 `type_mismatch`；ADR-0025） |
 | `POST /api/models/usage` | `{providerId}` → `{status:'ready', report:{capturedAt, buckets[], metrics[]}}` 或 `{status:'auth-unavailable'\|'query-failed', message}`（白名单 provider + 官方 origin 校验；用户点「刷新」才联网——ADR-0011③/ADR-0025） |
+| `POST /api/fx/rates` | → `{base:'USD', rates:{CNY:…}, date}`（费用显示币种的换算表；上游 frankfurter/ECB，server 内存缓存 12h + 并发合并；前提是用户在设置里显式选了非 USD，上游挂 → 502 固定文案；docs/02 §6.5） |
 
 ### 6.5 认证与用量（ADR-0014 一期排除；**部分恢复**，见 ADR-0025）
 

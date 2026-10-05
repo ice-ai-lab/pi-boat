@@ -1,4 +1,5 @@
-import { I18nProvider } from '@ice-ai/ui';
+import { fetchFxRates } from '@ice-ai/client';
+import { CurrencyProvider, I18nProvider } from '@ice-ai/ui';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WorkspaceLayout } from '../layout/workspace-layout';
 
@@ -11,7 +12,11 @@ export function WorkspacePage() {
     <QueryClientProvider client={queryClient}>
       {/* i18n 必须包住设置浮层与所有 ui 组件（§5.9.3） */}
       <I18nProvider>
-        <WorkspaceLayout />
+        {/* 费用显示币种：状态在 ui（localStorage），取数由宿主注入（ui 不取数边界）。
+            失败由 CurrencyProvider 静默回落 USD */}
+        <CurrencyProvider fetchRates={fetchFxRates}>
+          <WorkspaceLayout />
+        </CurrencyProvider>
       </I18nProvider>
     </QueryClientProvider>
   );

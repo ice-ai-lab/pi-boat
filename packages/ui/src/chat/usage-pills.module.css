@@ -1,0 +1,263 @@
+/* 每轮用量胶囊行 + Token 明细浮层 —— 参考用户提供的截图样式（2026-10-05）：
+   费用 / Tokens（ⓘ 上弹「Token 消耗明细」）/ 耗时 三枚胶囊；明细卡含
+   输入（缓存命中/未命中/写入）、输出（思考/回复）、缓存命中率与命中/写入/未命中
+   分段条 + 图例。材质沿用会话统计浮层（panels/session-info-popover.module.css）
+   的 --glass-pop* 渐变毛玻璃。 */
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  font-size: 11.5px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: inherit;
+  line-height: 1;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.pillButton {
+  cursor: pointer;
+  transition:
+    background 0.14s,
+    color 0.14s;
+}
+.pillButton:hover,
+.pillButton[aria-expanded='true'] {
+  background: color-mix(in srgb, var(--text) 9%, transparent);
+  color: var(--text-2);
+}
+
+.pillIcon {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  color: var(--text-dim);
+}
+.pillValue {
+  color: var(--text-2);
+  font-weight: 600;
+}
+.infoIcon {
+  color: var(--text-dim);
+}
+
+/* ⓘ 浮层的定位锚点（弹层自下向上展开，参考截图） */
+.anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+@keyframes usage-pop-in {
+  from {
+    opacity: 0;
+    translate: 0 4px;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+.pop {
+  position: absolute;
+  left: 0;
+  z-index: 60;
+  width: min(320px, calc(100vw - 32px));
+  max-height: min(60vh, 420px);
+  overflow: auto;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--glass-pop);
+  backdrop-filter: var(--glass-pop-blur);
+  -webkit-backdrop-filter: var(--glass-pop-blur);
+  box-shadow:
+    0 0 0 0.5px var(--border),
+    inset 0 0.5px 0 var(--glass-pop-rim),
+    inset 0 0 0 0.5px color-mix(in srgb, var(--glass-pop-rim) 55%, transparent),
+    var(--glass-pop-shadow);
+  animation: usage-pop-in 160ms cubic-bezier(0.32, 0.72, 0, 1) both;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* 弹向：默认向上（参考截图）；空间不足时向下 */
+.popUp {
+  bottom: calc(100% + 8px);
+}
+.popDown {
+  top: calc(100% + 8px);
+}
+
+/* 费用口径小浮层：比 Token 明细窄一档 */
+.popSm {
+  width: min(260px, calc(100vw - 32px));
+}
+
+/* 说明段落（估算口径）：可换行的次级文字 */
+.hint {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--text-2);
+}
+
+.head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.title {
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--text);
+}
+.total {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.total b {
+  margin-left: 4px;
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+}
+.lineLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  color: var(--text-2);
+}
+.lineValue {
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+.lineMain .lineLabel,
+.lineMain .lineValue {
+  color: var(--text);
+  font-weight: 600;
+}
+/* 子行（命中/未命中/写入、思考/回复）：缩进对齐主行文字 */
+.sub {
+  padding-left: 19px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 2px;
+}
+.sub .dot {
+  width: 7px;
+  height: 7px;
+}
+.dotInput {
+  background: var(--accent);
+}
+.dotOutput {
+  background: #8e63d8;
+}
+.dotHit {
+  background: var(--green);
+}
+.dotWrite {
+  background: #d4b23c;
+}
+.dotMiss {
+  background: var(--red);
+}
+
+.sep {
+  height: 0.5px;
+  margin: 7px 0;
+  background: var(--border);
+}
+
+.rateRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-top: 2px;
+  color: var(--text-2);
+}
+.bolt {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  color: var(--amber);
+}
+.rate {
+  margin-left: auto;
+  color: var(--green);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.bar {
+  display: flex;
+  height: 7px;
+  margin: 8px 0 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--bg-hover);
+}
+.bar i {
+  display: block;
+  height: 100%;
+}
+.barHit {
+  background: var(--green);
+}
+.barWrite {
+  background: #d4b23c;
+}
+.barMiss {
+  background: var(--red);
+}
+
+.legend {
+  display: flex;
+  gap: 14px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.legend .dot {
+  width: 7px;
+  height: 7px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pop {
+    animation: none;
+  }
+}

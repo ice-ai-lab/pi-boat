@@ -1,5 +1,6 @@
 import type { ContextUsage, SessionStatsInfo } from '@ice-ai/protocol';
 import { Fragment } from 'react';
+import { formatMoney, useCurrency } from '../currency/currency-provider';
 import { useI18n } from '../i18n/i18n-provider';
 import styles from './session-info-popover.module.css';
 
@@ -48,11 +49,12 @@ function GaugeIcon() {
   );
 }
 
-/** 统计行：strong = 总计行（dt/dd 同加强调，设计 `.is-em`） */
+/** 统计行：strong = 总计行（dt/dd 同加强调，设计 `.is-em`）；title = 悬停口径说明 */
 interface StatRow {
   label: string;
   value: string;
   strong?: boolean;
+  title?: string;
 }
 
 /** 一段指标（menu-label + dl.metrics）：dt 贴左、dd 贴右 */
@@ -66,7 +68,10 @@ function statSection(label: string, rows: StatRow[]) {
             <dt className={row.strong === true ? `${styles.dt} ${styles.em}` : styles.dt}>
               {row.label}
             </dt>
-            <dd className={row.strong === true ? `${styles.dd} ${styles.em}` : styles.dd}>
+            <dd
+              className={row.strong === true ? `${styles.dd} ${styles.em}` : styles.dd}
+              title={row.title}
+            >
               {row.value}
             </dd>
           </Fragment>
@@ -86,6 +91,7 @@ function PopoverBody({
   locale: string;
 }) {
   const { t } = useI18n();
+  const { currency, rates } = useCurrency();
   const messageRows: StatRow[] = [
     { label: t('session.user'), value: stats.userMessages.toLocaleString(locale) },
     { label: t('session.assistant'), value: stats.assistantMessages.toLocaleString(locale) },
@@ -102,8 +108,17 @@ function PopoverBody({
   ];
   const ctx = contextUsage ?? stats.contextUsage ?? null;
   if (stats.cost > 0) {
-    // 金额是 SDK 按模型目录费率算好的 USD（docs/06 §3：本仓不换汇），显式标出币种
-    tokenRows.push({ label: t('session.cost'), value: `$${stats.cost.toFixed(4)}` });
+    // 金额是 SDK 按模型目录费率算好的 USD（docs/06 §3：本仓不换汇）；选了其他币种时
+    // 仅在显示层换算（CurrencyProvider），hover 标注估算口径
+    const costHint =
+      currency !== 'USD' && rates !== null
+        ? `${t('usage.costEstimateHint')}\n${t('usage.fxRateHint', { date: rates.date })}`
+        : t('usage.costEstimateHint');
+    tokenRows.push({
+      label: t('session.cost'),
+      value: formatMoney(stats.cost, { currency, rates }, locale),
+      title: costHint,
+    });
   }
   if (ctx?.contextWindow) {
     tokenRows.push({

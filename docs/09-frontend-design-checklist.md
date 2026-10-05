@@ -525,7 +525,7 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 | C10 | 候选浮层 | `/` 与 `@` 双形态：header 计数 + 分组 + `auto-fit minmax(220px,1fr)` 网格 + accent 描边 + 文件图标 | 单一菜单，无分组/网格/描边/图标，`max-h-64`（`suggestion-menu.tsx`） | P1 |
 | C11 | 输入历史浮层 | ↑ 开浮层（序号 + 时钟图标头 + active 底） | 直接替换 textarea 内容（`chat-pane.tsx`） | P1 |
 | C12 | 用户气泡 | `maxHeight:300` 内滚 + 渲染 `images`（240×240 + 点击放大）+ hover「复制/从此编辑/新会话」+ 时间戳 | 无 maxHeight、**不渲染图片**、无 hover 行、无时间戳；`markdown-body` 嵌套两层（`assistant-turn.tsx`） | P1 |
-| C13 | 助手底部 | 用量含 **cache W** 与 **$cost** + 复制 + 时间戳 + 截断告警块 | 只有 `in/out/cache R`（无 cache W / 无 cost）+「生成中…」（`assistant-turn.tsx`） | P1 |
+| C13 | 助手底部 | 用量含 **cache W** 与 **$cost** + 复制 + 时间戳 + 截断告警块 | 用量已重做为**胶囊行 + 明细浮层**（`usage-pills.tsx`，费用/Tokensⓘ/耗时；cache W、cost、命中率都在 ⓘ 明细卡里，2026-10-05） | P1→已修 |
 | C14 | TurnWrittenFiles | 内联在助手消息末尾，一行 chip（mono 12 / `bg-subtle` / 描边 / 圆角 6 + 文件图标） | 移到 MessageList 与 composer 之间的独立区块、纵向、无边框（`chat-pane.tsx`）〔2026-09-27 已补做，见 T3-11 注〕 | P1 |
 | C15 | 工具行展开体 | 入参/结果**分开** + 结果独立配色 + `maxHeight:400` + 空结果 `(no output)` 斜体 + **split diff** + 结果图片 | 入参与输出用 `\n` 拼在同一 `<pre>`；无 diff、无结果图片（`tool-row.tsx`） | P1 |
 | C16 | 图片预览 | `<dialog class="image-preview-dialog">` 灯箱（72% 黑背板） | 同名件是右栏风格内联缩放；markdown `img` 未覆盖 → **消息内图片无法放大** | P1 |

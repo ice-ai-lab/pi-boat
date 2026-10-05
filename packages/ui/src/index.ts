@@ -15,17 +15,23 @@ export { MessageList } from './chat/message-list';
 export { QueueBar } from './chat/queue-bar';
 export type { SuggestionItem } from './chat/suggestion-menu';
 export { WorkspacePlaceholder } from './chat/workspace-placeholder';
-
+// 费用显示币种（同 i18n 的容器例外：状态在 ui、取数由宿主注入）
+export {
+  type Currency,
+  CurrencyProvider,
+  currencySymbol,
+  formatMoney,
+  SUPPORTED_CURRENCIES,
+  useCurrency,
+} from './currency/currency-provider';
 // extension 册（ADR-0012）
 export { ExtensionRequestDialog } from './extension/extension-request-dialog';
 export { ExtensionStatusBar } from './extension/extension-status-bar';
-
 // files 册（docs/06 §4.3）
 export { FileIcon } from './files/file-icon';
 export { FileTabs } from './files/file-tabs';
 export { FileTree } from './files/file-tree';
 export { FileViewer } from './files/file-viewer';
-
 // i18n（docs/06 §1 第 5 处 ui 容器例外）
 export { formatRelativeTime } from './i18n/format';
 export { I18nProvider, useI18n } from './i18n/i18n-provider';

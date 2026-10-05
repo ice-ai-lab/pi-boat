@@ -8,6 +8,7 @@ import {
   type ChatAppearance,
 } from '@ice-ai/client';
 import type { CSSProperties } from 'react';
+import { currencySymbol, SUPPORTED_CURRENCIES, useCurrency } from '../currency/currency-provider';
 import { useI18n } from '../i18n/i18n-provider';
 import styles from './settings-panel.module.css';
 import { ConfigButton } from './settings-ui';
@@ -34,6 +35,7 @@ export interface GeneralSectionProps {
 
 export function GeneralSection({ chat }: GeneralSectionProps) {
   const { locale, setLocale, supportedLocales, t } = useI18n();
+  const { currency, setCurrency } = useCurrency();
 
   return (
     <div className={styles.general}>
@@ -134,6 +136,40 @@ export function GeneralSection({ chat }: GeneralSectionProps) {
                   <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5" />
                 </svg>
               </ConfigButton>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className={styles.generalSection}>
+        <h3 className={styles.generalHeading}>{t('settings.costCurrency')}</h3>
+        <div className={styles.list}>
+          <div className={styles.setRow}>
+            <div className={styles.rowText}>
+              <div className={styles.rowDesc}>{t('settings.costCurrencyDescription')}</div>
+              <div
+                role="radiogroup"
+                aria-label={t('settings.costCurrency')}
+                className={styles.chipRow}
+              >
+                {SUPPORTED_CURRENCIES.map((code) => {
+                  const selected = currency === code;
+                  return (
+                    // biome-ignore lint/a11y/useSemanticElements: 与语言选择同一 radiogroup 语义
+                    <button
+                      key={code}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => setCurrency(code)}
+                      className={styles.chip}
+                    >
+                      <span className={styles.chipSymbol}>{currencySymbol(code, locale)}</span>
+                      <span className={styles.chipCode}>{code}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>

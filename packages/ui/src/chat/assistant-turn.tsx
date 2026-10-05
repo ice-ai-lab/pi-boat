@@ -1,6 +1,5 @@
 import type { Turn } from '@ice-ai/client';
 import { groupTrail } from '@ice-ai/client';
-import type { Usage } from '@ice-ai/protocol';
 import { memo } from 'react';
 import { formatDateTime } from '../i18n/format';
 import { cn } from '../utils/cn';
@@ -12,6 +11,7 @@ import { TextRowView } from './text-row';
 import { SystemRowView, ThinkingRowView } from './thinking-row';
 import { ToolRowView } from './tool-row';
 import { TurnWrittenFiles } from './turn-written-files';
+import { UsageLine } from './usage-pills';
 
 /**
  * 轨迹项的 React key：trail 是**仅追加**列表（流式补丁就地替换、从不重排），
@@ -21,16 +21,6 @@ function trailKey(item: { kind: string; toolCallId?: string }, index: number): s
   return item.kind === 'tool' && item.toolCallId !== undefined
     ? item.toolCallId
     : `${item.kind}-${index}`;
-}
-
-/** 每轮用量行（in · out · cache R）——结构按设计规范 `formatUsage`（11px / text-dim） */
-export function UsageLine({ usage }: { usage: Usage }) {
-  const parts = [
-    `in ${usage.input.toLocaleString()}`,
-    `out ${usage.output.toLocaleString()}`,
-    usage.cacheRead > 0 ? `cache R ${usage.cacheRead.toLocaleString()}` : null,
-  ].filter((part): part is string => part !== null);
-  return <div style={{ fontSize: 11, color: 'var(--text-dim)' }}>{parts.join(' · ')}</div>;
 }
 
 /** 用户气泡：按设计规范 `MessageView` 的 UserMessageView（12px 圆角 / 8×12 内边距 / 14px 字 / 1.6 行高） */
@@ -83,9 +73,10 @@ export function UserBubble({ turn }: { turn: Turn }) {
 }
 
 /**
- * AssistantTurn：模型标签 + 轨迹（流式平铺 / 静止后成组）+ 回答 + 用量。
+ * AssistantTurn：模型标签 + 轨迹（流式平铺 / 静止后成组）+ 回答 + 用量胶囊。
  * 布局按设计规范 `MessageView` 的 AssistantMessageView：标签 11px text-dim，
- * 块间距 8，底部用量 11px text-dim。
+ * 块间距 8；底部用量为胶囊行（费用 / Tokens / 耗时，usage-pills.tsx，2026-10-05 起替代
+ * 旧 in·out·cacheR 单行）。
  * 成组是渲染期派生（groupTrail），流式末轮平铺不分组（docs/05 §6.5 方案 2）。
  */
 export const AssistantTurn = memo(function AssistantTurn({
@@ -182,7 +173,14 @@ export const AssistantTurn = memo(function AssistantTurn({
           </div>
         )}
         {writtenPaths.length > 0 && <TurnWrittenFiles paths={writtenPaths} onOpen={onOpenFile} />}
-        {turn.usage !== null && !liveTail && <UsageLine usage={turn.usage} />}
+        {turn.usage !== null && !liveTail && (
+          <UsageLine
+            usage={turn.usage}
+            durationMs={
+              turn.endedAt !== undefined ? Math.max(0, turn.endedAt - turn.user.at) : null
+            }
+          />
+        )}
       </div>
     </div>
   );
