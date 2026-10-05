@@ -1,3 +1,4 @@
+import type { ProviderModelConfig } from '@earendil-works/pi-coding-agent';
 import { z } from 'zod';
 import { ThinkingLevelSchema } from '../constants';
 import type { ModelRef } from '../domain/session-info';
@@ -20,12 +21,17 @@ import type { ModelRef } from '../domain/session-info';
 
 /**
  * models.json 的 provider / model 形状复用 SDK 公开导出（ADR-0017）：
- * `ProviderModelConfig` 是 `registerProvider` 的模型定义，`ModelCostRates` / `ThinkingLevelMap`
- * 来自 pi-ai 的 `Model`。面板要按 models.json 的「全字段可选」语义编辑，故 UI 侧用
- * `Partial<…>` 派生，不手写第二份。
+ * `ProviderModelConfig` 自 SDK 1.0 起是 `chat | image | classifier` 判别联合（模型类型统一，
+ * ADR-0033）。面板编辑的是 chat 条目，直接 `Omit<联合>` 会塌缩成三成员公共键、丢光 chat
+ * 专属字段，故用 `Extract` 取 chat 成员派生（chat 成员未从 SDK 根导出，不手写第二份）。
+ * `ModelCostRates` / `ThinkingLevelMap` 来自 pi-ai 的 `Model`。面板要按 models.json 的
+ * 「全字段可选」语义编辑，故 UI 侧用 `Partial<…>` 派生。
  */
 export type { ModelCostRates, ThinkingLevelMap } from '@earendil-works/pi-ai';
 export type { ProviderModelConfig } from '@earendil-works/pi-coding-agent';
+
+/** `ProviderModelConfig` 联合中的 chat 成员（image/classifier 的 `type` 必填且非 `"chat"`，Extract 恰好只剩它） */
+export type ProviderChatModelConfig = Extract<ProviderModelConfig, { type?: 'chat' }>;
 
 // ---------------------------------------------------------------------------
 // §6.4 可见模型与思考档位

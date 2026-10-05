@@ -23,6 +23,7 @@ import type {
   NavigateTreeResult,
   NewSessionOk,
   NewSessionRequest,
+  PromptDispatchResult,
   SessionInfo,
   SessionReplacedReason,
   SetToolsResult,
@@ -474,23 +475,28 @@ export class AgentSessionService {
     const { session } = entry;
     switch (command.type) {
       case 'prompt': {
-        let accepted = true;
+        // SDK ≥ 1.0（ADR-0033）：preflightResult 只在接受时回调，载荷是派发处置
+        // （"handled" 扩展命令接管 / input handler 接管、"queued" streaming 入队、
+        // "started" 正常起跑）；拒绝 = 回调不触发（0.87 的 false 路径已随 throw 移除）。
+        // 判据因此反转为「回调未触发即拒绝」；disposition 作为命令返回值上抛（A1）。
+        let disposition: PromptDispatchResult['disposition'] | undefined;
         entry.markPromptDispatched();
         try {
           await session.prompt(command.message, {
             images: command.images,
             streamingBehavior: command.streamingBehavior,
-            preflightResult: (ok) => {
-              accepted = ok;
+            preflightResult: (d) => {
+              disposition = d;
             },
           });
-          if (!accepted) throw new PromptRejectedError();
-          return null; // 完成信号走事件流：agent_settled；此处只销账 isPromptRunning
+          if (disposition === undefined) throw new PromptRejectedError();
+          return { disposition } satisfies PromptDispatchResult;
         } finally {
           // 无条件销账：SDK 的 prompt() 有三条提前 return 路径（扩展命令 / input
-          // handler hit / streaming 入队）不进 _runAgentPrompt，永远不发 agent_settled；
+          // handler hit / streaming 入队，agent-session.js:1494/1504/1525，均回调
+          // preflight 后 return）不进 _runAgentPrompt，永远不发 agent_settled；
           // 而正常路径的 prompt() 在 _runAgentPrompt 的 finally 之后才 resolve
-          // （agent-session.js:776/784/949），所以此处只会晚不会早。
+          // （agent-session.js:1594 回调 "started" 后 await），所以此处只会晚不会早。
           entry.clearPromptPending();
         }
       }
@@ -564,6 +570,9 @@ export class AgentSessionService {
           description: t.description,
           parameters: t.parameters as Record<string, unknown>,
           promptGuidelines: t.promptGuidelines,
+          // SDK ≥ 1.0 的工具可见性（ADR-0033 A1）：direct / model-only / codemode /
+          // deferred / hidden，前端工具列表据此标注
+          exposure: t.exposure,
           sourceInfo: t.sourceInfo,
           active: active.has(t.name),
         }));

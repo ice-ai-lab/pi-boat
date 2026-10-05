@@ -145,9 +145,19 @@ export interface NavigateTreeResult {
   editorText?: string;
 }
 
+/**
+ * prompt 返回：SDK ≥ 1.0 的派发处置（ADR-0033 A1）。1.0.2 起 `preflightResult`
+ * 只在接受时回调，拒绝 = 不回调（判据在 core 反转）；disposition 随信封带回，
+ * 前端据此区分「已开跑 / 已入队（steering/followUp）/ 被扩展命令接管」。
+ * 形状取自 SDK `PromptDisposition`，不重定义（ADR-0017）。
+ */
+export interface PromptDispatchResult {
+  disposition: 'started' | 'queued' | 'handled';
+}
+
 /** 命令 → 返回值映射（信封 CommandOk<T> 的 T 取此处） */
 export interface AgentCommandResults {
-  prompt: null;
+  prompt: PromptDispatchResult;
   steer: null;
   follow_up: null;
   abort: null;

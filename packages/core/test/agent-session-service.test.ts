@@ -57,6 +57,7 @@ function fakeAgentSession(overrides: Record<string, unknown> = {}) {
         description: 'Read a file',
         parameters: { type: 'object' },
         promptGuidelines: undefined,
+        exposure: 'direct',
         sourceInfo: undefined,
       },
       {
@@ -64,6 +65,7 @@ function fakeAgentSession(overrides: Record<string, unknown> = {}) {
         description: 'Write a file',
         parameters: { type: 'object' },
         promptGuidelines: undefined,
+        exposure: 'direct',
         sourceInfo: undefined,
       },
     ],
@@ -96,9 +98,15 @@ function fakeAgentSession(overrides: Record<string, unknown> = {}) {
       contextUsage: undefined,
     }),
     getLastAssistantText: () => 'final answer',
-    prompt: vi.fn(async (_text: string, options?: { preflightResult?: (ok: boolean) => void }) => {
-      options?.preflightResult?.(true);
-    }),
+    prompt: vi.fn(
+      async (
+        _text: string,
+        options?: { preflightResult?: (d: 'started' | 'queued' | 'handled') => void },
+      ) => {
+        // SDK ≥ 1.0 语义：接受时回调一次 disposition（ADR-0033）
+        options?.preflightResult?.('started');
+      },
+    ),
     steer: vi.fn(async () => {}),
     followUp: vi.fn(async () => {}),
     abort: vi.fn(async () => {}),
@@ -232,16 +240,21 @@ describe('AgentSessionService.send：命令分发', () => {
 
   it('prompt：不起 agent run 的扩展命令也必须销账 isPromptRunning（事件流盲区）', async () => {
     // 模拟 SDK 的扩展命令路径（agent-session.js:828）：执行 handler 后
-    // preflightResult(true) 直接 return，不进 _runAgentPrompt → 不发 agent_settled
+    // preflightResult('started') 直接 return，不进 _runAgentPrompt → 不发 agent_settled
     let release: () => void = () => {};
     const gate = new Promise<void>((r) => {
       release = r;
     });
     const fake = fakeAgentSession({
-      prompt: vi.fn(async (_t: string, options?: { preflightResult?: (ok: boolean) => void }) => {
-        await gate;
-        options?.preflightResult?.(true);
-      }),
+      prompt: vi.fn(
+        async (
+          _t: string,
+          options?: { preflightResult?: (d: 'started' | 'queued' | 'handled') => void },
+        ) => {
+          await gate;
+          options?.preflightResult?.('started');
+        },
+      ),
     });
     const { service } = serviceWith(fake);
     await service.create({ cwd: '/tmp', type: 'ensure_session' });
@@ -266,11 +279,17 @@ describe('AgentSessionService.send：命令分发', () => {
     expect(events.map((e) => e.type)).not.toContain('agent_settled');
   });
 
-  it('prompt 被拒（preflight false）：抛 PromptRejectedError（错误经 REST 信封回发送方）', async () => {
+  it('prompt 被拒（preflight 回调未触发）：抛 PromptRejectedError（错误经 REST 信封回发送方）', async () => {
+    // SDK ≥ 1.0 语义：拒绝 = preflightResult 不回调（原 false 路径已删，ADR-0033）
     const fake = fakeAgentSession({
-      prompt: vi.fn(async (_t: string, options?: { preflightResult?: (ok: boolean) => void }) => {
-        options?.preflightResult?.(false);
-      }),
+      prompt: vi.fn(
+        async (
+          _t: string,
+          options?: { preflightResult?: (d: 'started' | 'queued' | 'handled') => void },
+        ) => {
+          // 不回调：模拟 SDK 拒绝路径
+        },
+      ),
     });
     const { service } = serviceWith(fake);
     await service.create({ cwd: '/tmp', type: 'ensure_session' });
@@ -390,12 +409,17 @@ describe('AgentSessionService.send：命令分发', () => {
     });
     const order: string[] = [];
     const fake = fakeAgentSession({
-      prompt: vi.fn(async (_t: string, options?: { preflightResult?: (ok: boolean) => void }) => {
-        order.push('prompt-start');
-        await gate;
-        order.push('prompt-end');
-        options?.preflightResult?.(true);
-      }),
+      prompt: vi.fn(
+        async (
+          _t: string,
+          options?: { preflightResult?: (d: 'started' | 'queued' | 'handled') => void },
+        ) => {
+          order.push('prompt-start');
+          await gate;
+          order.push('prompt-end');
+          options?.preflightResult?.('started');
+        },
+      ),
       setThinkingLevel: vi.fn(() => order.push('thinking')),
     });
     const { service } = serviceWith(fake);
@@ -414,9 +438,15 @@ describe('AgentSessionService.send：命令分发', () => {
   it('只读命令不排队：prompt 未结束时 get_state / get_tools 等立即返回', async () => {
     const { gate, release } = deferred();
     const fake = fakeAgentSession({
-      prompt: vi.fn(async () => {
-        await gate;
-      }),
+      prompt: vi.fn(
+        async (
+          _t: string,
+          options?: { preflightResult?: (d: 'started' | 'queued' | 'handled') => void },
+        ) => {
+          options?.preflightResult?.('started');
+          await gate;
+        },
+      ),
     });
     const { service } = serviceWith(fake);
     await service.create({ cwd: '/tmp', type: 'ensure_session' });
@@ -447,9 +477,15 @@ describe('AgentSessionService.send：命令分发', () => {
     const { gate, release } = deferred();
     const captured: { uiContext: UiContext | null } = { uiContext: null };
     const fake = fakeAgentSession({
-      prompt: vi.fn(async () => {
-        await gate;
-      }),
+      prompt: vi.fn(
+        async (
+          _t: string,
+          options?: { preflightResult?: (d: 'started' | 'queued' | 'handled') => void },
+        ) => {
+          options?.preflightResult?.('started');
+          await gate;
+        },
+      ),
       bindExtensions: vi.fn(async (options: { uiContext: UiContext }) => {
         captured.uiContext = options.uiContext;
       }),
@@ -486,9 +522,15 @@ describe('AgentSessionService.send：命令分发', () => {
     const { gate, release } = deferred();
     const abortSpy = vi.fn(async () => {});
     const fake = fakeAgentSession({
-      prompt: vi.fn(async () => {
-        await gate;
-      }),
+      prompt: vi.fn(
+        async (
+          _t: string,
+          options?: { preflightResult?: (d: 'started' | 'queued' | 'handled') => void },
+        ) => {
+          options?.preflightResult?.('started');
+          await gate;
+        },
+      ),
       abort: abortSpy,
     });
     const { service } = serviceWith(fake);
@@ -509,9 +551,15 @@ describe('AgentSessionService.send：命令分发', () => {
     const followUpSpy = vi.fn(async () => {});
     const abortCompactionSpy = vi.fn();
     const fake = fakeAgentSession({
-      prompt: vi.fn(async () => {
-        await gate;
-      }),
+      prompt: vi.fn(
+        async (
+          _t: string,
+          options?: { preflightResult?: (d: 'started' | 'queued' | 'handled') => void },
+        ) => {
+          options?.preflightResult?.('started');
+          await gate;
+        },
+      ),
       steer: steerSpy,
       followUp: followUpSpy,
       abortCompaction: abortCompactionSpy,
@@ -534,9 +582,15 @@ describe('AgentSessionService.send：命令分发', () => {
 
   it('中断类命令不写队列尾：排队中的 prompt 仍等前一个 run 结束（不并发两个 run）', async () => {
     const { gate, release } = deferred();
-    const promptSpy = vi.fn(async () => {
-      await gate;
-    });
+    const promptSpy = vi.fn(
+      async (
+        _t: string,
+        options?: { preflightResult?: (d: 'started' | 'queued' | 'handled') => void },
+      ) => {
+        options?.preflightResult?.('started');
+        await gate;
+      },
+    );
     const fake = fakeAgentSession({ prompt: promptSpy });
     const { service } = serviceWith(fake);
     await service.create({ cwd: '/tmp', type: 'ensure_session' });

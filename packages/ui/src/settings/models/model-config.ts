@@ -1,13 +1,15 @@
-import type { ModelCostRates, ProviderModelConfig } from '@ice-ai/protocol';
+import type { ModelCostRates, ProviderChatModelConfig } from '@ice-ai/protocol';
 
 /**
  * models.json 草稿的编辑形状（ADR-0011；面板见 docs/06 §4.4）。
  *
- * 字段复用 SDK 公开导出 `ProviderModelConfig`（ADR-0017），但 models.json 的
+ * 字段复用 SDK 公开导出经 protocol 派生的 `ProviderChatModelConfig`（ADR-0017；
+ * SDK 1.0 起 `ProviderModelConfig` 是 chat/image/classifier 联合，编辑器只编辑 chat 条目，
+ * 取联合成员的派生在 protocol——ADR-0033），但 models.json 的
  * `ModelDefinitionSchema` 允许**每个字段都可选**（含 cost 的四个费率），
  * 因此这里用 `Partial` 派生、cost 用 `Partial<ModelCostRates>`——不手写第二份字段清单。
  */
-export type CustomModelEntry = Partial<Omit<ProviderModelConfig, 'cost'>> & {
+export type CustomModelEntry = Partial<Omit<ProviderChatModelConfig, 'cost'>> & {
   id?: string;
   cost?: Partial<ModelCostRates>;
 };

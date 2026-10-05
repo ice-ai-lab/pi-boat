@@ -25,6 +25,24 @@ const EXTERNAL = ['@earendil-works/pi-ai', '@earendil-works/pi-coding-agent', 'p
 
 const pkg = JSON.parse(await readFile(join(packageDir, 'package.json'), 'utf8'));
 
+// ADR-0033 决策 5：上游 1.0.2 起移除 npm-shrinkwrap.json，终端用户安装时 SDK 的传递依赖不再被
+// 上游锁定。发布前在此断言安装树里的 SDK 版本落在 package.json 声明的 `~` 范围内——
+// 版本漂移在 pack 时暴露，而不是在用户机器上。
+for (const name of ['@earendil-works/pi-ai', '@earendil-works/pi-coding-agent']) {
+  const installed = JSON.parse(
+    await readFile(join(packageDir, 'node_modules', ...name.split('/'), 'package.json'), 'utf8'),
+  ).version;
+  // `~X.Y.Z` 语义：同 major.minor 内浮动（与全仓版本锁策略一致），不引 semver 依赖
+  const [wantMajor, wantMinor] = pkg.dependencies[name].replace(/^~/, '').split('.').map(Number);
+  const [gotMajor, gotMinor] = installed.split('.').map(Number);
+  if (gotMajor !== wantMajor || gotMinor !== wantMinor) {
+    throw new Error(
+      `Installed ${name}@${installed} is outside the declared range ${pkg.dependencies[name]}` +
+        ' (upgrade the dependency or align the install tree before publishing)',
+    );
+  }
+}
+
 // 1. Full build: the bundle inputs are each package's dist (core / server / protocol) and apps/web/dist
 execFileSync('pnpm', ['exec', 'turbo', 'run', 'build'], {
   cwd: repoRoot,
