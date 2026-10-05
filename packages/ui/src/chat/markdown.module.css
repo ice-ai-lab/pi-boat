@@ -234,6 +234,64 @@
   line-height: inherit;
 }
 
+.userEditActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.userEditButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  border: 0;
+  border-radius: 10px;
+  padding: 0 12px;
+  cursor: pointer;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 650;
+  letter-spacing: -0.005em;
+  line-height: 1;
+  transition: background 0.12s ease, color 0.12s ease, opacity 0.12s ease;
+}
+
+.userEditCancel {
+  background: var(--bg);
+  color: var(--text-2);
+  box-shadow: inset 0 0 0 1px var(--border), 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.userEditCancel:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.userEditSave {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.16);
+}
+
+.userEditSave:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.userEditButton:disabled {
+  background: transparent;
+  color: var(--text-dim);
+  box-shadow: inset 0 0 0 1px var(--border);
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+.userEditButton:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .userMeta {
   display: flex;
   align-items: center;

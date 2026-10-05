@@ -102,16 +102,36 @@ export function UserBubble({
     <div className={cn(styles.userTurn)}>
       <div className={cn(styles.userBubble, editing && styles.isEditing)}>
         {editing ? (
-          <textarea
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={onEditorKeyDown}
-            disabled={saving}
-            rows={Math.max(2, draft.split('\n').length)}
-            ref={editorRef}
-            className={styles.userEditor}
-            aria-label={t('chat.message')}
-          />
+          <>
+            <textarea
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={onEditorKeyDown}
+              disabled={saving}
+              rows={Math.max(2, draft.split('\n').length)}
+              ref={editorRef}
+              className={styles.userEditor}
+              aria-label={t('chat.message')}
+            />
+            <div className={styles.userEditActions}>
+              <button
+                type="button"
+                className={cn(styles.userEditButton, styles.userEditCancel)}
+                onClick={cancelEdit}
+                disabled={saving}
+              >
+                {t('i18n.cancel')}
+              </button>
+              <button
+                type="button"
+                className={cn(styles.userEditButton, styles.userEditSave)}
+                onClick={() => void saveEdit()}
+                disabled={saving || draft.trim().length === 0}
+              >
+                {t('chat.send')}
+              </button>
+            </div>
+          </>
         ) : (
           <>
             {turn.user.images !== undefined && turn.user.images.length > 0 && (
@@ -125,54 +145,33 @@ export function UserBubble({
           </>
         )}
       </div>
-      <div className={styles.userMeta}>
-        <span className={styles.userTimestamp}>{formatDateTime(turn.user.at)}</span>
-        <div className={styles.userActions}>
-          {editing ? (
-            <>
+      {!editing && (
+        <div className={styles.userMeta}>
+          <span className={styles.userTimestamp}>{formatDateTime(turn.user.at)}</span>
+          <div className={styles.userActions}>
+            <button
+              type="button"
+              className={styles.userAction}
+              onClick={() => void copy()}
+              aria-label={t('i18n.copyMessage')}
+              title={copied ? t('i18n.copied') : t('i18n.copyMessage')}
+            >
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+            </button>
+            {canEdit && (
               <button
                 type="button"
                 className={styles.userAction}
-                onClick={() => void saveEdit()}
-                disabled={saving || draft.trim().length === 0}
+                onClick={startEdit}
+                aria-label={t('i18n.editFromHere')}
+                title={t('i18n.editFromHereTitle')}
               >
-                {t('i18n.save')}
+                <Pencil size={14} />
               </button>
-              <button
-                type="button"
-                className={styles.userAction}
-                onClick={cancelEdit}
-                disabled={saving}
-              >
-                {t('i18n.cancel')}
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                className={styles.userAction}
-                onClick={() => void copy()}
-                aria-label={t('i18n.copyMessage')}
-                title={copied ? t('i18n.copied') : t('i18n.copyMessage')}
-              >
-                {copied ? <Check size={14} /> : <Copy size={14} />}
-              </button>
-              {canEdit && (
-                <button
-                  type="button"
-                  className={styles.userAction}
-                  onClick={startEdit}
-                  aria-label={t('i18n.editFromHere')}
-                  title={t('i18n.editFromHereTitle')}
-                >
-                  <Pencil size={14} />
-                </button>
-              )}
-            </>
-          )}
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
