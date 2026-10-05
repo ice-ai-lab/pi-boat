@@ -1,5 +1,4 @@
 import type {
-  AgentMessage,
   AssistantMessage,
   ToolResultMessage,
   Usage,
@@ -29,18 +28,47 @@ export function userText(message: UserMessage): string {
     .join('\n');
 }
 
-/** assistant 最终回答 = content 里全部 text 块拼接（thinking/toolCall 不算回答） */
-export function assistantFinalText(message: Extract<AgentMessage, { role: 'assistant' }>): string {
-  return message.content
-    .filter((block) => block.type === 'text')
-    .map((block) => block.text)
-    .join('\n');
+/**
+ * assistant 回答段 = 最后一个 process 块（thinking/toolCall）之后的 text 块拼接
+ * （docs/05 §6.5 规则 3 的「切一刀」）。之前的 text 属过程，由降级规则进轨迹。
+ */
+export function assistantAnswerText(message: AssistantMessage): string {
+  const cut = lastProcessBlockIndex(message.content);
+  const parts: string[] = [];
+  message.content.forEach((block, index) => {
+    if (block.type === 'text' && index > cut) parts.push(block.text);
+  });
+  return parts.join('\n');
+}
+
+/** 最后一个 process 块（thinking/toolCall）的下标；没有则 -1（rebuild 同刀法复用） */
+export function lastProcessBlockIndex(content: AssistantMessage['content']): number {
+  for (let i = content.length - 1; i >= 0; i--) {
+    const block = content[i];
+    if (block?.type === 'thinking' || block?.type === 'toolCall') return i;
+  }
+  return -1;
 }
 
 function appendTrail(turns: Turn[], item: TrailItem): void {
   const turn = turns[turns.length - 1];
   if (turn === undefined) return; // 没有轮锚点时丢弃（不应发生：message_start(user) 先到）
   turn.trail = [...turn.trail, item];
+}
+
+/**
+ * 把当前回答草稿降级为轨迹 text 行。触发点 = 草稿被证明「不是最终回答」的时刻：
+ * 同消息内后随 thinking_start / toolcall_start（规则 3：process 块之前的 text 属过程），
+ * 或 message_end(stopReason=toolUse)（规则 4：中间轮整条消息进组）。
+ * 不降级的话，中间轮文本会被逐条覆盖的 `final` 吞掉（多轮 trace 丢非思考内容的根因）。
+ */
+function demoteDraftToTrail(turns: Turn[]): void {
+  const turn = lastTurn(turns);
+  if (turn === undefined || turn.final === null) return;
+  const markdown = turn.final.markdown;
+  turn.final = null;
+  if (markdown.trim().length === 0) return;
+  turn.trail = [...turn.trail, { kind: 'text', text: markdown }];
 }
 
 /** 孤儿轮（无用户锚点，与 rebuild 的 pushOrphanTurn 同形）：只在没有轮可挂时兜底建档 */
@@ -139,6 +167,8 @@ export function fold(state: ChatState, event: WireAgentEvent): ChatState {
       const sub = event.assistantMessageEvent;
       switch (sub.type) {
         case 'thinking_start':
+          // 草稿已有正文（text 在前、thinking 在后的少见块序）：先降级再开思考行，保住块序
+          demoteDraftToTrail(next.turns);
           appendTrail(next.turns, { kind: 'thinking', text: '', streaming: true });
           thinkingStartedAt = Date.now();
           return next;
@@ -185,6 +215,9 @@ export function fold(state: ChatState, event: WireAgentEvent): ChatState {
           return next;
         }
         case 'toolcall_start':
+          // 文本草稿被后随工具调用证明为中间内容：先降级为 text 行（位置在工具行之前），
+          // 回答位清空，后续文本重新起草
+          demoteDraftToTrail(next.turns);
           appendTrail(next.turns, {
             kind: 'tool',
             toolCallId: sub.id,
@@ -242,7 +275,15 @@ export function fold(state: ChatState, event: WireAgentEvent): ChatState {
       if (message.role === 'assistant') {
         const turn = lastTurn(next.turns);
         if (turn !== undefined) {
-          turn.final = { markdown: assistantFinalText(message) };
+          if (message.stopReason === 'toolUse') {
+            // 中间轮（停下来调工具）：整条消息属过程（docs/05 §6.5 规则 4），
+            // 残余文本草稿降级进轨迹，回答位清空等最终回答
+            demoteDraftToTrail(next.turns);
+          } else {
+            // 最终回答消息：只有最后一个 process 块之后的 text 归回答（规则 3），
+            // 更早的文本已在 thinking_start/toolcall_start 时降级
+            turn.final = { markdown: assistantAnswerText(message) };
+          }
           turn.usage = message.usage as Usage;
           turn.model = { provider: message.provider, modelId: message.model };
           turn.errorMessage = message.errorMessage ?? null;
@@ -453,6 +494,25 @@ function lastThinkingIndex(trail: TrailItem[]): number {
 }
 
 /**
+ * 快照 text 落轨迹行：与断线前降级出的 text 行按前缀认领并整体替换（免得重复合并行），
+ * 认领不上（真新增）才追加。`skip` = 快照里在本行之前已被认领的 text 行数（按序一一对应）。
+ */
+function claimTextRow(turn: Turn, text: string, skip: number): void {
+  let seen = 0;
+  for (let i = 0; i < turn.trail.length; i++) {
+    const row = turn.trail[i];
+    if (row === undefined || row.kind !== 'text') continue;
+    if (seen++ < skip) continue;
+    if (text.startsWith(row.text) || row.text.startsWith(text)) {
+      turn.trail[i] = { ...row, text };
+      return;
+    }
+    break; // text 行按序对应，第一个对不上就不再找
+  }
+  turn.trail.push({ kind: 'text', text });
+}
+
+/**
  * late join 快照（服务端**合成**的 `message_start`，其 content 是累积快照而非空壳，docs/02 §5.2 时序 ③）：
  * 把「半截 assistant 消息」接回末轮的轨迹尾部与回答草稿（docs/05 §5.3）。
  *
@@ -463,8 +523,18 @@ function lastThinkingIndex(trail: TrailItem[]): number {
 function applyAssistantSnapshot(turns: Turn[], message: AssistantMessage): void {
   const turn = lastTurn(turns);
   if (turn === undefined) return;
+  // 切刀规则同 message_end（docs/05 §6.5 规则 3）：最后一个 process 块之后的 text 归回答草稿，
+  // 之前的 text 落轨迹行（与断线前降级出的行按前缀认领替换，同 thinking 行的合并逻辑）
+  const cut = lastProcessBlockIndex(message.content);
+  const draftParts: string[] = [];
+  let claimedTextRows = 0;
   message.content.forEach((block, index) => {
     const isLast = index === message.content.length - 1;
+    if (block.type === 'text') {
+      if (index > cut) draftParts.push(block.text);
+      else claimTextRow(turn, block.text, claimedTextRows++);
+      return;
+    }
     if (block.type === 'thinking') {
       const at = lastThinkingIndex(turn.trail);
       const row = at === -1 ? undefined : turn.trail[at];
@@ -499,7 +569,7 @@ function applyAssistantSnapshot(turns: Turn[], message: AssistantMessage): void 
       }
     }
   });
-  const text = assistantFinalText(message);
+  const text = draftParts.join('\n');
   // 只在「客户端手里的草稿是快照的前缀（含空）」时才覆盖：重连时本地 draft 可能已经
   // 跨过前一条 assistant 消息（fold 把整轮文本累积在 final 上），直接覆盖会吃掉前半段
   if (text.length > 0 && (turn.final === null || text.startsWith(turn.final.markdown))) {

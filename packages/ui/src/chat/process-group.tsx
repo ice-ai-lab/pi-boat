@@ -1,6 +1,7 @@
 import type { ProcessGroupData, TrailItem } from '@ice-ai/client';
 import { formatDuration } from '@ice-ai/client';
 import { useState } from 'react';
+import { TextRowView } from './text-row';
 import { SystemRowView, ThinkingRowView } from './thinking-row';
 import { ToolRowView } from './tool-row';
 import { TrailChevron } from './trail';
@@ -9,6 +10,7 @@ import styles from './trail.module.css';
 function ProcessItem({ item }: { item: TrailItem }) {
   if (item.kind === 'thinking') return <ThinkingRowView row={item} />;
   if (item.kind === 'tool') return <ToolRowView row={item} />;
+  if (item.kind === 'text') return <TextRowView row={item} />;
   return <SystemRowView text={item.text} tone={item.tone} />;
 }
 
@@ -31,6 +33,8 @@ export function ProcessGroup({
     '处理详情',
     `${group.messageCount} 条消息`,
     ...(group.toolCallCount > 0 ? [`${group.toolCallCount} 次工具调用`] : []),
+    // 中间轮文本行数：提示这部分正文收在组里（曾因被 final 覆盖而整段丢失，见 docs/05 §6.5）
+    ...(group.textCount > 0 ? [`${group.textCount} 段文本`] : []),
     ...(duration !== null ? [formatDuration(duration)] : []),
   ];
 
@@ -82,10 +86,11 @@ export function ProcessGroup({
   );
 }
 
-/** 组内总耗时（思考行与工具行的 duration 之和；无数据返回 null） */
+/** 组内总耗时（思考行与工具行的 duration 之和；文本/系统行无耗时） */
 function groupDuration(group: ProcessGroupData): number | null {
   const total = group.items.reduce(
-    (sum, item) => (item.kind === 'system' ? sum : sum + (item.durationMs ?? 0)),
+    (sum, item) =>
+      item.kind === 'tool' || item.kind === 'thinking' ? sum + (item.durationMs ?? 0) : sum,
     0,
   );
   return total > 0 ? total : null;

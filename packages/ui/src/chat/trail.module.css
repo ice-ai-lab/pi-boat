@@ -124,6 +124,15 @@
   margin-bottom: 8px;
 }
 
+/* ---- 中间轮文本行（非思考、非最终回答）：按块序平铺在轨迹里，随过程组收拢 ---- */
+.textRow {
+  padding: 2px 8px;
+  font-size: calc(12.5px + var(--chat-font-size-offset, 0px));
+  line-height: 1.68;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+
 /* ---- 药丸色签（原型 `.tag`；只有思考行带图标） ---- */
 .tag {
   display: inline-flex;

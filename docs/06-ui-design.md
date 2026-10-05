@@ -117,6 +117,7 @@
 | `CollapseRow` | `tag` `title` `durationMs` `open` `onToggle` `children` | `.disc` 原子（耗时 + 限高滚动体）；**轨迹行不画 chev 箭头**（展开指示只在 `ProcessGroup` 组头保留） |
 | `ToolTag` | `toolName` `status` | `.tag.tool.{bash,read,edit,write,grep,find,ls}`，色表见 §7；失败态不改签色，标题字改红 |
 | `ThinkingRow` | `text` `streaming` `durationMs` | 收起 = 「思考」签 + 首行预览 + 耗时（`.shimmer` 流式态）；**展开 = 与标题合并为同一枚卡片**（灯泡 + 全文，不再另挂 `.disc-inner`） |
+| `TextRow` | `text` | 中间轮普通文本（非思考、非最终回答）：`.textRow` 全文 markdown，按块序平铺在轨迹里（随 `ProcessGroup` 收拢，组头带「N 段文本」计数） |
 | `ProcessGroup` | `group: ProcessGroupData` `open` | `.group-disc` + `.child-rail`（左导轨）+ 汇总标题 |
 | `StoppedTag` | — | `.stopped-tag`（abort 后） |
 | `Composer` | `value` `onChange` `onSubmit` `streaming` `onSteer?` `onFollowUp?` `onAbort?` `aboveInput` `cardFoot` `belowInput` | 原型 v3 §8 `.inputcard`（一张玻璃卡：卡内输入区 + `.card-foot` 控件条；右端动作 = 停止 / 引导 / 后续消息 / 发送，`↵` 与 `⌘/Ctrl+↵` 与按钮提示一致） |

@@ -15,7 +15,7 @@ export interface Turn {
    * 没有 user 锚点。仍建轮以**不丢数据**，渲染时跳过用户气泡。
    */
   orphan?: boolean;
-  /** 平铺轨迹（thinking/tool/system 行）；成组是渲染前的派生步骤（groupTrail） */
+  /** 平铺轨迹（thinking/tool/text/system 行）；成组是渲染前的派生步骤（groupTrail） */
   trail: TrailItem[];
   /** 最终回答（流式期间为 draft，随 text_delta 增长） */
   final: { markdown: string } | null;
@@ -26,7 +26,7 @@ export interface Turn {
   errorMessage: string | null;
 }
 
-export type TrailItem = ThinkingRow | ToolRow | SystemRow;
+export type TrailItem = ThinkingRow | ToolRow | TextRow | SystemRow;
 
 export interface ThinkingRow {
   kind: 'thinking';
@@ -52,18 +52,30 @@ export interface ToolRow {
   durationMs?: number;
 }
 
+/**
+ * 中间轮的普通文本（非思考、非最终回答）：多轮 trace 里停下来调工具的那几条
+ * assistant 消息也常带正文（pi-web 按块序平铺展示）。归轨迹（静止后随过程组收拢），
+ * 不然会被逐条覆盖的 `final` 吞掉（docs/05 §6.5 规则 3/4）。
+ */
+export interface TextRow {
+  kind: 'text';
+  text: string;
+}
+
 export interface SystemRow {
   kind: 'system';
   text: string;
   tone: 'info' | 'warn' | 'error';
 }
 
-/** 过程组：连续 thinking/tool 行在「最终回答出现」后收拢（派生层产物，docs/05 §6.5） */
+/** 过程组：连续 thinking/tool/text 行在「最终回答出现」后收拢（派生层产物，docs/05 §6.5） */
 export interface ProcessGroupData {
   kind: 'group';
   items: TrailItem[];
   messageCount: number;
   toolCallCount: number;
+  /** 组内中间轮文本行数（>0 时组头会展示，提示这段内容收在组里） */
+  textCount: number;
 }
 
 export type GroupedTrailItem = TrailItem | ProcessGroupData;

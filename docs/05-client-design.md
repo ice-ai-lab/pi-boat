@@ -130,8 +130,8 @@ packages/client/src/
 
 - **`fold.ts`**：`fold(事件, 当前视图模型) → 新视图模型`。「fold」是 reduce 的同义词——把 append-only 的
   事件流**折叠**成一个可直接渲染的结构（`Turn[]`）。例如：`message_update` + `thinking_delta` → 往当前
-  `ThinkingRow.text` 追加一个字；`message_end`(assistant) → `final` 定稿、把前面的思考/工具行收进
-  `ProcessGroupData`、快照 `usage`。**无状态、无 IO、不 import React** → 单测就是“喂一串事件，断言 `Turn[]`”。
+  `ThinkingRow.text` 追加一个字；`message_end`(assistant) → `final` 定稿（中间轮正文降级进轨迹，
+  只剩最后一个 process 块之后的 text）、快照 `usage`。**无状态、无 IO、不 import React** → 单测就是“喂一串事件，断言 `Turn[]`”。
 - **`rebuild.ts`**：`rebuild(历史 entries) → 视图模型`，产出**同一形状**，供刷新/首屏用（§6.4）。
 - **谁持有它？** `agent-stream.ts` 里的 `AgentStream`（有状态、可订阅）调用 `fold` 并在变更后通知订阅者；
   React 侧只用 `useSyncExternalStore` 订阅，自己不折叠（§7）。
@@ -156,9 +156,12 @@ interface Turn {
   status: 'streaming' | 'done' | 'stopped' | 'error';
 }
 
-type TrailItem = ThinkingRow | ToolRow | ProcessGroupData | SystemRow;
+type TrailItem = ThinkingRow | ToolRow | TextRow | ProcessGroupData | SystemRow;
 
 interface ThinkingRow { kind: 'thinking'; text: string; streaming: boolean; durationMs?: number }
+
+/** 中间轮的普通文本（非思考、非最终回答）：随轨迹平铺/进组，防止被逐条覆盖的 `final` 吞掉 */
+interface TextRow { kind: 'text'; text: string }
 
 interface ToolRow {
   kind: 'tool';
@@ -178,9 +181,9 @@ interface ToolRow {
   durationMs?: number;
 }
 
-// 过程组：连续轨迹行在被“最终回答”封口时收拢（原型：“处理详情 · 5 条消息 · 7 次工具调用”）
-// 类型名带 Data 后缀，避开与 ui 的 ProcessGroup 组件同名
-interface ProcessGroupData { kind: 'group'; items: TrailItem[]; messageCount: number; toolCallCount: number; durationMs: number }
+// 过程组：连续轨迹行在被“最终回答”封口时收拢（原型：“处理详情 · 5 条消息 · 7 次工具调用 · 2 段文本”）
+// 类型名带 Data 后缀，避开与 ui 的 ProcessGroup 组件同名；duration 由 ui 从 items 现算，不落模型
+interface ProcessGroupData { kind: 'group'; items: TrailItem[]; messageCount: number; toolCallCount: number; textCount: number }
 
 interface SystemRow { kind: 'system'; text: string; tone: 'info' | 'warn' | 'error' }  // 压缩/重试/终止
 ```
@@ -199,10 +202,10 @@ interface SystemRow { kind: 'system'; text: string; tone: 'info' | 'warn' | 'err
 | `connected {lastSeq}` | 记录水位线；触发整体重建（§5.3） |
 | `message_start`（user） | 追加 `Turn`，写 `user` |
 | `message_start`（assistant） | 开 draft（重连时即"半截消息"恢复）；此前的轨迹行开始"可被收拢" |
-| `message_update` + `thinking_start/delta/end` | 追加/更新 `ThinkingRow`（`streaming` 用原型的 `.shimmer` 态），`end` 时定稿 |
-| `message_update` + `text_start/delta/end` | 写 `Turn.final` draft |
-| `message_update` + `toolcall_start/delta/end` | 追加/更新 `ToolRow`（`delta` 期 `preparing`，`end` 补齐 `args`/`title`） |
-| `message_end`（assistant） | `final` 定稿；**把本段之前的 thinking/tool 行收进 `ProcessGroupData`**；写 `usage` |
+| `message_update` + `thinking_start/delta/end` | 追加/更新 `ThinkingRow`（`streaming` 用原型的 `.shimmer` 态），`end` 时定稿；`start` 时若回答草稿已有正文，先降级为 `TextRow`（保块序） |
+| `message_update` + `text_start/delta/end` | 写 `Turn.final` draft；草稿被后随 process 块（thinking/toolcall）证明为中间内容时降级为 `TextRow`（§6.5 规则 3） |
+| `message_update` + `toolcall_start/delta/end` | 追加/更新 `ToolRow`（`delta` 期 `preparing`，`end` 补齐 `args`/`title`）；`start` 时先把非空草稿降级为 `TextRow` |
+| `message_end`（assistant） | `stopReason=toolUse`（中间轮）：残余草稿降级为 `TextRow`、`final` 清空——否则中间正文会被逐条覆盖的 `final` 吞掉（2026-09-30 报障回归）；其余（stop/aborted/error）：`final` = 最后一个 process 块之后的 text（§6.5 规则 3）。写 `usage` |
 | `message_end`（toolResult） | 更新对应 `ToolRow.output`（按 `toolCallId` 匹配） |
 | `tool_execution_start/update/end` | `ToolRow.status`（`running`→`ok`/`error`）+ `output` + `durationMs` |
 | `turn_start` / `turn_end` | 边界标记；`turn_end` 兜底封口 |
@@ -223,6 +226,8 @@ interface SystemRow { kind: 'system'; text: string; tone: 'info' | 'warn' | 'err
 
 `GET /api/sessions/:id/context` 的 `entries` 是**会话文件事实**（`SessionEntry` 判别联合），需要另一条
 纯函数映射到同一视图模型：`entries → Turn[]`。分组规则与 §6.3 一致（轨迹行 + 最终回答封口）。
+assistant 消息按块序折进轮，与 fold 同规则（§6.5 规则 3/4）：`stopReason=toolUse` 的中间轮整条
+进轨迹（text 一律落 `TextRow`）；其余消息只有最后一个 process 块之后的 text 归 `final`。
 这是"刷新页面不丢形状"的唯一实现路径，也是 `fold.ts` 的测试对照物（同一轮对话，两条路径产出应等价）。
 
 ### 6.5 封口时机：候选方案与硬约束
@@ -235,6 +240,9 @@ interface SystemRow { kind: 'system'; text: string; tone: 'info' | 'warn' | 'err
 3. **单条消息内再切一刀**：`splitFinalAssistantBlocks` = 找最后一个 process block（`thinking` / `toolCall`）的位置，
    其后的 text/image 归 `answerBlocks`，之前的归 `processBlocks`；无 process block 则全是 answer
 4. **归组**：最终回答之前的消息 + 最终消息的 `processBlocks` 进组，答案区在组外
+   （实现落点：中间轮整条消息的 text 以 `TextRow` 落轨迹——fold 在 thinking_start/toolcall_start/
+   message_end(toolUse) 时把回答草稿降级进轨迹；rebuild 按 `stopReason` 同规则切；否则
+   会被逐条覆盖的 `final` 吞掉，2026-09-30 报障即此）
 5. **⭐ 流式期间不分组**（`ChatWindow.tsx:1104`）：`isLiveTail = (sessionBusy \|\| isStreaming) && 这是最后一轮`
    → 该轮所有消息**平铺渲染，根本不生成组**；轮结束（不再 busy/streaming）后才一次性成组。
    也就是说——**这条规则就是本节方案 2（静止后收拢），而且是它的彻底版**

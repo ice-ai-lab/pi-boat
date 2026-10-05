@@ -557,12 +557,15 @@ describe('fold：刷新/重连接流', () => {
     const trail = merged.turns[0]?.trail ?? [];
     expect(trail.filter((item) => item.kind === 'thinking')).toHaveLength(1);
     expect(trail[0]).toMatchObject({ kind: 'thinking', text: '想一想' });
-    expect(trail[1]).toMatchObject({
+    // text 在 toolcall 之前 → 属过程：断线前降级出的 text 行按前缀认领替换，不重复也不进 final
+    expect(trail.filter((item) => item.kind === 'text')).toHaveLength(1);
+    expect(trail[1]).toMatchObject({ kind: 'text', text: '前半段' });
+    expect(trail[2]).toMatchObject({
       kind: 'tool',
       toolCallId: 'call-1',
       argsText: '{"command":"ls"',
     });
-    expect(merged.turns[0]?.final?.markdown).toBe('前半段');
+    expect(merged.turns[0]?.final).toBeNull();
   });
 });
 
@@ -737,6 +740,346 @@ describe('rebuild：历史消息 → 与 fold 终态同形', () => {
       kind: 'tool',
       toolCallId: 'call-1',
       output: 'total 0\ndrwxr-xr-x src',
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 多轮 trace 的中间轮文本（非思考内容不吞；2026-09-30 用户报障回归）
+// ---------------------------------------------------------------------------
+
+/**
+ * 一轮多跳 trace：中间 assistant 消息（stopReason=toolUse）带正文（pi-web 会展示、
+ * pi-boat 曾把它吞掉），最后一条才是最终回答。
+ */
+function multiHopEvents(): WireAgentEvent[] {
+  const assistantStart = (at: number) =>
+    ev({
+      type: 'message_start',
+      message: {
+        role: 'assistant',
+        content: [],
+        api: 'anthropic',
+        provider: 'anthropic',
+        model: 'claude-test',
+        usage: USAGE,
+        stopReason: 'pending',
+        timestamp: at,
+      },
+    });
+  const text = (contentIndex: number, content: string) => [
+    ev({
+      type: 'message_update',
+      usage: USAGE,
+      assistantMessageEvent: { type: 'text_start', contentIndex },
+    }),
+    ev({
+      type: 'message_update',
+      usage: USAGE,
+      assistantMessageEvent: { type: 'text_delta', contentIndex, delta: content },
+    }),
+    ev({
+      type: 'message_update',
+      usage: USAGE,
+      assistantMessageEvent: { type: 'text_end', contentIndex, content },
+    }),
+  ];
+  return [
+    ev({ type: 'agent_start' }),
+    ev({ type: 'message_start', message: { role: 'user', content: '调研', timestamp: 1_000 } }),
+    // 中间轮 1：thinking + 正文 + 工具调用
+    assistantStart(2_000),
+    ev({
+      type: 'message_update',
+      usage: USAGE,
+      assistantMessageEvent: { type: 'thinking_start', contentIndex: 0 },
+    }),
+    ev({
+      type: 'message_update',
+      usage: USAGE,
+      assistantMessageEvent: {
+        type: 'thinking_end',
+        contentIndex: 0,
+        content: '先看配置',
+      },
+    }),
+    ...text(1, '先核对配置，再看打包方式'),
+    ev({
+      type: 'message_update',
+      usage: USAGE,
+      assistantMessageEvent: {
+        type: 'toolcall_start',
+        contentIndex: 2,
+        id: 'call-1',
+        toolName: 'read',
+      },
+    }),
+    ev({
+      type: 'message_update',
+      usage: USAGE,
+      assistantMessageEvent: {
+        type: 'toolcall_end',
+        contentIndex: 2,
+        toolCall: {
+          type: 'toolCall',
+          id: 'call-1',
+          name: 'read',
+          arguments: { path: 'a.ts' },
+        } satisfies ToolCall,
+      },
+    }),
+    ev({
+      type: 'message_end',
+      message: {
+        role: 'assistant',
+        content: [
+          { type: 'thinking', thinking: '先看配置' },
+          { type: 'text', text: '先核对配置，再看打包方式' },
+          { type: 'toolCall', id: 'call-1', name: 'read', arguments: { path: 'a.ts' } },
+        ],
+        api: 'anthropic',
+        provider: 'anthropic',
+        model: 'claude-test',
+        usage: USAGE,
+        stopReason: 'toolUse',
+        timestamp: 3_000,
+      },
+    }),
+    ev({
+      type: 'message_end',
+      message: {
+        role: 'toolResult',
+        toolCallId: 'call-1',
+        toolName: 'read',
+        content: [{ type: 'text', text: 'ok' }],
+        isError: false,
+        timestamp: 4_000,
+      },
+    }),
+    // 中间轮 2：thinking + 正文 + 工具调用
+    assistantStart(5_000),
+    ev({
+      type: 'message_update',
+      usage: USAGE,
+      assistantMessageEvent: { type: 'thinking_start', contentIndex: 0 },
+    }),
+    ev({
+      type: 'message_update',
+      usage: USAGE,
+      assistantMessageEvent: {
+        type: 'thinking_end',
+        contentIndex: 0,
+        content: '再看打包',
+      },
+    }),
+    ...text(1, '打包是 external 的'),
+    ev({
+      type: 'message_update',
+      usage: USAGE,
+      assistantMessageEvent: {
+        type: 'toolcall_start',
+        contentIndex: 2,
+        id: 'call-2',
+        toolName: 'read',
+      },
+    }),
+    ev({
+      type: 'message_update',
+      usage: USAGE,
+      assistantMessageEvent: {
+        type: 'toolcall_end',
+        contentIndex: 2,
+        toolCall: {
+          type: 'toolCall',
+          id: 'call-2',
+          name: 'read',
+          arguments: { path: 'b.mjs' },
+        } satisfies ToolCall,
+      },
+    }),
+    ev({
+      type: 'message_end',
+      message: {
+        role: 'assistant',
+        content: [
+          { type: 'thinking', thinking: '再看打包' },
+          { type: 'text', text: '打包是 external 的' },
+          { type: 'toolCall', id: 'call-2', name: 'read', arguments: { path: 'b.mjs' } },
+        ],
+        api: 'anthropic',
+        provider: 'anthropic',
+        model: 'claude-test',
+        usage: USAGE,
+        stopReason: 'toolUse',
+        timestamp: 6_000,
+      },
+    }),
+    ev({
+      type: 'message_end',
+      message: {
+        role: 'toolResult',
+        toolCallId: 'call-2',
+        toolName: 'read',
+        content: [{ type: 'text', text: 'ok' }],
+        isError: false,
+        timestamp: 7_000,
+      },
+    }),
+    // 最终回答
+    assistantStart(8_000),
+    ev({
+      type: 'message_update',
+      usage: USAGE,
+      assistantMessageEvent: { type: 'thinking_start', contentIndex: 0 },
+    }),
+    ev({
+      type: 'message_update',
+      usage: USAGE,
+      assistantMessageEvent: {
+        type: 'thinking_end',
+        contentIndex: 0,
+        content: '汇总',
+      },
+    }),
+    ...text(1, '调研完成，结论如下'),
+    ev({
+      type: 'message_end',
+      message: {
+        role: 'assistant',
+        content: [
+          { type: 'thinking', thinking: '汇总' },
+          { type: 'text', text: '调研完成，结论如下' },
+        ],
+        api: 'anthropic',
+        provider: 'anthropic',
+        model: 'claude-test',
+        usage: USAGE,
+        stopReason: 'stop',
+        timestamp: 9_000,
+      },
+    }),
+    ev({ type: 'agent_end', messages: [], willRetry: false }),
+    ev({ type: 'agent_settled' }),
+  ];
+}
+
+/** 与 multiHopEvents 同一轮对话的历史消息（rebuild 路径） */
+function multiHopMessages(): AgentMessage[] {
+  return [
+    { role: 'user', content: '调研', timestamp: 1_000 },
+    {
+      role: 'assistant',
+      content: [
+        { type: 'thinking', thinking: '先看配置' },
+        { type: 'text', text: '先核对配置，再看打包方式' },
+        { type: 'toolCall', id: 'call-1', name: 'read', arguments: { path: 'a.ts' } },
+      ],
+      api: 'anthropic',
+      provider: 'anthropic',
+      model: 'claude-test',
+      usage: USAGE,
+      stopReason: 'toolUse',
+      timestamp: 3_000,
+    },
+    {
+      role: 'toolResult',
+      toolCallId: 'call-1',
+      toolName: 'read',
+      content: [{ type: 'text', text: 'ok' }],
+      isError: false,
+      timestamp: 4_000,
+    },
+    {
+      role: 'assistant',
+      content: [
+        { type: 'thinking', thinking: '再看打包' },
+        { type: 'text', text: '打包是 external 的' },
+        { type: 'toolCall', id: 'call-2', name: 'read', arguments: { path: 'b.mjs' } },
+      ],
+      api: 'anthropic',
+      provider: 'anthropic',
+      model: 'claude-test',
+      usage: USAGE,
+      stopReason: 'toolUse',
+      timestamp: 6_000,
+    },
+    {
+      role: 'toolResult',
+      toolCallId: 'call-2',
+      toolName: 'read',
+      content: [{ type: 'text', text: 'ok' }],
+      isError: false,
+      timestamp: 7_000,
+    },
+    {
+      role: 'assistant',
+      content: [
+        { type: 'thinking', thinking: '汇总' },
+        { type: 'text', text: '调研完成，结论如下' },
+      ],
+      api: 'anthropic',
+      provider: 'anthropic',
+      model: 'claude-test',
+      usage: USAGE,
+      stopReason: 'stop',
+      timestamp: 9_000,
+    },
+  ];
+}
+
+describe('多轮 trace 的中间轮文本（非思考内容不吞）', () => {
+  it('fold：中间正文按块序降级为轨迹 text 行（位置在工具行前），final 只剩最终回答', () => {
+    const state = run(multiHopEvents());
+    const turn = state.turns[0];
+    expect(turn?.trail.map((item) => item.kind)).toEqual([
+      'thinking',
+      'text',
+      'tool',
+      'thinking',
+      'text',
+      'tool',
+      'thinking',
+    ]);
+    expect(turn?.trail[1]).toMatchObject({ kind: 'text', text: '先核对配置，再看打包方式' });
+    expect(turn?.trail[4]).toMatchObject({ kind: 'text', text: '打包是 external 的' });
+    expect(turn?.final).toEqual({ markdown: '调研完成，结论如下' });
+  });
+
+  it('fold：中间轮 message_end(toolUse) 后回答位清空（不再残留上一条的正文）', () => {
+    const events = multiHopEvents();
+    const cut = events.findIndex(
+      (event) =>
+        event.type === 'message_end' &&
+        (event.message as { stopReason?: string }).stopReason === 'toolUse',
+    );
+    const mid = run(events.slice(0, cut + 1));
+    expect(mid.turns[0]?.final).toBeNull();
+    expect(mid.turns[0]?.trail.at(-1)).toMatchObject({ kind: 'tool', toolCallId: 'call-1' });
+  });
+
+  it('rebuild：与 fold 终态等价（中间正文都在，忽略 id 与 durationMs）', () => {
+    const rebuilt = rebuildTurns(multiHopMessages(), ['e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7']);
+    const live = run(multiHopEvents()).turns;
+    const normalize = (turns: ChatState['turns']) =>
+      JSON.parse(
+        JSON.stringify(turns, (key, value) =>
+          key === 'id' || key === 'durationMs' || key === 'at' ? undefined : value,
+        ),
+      );
+    expect(normalize(rebuilt)).toEqual(normalize(live));
+  });
+
+  it('groupTrail：中间正文随过程组收拢，组头带文本计数', () => {
+    const state = run(multiHopEvents());
+    const turn = state.turns[0];
+    const grouped = groupTrail(turn?.trail ?? [], false);
+    expect(grouped).toHaveLength(1);
+    const group = grouped[0];
+    expect(group).toMatchObject({
+      kind: 'group',
+      messageCount: 7,
+      toolCallCount: 2,
+      textCount: 2,
     });
   });
 });

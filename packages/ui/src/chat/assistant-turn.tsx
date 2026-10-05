@@ -8,6 +8,7 @@ import { ChatImageList } from './chat-image';
 import styles from './markdown.module.css';
 import { MarkdownView } from './markdown-view';
 import { ProcessGroup } from './process-group';
+import { TextRowView } from './text-row';
 import { SystemRowView, ThinkingRowView } from './thinking-row';
 import { ToolRowView } from './tool-row';
 import { TurnWrittenFiles } from './turn-written-files';
@@ -136,6 +137,7 @@ export const AssistantTurn = memo(function AssistantTurn({
           if (item.kind === 'thinking')
             return <ThinkingRowView key={trailKey(item, index)} row={item} />;
           if (item.kind === 'tool') return <ToolRowView key={item.toolCallId} row={item} />;
+          if (item.kind === 'text') return <TextRowView key={trailKey(item, index)} row={item} />;
           return <SystemRowView key={trailKey(item, index)} text={item.text} tone={item.tone} />;
         })}
         {streamingText && turn.model === null && <p className="shimmer text-[12px]">生成中…</p>}

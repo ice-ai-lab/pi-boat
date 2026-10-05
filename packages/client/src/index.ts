@@ -79,6 +79,7 @@ export { formatDuration } from './stream/tool-display';
 export type {
   ChatState,
   ProcessGroupData,
+  TextRow,
   ThinkingRow,
   ToolRow,
   TrailItem,

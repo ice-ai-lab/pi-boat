@@ -1,5 +1,5 @@
-import type { AgentMessage, QueuedMessages } from '@ice-ai/protocol';
-import { applyToolResult, assistantFinalText, userText } from './fold';
+import type { AgentMessage, AssistantMessage, QueuedMessages } from '@ice-ai/protocol';
+import { applyToolResult, lastProcessBlockIndex, userText } from './fold';
 import { type ImageCoords, messageImageSrcs } from './image-src';
 import { toolTitle } from './tool-display';
 import type { ChatState, TrailItem, Turn } from './view-model';
@@ -48,30 +48,7 @@ export function rebuildTurns(
         // 窗口从轮中间开始（分页/尾部窗口）：建孤儿轮承接，绝不丢数据
         const turn =
           turns[turns.length - 1] ?? pushOrphanTurn(turns, message.timestamp, entryIdOf(index));
-        const trail: TrailItem[] = [];
-        for (const block of message.content) {
-          if (block.type === 'thinking') {
-            trail.push({ kind: 'thinking', text: block.thinking, streaming: false });
-          } else if (block.type === 'toolCall') {
-            // 起点是 `preparing` 而不是 `ok`：有结果的工具行一律由 `applyToolResult`
-            // 回填成 ok/error，所以「停在 preparing」= 历史里还没有 toolResult——既可能是
-            // 进行中的 run（applyLiveRun 会标回 running），也可能是中断的旧轮。
-            // 写死 ok 会让「正在跑的工具」在刷新后显示成已完成且无输出。
-            trail.push({
-              kind: 'tool',
-              toolCallId: block.id,
-              toolName: block.name,
-              title: toolTitle(block.name, block.arguments),
-              argsText: JSON.stringify(block.arguments, null, 2),
-              status: 'preparing',
-              output: null,
-              isError: false,
-            });
-          }
-        }
-        turn.trail = [...turn.trail, ...trail];
-        const final = assistantFinalText(message);
-        if (final.length > 0) turn.final = { markdown: final };
+        appendAssistantMessage(turn, message);
         turn.usage = message.usage;
         turn.model = { provider: message.provider, modelId: message.model };
         turn.errorMessage = message.errorMessage ?? null;
@@ -139,6 +116,45 @@ function pushOrphanTurn(turns: Turn[], at: number, id: string): Turn {
   };
   turns.push(orphan);
   return orphan;
+}
+
+/**
+ * 把一条 assistant 消息按块序折进轮（与 fold 的 message_end / 快照同规则，docs/05 §6.5 规则 3/4）：
+ * - 中间轮（stopReason=toolUse，停下来调工具）：整条消息属过程，text 一律落轨迹行——
+ *   不落就会被当成回答，且被后续消息覆盖后彻底丢失（多轮 trace 丢非思考内容的根因）；
+ * - 其余消息：最后一个 process 块（thinking/toolCall）之后的 text 归回答，之前的落轨迹行。
+ */
+function appendAssistantMessage(turn: Turn, message: AssistantMessage): void {
+  const intermediate = message.stopReason === 'toolUse';
+  const cut = lastProcessBlockIndex(message.content);
+  const answerParts: string[] = [];
+  const trail: TrailItem[] = [];
+  message.content.forEach((block, index) => {
+    if (block.type === 'thinking') {
+      trail.push({ kind: 'thinking', text: block.thinking, streaming: false });
+    } else if (block.type === 'toolCall') {
+      // 起点是 `preparing` 而不是 `ok`：有结果的工具行一律由 `applyToolResult`
+      // 回填成 ok/error，所以「停在 preparing」= 历史里还没有 toolResult——既可能是
+      // 进行中的 run（applyLiveRun 会标回 running），也可能是中断的旧轮。
+      // 写死 ok 会让「正在跑的工具」在刷新后显示成已完成且无输出。
+      trail.push({
+        kind: 'tool',
+        toolCallId: block.id,
+        toolName: block.name,
+        title: toolTitle(block.name, block.arguments),
+        argsText: JSON.stringify(block.arguments, null, 2),
+        status: 'preparing',
+        output: null,
+        isError: false,
+      });
+    } else if (block.type === 'text') {
+      if (intermediate || index <= cut) trail.push({ kind: 'text', text: block.text });
+      else answerParts.push(block.text);
+    }
+  });
+  turn.trail = [...turn.trail, ...trail];
+  const answer = answerParts.join('\n');
+  if (answer.length > 0) turn.final = { markdown: answer };
 }
 
 /** 重建整体 ChatState（历史态：streaming=false、无队列） */
