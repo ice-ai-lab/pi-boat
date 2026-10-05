@@ -37,6 +37,11 @@ export interface SidebarPaneProps {
   onSelectSession(sessionId: string): void;
   /** 新建会话：带上项目/工作区 cwd（null = 用上次记忆的 cwd） */
   onNewSession(cwd: string | null): void;
+  /**
+   * 用户在侧栏**显式切换**了工作目录（项目下拉选中 / 自定义路径提交）。
+   * 只在用户动作时触发——打开会话连带的项目变更走 onProjectRootChange，不走这里。
+   */
+  onSelectProjectRoot(root: string): void;
   /** 当前项目根变化（文件树与查看器需要同一基准） */
   onProjectRootChange(root: string | null): void;
 }
@@ -89,6 +94,7 @@ export function SidebarPane({
   onCycleTheme,
   onSelectSession,
   onNewSession,
+  onSelectProjectRoot,
   onProjectRootChange,
 }: SidebarPaneProps) {
   const projectsQuery = useProjectsQuery();
@@ -252,17 +258,21 @@ export function SidebarPane({
   }, [activeSessionId]);
 
   // —— 动作 ——
-  const commitCustomPath = useCallback(async (path: string): Promise<string | null> => {
-    try {
-      const validated = await validateCwd(path);
-      setLastCustomCwd(validated.cwd);
-      saveString(LAST_CUSTOM_CWD_STORAGE_KEY, validated.cwd);
-      setSelectedCwd(validated.cwd);
-      return null;
-    } catch (caught) {
-      return caught instanceof Error ? caught.message : String(caught);
-    }
-  }, []);
+  const commitCustomPath = useCallback(
+    async (path: string): Promise<string | null> => {
+      try {
+        const validated = await validateCwd(path);
+        setLastCustomCwd(validated.cwd);
+        saveString(LAST_CUSTOM_CWD_STORAGE_KEY, validated.cwd);
+        setSelectedCwd(validated.cwd);
+        onSelectProjectRoot(validated.cwd);
+        return null;
+      } catch (caught) {
+        return caught instanceof Error ? caught.message : String(caught);
+      }
+    },
+    [onSelectProjectRoot],
+  );
 
   const renameSession = useCallback(
     async (id: string, name: string) => {
@@ -306,6 +316,7 @@ export function SidebarPane({
       onSelectProjectRoot={(root) => {
         setSelectedCwd(root);
         void validateCwd(root).catch(() => null);
+        onSelectProjectRoot(root);
       }}
       onCommitCustomPath={commitCustomPath}
       onRenameSession={renameSession}

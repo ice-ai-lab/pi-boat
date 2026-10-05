@@ -186,6 +186,13 @@ export function WorkspaceLayout() {
           setPreferredCwd(cwd);
           setSearchParams({});
         }}
+        onSelectProjectRoot={(root) => {
+          // 切换目录 = 想在新目录里开始：中栏回到新建会话空态（用户 2026-09-30：切文件夹后
+          // 中间还停留上一个项目的会话）。与「新建会话」按钮同一条路径（URL `?s=` 是唯一真相，
+          // 清空后 ChatPane 的对账会 reset）；目录未变时不动（重复点击不应拆掉当前会话）
+          setPreferredCwd(root);
+          if (root !== effectiveProjectRoot) setSearchParams({});
+        }}
       />
       {/* 侧栏底栏：毛玻璃条（原型 `.sb-foot` 的顶边发丝线 + 向上渐变）。
           绝对定位压在会话列表之上 → 列表滚到末端时从玻璃后面滤过，这是「毛玻璃透明」唯一看得见的来源；
