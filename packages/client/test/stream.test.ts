@@ -1096,6 +1096,236 @@ describe('多轮 trace 的中间轮文本（非思考内容不吞）', () => {
   });
 });
 
+describe('fold：乱序收口（openai-completions 在 toolcall_* 之后补发 text_end）', () => {
+  // zai/glm（api=openai-completions）的真实时序：正文流完后工具参数继续流，finish_reason
+  // 到达时才按块序统一补发 thinking_end/text_end/toolcall_end。迟到的 text_end 若复活
+  // 已降级的草稿，中间轮正文会渲染两遍（toolcall_start 时降级一行 + message_end 再降级一行）
+  const lateFinishEvents = (): WireAgentEvent[] => [
+    ev({ type: 'agent_start' }),
+    ev({ type: 'message_start', message: { role: 'user', content: '修配置', timestamp: 1_000 } }),
+    ev({
+      type: 'message_start',
+      message: {
+        role: 'assistant',
+        content: [],
+        api: 'openai-completions',
+        provider: 'zai-coding-cn',
+        model: 'glm-5.3-flash',
+        usage: USAGE,
+        stopReason: 'pending',
+        timestamp: 2_000,
+      },
+    }),
+    ev({
+      type: 'message_update',
+      usage: USAGE,
+      assistantMessageEvent: { type: 'thinking_start', contentIndex: 0 },
+    }),
+    ev({
+      type: 'message_update',
+      usage: USAGE,
+      assistantMessageEvent: { type: 'thinking_end', contentIndex: 0, content: 'So:' },
+    }),
+    ev({
+      type: 'message_update',
+      usage: USAGE,
+      assistantMessageEvent: { type: 'text_start', contentIndex: 1 },
+    }),
+    ev({
+      type: 'message_update',
+      usage: USAGE,
+      assistantMessageEvent: {
+        type: 'text_delta',
+        contentIndex: 1,
+        delta: '配置已经清楚了，验证一下端点：',
+      },
+    }),
+    ev({
+      type: 'message_update',
+      usage: USAGE,
+      assistantMessageEvent: {
+        type: 'toolcall_start',
+        contentIndex: 2,
+        id: 'call-1',
+        toolName: 'bash',
+      },
+    }),
+    ev({
+      type: 'message_update',
+      usage: USAGE,
+      assistantMessageEvent: { type: 'toolcall_delta', contentIndex: 2, delta: '{"command":"ls"}' },
+    }),
+    ev({
+      type: 'message_update',
+      usage: USAGE,
+      assistantMessageEvent: {
+        type: 'toolcall_start',
+        contentIndex: 3,
+        id: 'call-2',
+        toolName: 'bash',
+      },
+    }),
+    // —— finish_reason 到达，按块序统一补发 *_end（text_end 晚于全部 toolcall_*）——
+    ev({
+      type: 'message_update',
+      usage: USAGE,
+      assistantMessageEvent: {
+        type: 'text_end',
+        contentIndex: 1,
+        content: '配置已经清楚了，验证一下端点：',
+      },
+    }),
+    ev({
+      type: 'message_update',
+      usage: USAGE,
+      assistantMessageEvent: {
+        type: 'toolcall_delta',
+        contentIndex: 3,
+        delta: '{"command":"pwd"}',
+      },
+    }),
+    ev({
+      type: 'message_update',
+      usage: USAGE,
+      assistantMessageEvent: {
+        type: 'toolcall_end',
+        contentIndex: 2,
+        toolCall: {
+          type: 'toolCall',
+          id: 'call-1',
+          name: 'bash',
+          arguments: { command: 'ls' },
+        } satisfies ToolCall,
+      },
+    }),
+    ev({
+      type: 'message_update',
+      usage: USAGE,
+      assistantMessageEvent: {
+        type: 'toolcall_end',
+        contentIndex: 3,
+        toolCall: {
+          type: 'toolCall',
+          id: 'call-2',
+          name: 'bash',
+          arguments: { command: 'pwd' },
+        } satisfies ToolCall,
+      },
+    }),
+    ev({
+      type: 'message_end',
+      message: {
+        role: 'assistant',
+        content: [
+          { type: 'thinking', thinking: 'So:' },
+          { type: 'text', text: '配置已经清楚了，验证一下端点：' },
+          { type: 'toolCall', id: 'call-1', name: 'bash', arguments: { command: 'ls' } },
+          { type: 'toolCall', id: 'call-2', name: 'bash', arguments: { command: 'pwd' } },
+        ],
+        api: 'openai-completions',
+        provider: 'zai-coding-cn',
+        model: 'glm-5.3-flash',
+        usage: USAGE,
+        stopReason: 'toolUse',
+        timestamp: 3_000,
+      },
+    }),
+  ];
+
+  it('中间轮：迟到的 text_end 不复活已降级的草稿（正文只进轨迹一次，不进 final）', () => {
+    const state = run(lateFinishEvents());
+    const trail = state.turns[0]?.trail ?? [];
+    expect(trail.map((item) => item.kind)).toEqual(['thinking', 'text', 'tool', 'tool']);
+    expect(trail[1]).toMatchObject({ kind: 'text', text: '配置已经清楚了，验证一下端点：' });
+    expect(state.turns[0]?.final).toBeNull();
+  });
+
+  it('迟到的 text_delta 同样拦截（不往已降级行上重发草稿）', () => {
+    const events = lateFinishEvents();
+    // 在迟到 text_end 之后再补一条同块 delta（非合规 provider 可能出现的乱序）
+    const lateEndAt = events.findIndex(
+      (event) =>
+        event.type === 'message_update' &&
+        (event.assistantMessageEvent as { type?: string }).type === 'text_end',
+    );
+    events.splice(
+      lateEndAt + 1,
+      0,
+      ev({
+        type: 'message_update',
+        usage: USAGE,
+        assistantMessageEvent: { type: 'text_delta', contentIndex: 1, delta: '（迟到尾巴）' },
+      }),
+    );
+    const state = run(events);
+    const trail = state.turns[0]?.trail ?? [];
+    expect(trail.filter((item) => item.kind === 'text')).toHaveLength(1);
+    expect(trail[1]).toMatchObject({ kind: 'text', text: '配置已经清楚了，验证一下端点：' });
+    expect(state.turns[0]?.final).toBeNull();
+  });
+
+  it('块序记账按消息归零：下一条消息同下标的 text_end 照常生效', () => {
+    const state = run([
+      ...lateFinishEvents(),
+      ev({
+        type: 'message_start',
+        message: {
+          role: 'assistant',
+          content: [],
+          api: 'openai-completions',
+          provider: 'zai-coding-cn',
+          model: 'glm-5.3-flash',
+          usage: USAGE,
+          stopReason: 'pending',
+          timestamp: 4_000,
+        },
+      }),
+      ev({
+        type: 'message_update',
+        usage: USAGE,
+        assistantMessageEvent: { type: 'text_start', contentIndex: 0 },
+      }),
+      ev({
+        type: 'message_update',
+        usage: USAGE,
+        assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: '修好了' },
+      }),
+      // 下一条消息没有已降级块：contentIndex 0 虽 ≤ 上一条的 demotedTextIndex(1) 也要放行
+      ev({
+        type: 'message_update',
+        usage: USAGE,
+        assistantMessageEvent: { type: 'text_end', contentIndex: 0, content: '修好了' },
+      }),
+    ]);
+    expect(state.turns[0]?.final).toEqual({ markdown: '修好了' });
+    expect((state.turns[0]?.trail ?? []).filter((item) => item.kind === 'text')).toHaveLength(1);
+  });
+
+  it('重连快照接回的已降级 text 行同样拦住迟到收口', () => {
+    const history: AgentMessage[] = [{ role: 'user', content: 'x', timestamp: 1 }];
+    const restored = rebuildChatState(history, ['e1']);
+    // 快照里 text(0) 在 toolCall(1) 之前 → 落轨迹并记入块序记账
+    const withSnapshot = fold(
+      restored,
+      snapshotMessage([
+        { type: 'text', text: '前半段' },
+        { type: 'toolCall', id: 'call-1', name: 'bash', arguments: { command: 'ls' } },
+      ]),
+    );
+    const after = fold(
+      withSnapshot,
+      ev({
+        type: 'message_update',
+        usage: USAGE,
+        assistantMessageEvent: { type: 'text_end', contentIndex: 0, content: '前半段' },
+      }),
+    );
+    const trail = after.turns[0]?.trail ?? [];
+    expect(trail.filter((item) => item.kind === 'text')).toHaveLength(1);
+    expect(after.turns[0]?.final).toBeNull();
+  });
+});
+
 describe('轮级用量累计（combineUsage：多次 LLM 调用求和，含 reasoning/cacheWrite 拆分）', () => {
   /** 带可选拆分的用量（provider 上报 reasoning/cacheWrite 时） */
   const SPLIT_USAGE: Usage = {

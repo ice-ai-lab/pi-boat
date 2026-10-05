@@ -70,6 +70,10 @@ function demoteDraftToTrail(turns: Turn[]): void {
   turn.final = null;
   if (markdown.trim().length === 0) return;
   turn.trail = [...turn.trail, { kind: 'text', text: markdown }];
+  // 记下「哪一号 text 块已进轨迹」：openai-completions 系 provider（zai/glm 等）在
+  // finish_reason 后才按块序统一补发 *_end，迟到的 text_end 会晚于 toolcall_* 到达，
+  // 不拦住它就会复活草稿、在 message_end(toolUse) 时把同一段正文再降级一次（渲染两遍）
+  if (draftTextIndex !== null) demotedTextIndex = draftTextIndex;
 }
 
 /** 孤儿轮（无用户锚点，与 rebuild 的 pushOrphanTurn 同形）：只在没有轮可挂时兜底建档 */
@@ -159,6 +163,9 @@ export function fold(state: ChatState, event: WireAgentEvent): ChatState {
         if (lastTurn(next.turns) === undefined) {
           next.turns = [createOrphanTurn(`a${message.timestamp}`, message.timestamp)];
         }
+        // 块序记账按消息归零：contentIndex 是消息内下标，跨消息不延续
+        draftTextIndex = null;
+        demotedTextIndex = null;
         applyAssistantSnapshot(next.turns, message);
       }
       return next;
@@ -200,19 +207,23 @@ export function fold(state: ChatState, event: WireAgentEvent): ChatState {
         }
         case 'text_start': {
           const turn = lastTurn(next.turns);
-          if (turn !== undefined && turn.final === null) turn.final = { markdown: '' };
+          if (turn === undefined || isStaleTextEvent(sub.contentIndex)) return next;
+          draftTextIndex = sub.contentIndex;
+          if (turn.final === null) turn.final = { markdown: '' };
           return next;
         }
         case 'text_delta': {
           const turn = lastTurn(next.turns);
-          if (turn !== undefined) {
-            turn.final = { markdown: `${turn.final?.markdown ?? ''}${sub.delta}` };
-          }
+          if (turn === undefined || isStaleTextEvent(sub.contentIndex)) return next;
+          if (turn.final === null) draftTextIndex = sub.contentIndex; // 裸 delta（未见 text_start）：当作新草稿起点
+          turn.final = { markdown: `${turn.final?.markdown ?? ''}${sub.delta}` };
           return next;
         }
         case 'text_end': {
           const turn = lastTurn(next.turns);
-          if (turn !== undefined) turn.final = { markdown: sub.content };
+          if (turn === undefined || isStaleTextEvent(sub.contentIndex)) return next;
+          draftTextIndex = sub.contentIndex;
+          turn.final = { markdown: sub.content };
           return next;
         }
         case 'toolcall_start':
@@ -294,6 +305,9 @@ export function fold(state: ChatState, event: WireAgentEvent): ChatState {
           // 自动重试成功：撤销上次失败尝试留下的 error，回到流式中（agent_settled 收口为 done）
           else if (turn.status === 'error') turn.status = 'streaming';
         }
+        // 本条消息已收口，块序记账归零（下一条消息的 contentIndex 重新从 0 计）
+        draftTextIndex = null;
+        demotedTextIndex = null;
       } else if (message.role === 'toolResult') {
         applyToolResult(next.turns, message);
       }
@@ -496,6 +510,14 @@ function lastThinkingIndex(trail: TrailItem[]): number {
 }
 
 /**
+ * 该 text 块是否已降级进轨迹（fold 内部记账，配对字段见 demoteDraftToTrail）。
+ * 命中即丢弃：轨迹行已持有这段全文（由 delta 累积而来），迟到收口不该再复活草稿。
+ */
+function isStaleTextEvent(contentIndex: number): boolean {
+  return demotedTextIndex !== null && contentIndex <= demotedTextIndex;
+}
+
+/**
  * 快照 text 落轨迹行：与断线前降级出的 text 行按前缀认领并整体替换（免得重复合并行），
  * 认领不上（真新增）才追加。`skip` = 快照里在本行之前已被认领的 text 行数（按序一一对应）。
  */
@@ -533,8 +555,13 @@ function applyAssistantSnapshot(turns: Turn[], message: AssistantMessage): void 
   message.content.forEach((block, index) => {
     const isLast = index === message.content.length - 1;
     if (block.type === 'text') {
-      if (index > cut) draftParts.push(block.text);
-      else claimTextRow(turn, block.text, claimedTextRows++);
+      if (index > cut) {
+        draftParts.push(block.text);
+        draftTextIndex = index;
+      } else {
+        claimTextRow(turn, block.text, claimedTextRows++);
+        demotedTextIndex = index;
+      }
       return;
     }
     if (block.type === 'thinking') {
@@ -584,3 +611,13 @@ const toolStartTimes = new Map<string, number>();
 
 /** 思考段起始时刻（thinking 无 id，`thinking_start`/`thinking_end` 严格成对） */
 let thinkingStartedAt: number | null = null;
+
+/**
+ * 当前消息的 text 块序记账（fold 内部记账，assistant message_start/end 归零）：
+ * `draftTextIndex` = 正在喂养回答草稿的 text 块下标；`demotedTextIndex` = 最后一个
+ * 已降级进轨迹的 text 块下标。用途见 demoteDraftToTrail / isStaleTextEvent ——
+ * openai-completions 系 provider 的 `text_end` 在全部 toolcall_* 之后才补发，
+ * 没有这道栏杆，中间轮正文会渲染两遍。
+ */
+let draftTextIndex: number | null = null;
+let demotedTextIndex: number | null = null;
