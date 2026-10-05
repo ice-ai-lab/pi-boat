@@ -49,3 +49,25 @@ describe('Composer 动作按钮的 kbd 提示常显', () => {
     expect(html).toContain('⌘↵');
   });
 });
+
+/*
+ * 附件胶囊（workbuddy 式，2026-11-07 定案）：图片附件不再平铺 56×56 缩略图，而是收成
+ * 「文件名胶囊」与文本同处输入流第一行；hover 预览长在胶囊内（显示交给 CSS :hover），
+ * 移除是胶囊里的 × 按钮。静态标记锁结构，样式与交互归 chat.module.css。
+ */
+describe('Composer 附件胶囊', () => {
+  const images = [{ previewUrl: 'blob:test-image', name: 'unnamed.jpg' }];
+
+  it('有附件：渲染文件名胶囊 + × 移除按钮 + hover 预览图，且无平铺缩略图', () => {
+    const html = render({ attachedImages: images });
+    expect(html).toContain('unnamed.jpg');
+    expect(html).toContain('aria-label="Remove image"');
+    // 预览 <img> 恰好一张：平铺的缩略图已删（React 19 还会自动注入一条 preload link，不算标记）
+    expect((html.match(/<img src="blob:test-image"/g) ?? []).length).toBe(1);
+  });
+
+  it('无附件：不渲染胶囊与移除按钮', () => {
+    const html = render();
+    expect(html).not.toContain('Remove image');
+  });
+});

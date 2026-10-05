@@ -6,7 +6,7 @@ import { useCallback, useRef, useState } from 'react';
  *
  * 客户端先压缩（>1MB 且非 GIF → canvas 缩到最长边 1024 / JPEG 0.85），把 `ImageContent`
  * （`{data, mimeType}`）交给 `prompt` / `steer` / `follow_up` 命令的 `images` 字段；
- * 缩略图用 object URL。
+ * 输入卡的文件名芯片与 hover 预览用 object URL。
  */
 export const MAX_ATTACHED_IMAGE_BYTES = 10 * 1024 * 1024;
 export const MAX_ATTACHED_IMAGES = 10;
@@ -16,8 +16,10 @@ const MAX_IMAGE_SIDE = 1024;
 const JPEG_QUALITY = 0.85;
 
 export interface AttachedImage extends ImageContent {
-  /** data URL（缩略图用） */
+  /** object URL（输入卡附件芯片与 hover 预览用） */
   previewUrl: string;
+  /** 原文件名（芯片显示用；粘贴件是浏览器默认名，如 image.png） */
+  name: string;
 }
 
 export function attachedImageToContent(image: AttachedImage): ImageContent {
@@ -103,6 +105,7 @@ export function useAttachedImages(): AttachedImagesController {
       accepted.map(async (file) => ({
         ...(await compressImageFile(file)),
         previewUrl: URL.createObjectURL(file),
+        name: file.name,
       })),
     )
       .then((loaded) => {

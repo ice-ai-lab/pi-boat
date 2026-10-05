@@ -15,8 +15,9 @@ import { type SuggestionItem, SuggestionMenu } from './suggestion-menu';
  * Composer（docs/06 §4.2）：输入卡 + 卡内控件条（模型/预设/压缩/提示音 │ 停止/引导/后续消息/发送）。
  *
  * 结构按原型 §8「对话框区域」：整块一张玻璃卡（`.inputCard`，20px 圆角），卡内只有两段
- * ——上方留白的输入区（默认 56px 高）与底部一行控件条；附件缩略图长在卡内顶部，
- * 排队长在卡**上方**（`aboveInput`），指标行长在卡**下方**（`belowInput`）。
+ * ——上方留白的输入区（默认 56px 高）与底部一行控件条；图片附件收成文件名芯片，
+ * 与文本同处输入流的第一行（workbuddy 式，hover 上浮预览）；排队长在卡**上方**
+ * （`aboveInput`），指标行长在卡**下方**（`belowInput`）。
  * 动作展开成按钮（不做下拉）：运行中并列「停止 · 引导 · 后续消息」，空闲时只留「发送」，
  * 对应键盘 `↵`（引导 / 发送）与 `⌘/Ctrl+↵`（后续消息），`⇧↵` 仍是换行。
  */
@@ -43,8 +44,8 @@ export interface ComposerProps {
   onMentionActiveIndexChange?(index: number): void;
   /** 光标位置回传（`@` 提及需要「光标前的文本」而不是整段） */
   onCaretChange?(caret: number): void;
-  /** 已附加的图片（卡内缩略图 56×56 + 右上角移除） */
-  attachedImages?: { previewUrl: string }[];
+  /** 已附加的图片（输入流里的文件名胶囊 + hover 预览 + × 移除） */
+  attachedImages?: { previewUrl: string; name: string }[];
   onRemoveImage?(index: number): void;
   /** 粘贴板里的图片文件（web 层负责转 data URL 并压缩） */
   onPasteImages?(files: File[]): void;
@@ -76,6 +77,71 @@ const ACTION_BUTTON: CSSProperties = {
   cursor: 'pointer',
   transition: 'background 0.16s, color 0.16s',
 };
+
+/**
+ * 附件胶囊（workbuddy 式，2026-11-07 定案）：图片附件不再平铺缩略图，而是收成「文件名
+ * 胶囊」，与输入文本同处输入流的第一行；hover / 键盘聚焦到 × 时图标换成 ×（点击移除），
+ * 胶囊上方浮出大图预览（纯 CSS `.chip:hover`，见 chat.module.css；预览不接指针事件）。
+ */
+function AttachedImageChip({
+  image,
+  index,
+  onRemove,
+}: {
+  image: { previewUrl: string; name: string };
+  index: number;
+  onRemove?(index: number): void;
+}) {
+  const { t } = useI18n();
+  return (
+    <div className={styles.chip}>
+      <span className={styles.chipIcon}>
+        <svg
+          aria-hidden="true"
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <rect x="3" y="3" width="18" height="18" rx="5" />
+          <circle cx="9" cy="9.5" r="1.5" fill="currentColor" stroke="none" />
+          <path d="m21 15.5-4-4L7.5 21" />
+        </svg>
+      </span>
+      <button
+        type="button"
+        className={styles.chipX}
+        aria-label={t('chat.removeImage')}
+        title={t('chat.removeImage')}
+        onClick={() => onRemove?.(index)}
+      >
+        <svg
+          aria-hidden="true"
+          width="8"
+          height="8"
+          viewBox="0 0 8 8"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        >
+          <line x1="1" y1="1" x2="7" y2="7" />
+          <line x1="7" y1="1" x2="1" y2="7" />
+        </svg>
+      </button>
+      <span className={styles.chipName} title={image.name}>
+        {image.name}
+      </span>
+      <span className={styles.chipPreview} aria-hidden="true">
+        <img src={image.previewUrl} alt="" />
+      </span>
+    </div>
+  );
+}
 
 export function Composer({
   value,
@@ -109,7 +175,6 @@ export function Composer({
   const mentionOpen = mentions !== undefined && mentions.length > 0;
   const slashOpen = !mentionOpen && slashCommands !== undefined && slashCommands.length > 0;
   const menuOpen = mentionOpen || slashOpen;
-  const hasImages = (attachedImages?.length ?? 0) > 0;
   // 注：protocol 的 `prompt`/`steer`/`follow_up` 都是 `message: z.string().min(1)`（有单测钉住），
   // 因此「只发图不写字」在本仓会被 400 拒（设计规范允许）。在不改协议契约前，发送/排队仍以文本非空为准。
   const canSend = !disabled && value.trim().length > 0;
@@ -415,66 +480,17 @@ export function Composer({
             />
           )}
 
-          {/* 输入卡（原型 `.inputcard`）：附件行 → 输入区 → 控件条 */}
+          {/* 输入卡（原型 `.inputcard`）：输入区（附件胶囊 + 文本同一行流） → 控件条 */}
           <div className={styles.inputCard}>
-            {hasImages && (
-              <div style={{ display: 'flex', gap: 8, margin: '2px 4px 6px', flexWrap: 'wrap' }}>
-                {attachedImages?.map((image, index) => (
-                  <div key={image.previewUrl} style={{ position: 'relative', flexShrink: 0 }}>
-                    <img
-                      src={image.previewUrl}
-                      alt=""
-                      style={{
-                        width: 56,
-                        height: 56,
-                        objectFit: 'cover',
-                        borderRadius: 10,
-                        border: '1px solid var(--border)',
-                        display: 'block',
-                      }}
-                    />
-                    <button
-                      type="button"
-                      aria-label={t('chat.removeImage')}
-                      title={t('chat.removeImage')}
-                      onClick={() => onRemoveImage?.(index)}
-                      style={{
-                        position: 'absolute',
-                        top: -4,
-                        right: -4,
-                        width: 16,
-                        height: 16,
-                        borderRadius: '50%',
-                        background: 'var(--bg-panel)',
-                        border: '1px solid var(--border)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        padding: 0,
-                        color: 'var(--text-muted)',
-                      }}
-                    >
-                      <svg
-                        width="8"
-                        height="8"
-                        viewBox="0 0 8 8"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                        aria-hidden="true"
-                      >
-                        <line x1="1" y1="1" x2="7" y2="7" />
-                        <line x1="7" y1="1" x2="1" y2="7" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div style={{ display: 'flex', alignItems: 'flex-end', padding: '8px 8px 0' }}>
+            <div className={styles.inputRow}>
+              {attachedImages?.map((image, index) => (
+                <AttachedImageChip
+                  key={image.previewUrl}
+                  image={image}
+                  index={index}
+                  onRemove={onRemoveImage}
+                />
+              ))}
               <Textarea
                 value={value}
                 onChange={(event) => {
@@ -495,7 +511,8 @@ export function Composer({
                 className={styles.inputTextarea}
                 style={{
                   flex: 1,
-                  minWidth: 0,
+                  // 挤不出 120px 就随 flex-wrap 整体落到下一行：胶囊多时不把文本压成一条缝
+                  minWidth: 120,
                   background: 'none',
                   border: 'none',
                   outline: 'none',
