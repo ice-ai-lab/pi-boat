@@ -6,6 +6,7 @@ import type {
   DiscoveredModel,
   ModelsConfigTestRequest,
   ModelsConfigTestResponse,
+  ModelsDefaultsUpdate,
   ModelsEnabledResponse,
   ModelsEnabledUpdate,
   ModelsRefreshRequest,
@@ -102,6 +103,14 @@ export function getEnabledModels(cwd?: string): Promise<ModelsEnabledResponse> {
  */
 export function updateEnabledModels(update: ModelsEnabledUpdate): Promise<ModelsEnabledResponse> {
   return http.put<ModelsEnabledResponse>('/models/enabled', update).then((res) => res.data);
+}
+
+/**
+ * PUT /api/models/defaults —— 全局默认模型 + 默认思考强度（写全局 settings.json，
+ * 与 pi CLI 共享；ADR-0032）。返回刷新后的 models 快照；未知模型 → 400。
+ */
+export function updateModelDefaults(update: ModelsDefaultsUpdate): Promise<ModelsResponse> {
+  return http.put<ModelsResponse>('/models/defaults', update).then((res) => res.data);
 }
 
 /** POST /api/models/refresh —— 只有用户点按钮才联网刷新目录 */

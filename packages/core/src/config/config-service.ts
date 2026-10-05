@@ -23,6 +23,7 @@ import type {
   ModelsConfigDiscoverRequest,
   ModelsConfigTestRequest,
   ModelsConfigTestResponse,
+  ModelsDefaultsUpdate,
   ModelsEnabledResponse,
   ModelsEnabledUpdate,
   ModelsRefreshRequest,
@@ -139,6 +140,8 @@ export class ConfigService {
       models: nameMap,
       modelList,
       defaultModel,
+      // 全局默认档位原样透出（未设置 = 'medium'）；每模型生效值在 thinkingLevelDefaults（已 clamp）
+      defaultThinkingLevel: globalThinkingLevel,
       thinkingLevelDefaults,
       thinkingLevels,
       thinkingLevelMaps,
@@ -251,12 +254,51 @@ export class ConfigService {
     return this.enabled(cwd);
   }
 
-  private async persistEnabled(
-    settingsManager: SettingsManager,
-    patterns: readonly string[],
-  ): Promise<void> {
-    // 写入走 SettingsManager（自己的锁 + 原子落盘），空列表归一化为"不限制"
-    settingsManager.setEnabledModels(patterns.length === 0 ? undefined : [...patterns]);
+  /**
+   * 设置全局默认模型 / 默认思考强度（写全局 settings.json，与 pi CLI 共享，ADR-0032）。
+   *
+   * 与 ADR-0019 决策 4 的分工：那里只把「新会话自动沿用上次选择」交给前端
+   * localStorage；这里是**显式设置项**，按 docs/07 G2-11 的既定方案落盘——
+   * 会话内切换模型/档位仍然不落盘。部分更新：带模型对则设默认模型，带档位则设默认档位。
+   */
+  async updateDefaults(cwd: string, input: ModelsDefaultsUpdate): Promise<ModelsResponse> {
+    const handle = await this.createHandle(cwd);
+    const { modelRuntime, settingsManager } = handle;
+    // 档位的 clamp 参照：本次设置的模型优先，否则用当前已设置的默认模型；
+    // 都没有时不 clamp（全局默认没有单一参照模型，解析时按各模型收口）
+    let clampReference: Model<Api> | undefined;
+    if (input.provider !== undefined && input.modelId !== undefined) {
+      const model = modelRuntime.getModel(input.provider, input.modelId);
+      if (model === undefined) {
+        throw new UserInputError(`Unknown model: ${input.provider}/${input.modelId}`);
+      }
+      settingsManager.setDefaultModelAndProvider(input.provider, input.modelId);
+      clampReference = model;
+    }
+    if (input.thinkingLevel !== undefined) {
+      if (clampReference === undefined) {
+        const provider = settingsManager.getDefaultProvider();
+        const modelId = settingsManager.getDefaultModel();
+        clampReference =
+          provider !== undefined && modelId !== undefined
+            ? modelRuntime.getModel(provider, modelId)
+            : undefined;
+      }
+      // clamp 后落盘：settings.json 里存的值必须是参照模型真实支持的档位，
+      // 否则面板回显会与实际生效分叉（无参照时原样落盘）
+      settingsManager.setDefaultThinkingLevel(
+        clampReference === undefined
+          ? input.thinkingLevel
+          : clampThinkingLevel(clampReference, input.thinkingLevel),
+      );
+    }
+    await this.persistSettings(settingsManager);
+    // 返回刷新后的快照：defaultModel / defaultThinkingLevel 已是新值，前端直接接管缓存
+    return this.models(cwd);
+  }
+
+  /** SettingsManager 写盘收尾：flush + 排空错误队列（沿用面板「编辑被拒」→ 400 的映射） */
+  private async persistSettings(settingsManager: SettingsManager): Promise<void> {
     await settingsManager.flush();
     const errors = settingsManager.drainErrors();
     if (errors.length > 0) {
@@ -264,6 +306,15 @@ export class ConfigService {
         `Failed to write settings: ${describeSettingsError(errors[0])}`,
       );
     }
+  }
+
+  private async persistEnabled(
+    settingsManager: SettingsManager,
+    patterns: readonly string[],
+  ): Promise<void> {
+    // 写入走 SettingsManager（自己的锁 + 原子落盘），空列表归一化为"不限制"
+    settingsManager.setEnabledModels(patterns.length === 0 ? undefined : [...patterns]);
+    await this.persistSettings(settingsManager);
   }
 
   // ------------------------------------------------------------------

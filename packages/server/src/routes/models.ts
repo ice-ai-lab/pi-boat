@@ -14,6 +14,7 @@ import {
   ModelsConfigDiscoverRequestSchema,
   ModelsConfigTestRequestSchema,
   ModelsConfigUpdateSchema,
+  ModelsDefaultsUpdateSchema,
   ModelsEnabledUpdateSchema,
   ModelsQuerySchema,
   ModelsRefreshRequestSchema,
@@ -75,6 +76,7 @@ export function registerModelRoutes(app: Hono, deps: ModelRouteDeps): void {
         models: {},
         modelList: [],
         defaultModel: null,
+        defaultThinkingLevel: 'medium',
         thinkingLevelDefaults: {},
         thinkingLevels: {},
         thinkingLevelMaps: {},
@@ -223,6 +225,28 @@ export function registerModelRoutes(app: Hono, deps: ModelRouteDeps): void {
         return c.json({ error: error.message, reason: 'project-shadow' }, 409);
       }
       if (error instanceof InvalidScopeEditError || error instanceof UserInputError) {
+        return c.json<CommandError>({ error: error.message }, 400);
+      }
+      throw error;
+    }
+  });
+
+  // PUT /api/models/defaults —— 全局默认模型 + 默认思考强度（写全局 settings.json，ADR-0032）
+  // 检查清单：① settings.json 在 ~/.pi/agent（本服务自己的配置目录）；② 错误只提
+  // provider/modelId，不提路径；③ 无新增 Origin 例外；④ 副作用走 PUT 非 GET
+  app.put('/api/models/defaults', async (c) => {
+    const raw = await c.req.json().catch(() => null);
+    const parsed = ModelsDefaultsUpdateSchema.safeParse(raw);
+    if (!parsed.success) {
+      return c.json<CommandError>({ error: firstIssueMessage(parsed.error.issues) }, 400);
+    }
+    const { cwd: rawCwd, ...update } = parsed.data;
+    const cwd = await resolveCwd(rawCwd);
+    if (typeof cwd !== 'string') return c.json<CommandError>(cwd, 400);
+    try {
+      return c.json(await configService.updateDefaults(cwd, update));
+    } catch (error) {
+      if (error instanceof UserInputError || error instanceof InvalidScopeEditError) {
         return c.json<CommandError>({ error: error.message }, 400);
       }
       throw error;

@@ -749,8 +749,8 @@ describe('rebuild：历史消息 → 与 fold 终态同形', () => {
 // ---------------------------------------------------------------------------
 
 /**
- * 一轮多跳 trace：中间 assistant 消息（stopReason=toolUse）带正文（pi-web 会展示、
- * pi-boat 曾把它吞掉），最后一条才是最终回答。
+ * 一轮多跳 trace：中间 assistant 消息（stopReason=toolUse）带正文（pi-boat 曾把它吞掉），
+ * 最后一条才是最终回答。
  */
 function multiHopEvents(): WireAgentEvent[] {
   const assistantStart = (at: number) =>

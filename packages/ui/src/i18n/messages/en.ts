@@ -336,6 +336,11 @@ export const enLocale: LocalePlugin = {
     'chat.thinkingHigh': 'High reasoning',
     'chat.thinkingXhigh': 'Extra-high reasoning',
     'chat.thinkingMax': 'Max reasoning',
+
+    'chat.defaultModel': 'Default model for new chats',
+    'chat.saveDefaultModel': 'Use and save as default for new chats',
+    'chat.defaultThinking': 'Default reasoning level for new chats',
+    'chat.saveDefaultThinking': 'Use and save as default reasoning level',
     'chat.builtIn': 'Built-in',
     'chat.extensions': 'Extensions',
     'chat.prompts': 'Prompts',

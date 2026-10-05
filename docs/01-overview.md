@@ -380,7 +380,7 @@ protocol 的 API 契约（而非 HTTP 细节）是唯一对前端的承诺 —�
 |---|---|---|
 | `packages/protocol` | ✅ 一期全量落地 | 24 命令 / 27 类 wire 事件 / rest 七域；见 `docs/02` |
 | `packages/core` | ✅ 一期全量落地 | 8 个服务，23 源文件 / 14 测试文件（218 用例）；见 `docs/03` |
-| `packages/server` | ✅ 一期全量落地 | 56 端点（含 health），6 路由文件 / 73 用例；见 `docs/04` |
+| `packages/server` | ✅ 一期全量落地 | 57 端点（含 health），6 路由文件 / 75 用例；见 `docs/04` |
 | `packages/client` | ✅ F5 一期全量就位 | + F5 命令族（斜杠/工具/压缩/命名/分叉/扩展 UI 应答）+ view-models（minimap/统计/主题/本轮改动文件）+ input（历史/斜杠）（80 用例） |
 | `packages/ui` | ✅ F5 一期全量就位 | + F5 增补（候选菜单/排队条/控制条/minimap/本轮改动文件/四个面板/扩展状态·widgets·对话框/shiki 高亮） |
 | `apps/web` | ✅ **一期前端全部落地（2026-09-27）** | 三栏 + 对话 + 侧栏 + 文件 + 设置 + F5 增强（主题三态/快捷键/提示音与页内通知）|
@@ -485,4 +485,4 @@ type WireAgentEvent =
 
 *详细设计按包推进：《core 详细设计》见 `docs/03-core-design.md`（✅ 一期已落地）、《server 详细设计》见 `docs/04-server-design.md`（✅ 一期已落地）、《client 详细设计》见 `docs/05-client-design.md`、《ui 详细设计》见 `docs/06-ui-design.md`（后两篇随 Web 原型 v3 定稿，前端已按一期范围落地）；前端一期实施规划见 `docs/08-web-frontend-plan.md`（F0–F5 已全部交付）。视觉/交互基准为统一 Web 设计规范（ADR-0020，原型 v3 已退役）。协议契约以 `docs/02-protocol-inventory.md` 为准（覆盖产品全量 API 面）。**一期后端能力全集的审查与补齐批次见 `docs/07-backend-capability-gap.md`**（它包含已完成的 B0–B7 记录、仍存边界与排除项；排除项见 ADR-0014）。*
 
-**当前唯一待办：桌面端（Electron）复用既有 server/core/client/ui，无新增后端。** 一期全部能力（56 个端点 / 24 条命令 / 27 类 wire 事件）均已实现并有测试。
+**当前唯一待办：桌面端（Electron）复用既有 server/core/client/ui，无新增后端。** 一期全部能力（57 个端点 / 24 条命令 / 27 类 wire 事件）均已实现并有测试。

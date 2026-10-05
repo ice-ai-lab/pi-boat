@@ -36,3 +36,4 @@
 | [0029](0029-source-highlight-shiki-reuse.md) | 源码高亮统一复用 shiki——双主题经 CSS 变量下发，ui 不订阅宿主主题（关闭 `docs/09` §7 Q3） | 已接受 | 2026-09-29 |
 | [0030](0030-npm-distribution-packaging.md) | npm 分发包 `@ice-ai/pi-boat` 的打包策略——单文件 ESM bundle + 内嵌 Web 静态产物 | 已接受 | 2026-09-29 |
 | [0031](0031-cli-bin-rename.md) | bin 命令改为 `pi-boat` / `pi-boat-server`——命令名与包名统一（修订 0001 的 bin 项） | 已接受 | 2026-09-30 |
+| [0032](0032-default-model-and-thinking-setting.md) | 选择列表钉选设「新会话默认模型 / 默认推理级别」，显式配置写全局 settings.json（收窄 0019 决策 4 边界，落实 07 G2-11 预留方案） | 已接受 | 2026-10-05 |

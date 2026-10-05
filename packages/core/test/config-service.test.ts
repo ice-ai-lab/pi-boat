@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { THINKING_LEVELS } from '@ice-ai/protocol';
@@ -127,5 +127,44 @@ describe('ConfigService（模型面板主路径）', () => {
       vi.unstubAllGlobals();
       if (offline !== undefined) process.env.PI_OFFLINE = offline;
     }
+  });
+
+  /** 放在最后：依赖上一个用例写入的 acme 自定义 provider（不清理，交给 afterAll 删目录） */
+  it('updateDefaults()：部分更新写全局 settings.json，未知模型拒绝；档位按默认模型能力 clamp', async () => {
+    const service = new ConfigService();
+    const cwd = process.cwd();
+
+    // 未知模型 → UserInputError（路由层映射 400）
+    await expect(
+      service.updateDefaults(cwd, {
+        provider: 'acme',
+        modelId: 'nope',
+      }),
+    ).rejects.toThrow('Unknown model: acme/nope');
+
+    // 快乐路径（模型对 + 档位）：acme-one 未开启 reasoning，支持集只有 ['off']，
+    // 请求 'high' 应被 clamp 成 'off' 落盘（存进 settings.json 的值必须真实可用）
+    const withModel = await service.updateDefaults(cwd, {
+      provider: 'acme',
+      modelId: 'acme-one',
+      thinkingLevel: 'high',
+    });
+    expect(withModel.defaultModel).toEqual({ provider: 'acme', modelId: 'acme-one' });
+    expect(withModel.defaultThinkingLevel).toBe('off');
+
+    // 部分更新（只设档位）：clamp 参照当前默认模型（acme-one），不影响 defaultModel
+    const levelOnly = await service.updateDefaults(cwd, { thinkingLevel: 'medium' });
+    expect(levelOnly.defaultModel).toEqual({ provider: 'acme', modelId: 'acme-one' });
+    expect(levelOnly.defaultThinkingLevel).toBe('off');
+
+    // 落盘位置与字段：全局 settings.json（与 pi CLI 共享），三个字段都在
+    const settings = JSON.parse(readFileSync(join(agentDir, 'settings.json'), 'utf8')) as {
+      defaultProvider?: string;
+      defaultModel?: string;
+      defaultThinkingLevel?: string;
+    };
+    expect(settings.defaultProvider).toBe('acme');
+    expect(settings.defaultModel).toBe('acme-one');
+    expect(settings.defaultThinkingLevel).toBe('off');
   });
 });

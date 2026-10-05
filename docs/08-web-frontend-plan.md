@@ -196,7 +196,7 @@ src/
 | 12 | 扩展 UI `custom` method（自绘终端 UI） | ❌ 只做 9 个 method（ADR-0012）；`ExtensionWidgets` 的 custom 分支不落地 | ADR-0012 |
 | 13 | 桌面目录选择（`piDesktop.selectDirectory`） | ❌ 二期；DirectoryPicker 走 `/api/cwd/browse` | M4 |
 | 14 | i18n 三语 | ✅ **已定案（2026-09-26 推翻原「zh-CN 单语」）**：做 en / zh-CN / ja 三语，走设计规范的 registry 架构（§6-1） | — |
-| 15 | 启动偏好（`defaultModel` 落盘） | 前端 localStorage 绕过（§6-4） | G2-11 |
+| 15 | 启动偏好（`defaultModel` 落盘） | 显式设置项已落 settings.json（ADR-0032）；「继承上次选择」仍走前端 localStorage（§6-4） | G2-11 |
 
 ---
 

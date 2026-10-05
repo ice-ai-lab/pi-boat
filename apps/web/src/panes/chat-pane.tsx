@@ -18,8 +18,14 @@ import {
   useGitStatusQuery,
   useModelsQuery,
   useSessionDetailQuery,
+  useUpdateModelsDefaultsMutation,
 } from '@ice-ai/client/react';
-import { presetForToolNames, type SessionDetailResponse, TOOL_PRESETS } from '@ice-ai/protocol';
+import {
+  presetForToolNames,
+  type SessionDetailResponse,
+  type ThinkingLevel,
+  TOOL_PRESETS,
+} from '@ice-ai/protocol';
 import {
   BranchNavigator,
   Composer,
@@ -480,6 +486,7 @@ export function ChatPane({
   const signal = useCompletionSignal();
   const { t } = useI18n();
   const models = useModelsQuery(session.cwd ?? undefined);
+  const updateDefaults = useUpdateModelsDefaultsMutation(session.cwd ?? undefined);
   const gitStatus = useGitStatusQuery(session.cwd);
   const detail = useSessionDetailQuery(sessionId);
 
@@ -832,6 +839,54 @@ export function ChatPane({
       : (session.pendingThinkingLevel ??
         (modelKey === null ? undefined : models.data?.thinkingLevelDefaults[modelKey]) ??
         null);
+
+  /**
+   * 钉选「设为新会话默认」（ADR-0032，选择列表行内标记）：保存全局默认
+   * （写 settings.json）并让当前会话立即用它（「使用并设为」）；本地同步 last-model，
+   * 保证新会话（空态初选优先走 last-model）与刚设的默认一致。
+   */
+  const saveDefaultModel = useCallback(
+    (provider: string, modelId: string) => {
+      updateDefaults.mutate(
+        { provider, modelId },
+        {
+          onSuccess: () => {
+            pushToast(`默认模型已保存：${provider}/${modelId}`);
+            setLastModel({ provider, modelId });
+            const active =
+              effectiveModel?.provider === provider && effectiveModel?.modelId === modelId;
+            if (!active) {
+              void session.setModel(provider, modelId).then((error) => {
+                if (error !== null) pushToast(error, 'error');
+              });
+            }
+          },
+          onError: (error) => pushToast(`保存失败：${error.message}`, 'error'),
+        },
+      );
+    },
+    [updateDefaults, session, effectiveModel, pushToast],
+  );
+
+  const saveDefaultThinkingLevel = useCallback(
+    (level: string) => {
+      updateDefaults.mutate(
+        { thinkingLevel: level as ThinkingLevel },
+        {
+          onSuccess: () => {
+            pushToast(`默认推理级别已保存：${level}`);
+            if (thinkingLevel !== level) {
+              void session.setThinkingLevel(level as never).then((error) => {
+                if (error !== null) pushToast(error, 'error');
+              });
+            }
+          },
+          onError: (error) => pushToast(`保存失败：${error.message}`, 'error'),
+        },
+      );
+    },
+    [updateDefaults, session, thinkingLevel, pushToast],
+  );
   /**
    * 工具预设回显：按**当前生效工具集**反查（`presetForToolNames` 的勾选口径），
    * 而不是「上次点了哪一项」。没匹配上（settings 被改过 / 扩展塞进了工具）则四项
@@ -1016,6 +1071,10 @@ export function ChatPane({
             busy={chat.streaming}
             thinkingLevel={thinkingLevel}
             thinkingLevels={thinkingLevels}
+            defaultModel={models.data?.defaultModel ?? null}
+            onSaveDefaultModel={saveDefaultModel}
+            defaultThinkingLevel={models.data?.defaultThinkingLevel ?? null}
+            onSaveDefaultThinkingLevel={saveDefaultThinkingLevel}
             onThinkingLevelChange={(level) =>
               void session.setThinkingLevel(level as never).then((error) => {
                 if (error !== null) pushToast(error, 'error');

@@ -336,6 +336,11 @@ export const jaLocale: LocalePlugin = {
     'chat.thinkingHigh': '高い推論',
     'chat.thinkingXhigh': '非常に高い推論',
     'chat.thinkingMax': '最大推論',
+
+    'chat.defaultModel': '新規セッションのデフォルトモデル',
+    'chat.saveDefaultModel': '使用して新規セッションのデフォルトモデルに設定',
+    'chat.defaultThinking': '新規セッションのデフォルト思考レベル',
+    'chat.saveDefaultThinking': '使用して新規セッションのデフォルト思考レベルに設定',
     'chat.builtIn': '組み込み',
     'chat.extensions': '拡張機能',
     'chat.prompts': 'プロンプト',

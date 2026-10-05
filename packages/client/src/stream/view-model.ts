@@ -54,7 +54,7 @@ export interface ToolRow {
 
 /**
  * 中间轮的普通文本（非思考、非最终回答）：多轮 trace 里停下来调工具的那几条
- * assistant 消息也常带正文（pi-web 按块序平铺展示）。归轨迹（静止后随过程组收拢），
+ * assistant 消息也常带正文（按块序平铺展示）。归轨迹（静止后随过程组收拢），
  * 不然会被逐条覆盖的 `final` 吞掉（docs/05 §6.5 规则 3/4）。
  */
 export interface TextRow {

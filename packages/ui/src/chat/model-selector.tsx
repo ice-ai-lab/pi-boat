@@ -1,6 +1,5 @@
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '../i18n/i18n-provider';
-
 /**
  * ModelSelector（T2-1 + 原型 §8b「模型 + 推理等级合并控件」）：按设计规范 `ModelSelector.tsx`
  * 的整体移植（桌面向），视觉按原型 `.cbar--model` / `.menu--drill`。
@@ -28,6 +27,14 @@ export interface ModelSelectorProps {
   onLevelChange(level: string): void;
   disabled?: boolean;
   busy?: boolean;
+  /** 当前「新会话默认模型」（实心图钉标记；「钉住」语义，不跟随参考实现的星标） */
+  defaultModel?: { provider: string; modelId: string } | null;
+  /** 钉选动作：把该模型存为新会话默认模型（「使用并设为」，接线方同时切当前会话） */
+  onSaveDefaultModel?(provider: string, modelId: string): void;
+  /** 当前「新会话默认推理级别」（settings.json 的 defaultThinkingLevel） */
+  defaultThinkingLevel?: string | null;
+  /** 钉选动作：把该级别存为新会话默认推理级别 */
+  onSaveDefaultThinkingLevel?(level: string): void;
 }
 
 const MODEL_FILTER_THRESHOLD = 8;
@@ -44,6 +51,40 @@ const THINKING_DESC_KEYS: Record<string, string> = {
   xhigh: 'chat.thinkingXhigh',
   max: 'chat.thinkingMax',
 };
+
+/** 图钉图标（钉住 = 新会话默认；实心 = 已是默认，描边 = 设默认按钮） */
+function PinIcon({ filled, size }: { filled: boolean; size: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      style={{ flexShrink: 0 }}
+    >
+      <line x1="12" x2="12" y1="17" y2="22" />
+      <path
+        d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"
+        fill={filled ? 'currentColor' : 'none'}
+      />
+    </svg>
+  );
+}
+
+/** MenuRow 的钉选位：默认行 = 实心图钉标记；其它行 = hover/focus 出「设默认」按钮 */
+export interface MenuRowStar {
+  isDefault: boolean;
+  /** 实心标记的说明（当前默认） */
+  defaultLabel: string;
+  /** 设默认按钮的 tooltip / aria */
+  saveLabel: string;
+  onSave(): void;
+}
 
 function compareModelOptions(a: ModelSelectorOption, b: ModelSelectorOption): number {
   return (
@@ -76,6 +117,10 @@ export function ModelSelector({
   onLevelChange,
   disabled = false,
   busy = false,
+  defaultModel = null,
+  onSaveDefaultModel,
+  defaultThinkingLevel = null,
+  onSaveDefaultThinkingLevel,
 }: ModelSelectorProps) {
   const { t } = useI18n();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -433,18 +478,36 @@ export function ModelSelector({
                                 {group.provider}
                               </div>
                             )}
-                            {group.options.map((option) => (
-                              <MenuRow
-                                key={`${option.provider}:${option.modelId}`}
-                                active={
-                                  option.modelId === value?.modelId &&
-                                  option.provider === value?.provider
-                                }
-                                label={option.name}
-                                mono
-                                onClick={() => chooseModel(option)}
-                              />
-                            ))}
+                            {group.options.map((option) => {
+                              const isDefault =
+                                option.provider === defaultModel?.provider &&
+                                option.modelId === defaultModel?.modelId;
+                              return (
+                                <MenuRow
+                                  key={`${option.provider}:${option.modelId}`}
+                                  active={
+                                    option.modelId === value?.modelId &&
+                                    option.provider === value?.provider
+                                  }
+                                  label={option.name}
+                                  mono
+                                  star={
+                                    onSaveDefaultModel === undefined
+                                      ? undefined
+                                      : {
+                                          isDefault,
+                                          defaultLabel: t('chat.defaultModel'),
+                                          saveLabel: t('chat.saveDefaultModel'),
+                                          onSave: () => {
+                                            close();
+                                            onSaveDefaultModel(option.provider, option.modelId);
+                                          },
+                                        }
+                                  }
+                                  onClick={() => chooseModel(option)}
+                                />
+                              );
+                            })}
                           </div>
                         ))
                       )
@@ -456,6 +519,19 @@ export function ModelSelector({
                           label={candidate}
                           mono
                           hint={t(THINKING_DESC_KEYS[candidate] ?? 'chat.thinkingUseDefault')}
+                          star={
+                            onSaveDefaultThinkingLevel === undefined
+                              ? undefined
+                              : {
+                                  isDefault: candidate === defaultThinkingLevel,
+                                  defaultLabel: t('chat.defaultThinking'),
+                                  saveLabel: t('chat.saveDefaultThinking'),
+                                  onSave: () => {
+                                    close();
+                                    onSaveDefaultThinkingLevel(candidate);
+                                  },
+                                }
+                          }
                           onClick={() => chooseLevel(candidate)}
                         />
                       ))
@@ -612,15 +688,19 @@ function MenuRow({
   label,
   hint,
   mono = false,
+  star,
   onClick,
 }: {
   active: boolean;
   label: string;
   hint?: string;
   mono?: boolean;
+  /** 有钉选位时行尾预留空槽：默认行实心标记，其它行 hover 出按钮 */
+  star?: MenuRowStar;
   onClick(): void;
 }) {
-  return (
+  const [starShown, setStarShown] = useState(false);
+  const row = (
     <button
       type="button"
       role="option"
@@ -631,7 +711,7 @@ function MenuRow({
         alignItems: 'center',
         gap: 8,
         width: '100%',
-        padding: '7px 12px',
+        padding: star === undefined ? '7px 12px' : '7px 34px 7px 12px',
         border: 'none',
         background: active ? 'var(--bg-selected)' : 'none',
         color: active ? 'var(--text)' : 'var(--text-muted)',
@@ -682,5 +762,85 @@ function MenuRow({
         <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--text-dim)' }}>{hint}</span>
       )}
     </button>
+  );
+
+  // 行尾钉选位：已是默认 → 实心图钉标记（不可点，SDK 无 unset）；否则 hover/focus 出「设默认」按钮
+  if (star === undefined) return row;
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: 钉选的显隐跟随整行的 hover/focus
+    <div
+      style={{ position: 'relative' }}
+      onMouseEnter={() => setStarShown(true)}
+      onMouseLeave={() => setStarShown(false)}
+      onFocus={() => setStarShown(true)}
+      onBlur={() => setStarShown(false)}
+    >
+      {row}
+      {star.isDefault ? (
+        <span
+          role="img"
+          aria-label={star.defaultLabel}
+          title={star.defaultLabel}
+          style={{
+            position: 'absolute',
+            top: '50%',
+            right: 6,
+            transform: 'translateY(-50%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 24,
+            height: 24,
+            color: 'var(--text-dim)',
+          }}
+        >
+          <PinIcon filled size={10} />
+        </span>
+      ) : (
+        <button
+          type="button"
+          title={star.saveLabel}
+          aria-label={star.saveLabel}
+          tabIndex={starShown ? 0 : -1}
+          onClick={(event) => {
+            // 不触发行的选中：这里只保存默认（切换会话模型由 onSave 的接线方决定）
+            event.stopPropagation();
+            star.onSave();
+          }}
+          style={{
+            position: 'absolute',
+            top: '50%',
+            right: 6,
+            transform: 'translateY(-50%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 24,
+            height: 24,
+            padding: 0,
+            background: 'var(--bg-hover)',
+            border: '1px solid var(--border)',
+            borderRadius: 6,
+            color: 'var(--text-muted)',
+            cursor: 'pointer',
+            opacity: starShown ? 1 : 0,
+            pointerEvents: starShown ? 'auto' : 'none',
+            transition: 'opacity 0.1s, background 0.12s, color 0.12s, border-color 0.12s',
+          }}
+          onMouseEnter={(event) => {
+            event.currentTarget.style.background = 'var(--bg-selected)';
+            event.currentTarget.style.color = 'var(--accent)';
+            event.currentTarget.style.borderColor = 'rgba(99,102,241,0.35)';
+          }}
+          onMouseLeave={(event) => {
+            event.currentTarget.style.background = 'var(--bg-hover)';
+            event.currentTarget.style.color = 'var(--text-muted)';
+            event.currentTarget.style.borderColor = 'var(--border)';
+          }}
+        >
+          <PinIcon filled={false} size={12} />
+        </button>
+      )}
+    </div>
   );
 }

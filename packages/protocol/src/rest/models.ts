@@ -1,13 +1,15 @@
 import { z } from 'zod';
+import { ThinkingLevelSchema } from '../constants';
 import type { ModelRef } from '../domain/session-info';
 
 /**
  * ⑤ REST 资源——模型域（docs/02 §6.4；决策见 ADR-0011）。
  *
- * 八条端点分三组：
+ * 端点分四组：
  * 1. 可见模型与思考档位（`/api/models`）：**只读快照**，供选择器渲染
  * 2. `models.json` 配置（`/api/models-config` + discover/test/catalog）：原文读写 + 网络诊断
  * 3. 可见范围与目录刷新（`/api/models/enabled`、`/api/models/refresh`）：ADR-0011 的两项
+ * 4. 全局默认（`/api/models/defaults`）：默认模型 + 默认思考强度，写全局 settings.json（ADR-0032）
  *
  * 贯穿全局的一条约束（ADR-0011③）：**联网只发生在用户显式请求时**——
  * `/api/models-config/discover`、`/test`、`/catalog`、`/api/models/refresh` 会联网；
@@ -46,6 +48,8 @@ export type ModelsResponse = {
   models: Record<string, string>;
   modelList: ModelListItem[];
   defaultModel: ModelRef | null;
+  /** 全局默认思考档位（settings.json 的 `defaultThinkingLevel`；未设置 = `'medium'`，即 SDK 的 DEFAULT_THINKING_LEVEL）；每模型生效值看 thinkingLevelDefaults */
+  defaultThinkingLevel: import('../constants').ThinkingLevel;
   /** `provider:id` → 该模型**生效**的思考档位（pin → 按模型设置 → 全局默认 → medium，已按模型能力收口） */
   thinkingLevelDefaults: Record<string, import('../constants').ThinkingLevel>;
   /** `provider:id` → 该模型支持的思考档位 */
@@ -177,6 +181,33 @@ export const ModelsEnabledUpdateSchema = z.object({
   enabled: z.boolean(),
 });
 export type ModelsEnabledUpdate = z.infer<typeof ModelsEnabledUpdateSchema>;
+
+// ---------------------------------------------------------------------------
+// §6.4 全局默认（默认模型 + 默认思考强度）——写全局 settings.json（ADR-0032）
+// ---------------------------------------------------------------------------
+
+/**
+ * PUT /api/models/defaults —— 部分更新：
+ * `{provider + modelId}` 设默认模型；`{thinkingLevel}` 设默认档位；二者也可同提。
+ * SDK 没有 unset API：设置后回落「首个可见模型」只能靠再显式选一次。
+ */
+export const ModelsDefaultsUpdateSchema = z
+  .object({
+    cwd: z.string().optional(),
+    provider: z.string().min(1).optional(),
+    modelId: z.string().min(1).optional(),
+    thinkingLevel: ThinkingLevelSchema.optional(),
+  })
+  .refine(
+    (input) =>
+      // provider / modelId 必须成对出现；且至少带一个可写字段（空对象拒绝）
+      (input.provider === undefined) === (input.modelId === undefined),
+    { error: 'provider and modelId must be set together' },
+  )
+  .refine((input) => input.provider !== undefined || input.thinkingLevel !== undefined, {
+    error: 'provider/modelId or thinkingLevel is required',
+  });
+export type ModelsDefaultsUpdate = z.infer<typeof ModelsDefaultsUpdateSchema>;
 
 // ---------------------------------------------------------------------------
 // Provider 鉴权（API Key）——与 usage 一样只有用户显式操作才联网/写盘

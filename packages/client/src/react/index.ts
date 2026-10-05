@@ -34,6 +34,7 @@ export {
   useTestModelMutation,
   useUpdateEnabledModelsMutation,
   useUpdateModelsConfigMutation,
+  useUpdateModelsDefaultsMutation,
   useUpdateProjectTrustMutation,
 } from './queries';
 export { type UseAgentSessionResult, useAgentSession } from './use-agent-session';

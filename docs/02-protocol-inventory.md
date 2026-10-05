@@ -240,7 +240,8 @@
 
 | 端点 | 形状 |
 |---|---|
-| `GET /api/models?cwd` | → `{ models: Record<provider:id, name>, modelList: [{id,name,provider,input}], defaultModel, thinkingLevelDefaults: Record<key, 生效档位>, thinkingLevels: Record<key, string[]>, thinkingLevelMaps, modelScopeWarnings?, error? }` |
+| `GET /api/models?cwd` | → `{ models: Record<provider:id, name>, modelList: [{id,name,provider,input}], defaultModel, defaultThinkingLevel, thinkingLevelDefaults: Record<key, 生效档位>, thinkingLevels: Record<key, string[]>, thinkingLevelMaps, modelScopeWarnings?, error? }` |
+| `PUT /api/models/defaults` | 全局默认模型 / 默认思考强度（ADR-0032）：部分更新 `{cwd?, provider?, modelId?, thinkingLevel?}`（模型对至少带一，provider/modelId 成对）→ 刷新后的 models 快照；模型必须在目录中（否则 400），档位按参照模型能力 clamp 后落全局 settings.json（与 pi CLI 共享） |
 | `GET/PUT /api/models-config` | models.json 原文读写（PUT 校验后落盘） |
 | `POST /api/models-config/discover` | `{providerName, provider:{baseUrl, api, apiKey?}}` → 按 /models 端点发现模型列表（20s 超时） |
 | `POST /api/models-config/test` | `{providerName, provider, model:{id}}` → `{ok, error?, …}` 真实补全请求测连通（临时 models.json，20s 超时） |

@@ -30,6 +30,12 @@ export interface ComposerToolbarProps {
   thinkingLevel: string | null;
   thinkingLevels: string[];
   onThinkingLevelChange(level: string): void;
+  /** 当前「新会话默认模型」+ 钉选动作（对齐参考实现的行内标记；缺省不渲染钉选位） */
+  defaultModel?: { provider: string; modelId: string } | null;
+  onSaveDefaultModel?(provider: string, modelId: string): void;
+  /** 当前「新会话默认推理级别」+ 钉选动作 */
+  defaultThinkingLevel?: string | null;
+  onSaveDefaultThinkingLevel?(level: string): void;
   /** 左-3：工具预设 */
   toolPreset: string | null;
   toolPresets: { value: string; label: string }[];
@@ -56,6 +62,10 @@ export function ComposerToolbar({
   thinkingLevel,
   thinkingLevels,
   onThinkingLevelChange,
+  defaultModel,
+  onSaveDefaultModel,
+  defaultThinkingLevel,
+  onSaveDefaultThinkingLevel,
   toolPreset,
   toolPresets,
   onToolPresetChange,
@@ -125,6 +135,10 @@ export function ComposerToolbar({
           level={thinkingLevel}
           levels={thinkingLevels}
           onLevelChange={onThinkingLevelChange}
+          defaultModel={defaultModel}
+          onSaveDefaultModel={onSaveDefaultModel}
+          defaultThinkingLevel={defaultThinkingLevel}
+          onSaveDefaultThinkingLevel={onSaveDefaultThinkingLevel}
           disabled={false}
           busy={busy}
         />

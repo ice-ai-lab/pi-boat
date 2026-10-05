@@ -1,5 +1,6 @@
 import type {
   ModelsConfigTestRequest,
+  ModelsDefaultsUpdate,
   ModelsEnabledUpdate,
   ModelsRefreshRequest,
   PluginActionRequest,
@@ -25,6 +26,7 @@ import {
   refreshModels,
   testModel,
   updateEnabledModels,
+  updateModelDefaults,
 } from '../endpoints/models';
 import {
   checkPluginUpdates,
@@ -252,6 +254,22 @@ export function useUpdateEnabledModelsMutation(cwd?: string) {
 
 export function useModelCatalogMutation() {
   return useMutation({ mutationFn: (q: string) => getModelCatalog(q) });
+}
+
+/**
+ * 全局默认（默认模型 + 默认思考强度，ADR-0032）：返回值即最新 models 快照，
+ * 直接接管同 cwd 的 models 缓存；其余 cwd（聊天面板按会话 cwd 取）走失效重拉。
+ */
+export function useUpdateModelsDefaultsMutation(cwd?: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (update: ModelsDefaultsUpdate) =>
+      updateModelDefaults(cwd === undefined ? update : { ...update, cwd }),
+    onSuccess: (data) => {
+      client.setQueryData(settingsKeys.models(cwd), data);
+      void client.invalidateQueries({ queryKey: ['models'] });
+    },
+  });
 }
 
 export function useDiscoverModelsMutation() {

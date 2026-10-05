@@ -332,6 +332,11 @@ export const zhCNLocale: LocalePlugin = {
     'chat.thinkingHigh': '高强度推理',
     'chat.thinkingXhigh': '超高强度推理',
     'chat.thinkingMax': '最高强度推理',
+
+    'chat.defaultModel': '新会话默认模型',
+    'chat.saveDefaultModel': '使用并设为新会话默认模型',
+    'chat.defaultThinking': '新会话默认推理级别',
+    'chat.saveDefaultThinking': '使用并设为新会话默认推理级别',
     'chat.builtIn': '内置',
     'chat.extensions': '扩展',
     'chat.prompts': '提示词',

@@ -22,7 +22,8 @@ function sliderFillStyle(value: number, min: number, max: number): CSSProperties
  *
  * 节顺序：对话 → 语言（外观已精简为三态循环切换，入口移到侧栏品牌行）。
  * 「项目信任」按 T5-4 移出，改由 `ProjectTrustDialog` 承担；设计规范的推送 / Web 鉴权两节
- * 属排除域（ADR-0014/0016），不补。
+ * 属排除域（ADR-0014/0016），不补。默认模型/档位的入口在聊天工具条的选择列表星标
+ * （ADR-0032，对齐参考实现），不在这里。
  */
 export interface GeneralSectionProps {
   chat: ChatAppearance & {

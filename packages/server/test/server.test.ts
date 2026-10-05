@@ -235,6 +235,7 @@ function fakeConfigService() {
       models: { 'anthropic:claude-x': 'Claude X' },
       modelList: enabledResponse.models,
       defaultModel: { provider: 'anthropic', modelId: 'claude-x' },
+      defaultThinkingLevel: 'high',
       thinkingLevelDefaults: { 'anthropic:claude-x': 'high' },
       thinkingLevels: { 'anthropic:claude-x': ['off', 'high'] },
       thinkingLevelMaps: {},
@@ -245,6 +246,21 @@ function fakeConfigService() {
     testModel: vi.fn(async () => ({ ok: true, latencyMs: 12, text: 'ok' })),
     catalog: vi.fn(async () => ({ models: [] })),
     enabled: vi.fn(async () => enabledResponse),
+    updateDefaults: vi.fn(async (_cwd: string, input: { provider?: string }) => {
+      if (input.provider === 'unknown') {
+        throw new UserInputError('Unknown model: unknown/nope');
+      }
+      return {
+        models: {},
+        modelList: [],
+        defaultModel:
+          input.provider === undefined ? null : { provider: input.provider, modelId: 'claude-x' },
+        defaultThinkingLevel: 'high' as const,
+        thinkingLevelDefaults: {},
+        thinkingLevels: {},
+        thinkingLevelMaps: {},
+      };
+    }),
     updateEnabled: vi.fn(async (_cwd: string, input: { providerId?: string }) => {
       if (input.providerId === 'last') {
         throw new LastModelRejectionError();
@@ -1148,6 +1164,64 @@ describe('模型域路由', () => {
       body: JSON.stringify({ cwd: '/tmp', providerId: 'p', modelId: 'm', enabled: true }),
     });
     expect(ok.status).toBe(200);
+  });
+
+  it('PUT /api/models/defaults：模型不成对/空对象 → 400；未知模型 → 400；部分更新回新快照（ADR-0032）', async () => {
+    const { app, configService } = makeApp();
+
+    // provider 不带 modelId → 400（必须成对）
+    const partial = await request(app, '/api/models/defaults', {
+      method: 'PUT',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ cwd: '/tmp', provider: 'anthropic' }),
+    });
+    expect(partial.status).toBe(400);
+
+    // 空对象 → 400（至少带一个可写字段）
+    const empty = await request(app, '/api/models/defaults', {
+      method: 'PUT',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ cwd: '/tmp' }),
+    });
+    expect(empty.status).toBe(400);
+
+    // 未知模型 → 400
+    const unknown = await request(app, '/api/models/defaults', {
+      method: 'PUT',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({
+        cwd: '/tmp',
+        provider: 'unknown',
+        modelId: 'nope',
+      }),
+    });
+    expect(unknown.status).toBe(400);
+    expect(await unknown.json()).toMatchObject({ error: 'Unknown model: unknown/nope' });
+
+    // 只设档位（部分更新）→ 200
+    const levelOnly = await request(app, '/api/models/defaults', {
+      method: 'PUT',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ cwd: '/tmp', thinkingLevel: 'high' }),
+    });
+    expect(levelOnly.status).toBe(200);
+    expect(await levelOnly.json()).toMatchObject({ defaultThinkingLevel: 'high' });
+    expect(configService.updateDefaults).toHaveBeenCalledWith('/tmp', { thinkingLevel: 'high' });
+
+    // 设模型对 → 200
+    const ok = await request(app, '/api/models/defaults', {
+      method: 'PUT',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({
+        cwd: '/tmp',
+        provider: 'anthropic',
+        modelId: 'claude-x',
+      }),
+    });
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toMatchObject({
+      defaultModel: { provider: 'anthropic', modelId: 'claude-x' },
+    });
   });
 
   it('POST /api/models/refresh：空 body 合法（缺省刷全部）', async () => {
