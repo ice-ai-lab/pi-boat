@@ -56,6 +56,7 @@ import {
 import { useSearchParams } from 'react-router';
 import { fileTabsStore } from '../services/file-tabs-store';
 import { useMentionInsertion } from '../services/mention-bus';
+import { getLastModel, type LastModel, setLastModel } from '../services/model-memory';
 import { attachedImageToContent, useAttachedImages } from '../services/use-attached-images';
 import { useChatAppearance } from '../services/use-chat-appearance';
 import { useInputHistory } from '../services/use-input-history';
@@ -709,11 +710,42 @@ export function ChatPane({
     [slashCandidates, slashMatch, draft],
   );
 
+  /** 模型选择器候选（T2-1）：来自 /api/models 的可用清单 */
+  const modelOptions = useMemo(
+    () =>
+      (models.data?.modelList ?? []).map((model) => ({
+        provider: model.provider,
+        modelId: model.id,
+        name: model.name,
+      })),
+    [models.data],
+  );
+
+  /**
+   * 记住的模型选择（用户 2026-09-30：选过模型后，下一次新会话自动沿用）：
+   * 上次选中的模型，但必须在当前候选清单里（provider 可能已停用）才生效，
+   * 否则忽略、回落服务端默认。空态回显与建会话都走这一份，保证「看到的 = 生效的」。
+   */
+  const lastUsedModel = useMemo<LastModel | null>(() => {
+    const remembered = getLastModel();
+    if (remembered === null) return null;
+    return modelOptions.some(
+      (option) => option.provider === remembered.provider && option.modelId === remembered.modelId,
+    )
+      ? remembered
+      : null;
+  }, [modelOptions]);
+
   const startSession = useCallback(
     async (cwd: string) => {
       // 登记「本组件发起」：start() 一提交 sessionId，对账就负责把 URL 补上；
       // 其间也不能把刚建的会话当「URL 空态」而 reset（否则空态首条消息会把会话拆掉）
       selfSwitchRef.current = true;
+      // 记住的模型选择：空态没动过模型选择时补记为 pending（setModel 空态同步写 ref，
+      // start() 随后把它带进 agent/new）；动过则 pendingModel 就是用户刚选的，不覆盖
+      if (session.pendingModel === null && lastUsedModel !== null) {
+        void session.setModel(lastUsedModel.provider, lastUsedModel.modelId);
+      }
       const error = await session.start(cwd);
       if (error !== null) {
         selfSwitchRef.current = false;
@@ -722,7 +754,7 @@ export function ChatPane({
       }
       setLastCwd(cwd);
     },
-    [session, pushToast],
+    [session, pushToast, lastUsedModel],
   );
 
   const handleSubmit = useCallback(
@@ -779,12 +811,14 @@ export function ChatPane({
     [session.cwd, gitStatus.data],
   );
 
-  // 生效模型：活动会话看 liveState；空态用户 pending 选择优先，否则回落服务端默认——
-  // core 建会话不传 model 时正是用 /api/models 的 defaultModel，这里必须同源展示（BUG：空态恒显示「选择模型」）
+  // 生效模型：活动会话看 liveState；空态用户 pending 选择优先，再回落记住的模型选择，
+  // 最后才是服务端默认——core 建会话不传 model 时正是用 /api/models 的 defaultModel，
+  // 这里必须同源展示（BUG：空态恒显示「选择模型」）。记住的那份与 startSession 补记的
+  // pending 同源（都是 lastUsedModel），保证「看到的 = 新会话生效的」
   const effectiveModel =
     sessionId !== null
       ? (session.liveState?.model ?? null)
-      : (session.pendingModel ?? models.data?.defaultModel ?? null);
+      : (session.pendingModel ?? lastUsedModel ?? models.data?.defaultModel ?? null);
   // 思考档位候选：按生效模型取（服务端给的是 `provider:id` 键）——空态也须有候选（BUG：此前只看 liveState）
   const modelKey =
     effectiveModel === null ? null : `${effectiveModel.provider}:${effectiveModel.modelId}`;
@@ -798,17 +832,6 @@ export function ChatPane({
       : (session.pendingThinkingLevel ??
         (modelKey === null ? undefined : models.data?.thinkingLevelDefaults[modelKey]) ??
         null);
-  /** 模型选择器候选（T2-1）：来自 /api/models 的可用清单 */
-  const modelOptions = useMemo(
-    () =>
-      (models.data?.modelList ?? []).map((model) => ({
-        provider: model.provider,
-        modelId: model.id,
-        name: model.name,
-      })),
-    [models.data],
-  );
-
   /**
    * 工具预设回显：按**当前生效工具集**反查（`presetForToolNames` 的勾选口径），
    * 而不是「上次点了哪一项」。没匹配上（settings 被改过 / 扩展塞进了工具）则四项
@@ -962,6 +985,8 @@ export function ChatPane({
             modelOptions={modelOptions}
             model={effectiveModel}
             onModelChange={(provider, modelId) => {
+              // 记住这次选择：下一次新会话（含别的项目）自动沿用（用户 2026-09-30）
+              setLastModel({ provider, modelId });
               // 空态切模型：新模型没有当前档位就清掉 pending——胶囊随即回落到该模型的生效档位，
               // 与建会话时 pi 自己解析出的值一致（不清的话胶囊会显示一个该模型跑不出来的档位）
               const nextLevels = models.data?.thinkingLevels[`${provider}:${modelId}`] ?? [];
