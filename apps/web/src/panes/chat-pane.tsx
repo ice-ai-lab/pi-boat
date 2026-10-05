@@ -844,6 +844,16 @@ export function ChatPane({
     sessionId !== null
       ? presetForToolNames(session.tools.filter((tool) => tool.active).map((tool) => tool.name))
       : (session.pendingToolPreset ?? 'default');
+  /**
+   * 用户点过的预设（按会话记住）：反查不中（扩展塞进工具 → 自定义）时预设按钮文字保持
+   * 用户的选择，不再闪「自定义」；下拉勾选仍按 toolPreset 反查（用户 2026-09-30 定案）。
+   * 存生效会话 id 一起校验，切会话自动失效，按钮文字不带泄漏到下一个会话。
+   */
+  const [pickedPresetState, setPickedPresetState] = useState<{
+    sessionId: string | null;
+    value: string | null;
+  }>({ sessionId, value: null });
+  const pickedPreset = pickedPresetState.sessionId === sessionId ? pickedPresetState.value : null;
 
   /** 拖拽图片到窗口任意处即可附加（T2-2）：depth 计数避开子元素 dragleave 抖动 */
   const dragDepthRef = useRef(0);
@@ -1013,11 +1023,15 @@ export function ChatPane({
             }
             toolPreset={toolPreset}
             toolPresets={[...TOOL_PRESET_OPTIONS]}
-            onToolPresetChange={(preset) =>
+            pickedPreset={pickedPreset}
+            onToolPresetChange={(preset) => {
+              // 乐观记录：命令成功与否都按用户的选择显示（失败有 toast）；
+              // 下拉勾选不受影响（仍按反查结果）
+              setPickedPresetState({ sessionId, value: preset });
               void session.setTools(preset as never).then((error) => {
                 if (error !== null) pushToast(error, 'error');
-              })
-            }
+              });
+            }}
             compacting={compacting}
             showCompact={sessionId !== null}
             onCompact={() =>

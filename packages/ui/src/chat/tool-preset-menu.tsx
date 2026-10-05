@@ -12,12 +12,31 @@ import { useI18n } from '../i18n/i18n-provider';
  * （read/grep/find/ls）、default 4 个（read/bash/edit/write）；名单变更须同步
  * （ui 只依赖 protocol 类型，不能运行时引用该表求长度）。
  */
+
+/**
+ * 四项预设的短标签（用户 2026-09-30：模式名本地化——仅聊天/只读/默认/全部；含义仍由
+ * 右侧描述行承担，替代此前「标签就是预设 id」的口径）。键值域对照 protocol `TOOL_PRESETS`；
+ * 未收录的 id 回落调用方给的 `label`。
+ */
+const TOOL_PRESET_LABEL_KEY: Record<string, string> = {
+  'chat-only': 'chat.presetChatOnly',
+  'read-only': 'chat.presetReadOnly',
+  default: 'chat.presetDefault',
+  full: 'chat.presetFull',
+};
+
 export interface ToolPresetMenuProps {
   toolPreset: string | null;
   toolPresets: { value: string; label: string }[];
   onToolPresetChange(preset: string): void;
   /** 锁定（会话本轮在跑，切预设会排队到轮末）：不可展开，置灰 */
   disabled?: boolean;
+  /**
+   * 用户在本会话点过的预设，仅作**收起态按钮文字**的回退：反查不中（扩展塞进工具）时
+   * 保持用户的选择、不再闪「自定义」（用户 2026-09-30 定案）。切会话由调用方清空；
+   * 下拉里的勾选口径不变，仍按 `toolPreset`（实际生效工具集）反查。
+   */
+  pickedPreset?: string | null;
 }
 
 const TOOL_PRESET_DESC: Record<string, { key: string; count?: number }> = {
@@ -32,6 +51,7 @@ export function ToolPresetMenu({
   toolPresets,
   onToolPresetChange,
   disabled = false,
+  pickedPreset = null,
 }: ToolPresetMenuProps) {
   const { t } = useI18n();
   const rootRef = useRef<HTMLDivElement>(null);
@@ -51,12 +71,17 @@ export function ToolPresetMenu({
     if (disabled) setOpen(false);
   }, [disabled]);
 
-  // 四项预设都不命中时（settings 被改过 / 扩展塞进了工具，如 web-access 的 web_enable）
-  // 按「当前工具集」反查 `presetForToolNames` 会得到 null：此时按钮仍要有文字，
-  // 否则只剩一枚扳手图标（用户看到的「模式为空」）。fallback 是对当前状态的诚实描述
-  // ——「不是任何一项预设」，不假装命中了某一项（AGENTS.md：命名不得暗示它做不到的事）。
+  // 按钮文字：反查命中预设 → 本地化短名；反查不中（settings 被改过 / 扩展塞进了工具，
+  // 如 web-access 的 web_enable，`presetForToolNames` 返回 null）→ 保持用户点过的
+  // `pickedPreset`，不再闪「自定义」（用户 2026-09-30）；都没有 → 回落「自定义」。
+  // 按钮仍要有文字，否则只剩一枚扳手图标。下拉勾选口径不同：始终按 toolPreset 反查，
+  // 界面勾选与实际生效工具集一致（AGENTS.md：命名不得暗示它做不到的事）。
+  const labelValue = toolPreset ?? pickedPreset ?? null;
   const label =
-    toolPresets.find((preset) => preset.value === toolPreset)?.label ?? t('chat.customToolPreset');
+    labelValue !== null && TOOL_PRESET_LABEL_KEY[labelValue] !== undefined
+      ? t(TOOL_PRESET_LABEL_KEY[labelValue])
+      : (toolPresets.find((preset) => preset.value === labelValue)?.label ??
+        t('chat.customToolPreset'));
   if (toolPresets.length === 0) return null;
 
   return (
@@ -131,6 +156,9 @@ export function ToolPresetMenu({
           {toolPresets.map((preset) => {
             const active = toolPreset === preset.value;
             const desc = TOOL_PRESET_DESC[preset.value];
+            // 索引结果接一次局部变量：preset.value 是属性访问，TS 不做元素访问收窄，
+            // 两次下标会让 noUncheckedIndexedAccess 推出 string | undefined（build 报 TS2345）
+            const labelKey = TOOL_PRESET_LABEL_KEY[preset.value];
             return (
               <button
                 key={preset.value}
@@ -181,7 +209,9 @@ export function ToolPresetMenu({
                 ) : (
                   <span style={{ width: 10, flexShrink: 0 }} />
                 )}
-                <span style={{ flex: 1 }}>{preset.label}</span>
+                <span style={{ flex: 1 }}>
+                  {labelKey !== undefined ? t(labelKey) : preset.label}
+                </span>
                 {desc !== undefined && (
                   <span style={{ fontSize: 11, color: 'var(--text-dim)', marginLeft: 8 }}>
                     {t(desc.key, desc.count === undefined ? undefined : { count: desc.count })}

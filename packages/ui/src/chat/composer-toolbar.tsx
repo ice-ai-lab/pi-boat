@@ -34,6 +34,8 @@ export interface ComposerToolbarProps {
   toolPreset: string | null;
   toolPresets: { value: string; label: string }[];
   onToolPresetChange(preset: string): void;
+  /** 预设按钮文字回退：反查不中（扩展塞进工具）时保持用户点过的选择；切会话由调用方清空 */
+  pickedPreset?: string | null;
   /** 左-4：压缩（`showCompact` 为 false 时整块隐藏——空态没有会话上下文可压缩） */
   compacting: boolean;
   showCompact?: boolean;
@@ -57,6 +59,7 @@ export function ComposerToolbar({
   toolPreset,
   toolPresets,
   onToolPresetChange,
+  pickedPreset,
   compacting,
   showCompact = true,
   onCompact,
@@ -131,6 +134,7 @@ export function ComposerToolbar({
         toolPreset={toolPreset}
         toolPresets={toolPresets}
         onToolPresetChange={onToolPresetChange}
+        pickedPreset={pickedPreset}
         disabled={busy}
       />
 
