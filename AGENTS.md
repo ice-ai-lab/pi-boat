@@ -46,7 +46,7 @@ packages/config/  typescript-config（Biome 配置在根 biome.json，见 ADR-00
 - **任何包不得绕过 core 直接 import pi-coding-agent**；例外：`protocol` 可用 `import type` / `export type` 复用 pi-ai / pi-coding-agent 的**类型**（ADR-0017）——它不许出现 SDK 的运行时调用，构建产物对 SDK 必须零引用
 - `core` 传输无关：不得引入任何 HTTP 概念（为 Electron 进程内直连留路）
 - `ui` 不得依赖任何宿主框架（Next.js / Electron 等）
-- SDK 版本锁 `0.87.x`（ADR-0010）；升级必须单独 PR + 新 ADR + 全量回归
+- SDK 版本锁 `1.0.x`（ADR-0010 定方法，ADR-0033 对齐到 1.0.2）；升级必须单独 PR + 新 ADR + 全量回归
 
 ## 代码规范（只列 lint 管不了的，按需增长）
 

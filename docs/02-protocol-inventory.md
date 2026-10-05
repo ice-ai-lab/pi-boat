@@ -1,6 +1,6 @@
 # PiBoat —— 协议层清单（protocol 包实施依据）
 
-> 版本：v0.3 · 状态：一期已全部落地（2026-02）· 依据：概要设计 `docs/01-overview.md` §3.1/§5.4/§10，对照本仓 SDK 0.87.1 `.d.ts` 类型面全量核验；v0.2 修订：修正事件清单（§5.1）、命令计数与误列条目（§4）、补 4 条遗漏路由（§6）及若干字段；v0.3 修订：补齐 `POST /api/agent/:id/resume`（ADR-0013）与 `GET /api/sessions/:id/revision`（G2-6）两条漏登记端点，事件计数统一为 27，`models/enabled` 与 perf 字段去「待定稿」（均已定并入 protocol）
+> 版本：v0.4 · 状态：一期已全部落地（2026-02）· 依据：概要设计 `docs/01-overview.md` §3.1/§5.4/§10，对照本仓 SDK 0.87.1 `.d.ts` 类型面全量核验；v0.2 修订：修正事件清单（§5.1）、命令计数与误列条目（§4）、补 4 条遗漏路由（§6）及若干字段；v0.3 修订：补齐 `POST /api/agent/:id/resume`（ADR-0013）与 `GET /api/sessions/:id/revision`（G2-6）两条漏登记端点，事件计数统一为 27，`models/enabled` 与 perf 字段去「待定稿」（均已定并入 protocol）；v0.4 修订：SDK 1.0.2 对齐（ADR-0033）——`prompt` 返回值增 disposition（§4）、`ToolInfo` 增 `exposure`（§3.4）
 > 用途：`packages/protocol` 的实施清单。形状以 SDK 0.87.1 实际类型面为准，命名与结构按 PiBoat 规范收敛
 
 ---
@@ -94,7 +94,7 @@
 | `AgentState`（`get_state` 返回） | `sessionId/sessionFile/isStreaming/isPromptRunning/isCompacting/autoCompactionEnabled/autoRetryEnabled/model/messageCount/pendingMessageCount/queuedMessages{steering,followUp}/lastSeq/contextUsage/systemPrompt/thinkingLevel/extensionStatuses/extensionWidgets`（`lastSeq` 为快照水位线，客户端丢弃 SSE 流中 `seq ≤ lastSeq` 的事件，docs/01 §5.4；`isBashRunning` 已随 Shell 直连组删除，2026-09-22） |
 | `isPromptRunning` 语义 | **服务端尚有 prompt/steer/follow_up 调用未销账**（不是「agent run 未结束」）。为什么不能只认 `agent_settled`：SDK `prompt()` 有三条提前 return 路径不进 `_runAgentPrompt`——扩展命令（`/tui` 这类只执行 handler 的）、input handler 返回 `handled` 的、streaming 入队的——它们永**不发** `agent_settled`（`agent-session.js:828/844/864` vs `_emitAgentSettled` 只在 `:784`）。它是事件流盲区（handler 执行期、预检期 `isStreaming=false` 但有事在跑）的唯一判据，客户端用 `isStreaming \|\| isPromptRunning` 判定「还没完」（2026-09-21 修订） |
 | `SessionStatsInfo` | userMessages/assistantMessages/toolCalls/toolResults/tokens/cost/contextUsage/totalActiveMs/**sessionName**（rpc 层附加）。⚠️ 缺**性能统计**字段（对话轮数/步数、LLM 耗时、工具耗时、生成速度 t/s）——取向已定：**core 累加 + protocol 加可选字段**（§11.1 行 1） |
-| `ToolInfo` | `name/description/parameters/promptGuidelines/sourceInfo` + `active`（get_tools 时叠加） |
+| `ToolInfo` | `name/description/parameters/promptGuidelines/sourceInfo` + `exposure`（SDK ≥ 1.0：`direct/model-only/codemode/deferred/hidden`，ADR-0033 A1）+ `active`（get_tools 时叠加） |
 | `SlashCommandInfo` | `name/description/source("prompt"|"skill"|"extension")/sourceInfo`（斜杠命令面板） |
 
 ### 3.5 扩展 UI 协议（形状已定：ADR-0012）
@@ -115,7 +115,7 @@
 
 | 分组 | 命令（参数 → 返回） |
 |---|---|
-| 对话 | `prompt {message, images?, streamingBehavior?}` → null；`steer / follow_up {message, images?}`；`abort`；`clear_queue` → `{steering[], followUp[]}` |
+| 对话 | `prompt {message, images?, streamingBehavior?}` → `{disposition: "started"\|"queued"\|"handled"}`（SDK ≥ 1.0 派发处置，ADR-0033 A1：前端可区分已开跑/已入队/被扩展命令接管；拒绝仍走 `prompt_rejected` 错误信封）；`steer / follow_up {message, images?}`；`abort`；`clear_queue` → `{steering[], followUp[]}` |
 | 状态 | `get_state` → AgentState；`get_session_stats` → SessionStatsInfo；`get_last_assistant_text` → `{text}` |
 | 模型/思考 | `set_model {provider, modelId}` → `ModelRef`（`{provider, modelId}`，与 `AgentState.model` 同形）；`set_thinking_level {level}` |
 | 压缩 | `compact {customInstructions?}`；`abort_compaction`；`set_auto_compaction {enabled}`；`set_auto_retry {enabled}` |
