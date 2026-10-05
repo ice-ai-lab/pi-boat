@@ -230,10 +230,17 @@ describe('fold：标准一轮（user → thinking → tool → toolResult → �
     });
   });
 
-  it('最终回答 + 用量快照 + 模型（message_end 定稿）', () => {
+  it('最终回答 + 轮级用量累计 + 模型（轮内两条 assistant 消息求和，非覆盖）', () => {
     const turn = state.turns[0];
     expect(turn?.final?.markdown).toBe('目录内容如上');
-    expect(turn?.usage).toEqual(USAGE);
+    // 工具轮（stopReason=toolUse）与最终消息各一份 USAGE：轮级是全部调用的合计
+    expect(turn?.usage).toEqual({
+      ...USAGE,
+      input: USAGE.input * 2,
+      output: USAGE.output * 2,
+      totalTokens: USAGE.totalTokens * 2,
+    });
+    expect(turn?.endedAt).toBe(6_000); // 末条 assistant 消息时间戳
     expect(turn?.model).toEqual({ provider: 'anthropic', modelId: 'claude-test' });
   });
 });
@@ -377,7 +384,12 @@ describe('fold：流式中间态与系统事件', () => {
     const turn = state.turns[0];
     expect(turn?.final?.markdown).toBe('完整回答'); // 不拼残稿（重试时草稿已清空）
     expect(turn?.status).toBe('done'); // 重试成功后不挂 error（不再渲染「本轮出错」横幅）
-    expect(turn?.usage).toEqual(USAGE); // 用量随成功尝试定稿
+    expect(turn?.usage).toEqual({
+      ...USAGE,
+      input: USAGE.input * 2,
+      output: USAGE.output * 2,
+      totalTokens: USAGE.totalTokens * 2,
+    }); // 失败尝试的已计费调用也计入（与 SDK 会话统计同口径），不是只剩成功那一跳
     const thinking = turn?.trail.find((item) => item.kind === 'thinking');
     expect(thinking).toMatchObject({ kind: 'thinking', streaming: false }); // 残行定格，不按流式中渲染
     expect(turn?.trail.some((item) => item.kind === 'system')).toBe(true); // 重试提示行保留
@@ -1081,6 +1093,96 @@ describe('多轮 trace 的中间轮文本（非思考内容不吞）', () => {
       toolCallCount: 2,
       textCount: 2,
     });
+  });
+});
+
+describe('轮级用量累计（combineUsage：多次 LLM 调用求和，含 reasoning/cacheWrite 拆分）', () => {
+  /** 带可选拆分的用量（provider 上报 reasoning/cacheWrite 时） */
+  const SPLIT_USAGE: Usage = {
+    ...USAGE,
+    input: 10,
+    output: 30,
+    cacheRead: 100,
+    cacheWrite: 20,
+    reasoning: 12,
+    totalTokens: 160,
+    cost: { input: 0.01, output: 0.02, cacheRead: 0.001, cacheWrite: 0.002, total: 0.033 },
+  };
+
+  const assistantEnd = (at: number, usage: Usage, stopReason: 'stop' | 'toolUse') =>
+    ev({
+      type: 'message_end',
+      message: {
+        role: 'assistant',
+        content: [{ type: 'text', text: '回' }],
+        api: 'anthropic',
+        provider: 'anthropic',
+        model: 'claude-test',
+        usage,
+        stopReason,
+        timestamp: at,
+      },
+    });
+
+  it('fold：两条消息的可选拆分逐项求和（reasoning 不缺者补 0，双方都缺则不出现）', () => {
+    const state = run([
+      ev({ type: 'message_start', message: { role: 'user', content: 'hi', timestamp: 1_000 } }),
+      assistantEnd(2_000, SPLIT_USAGE, 'toolUse'),
+      assistantEnd(3_000, USAGE, 'stop'), // USAGE 无 reasoning/cacheWrite1h
+      ev({ type: 'agent_end', messages: [], willRetry: false }),
+    ]);
+    const usage = state.turns[0]?.usage;
+    expect(usage).toMatchObject({
+      input: 110,
+      output: 80,
+      cacheRead: 100,
+      cacheWrite: 20,
+      reasoning: 12, // 任一侧有值就保留（缺省侧按 0）
+      totalTokens: 310,
+    });
+    expect(usage?.cost.total).toBeCloseTo(0.033);
+    expect('cacheWrite1h' in (usage ?? {})).toBe(false); // 双方都缺省 → 字段不出现
+  });
+
+  it('fold：endedAt 随最后一条 assistant 消息推进（轮耗时 = endedAt − user.at）', () => {
+    const state = run([
+      ev({ type: 'message_start', message: { role: 'user', content: 'hi', timestamp: 1_000 } }),
+      assistantEnd(2_000, USAGE, 'toolUse'),
+      assistantEnd(6_500, USAGE, 'stop'),
+      ev({ type: 'agent_end', messages: [], willRetry: false }),
+    ]);
+    const turn = state.turns[0];
+    expect(turn?.endedAt).toBe(6_500);
+    expect((turn?.endedAt ?? 0) - (turn?.user.at ?? 0)).toBe(5_500);
+  });
+
+  it('rebuild：与 fold 同口径累计（历史轮也显示全部调用的合计）', () => {
+    const messages: AgentMessage[] = [
+      { role: 'user', content: 'hi', timestamp: 1_000 },
+      {
+        role: 'assistant',
+        content: [{ type: 'text', text: '回' }],
+        api: 'anthropic',
+        provider: 'anthropic',
+        model: 'claude-test',
+        usage: SPLIT_USAGE,
+        stopReason: 'toolUse',
+        timestamp: 2_000,
+      },
+      {
+        role: 'assistant',
+        content: [{ type: 'text', text: '回' }],
+        api: 'anthropic',
+        provider: 'anthropic',
+        model: 'claude-test',
+        usage: USAGE,
+        stopReason: 'stop',
+        timestamp: 6_500,
+      },
+    ];
+    const turn = rebuildTurns(messages, ['e1', 'e2', 'e3'])[0];
+    expect(turn?.usage).toMatchObject({ input: 110, output: 80, reasoning: 12, totalTokens: 310 });
+    expect(turn?.endedAt).toBe(6_500);
   });
 });
 

@@ -2,6 +2,7 @@ import type { AgentMessage, AssistantMessage, QueuedMessages } from '@ice-ai/pro
 import { applyToolResult, lastProcessBlockIndex, userText } from './fold';
 import { type ImageCoords, messageImageSrcs } from './image-src';
 import { toolTitle } from './tool-display';
+import { combineUsage } from './usage';
 import type { ChatState, TrailItem, Turn } from './view-model';
 
 /**
@@ -49,7 +50,9 @@ export function rebuildTurns(
         const turn =
           turns[turns.length - 1] ?? pushOrphanTurn(turns, message.timestamp, entryIdOf(index));
         appendAssistantMessage(turn, message);
-        turn.usage = message.usage;
+        // 轮内累计（多次 LLM 调用求和），与 fold 的 message_end 同口径
+        turn.usage = combineUsage(turn.usage, message.usage);
+        turn.endedAt = message.timestamp;
         turn.model = { provider: message.provider, modelId: message.model };
         turn.errorMessage = message.errorMessage ?? null;
         // 状态链与 fold 的 message_end 对齐（rebuild 是它的历史对照物，两条路径等价）：

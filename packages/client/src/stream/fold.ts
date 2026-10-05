@@ -7,6 +7,7 @@ import type {
 } from '@ice-ai/protocol';
 import { type ImageCoords, messageImageSrcs } from './image-src';
 import { resultText, toolTitle } from './tool-display';
+import { combineUsage } from './usage';
 import type { ChatState, SystemRow, ToolRow, TrailItem, Turn } from './view-model';
 
 /**
@@ -284,7 +285,8 @@ export function fold(state: ChatState, event: WireAgentEvent): ChatState {
             // 更早的文本已在 thinking_start/toolcall_start 时降级
             turn.final = { markdown: assistantAnswerText(message) };
           }
-          turn.usage = message.usage as Usage;
+          turn.usage = combineUsage(turn.usage, message.usage as Usage);
+          turn.endedAt = message.timestamp;
           turn.model = { provider: message.provider, modelId: message.model };
           turn.errorMessage = message.errorMessage ?? null;
           if (message.stopReason === 'aborted') turn.status = 'stopped';

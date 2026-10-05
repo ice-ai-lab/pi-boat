@@ -19,7 +19,14 @@ export interface Turn {
   trail: TrailItem[];
   /** 最终回答（流式期间为 draft，随 text_delta 增长） */
   final: { markdown: string } | null;
+  /**
+   * 整轮用量 = 轮内**全部** assistant 消息（每次 LLM 调用）的累计（combineUsage，
+   * 含 reasoning 思考 token 细分）——不是最后一次调用的快照（覆盖式会把
+   * 中间工具轮的消耗丢掉，轮级数字被低估）。
+   */
   usage: Usage | null;
+  /** 末条 assistant 消息的时间戳（轮内最后一次 LLM 调用收口时刻；配合 user.at 算轮耗时） */
+  endedAt?: number;
   model: ModelRef | null;
   status: 'streaming' | 'done' | 'stopped' | 'error';
   /** SDK 的 `AssistantMessage.errorMessage`：stopReason=error 时的原始错误（429/404 等），无错为 null */
