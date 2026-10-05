@@ -766,6 +766,24 @@ export function ChatPane({
     [session, pushToast, lastUsedModel],
   );
 
+  /**
+   * 用户消息的编辑保存 = 分叉 + 重新发送。fork 会让 session id 原地换成新分支，
+   * 所以提前登记「本组件发起的切换」，让 URL 对账把地址跟着补成新分支。
+   */
+  const editUserMessage = useCallback(
+    async (turnId: string, text: string, originalText: string): Promise<boolean> => {
+      selfSwitchRef.current = true;
+      const error = await session.editUserMessage(turnId, text, originalText);
+      if (error !== null) {
+        selfSwitchRef.current = false;
+        pushToast(error, 'error');
+        return false;
+      }
+      return true;
+    },
+    [session, pushToast],
+  );
+
   const handleSubmit = useCallback(
     (text: string) => {
       const images = attachments.images.map(attachedImageToContent);
@@ -1468,6 +1486,9 @@ export function ChatPane({
           loadingOlder={session.loadingOlder}
           onLoadOlder={() => void session.loadOlder()}
           onOpenWrittenFile={openWrittenFile}
+          onEditUserMessage={(turnId, text, originalText) =>
+            editUserMessage(turnId, text, originalText)
+          }
           topInset={CHAT_TOOLBAR_HEIGHT}
         />
         <ContentWidthHandles

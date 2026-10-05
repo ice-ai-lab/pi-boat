@@ -26,6 +26,11 @@ export interface MessageListProps {
   /** 助手消息末尾的「本轮改动」chip 点击（宿主在右栏打开该文件） */
   onOpenWrittenFile(path: string): void;
   /**
+   * 保存某条用户消息的编辑结果。宿主先从原消息前分叉，再用编辑后的文本开跑；
+   * 返回 false 时 UserBubble 保持编辑态，错误提示由宿主负责。
+   */
+  onEditUserMessage?(turnId: string, text: string, originalText: string): Promise<boolean>;
+  /**
    * 顶部内边距（CSS 长度，如 `calc(36px + env(safe-area-inset-top))`）。宿主把工具条做成
    * 覆盖层时传它，让首条消息起始位置避开工具条；消息仍会滚到覆盖层下方（毛玻璃背板）。
    * 不传则沿用 16px。
@@ -42,6 +47,7 @@ export function MessageList({
   loadingOlder = false,
   onLoadOlder,
   onOpenWrittenFile,
+  onEditUserMessage,
   topInset,
 }: MessageListProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -170,7 +176,18 @@ export function MessageList({
             )}
             {chat.turns.map((turn, index) => (
               <div key={turn.id} data-turn-index={index}>
-                {turn.orphan !== true && <UserBubble turn={turn} />}
+                {turn.orphan !== true && (
+                  <UserBubble
+                    turn={turn}
+                    editDisabled={chat.streaming}
+                    onEdit={
+                      onEditUserMessage === undefined
+                        ? undefined
+                        : async (turn, text) =>
+                            await onEditUserMessage(turn.id, text, turn.user.text)
+                    }
+                  />
+                )}
                 <AssistantTurn
                   turn={turn}
                   streaming={chat.streaming}

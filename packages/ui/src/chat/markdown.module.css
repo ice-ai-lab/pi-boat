@@ -194,6 +194,116 @@
   white-space: pre-wrap;
 }
 
+.userTurn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-bottom: 16px;
+}
+
+.userBubble {
+  width: auto;
+  max-width: 85%;
+  min-width: 0;
+  background: var(--user-bg);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: calc(14px + var(--chat-font-size-offset, 0px));
+  line-height: 1.6;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.userBubble.isEditing {
+  width: 85%;
+  padding: 6px;
+}
+
+.userEditor {
+  display: block;
+  width: 100%;
+  min-height: 58px;
+  max-height: min(45vh, 360px);
+  resize: vertical;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+}
+
+.userMeta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  max-width: 85%;
+  margin-top: 4px;
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.userTimestamp {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.14s ease, visibility 0s linear 0.14s;
+}
+
+.userTurn:hover .userTimestamp,
+.userTurn:focus-within .userTimestamp {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.14s ease, visibility 0s;
+}
+
+.userActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.14s ease, visibility 0s linear 0.14s;
+}
+
+.userTurn:hover .userActions,
+.userTurn:focus-within .userActions {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.14s ease, visibility 0s;
+}
+
+.userAction {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 5px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1;
+}
+
+.userAction:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.userAction:disabled {
+  color: var(--text-dim);
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 .codeBlock {
   position: relative;
   width: 100%;
@@ -258,4 +368,3 @@
   background: var(--bg-selected);
   color: var(--text);
 }
-

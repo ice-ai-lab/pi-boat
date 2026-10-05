@@ -1,7 +1,9 @@
 import type { Turn } from '@ice-ai/client';
 import { groupTrail } from '@ice-ai/client';
-import { memo } from 'react';
+import { Check, Copy, Pencil } from 'lucide-react';
+import { type KeyboardEvent, memo, useEffect, useRef, useState } from 'react';
 import { formatDateTime } from '../i18n/format';
+import { useI18n } from '../i18n/i18n-provider';
 import { cn } from '../utils/cn';
 import { ChatImageList } from './chat-image';
 import styles from './markdown.module.css';
@@ -23,49 +25,152 @@ function trailKey(item: { kind: string; toolCallId?: string }, index: number): s
     : `${item.kind}-${index}`;
 }
 
-/** 用户气泡：按设计规范 `MessageView` 的 UserMessageView（12px 圆角 / 8×12 内边距 / 14px 字 / 1.6 行高） */
-export function UserBubble({ turn }: { turn: Turn }) {
+/**
+ * 用户气泡：按设计规范 `MessageView` 的 UserMessageView（12px 圆角 / 8×12 内边距 / 14px 字 / 1.6 行高）。
+ * hover 时露出复制 / 编辑；编辑在原位展开，保存即从这条消息前创建新分支。
+ */
+export function UserBubble({
+  turn,
+  onEdit,
+  editDisabled = false,
+}: {
+  turn: Turn;
+  /** 提供后才显示编辑；宿主负责分叉并派发编辑后的文本，true 表示已受理 */
+  onEdit?: (turn: Turn, text: string) => Promise<boolean>;
+  editDisabled?: boolean;
+}) {
+  const { t } = useI18n();
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [copied, setCopied] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const editorRef = useRef<HTMLTextAreaElement>(null);
+  const canEdit = onEdit !== undefined && !editDisabled && (turn.user.images?.length ?? 0) === 0;
+
+  useEffect(() => {
+    if (!editing) return;
+    const editor = editorRef.current;
+    if (editor === null) return;
+    editor.focus();
+    editor.setSelectionRange(editor.value.length, editor.value.length);
+  }, [editing]);
+
+  const copy = async (): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(turn.user.text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // 剪贴板权限被拒：按钮态不变（与代码块复制一致）
+    }
+  };
+
+  const startEdit = (): void => {
+    setDraft(turn.user.text);
+    setEditing(true);
+  };
+
+  const cancelEdit = (): void => {
+    setEditing(false);
+    setDraft('');
+  };
+
+  const saveEdit = async (): Promise<void> => {
+    const text = draft.trim();
+    if (text.length === 0 || text === turn.user.text.trim() || saving) return;
+    setSaving(true);
+    try {
+      if (await onEdit?.(turn, text)) cancelEdit();
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const onEditorKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
+    if (event.key === 'Escape') {
+      event.stopPropagation();
+      cancelEdit();
+      return;
+    }
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      void saveEdit();
+    }
+  };
+
   return (
-    <div
-      style={{
-        marginBottom: 16,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'flex-end',
-      }}
-    >
-      <div
-        style={{
-          marginBottom: 4,
-          fontSize: 11,
-          lineHeight: 1,
-          color: 'var(--text-dim)',
-          fontVariantNumeric: 'tabular-nums',
-        }}
-      >
-        {formatDateTime(turn.user.at)}
-      </div>
-      <div
-        style={{
-          maxWidth: '85%',
-          minWidth: 0,
-          background: 'var(--user-bg)',
-          border: '1px solid rgba(59,130,246,0.2)',
-          borderRadius: 12,
-          padding: '8px 12px',
-          fontSize: 'calc(14px + var(--chat-font-size-offset, 0px))',
-          lineHeight: 1.6,
-          color: 'var(--text)',
-          wordBreak: 'break-word',
-        }}
-      >
-        {turn.user.images !== undefined && turn.user.images.length > 0 && (
-          <div style={{ marginBottom: turn.user.text.trim().length > 0 ? 6 : 0 }}>
-            <ChatImageList sources={turn.user.images} />
-          </div>
+    <div className={cn(styles.userTurn)}>
+      <div className={cn(styles.userBubble, editing && styles.isEditing)}>
+        {editing ? (
+          <textarea
+            value={draft}
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={onEditorKeyDown}
+            disabled={saving}
+            rows={Math.max(2, draft.split('\n').length)}
+            ref={editorRef}
+            className={styles.userEditor}
+            aria-label={t('chat.message')}
+          />
+        ) : (
+          <>
+            {turn.user.images !== undefined && turn.user.images.length > 0 && (
+              <div style={{ marginBottom: turn.user.text.trim().length > 0 ? 6 : 0 }}>
+                <ChatImageList sources={turn.user.images} />
+              </div>
+            )}
+            <div className={cn(styles.body, styles.userMessage)}>
+              <MarkdownView markdown={turn.user.text} />
+            </div>
+          </>
         )}
-        <div className={cn(styles.body, styles.userMessage)}>
-          <MarkdownView markdown={turn.user.text} />
+      </div>
+      <div className={styles.userMeta}>
+        <span className={styles.userTimestamp}>{formatDateTime(turn.user.at)}</span>
+        <div className={styles.userActions}>
+          {editing ? (
+            <>
+              <button
+                type="button"
+                className={styles.userAction}
+                onClick={() => void saveEdit()}
+                disabled={saving || draft.trim().length === 0}
+              >
+                {t('i18n.save')}
+              </button>
+              <button
+                type="button"
+                className={styles.userAction}
+                onClick={cancelEdit}
+                disabled={saving}
+              >
+                {t('i18n.cancel')}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                className={styles.userAction}
+                onClick={() => void copy()}
+                aria-label={t('i18n.copyMessage')}
+                title={copied ? t('i18n.copied') : t('i18n.copyMessage')}
+              >
+                {copied ? <Check size={14} /> : <Copy size={14} />}
+              </button>
+              {canEdit && (
+                <button
+                  type="button"
+                  className={styles.userAction}
+                  onClick={startEdit}
+                  aria-label={t('i18n.editFromHere')}
+                  title={t('i18n.editFromHereTitle')}
+                >
+                  <Pencil size={14} />
+                </button>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>

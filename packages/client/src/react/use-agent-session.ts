@@ -35,6 +35,7 @@ import { validateCwd } from '../endpoints/files';
 import { autoNameSession, getSessionContext } from '../endpoints/sessions';
 import { ApiError } from '../http';
 import { disposeAgentStream, getAgentStream } from '../stream/agent-stream';
+import { userText } from '../stream/fold';
 import { applyLiveRun, rebuildChatState, rebuildTurns } from '../stream/rebuild';
 import { type ChatState, emptyChatState } from '../stream/view-model';
 import { fetchSessionDetail, queryKeys } from './queries';
@@ -72,6 +73,11 @@ export interface UseAgentSessionResult {
   followUp(text: string, images?: ImageContent[]): Promise<string | null>;
   clearQueue(): Promise<void>;
   fork(entryId: string): Promise<string | null>;
+  /**
+   * 编辑一条用户消息：先在该消息**之前**分叉（排除原消息），再把编辑后的文本
+   * 作为新分支的第一条消息发出。返回值沿用本 hook 的错误字符串约定。
+   */
+  editUserMessage(turnId: string, text: string, originalText: string): Promise<string | null>;
   navigateTree(
     targetId: string,
     options?: { summarize?: boolean; label?: string },
@@ -181,6 +187,23 @@ export function useAgentSession(): UseAgentSessionResult {
     setToolsState([]);
     setCommands([]);
   }, []);
+
+  /**
+   * SDK 的 fork / runtime 重建是“原地换会话 id”。这里不只改 key：旧 SSE 要丢弃，
+   * 新 id 的空流要立刻连上；随后同一次动作里可能马上派发 prompt（编辑保存），
+   * 不能等 React effect 下一拍才建立事件订阅。
+   */
+  const switchReplacedSession = useCallback(
+    (previousId: string, nextId: string): void => {
+      disposeAgentStream(previousId);
+      initializedRef.current = nextId;
+      switchSession(nextId);
+      const stream = getAgentStream(nextId);
+      if (!stream.isRestored) stream.restore(emptyChatState(), 0);
+      stream.connect();
+    },
+    [switchSession],
+  );
 
   const store = useMemo(() => {
     if (sessionId === null) return null;
@@ -576,9 +599,7 @@ export function useAgentSession(): UseAgentSessionResult {
         if (result !== null && result.sessionId !== id) {
           // 纯聊天边界重建会换会话 id（core 广播 session_replaced 后重 key）：
           // 跟到新 id 重建本地状态（同 fork 的重绑三件套）
-          disposeAgentStream(id);
-          initializedRef.current = result.sessionId;
-          switchSession(result.sessionId);
+          switchReplacedSession(id, result.sessionId);
           setHistoryCursor({ hasMore: false });
           return null;
         }
@@ -588,7 +609,7 @@ export function useAgentSession(): UseAgentSessionResult {
         return errorMessage(error);
       }
     },
-    [requireSession, loadTools, switchSession],
+    [requireSession, loadTools, switchReplacedSession],
   );
 
   const autoName = useCallback(async (): Promise<{ title?: string; error?: string }> => {
@@ -675,16 +696,58 @@ export function useAgentSession(): UseAgentSessionResult {
       try {
         const result = await forkAgentSession(id, entryId);
         if (result.cancelled || result.newSessionId === undefined) return '分叉被取消';
-        disposeAgentStream(id);
-        initializedRef.current = result.newSessionId;
-        switchSession(result.newSessionId);
+        switchReplacedSession(id, result.newSessionId);
         setHistoryCursor({ hasMore: false });
         return null;
       } catch (error) {
         return errorMessage(error);
       }
     },
-    [requireSession, switchSession],
+    [requireSession, switchReplacedSession],
+  );
+
+  /**
+   * 实时轮还没有 SDK entryId（fold 只能按时间戳造稳定 key）；编辑前用 REST 上下文
+   * 按文本 + 毫秒时间戳找回。时间戳来自同一条落盘消息，正常足够定位重复文本。
+   */
+  const resolveSyntheticTurn = useCallback(
+    async (id: string, turnId: string, originalText: string): Promise<string | null> => {
+      const context = await getSessionContext(id, { tail: 1000, deferMedia: true });
+      const expectedAt = Number.parseInt(turnId.slice(1).split('-')[1] ?? '', 10);
+      const index = context.messages.findLastIndex((message) => {
+        // SDK 的 AgentMessage 是“LLM 四角色 + 模块增强四角色”的宽联合，role 窄化不保证收敛；
+        // user 的 timestamp 一定是 ISO 字符串，这里先用运行时形状收窄。
+        if (message.role !== 'user' || typeof message.timestamp !== 'string') return false;
+        return Date.parse(message.timestamp) === expectedAt && userText(message) === originalText;
+      });
+      return context.entryIds[index] ?? null;
+    },
+    [],
+  );
+
+  const editUserMessage = useCallback(
+    async (turnId: string, text: string, originalText: string): Promise<string | null> => {
+      const id = requireSession();
+      if (id === null) return '没有活动会话';
+      if (getAgentStream(id).getSnapshot().streaming) return '会话正在运行，请先停止';
+      if (text.trim().length === 0) return '消息不能为空';
+
+      let entryId = turnId;
+      if (isSyntheticTurnId(turnId)) {
+        try {
+          const resolved = await resolveSyntheticTurn(id, turnId, originalText);
+          if (resolved === null) return '找不到要编辑的原始消息';
+          entryId = resolved;
+        } catch (error) {
+          return errorMessage(error);
+        }
+      }
+
+      const forkError = await fork(entryId);
+      if (forkError !== null) return forkError;
+      return await send(text);
+    },
+    [fork, requireSession, resolveSyntheticTurn, send],
   );
 
   const navigateTree = useCallback(
@@ -749,6 +812,7 @@ export function useAgentSession(): UseAgentSessionResult {
     followUp,
     clearQueue,
     fork,
+    editUserMessage,
     navigateTree,
     respondExtensionUi,
     chat: storeChat,
@@ -769,6 +833,11 @@ function errorMessage(error: unknown): string {
   if (error instanceof ApiError) return error.message;
   if (error instanceof Error) return error.message;
   return '请求失败';
+}
+
+/** fold 为实时用户消息造的临时轮 id（历史重建后会换成 SDK 的 entryId） */
+function isSyntheticTurnId(id: string): boolean {
+  return /^u\d+-\d+$/.test(id);
 }
 
 /**
