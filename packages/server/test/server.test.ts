@@ -21,6 +21,7 @@ import type {
   WireAgentEvent,
 } from '@ice-ai/protocol';
 import { describe, expect, it, vi } from 'vitest';
+import type { FxRouteDeps } from '../src/routes/fx';
 import { createAgentServer } from '../src/server';
 import { closeAllAgentEventStreams } from '../src/sse';
 
@@ -457,7 +458,7 @@ function fakeResourceService() {
   };
 }
 
-function makeApp(options: { sessions?: SessionInfo[] } = {}) {
+function makeApp(options: { sessions?: SessionInfo[]; fx?: FxRouteDeps } = {}) {
   const agentService = fakeAgentService();
   const readService = fakeReadService(options.sessions);
   const projectService = fakeProjectService();
@@ -471,6 +472,7 @@ function makeApp(options: { sessions?: SessionInfo[] } = {}) {
     configService: configService as unknown as ConfigService,
     systemService: systemService as unknown as SystemService,
     resourceService: resourceService as unknown as ResourceService,
+    ...(options.fx !== undefined ? { fx: options.fx } : {}),
   });
   return {
     app,
@@ -1503,6 +1505,84 @@ describe('liveness lease 路由', () => {
     const gone = await request(app, '/api/agent/nope/lease', { method: 'POST' });
     expect(gone.status).toBe(200);
     expect(await gone.json()).toEqual({ success: true, renewed: false });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 汇率路由（docs/02 §6.5：费用显示币种的换算表；联网纪律见 routes/fx.ts 抬头）
+// ---------------------------------------------------------------------------
+
+describe('汇率路由（POST /api/fx/rates）', () => {
+  const upstreamPayload = {
+    base: 'USD',
+    date: '2026-10-02',
+    rates: { CNY: 7.1, JPY: 150.2, EUR: 0.92 },
+  };
+
+  it('返回上游汇率（形状校验后透传）', async () => {
+    const source = vi.fn(async () => upstreamPayload);
+    const { app } = makeApp({ fx: { sources: [source] } });
+    const res = await request(app, '/api/fx/rates', { method: 'POST', headers: JSON_HEADERS });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      base: 'USD',
+      date: '2026-10-02',
+      rates: upstreamPayload.rates,
+    });
+    expect(source).toHaveBeenCalledTimes(1);
+  });
+
+  it('多源回退：第一个源挂了换下一个（jsDelivr 的 usd 小写键形状也能归一化）', async () => {
+    const { app } = makeApp({
+      fx: {
+        sources: [
+          async () => {
+            throw new Error('ECONNRESET');
+          },
+          async () => ({ date: '2026-10-02', usd: { cny: 7.1, jpy: 150.2 } }),
+        ],
+      },
+    });
+    const res = await request(app, '/api/fx/rates', { method: 'POST', headers: JSON_HEADERS });
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      base: 'USD',
+      date: '2026-10-02',
+      rates: { CNY: 7.1, JPY: 150.2 },
+    });
+  });
+
+  it('缓存：TTL 内第二次请求不再打上游', async () => {
+    const source = vi.fn(async () => upstreamPayload);
+    const { app } = makeApp({ fx: { sources: [source] } });
+    await request(app, '/api/fx/rates', { method: 'POST', headers: JSON_HEADERS });
+    await request(app, '/api/fx/rates', { method: 'POST', headers: JSON_HEADERS });
+    expect(source).toHaveBeenCalledTimes(1);
+  });
+
+  it('上游失败 / 形状非法 → 502 固定文案（不泄漏内部错误）', async () => {
+    const boom = makeApp({
+      fx: {
+        sources: [
+          async () => {
+            throw new Error('ECONNREFUSED 10.0.0.1');
+          },
+        ],
+      },
+    });
+    const failRes = await request(boom.app, '/api/fx/rates', {
+      method: 'POST',
+      headers: JSON_HEADERS,
+    });
+    expect(failRes.status).toBe(502);
+    expect(await failRes.json()).toEqual({ error: 'FX rates unavailable' });
+
+    const malformed = makeApp({ fx: { sources: [async () => ({ hello: 1 })] } });
+    const shapeRes = await request(malformed.app, '/api/fx/rates', {
+      method: 'POST',
+      headers: JSON_HEADERS,
+    });
+    expect(shapeRes.status).toBe(502);
   });
 });
 

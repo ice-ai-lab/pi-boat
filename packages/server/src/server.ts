@@ -16,6 +16,7 @@ import { Hono } from 'hono';
 import { compress } from 'hono/compress';
 import { cors } from 'hono/cors';
 import { registerAgentRoutes } from './routes/agent';
+import { type FxRouteDeps, registerFxRoutes } from './routes/fx';
 import { registerModelRoutes } from './routes/models';
 import { registerProjectRoutes } from './routes/projects';
 import { registerResourceRoutes } from './routes/resources';
@@ -36,6 +37,8 @@ export interface AgentServerDeps {
   resourceService: ResourceService;
   /** liveness lease 注册表（缺省不接线：测试可省） */
   liveness?: LivenessRegistry;
+  /** 汇率路由注入（缺省真连 frankfurter；测试注入 fake 上游） */
+  fx?: FxRouteDeps;
   /** 生产静态托管目录（apps/web/dist 的绝对路径）；缺省不托管（dev 页面来自 vite 9528） */
   staticRoot?: string;
 }
@@ -65,6 +68,7 @@ export function createAgentServer(deps: AgentServerDeps): Hono {
     agentService: deps.agentService,
   });
   registerModelRoutes(app, { configService: deps.configService });
+  registerFxRoutes(app, deps.fx ?? {});
   registerSystemRoutes(app, { systemService: deps.systemService, readService: deps.readService });
   registerResourceRoutes(app, {
     resourceService: deps.resourceService,

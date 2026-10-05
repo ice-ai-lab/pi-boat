@@ -13,6 +13,7 @@ export {
   uploadFiles,
   validateCwd,
 } from './endpoints/files';
+export { fetchFxRates } from './endpoints/fx';
 export { queryProviderUsage } from './endpoints/models';
 
 export { browseCwd, getDefaultCwd, getHome, pickDirectory } from './endpoints/system';

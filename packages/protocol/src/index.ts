@@ -12,6 +12,7 @@ export * from './envelope';
 export * from './events/wire-agent-event';
 export * from './rest/agent';
 export * from './rest/files';
+export * from './rest/fx';
 export * from './rest/git';
 export * from './rest/misc';
 export * from './rest/models';
