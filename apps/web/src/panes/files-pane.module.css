@@ -1,18 +1,18 @@
 /* FilesPane 样式（CSS Modules，web 宿主）。
-   2026 视觉对齐 dsh-file-explorer：顶栏 36px，标签与图标按钮走 28px 圆角（8 / 50%），
-   去掉标签与工具行之间的描边，hover 统一浮 `--bg-hover`。 */
+   2026-10-06 对齐 DSH 配色：平面底色（--bg）+ 0.5px 发丝线，顶条/工具行 38px，
+   图标按钮 28×28 圆角 8（DSH `.tool` 同款，非圆形），激活页签 = 浅灰胶囊（--bg-hover）。 */
 
 .topBar {
   display: flex;
   align-items: center;
   gap: 2px;
   flex-shrink: 0;
-  height: calc(36px + env(safe-area-inset-top));
+  height: calc(38px + env(safe-area-inset-top));
   padding-top: env(safe-area-inset-top);
   padding-left: 6px;
   padding-right: 6px;
-  background: var(--bar-tint);
-  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  border-bottom: 0.5px solid var(--border);
 }
 
 .tab {
@@ -37,22 +37,18 @@
 }
 
 .tabActive {
-  background: var(--bg);
+  background: var(--bg-hover);
   color: var(--text);
   font-weight: 500;
 }
 
 .tabActive:hover {
-  background: var(--bg);
+  background: var(--bg-hover);
 }
 
 .tabIcon {
   flex-shrink: 0;
   color: var(--text-dim);
-}
-
-.tabActive .tabIcon {
-  color: var(--accent);
 }
 
 .tabsSlot {
@@ -70,7 +66,7 @@
   padding: 0;
   flex-shrink: 0;
   border: none;
-  border-radius: 50%;
+  border-radius: 8px;
   background: transparent;
   color: var(--text-dim);
   cursor: pointer;
@@ -88,10 +84,21 @@
 }
 
 .toolRow {
+  /* DSH FilesBody `.header` 同形：38px 行 + 0.5px 发丝线，路径 16px 起步 */
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 2px;
+  gap: 4px;
   flex-shrink: 0;
-  padding: 2px 6px;
+  box-sizing: border-box;
+  height: 38px;
+  padding: 0 6px 0 16px;
+  border-bottom: 0.5px solid var(--border);
+}
+
+/* 根路径行（DSH FilesBody 头部同形）：占满剩余宽度，裁切时左缘渐隐、末段保持可见 */
+.pathLabel {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-right: 8px;
 }

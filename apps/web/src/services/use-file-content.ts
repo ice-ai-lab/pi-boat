@@ -8,14 +8,14 @@ import {
 import { useEffect, useState } from 'react';
 
 /**
- * 活动文件页签的内容加载（web 层）：按展示模式取文本 / 元信息 / git patch。
- * 二进制与图片不取文本（查看器直接用字节 URL）。
+ * 活动文件页签的内容加载（web 层）：按展示模式取文本 / git patch。
+ * 二进制与图片不取文本（查看器直接用字节 URL）。2026-10-06 起 meta 只用来
+ * 判 category，体积不再上浮（查看器抬头不显示体积）。
  */
 export interface FileContentState {
   loading: boolean;
   error: string | null;
   text: string | null;
-  size?: number;
   patch: string | null;
 }
 
@@ -46,8 +46,6 @@ export function useFileContent(options: {
         const meta = await getFileMeta(path, sessionId);
         if (!alive) return;
         if (mode === 'diff') {
-          // 抬头要显示 `语言 · N lines · 体积`（与 参考实现 同形），所以 diff 模式下也把文本取回来：
-          // 只用来数行，不渲染（diff 模式下查看器走 patch）
           const [diff, text] = await Promise.all([
             getGitDiff(root ?? '', getRelativeFilePath(path, root ?? undefined)),
             meta.category === 'text'
@@ -59,18 +57,17 @@ export function useFileContent(options: {
             loading: false,
             error: diff.supported ? null : (diff.reason ?? '该文件不支持 diff'),
             text,
-            size: meta.size,
             patch: diff.patch ?? '',
           });
           return;
         }
         if (meta.category !== 'text') {
-          setState({ loading: false, error: null, text: null, size: meta.size, patch: null });
+          setState({ loading: false, error: null, text: null, patch: null });
           return;
         }
         const text = await readFileText(path, sessionId);
         if (!alive) return;
-        setState({ loading: false, error: null, text, size: meta.size, patch: null });
+        setState({ loading: false, error: null, text, patch: null });
       } catch (caught) {
         if (!alive) return;
         setState({

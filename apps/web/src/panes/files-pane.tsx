@@ -1,6 +1,6 @@
 import { fileByteUrl, getFileName, getRelativeFilePath, isImagePath } from '@ice-ai/client';
 import { useGitStatusQuery } from '@ice-ai/client/react';
-import { FileTabs, FileViewer, useI18n } from '@ice-ai/ui';
+import { FileTabs, FileViewer, PathLabel, useI18n } from '@ice-ai/ui';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fileTabsStore } from '../services/file-tabs-store';
 import { insertMention } from '../services/mention-bus';
@@ -208,8 +208,9 @@ export function FilesPane({
       </div>
       {treeActive ? (
         <div className="flex min-h-0 flex-1 flex-col">
-          {/* 浏览器工具行（原左栏 EXPLORER 头部）：变更折叠 / 文件搜索 / 上传 / 刷新 */}
+          {/* 浏览器工具行（DSH FilesBody 头部同形）：根路径 + 变更 / 搜索 / 上传 / 刷新 */}
           <div className={styles.toolRow}>
+            {root !== null && <PathLabel path={root} className={styles.pathLabel} />}
             {changesCount > 0 && (
               <ExplorerToolButton
                 onClick={() => setChangesCollapsed((collapsed) => !collapsed)}
@@ -327,7 +328,6 @@ export function FilesPane({
               changesCollapsed={changesCollapsed}
               refreshKey={refreshKey}
               onResolvedRoot={onResolvedRoot}
-              onAtMention={(relativePath, isDir) => insertMention(relativePath, isDir)}
               onUploadBusyChange={setUploadBusy}
               onError={() => {}}
               onNotice={() => {}}
@@ -354,13 +354,13 @@ export function FilesPane({
           loading={content.loading}
           error={content.error}
           text={content.text}
-          size={content.size}
           patch={content.patch}
           diffAvailable={diffAvailable}
           byteUrl={byteUrl}
           onAtMention={() =>
             insertMention(root === null ? tab.path : getRelativeFilePath(tab.path, root), false)
           }
+          onPreviewModeChange={(mode) => fileTabsStore.setPreviewMode(tab.path, mode)}
           onToggleWrap={() => fileTabsStore.toggleWrap(tab.path)}
           onShowDiff={() => fileTabsStore.setMode(tab.path, 'diff')}
           onShowSource={() =>
@@ -421,7 +421,7 @@ function ExplorerToolButton({
         border: 'none',
         color,
         cursor: disabled ? 'default' : 'pointer',
-        borderRadius: '50%',
+        borderRadius: 8,
         flexShrink: 0,
         opacity: disabled ? 0.6 : 1,
         transition: 'color 0.3s, background 0.3s',

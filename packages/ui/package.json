@@ -29,6 +29,7 @@
   "dependencies": {
     "@ice-ai/client": "workspace:*",
     "@ice-ai/protocol": "workspace:*",
+    "@shikijs/langs": "^4.4.3",
     "ansi_up": "^6.0.6",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.0.0",

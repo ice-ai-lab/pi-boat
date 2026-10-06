@@ -1,123 +1,71 @@
-/* FileTree 样式（CSS Modules，files 域）。
-   2026 视觉替换为 dsh-file-explorer 的行几何：28px 行 / 圆角 8 / 缩进 12·depth /
-   chevron 12 + 图标 16 + 名字 13px；hover 与选中同为 `--bg-hover`（无边框、无底纹）。 */
+/* FileTree——移植自 DSH ui-sidebar-files FilesBody.module.css（MIT），token 换 pi-boat 的：
+   树占满容器高度（头部行归 files-pane），滚动归外层；行 hover 即整行填充，行距靠内边距。 */
 
-.tree {
-  min-height: 0;
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-bottom: 4px;
+.level {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.group {
-  display: block;
+/* 每个嵌套层缩进一步；根层贴着头部行。 */
+.level .level {
+  padding-left: 18px;
 }
 
-.hint {
-  padding: 2px 8px;
-  color: var(--text-dim);
-  font-size: 12px;
-  line-height: 18px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.error {
-  color: var(--red);
+.item {
+  margin: 0;
+  padding: 0;
 }
 
 .row {
-  position: relative;
   display: flex;
-  align-items: center;
   gap: 6px;
-  height: 28px;
-  padding: 0 8px;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  /* 行与行相接，hover 填充即整行；树的留白在这里，而不是行间距。 */
+  padding: 5px 10px;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  background: transparent;
+  border: 0;
   border-radius: 8px;
   cursor: pointer;
-  user-select: none;
-  color: var(--text);
-  font-size: 13px;
-  line-height: 18px;
 }
 
-.row:hover,
-.rowActive {
+.row:hover {
   background: var(--bg-hover);
 }
 
-.chev {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 12px;
-  height: 12px;
-  flex: none;
-  color: var(--text-dim);
-  transition: transform 0.15s ease;
+.rowActive,
+.rowActive:hover {
+  background: var(--bg-selected);
 }
 
-.chevOpen {
-  transform: rotate(90deg);
-}
-
-/* 非目录行占位：保持名字的起始列一致（对齐 dsh-file-explorer 的 .dshfx-chev-none） */
-.chevNone {
-  visibility: hidden;
-}
-
+/* 目录字形与文件字形同走主题蓝（蓝色系）；文件类型图标自带配色（file-type-icon.module.css）。 */
 .icon {
+  flex: 0 0 auto;
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  flex: none;
-  color: var(--text-dim);
+  color: var(--accent);
+}
+
+.fileIcon {
+  flex: 0 0 auto;
+  display: inline-flex;
 }
 
 .name {
-  flex: 1;
   min-width: 0;
-  white-space: nowrap;
   overflow: hidden;
+  white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-.badge {
-  width: 14px;
-  height: 14px;
-  flex: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 600;
-}
-
-/* hover 才出现的行内动作（提及 / 下载）：圆形幽灵按钮，进深由 `--bg` 提供 */
-.action {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: none;
-  border-radius: 8px;
-  background: var(--bg);
+.note {
+  margin: 0;
+  padding: 3px 10px;
   color: var(--text-dim);
-  cursor: pointer;
-  text-decoration: none;
-}
-
-.action:hover {
-  background: var(--bg-selected);
-  color: var(--text);
+  font-size: 12px;
 }

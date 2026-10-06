@@ -14,26 +14,25 @@ import { useFileTree } from '../services/use-file-tree';
 import styles from './file-explorer-pane.module.css';
 
 /**
- * FileExplorerPane（T2 重排）：EXPLORER 区内容——文件树 + 文件搜索面板 + 变更文件区块。
- * 头部（路径行 / 上传按钮）上移到 EXPLORER 图标行（Sidebar 提供），这里只剩内容。
+ * FileExplorerPane（DSH 对齐重做）：文件树 + 文件搜索面板 + 变更文件区块。
+ * 树本体按 DSH FilesBody 重做（ui FileTree）：行内不再有 hover 提及/下载按钮，
+ * git 徽标收敛到「变更文件」区块；提及走查看器与输入框 `@`，下载走查看器。
  * 上传入口经 `FileExplorerHandle.openUploadPicker()` 暴露（设计规范 `FileExplorerHandle` 同款）。
  */
 export interface FileExplorerPaneProps {
   /** 当前项目根（树根 = git 状态查询 cwd） */
   root: string | null;
-  /** 文件搜索面板开合（EXPLORER 头部图标驱动，T2-11） */
+  /** 文件搜索面板开合（头部图标驱动） */
   fileSearchOpen: boolean;
   onFileSearchOpenChange(open: boolean): void;
   /** 变更文件区块折叠态（头部图标驱动；true = 折叠） */
   changesCollapsed: boolean;
-  /** 刷新信号（EXPLORER 头部刷新图标驱动；自增触发重载） */
+  /** 刷新信号（头部刷新图标驱动；自增触发重载） */
   refreshKey: number;
   /** 服务端解析出的真实根（符号链接路径下与 root 不同；上抛给布局，供右栏共用） */
   onResolvedRoot?(resolvedRoot: string): void;
-  /** 上传忙态回传（EXPLORER 头部上传图标禁用） */
+  /** 上传忙态回传（头部上传图标禁用） */
   onUploadBusyChange?(busy: boolean): void;
-  /** 行内「提及」：把相对路径插入 Composer 草稿 */
-  onAtMention?(relativePath: string, isDir: boolean): void;
   onError(message: string): void;
   onNotice(message: string): void;
 }
@@ -63,7 +62,6 @@ export const FileExplorerPane = forwardRef<FileExplorerHandle, FileExplorerPaneP
       refreshKey,
       onResolvedRoot,
       onUploadBusyChange,
-      onAtMention,
       onError,
       onNotice,
     },
@@ -174,7 +172,7 @@ export const FileExplorerPane = forwardRef<FileExplorerHandle, FileExplorerPaneP
           onChange={(event) => void onPick(event)}
         />
 
-        {/* 变更文件区块（T2-11；折叠由 EXPLORER 头部图标控制） */}
+        {/* 变更文件区块：git 徽标收敛在这里（树行内不再画徽标，DSH 对齐） */}
         {!changesCollapsed && gitFiles.length > 0 && (
           <div className={styles.changesSection}>
             <div
@@ -230,7 +228,7 @@ export const FileExplorerPane = forwardRef<FileExplorerHandle, FileExplorerPaneP
           </div>
         )}
 
-        {/* 文件搜索面板（T2-11）；样式对齐 dsh-file-explorer 的筛选框 */}
+        {/* 文件搜索面板；样式对齐 DSH 的筛选框 */}
         {fileSearchOpen && (
           <div className={styles.searchPanel}>
             <div className={styles.searchField}>
@@ -308,21 +306,14 @@ export const FileExplorerPane = forwardRef<FileExplorerHandle, FileExplorerPaneP
           </div>
         )}
 
-        {tree.error !== null && (
-          <p className="sq mx-0.5 bg-danger-soft px-2 py-1 text-[11.5px] text-danger">
-            {tree.error}
-          </p>
-        )}
         <FileTree
-          root={effectiveRoot ?? root}
+          root={effectiveRoot}
           entriesByPath={tree.entriesByPath}
           loadingPaths={tree.loadingPaths}
+          errorsByPath={tree.errorsByPath}
           expandedPaths={tree.expandedPaths}
-          activePath={null}
-          gitStatus={gitMap}
           onToggleDir={tree.toggleDir}
           onOpenFile={(path) => openFile(path, false)}
-          onAtMention={onAtMention}
         />
       </div>
     );

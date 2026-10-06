@@ -32,7 +32,7 @@ const SENSITIVE_SEGMENTS = [
   '.pypirc',
 ];
 
-/** 列目录时跳过的目录（体积大且无意义，客户端会卡在渲染上） */
+/** 目录选择器与文件索引跳过的体积目录（**文件浏览器 listDirectory 不再用它**——2026-10-06 起如实列出） */
 export const IGNORED_DIRECTORY_NAMES = [
   'node_modules',
   '.git',

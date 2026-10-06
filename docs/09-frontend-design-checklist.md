@@ -74,8 +74,7 @@
  点击切显版本，带扰乱动画）/ T2-16（文件树行 `8+depth*14` / `height 24` / `gap 4` / `radius 4` /
  `var(--text)`；git 徽标 14×14 mono 11/600、untracked 绿、仅未 hover 显示；hover 行内「提及/下载」）/
  T2-17（transient 守卫、`title` tooltip、列表窗口化 = `getSessionListIndices`）/
- T2-18（Catppuccin 图标：沿用 32 个 SVG 到 `apps/web/public/icons/catppuccin/`，`mask` 单色 14px
- `--text-dim`，CSS 落入 `styles/web-ui.css`）。
+ T2-18（~~Catppuccin 图标~~ 2026-10-06 随 ADR-0034 退役：文件图标换 DSH `FileTypeIcon` 全彩字形）。
 - **阶段 6（面板/货架）**：T6-1（`SystemPromptPanel` 去 `PanelShell`，改用规范的
  `.system-prompt-panel/-scroll/-text/-empty` + `min(600px,75dvh)`）/ T6-2（单一 `.extension-status-shelf`
  + `has-widgets`/`has-status` + `sanitizeExtensionStatusLine` 排序 join + `AnsiText` + `role="status"` +
@@ -394,8 +393,8 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 | `.terminal-*` / `.terminal-xterm*` | 17 | ⛔ 排除域 |
 | `.web-login-*` / `html.dark .web-login-error` | 14 | ⛔ 排除域 |
 | `:root` / `html` / `*` / 5 个 `[data-theme]` / `html.dark` / `html[data-theme="pine"]` | 11 | ✅ 已落在 `theme.css` + `index.css` |
-| `html.dark .catppuccin-file-icon` | 1 | ❌ 随 T4-10 一起补（当前零消费） |
-| **合计 48** | | **无真缺口**（除 catppuccin 1 条随组件走） |
+| `html.dark .catppuccin-file-icon` | 1 | **2026-10-06 随 ADR-0034 注销**（Catppuccin 图标方案退役，不补） |
+| **合计 48** | | **无真缺口**（catppuccin 1 条已注销） |
 
 **`settings.css` → `styles/settings.css`：190 → 178，缺 12 条**，全部是 `.agents-*`（`.agents-concurrency-control` / `.agents-feature-*` / `.agents-overridden-label` / `.agents-system-prompt*`）→ ⛔ **排除域，确认不补**。
 
@@ -419,7 +418,7 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 | `.has-widgets` / `.has-status` | `web-ui.css` | 扩展货架单一 shelf（**组件从不加这两个类**） | T6-5 |
 | `.file-viewer-live-indicator` / `.file-viewer-load-more` | `web-ui.css` | FileViewer live watch / 续拉（**未接**） | T4-5 / T4-6 |
 | `.directory-picker-backdrop/-panel/-list/-footer/-entry/-path/-back/-action` | `web-ui.css` | `DirectoryPicker` portal 模态（本仓是内嵌行、**且无宿主调用**） | T5-11 |
-| `.catppuccin-file-icon` | `web-ui.css` | （本仓用 lucide；**`apps/web/public/` 目录不存在**） | T4-10 |
+| `.catppuccin-file-icon` | `web-ui.css` | **2026-10-06 随 ADR-0034 注销**（图标换 DSH FileTypeIcon） | ~~T4-10~~ |
 | `.sidebar-section-resize-handle` | `web-ui.css` | 侧栏会话区/EXPLORER 之间的拖拽手柄（**无消费者**） | T2-1 |
 | `@keyframes drop-zone-in` / `drop-ripple` | `web-ui.css` | 整屏拖拽上传覆盖层（**不存在**） | T3-3 |
 | `.linenumber` | `web-ui.css` | 源码行号（`react-syntax-highlighter` 的行号类） | T4-4 |
@@ -499,7 +498,7 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 | L17 | EXPLORER 可折叠标题行 | 9×9 chevron + 大写 11px/600 标签 `文件浏览器`，折叠态持久化 | 无 | P1 |
 | L18 | 品牌字标 | `PiBoat`（mono/15/700/-0.01em）+ **点击可切显版本号** | `PiBoat`，字体已对齐，**无点击行为** | P2 |
 | L19 | 文件树行几何 | `paddingLeft: 8+depth*14` / `height:24` / `gap:4` / `radius:4` / 文字 `var(--text)` | `depth*12+6` / `py-[3px]` / `rounded-[6px]` / `text-fg-muted`（`file-tree.tsx`） | P2 |
-| L20 | 文件图标 | Catppuccin SVG + mask 单色 `--text-dim` 14px | lucide 彩色 13px（`file-icon.tsx`） | P2 |
+| L20 | 文件图标 | ~~Catppuccin SVG + mask 单色~~ | **2026-10-06 起换 DSH `FileTypeIcon` 全彩类型字形**（`code/file-type-icon.tsx`，ADR-0034；Catppuccin 精灵图退役） | **已关闭** |
 | L21 | git 徽标 | 14×14 / mono 11 / 600 / untracked 绿 `#4ade80` / **仅未 hover 显示** | 10px / 无字重 / untracked 灰 / 常显（`file-tree.tsx`） | P2 |
 | L22 | 行内「提及 / 下载」 | hover 时右侧出现 | 显示文件大小文字 | P2 |
 | L23 | 会话 `transient` 守卫 + `detailsPending` 的 `…` | | 无 | P2 |
@@ -558,7 +557,7 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 | F2 | **Mermaid 完全缺失** | （329 行）+ zoom dialog，**文件预览与聊天都渲染** | 无组件；CSS 已备但零消费 | **P0** |
 | F3 | **markdown / HTML 预览模式** | `displayModes = ['source','preview','diff']`，md 走 Markdown、HTML 走 sandbox iframe，且 md/html **默认进 preview** | 只有「内容 / diff」；markdown 当纯文本（`file-viewer.tsx`） | **P0** |
 | F4 | FrontmatterCard | `parseFrontmatter` + 卡片，md 预览顶部渲染 | 缺失 | P1 |
-| F5 | 源码语法高亮 | ~~`react-syntax-highlighter`（Prism `vs`/`vscDarkPlus`）~~ 改用本仓既有 `shiki`（ADR-0029）+ **>1000 行降级** | **已落地**：`CodeViewer`/`DiffView`/工具面板接 shiki，双主题走 `--shiki-light/--shiki-dark` + `[data-theme]`；仍截断 5000 行 | P1（**已关闭**，仅剩行号列几何见 T4-4） |
+| F5 | 源码语法高亮 | ~~`react-syntax-highlighter`~~ | **已落地并再演进**：ADR-0029 统一 shiki；2026-10-06 起引擎为 `code/highlight.ts`（DSH 移植：shiki core + JS regex 引擎 + 懒语法 + css-variables 主题 + viewport 激活，ADR-0034）；查看器仍截断 5000 行 | **已关闭** |
 | F6 | live 文件监听 | `EventSource(...?type=watch)` + `.file-viewer-live-indicator` 绿点 | 无。⛔ **阻塞：本仓协议 `FileByteType` 无 `watch`** | P1 |
 | F7 | 大文件 load-more | `.file-viewer-load-more`：已读/总大小 + 续拉 `nextOffset` | 截断 + 「请下载」（`code-viewer.tsx`）。⛔ **阻塞：`type=read` 回裸字节、无 offset 参数** | P1 |
 | F8 | 上传交互 | 头部图标 + 进度条 + 冲突三选一 + 结果汇总 + 树内蓝点 | 「上传」文字按钮 + `uploadFiles('rename')` + toast（`file-explorer-pane.tsx`） | P1（后端已就绪） |
@@ -567,11 +566,11 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 | F11 | toolbar 内联值 | `gap:8` / `padding:'5px 12px'` / `background: var(--bg)` / `fontSize:11` / meta = `语言 · 行数 · 大小` | `gap-3` / 只有 `px-3` / `background: var(--bg-panel)` / meta 只有大小（`file-viewer.tsx`） | P2 |
 | F12 | 模式按钮文案 | 硬编码 `Source / Preview / Diff`（规范本身未 i18n） | 「内容 / diff」（`file-viewer.tsx`） | P2（**口径待拍板**，见 §7 Q4） |
 | F13 | TabBar 交互 | 中键关闭 + `←/→/Home/End` 轮转 | 只有 Enter/Space（`file-tabs.tsx`） | P2 |
-| F14 | Catppuccin 图标 | SVG sprite + mask 双主题 | lucide 彩色；**`apps/web/public/` 不存在** | P2 |
+| F14 | Catppuccin 图标 | ~~SVG sprite + mask 双主题~~ | **随 ADR-0034 退役**（换 DSH FileTypeIcon 全彩字形） | **已关闭** |
 | F15 | `AnsiText` | （`ansi_up`） | **全仓不存在**（影响 T6-5/T6-6 与工具输出） | P2 |
 | F16 | **「@ 提及」按钮 + 选中行提及（Cmd/Ctrl+I）** | | 无按钮、无快捷键、无选区行范围算法 | P1 |
 | F17 | **每页签查看器状态持久化** | `file-tab-state.ts`（`viewerState` + `viewerRevision`）+ `key={id:revision}` | `FileTab` 无 scrollTop/page/revision；`files-pane.tsx` 渲染 `<FileViewer>` **无 key** → 切标签滚动位置丢失、图片 fit/zoom 跨标签残留 | P1 |
-| F18 | DiffView 结构 | 3 行上下文折叠 + `... N unchanged lines ...` + **单列**行号 | **双列**行号 + 无折叠 + 多一个 `+N/-N` 汇总条（`diff-view.tsx`） | P1 |
+| F18 | DiffView 结构 | 3 行上下文折叠 + 单列行号 | **2026-10-06 整体换 `code/DiffBlock`**（DSH 观感：path 行 + `⋯` 缝 + 16 行中段折叠 + 汇总进工具栏，ADR-0034），旧 `diff-view.tsx` 删除 | **已关闭** |
 | F19 | DOCX 预览 | `DocumentViewer` 支持 docx | 「DOCX 不支持在线预览」+ 下载（`file-viewer.tsx`）。⛔ **受后端限制** | P1 |
 | F20 | 右栏空态 / toolbar 多余件 | 单行居中 `files.noneOpen`；无「在新标签页打开」；下载在 mode-switch 之后 | 两行中文 + 渲染 root 绝对路径；多「在新标签页打开」；下载位置不同 | P2 |
 | F21 | 源码行号列几何 | 固定 `width:48` / `background:var(--bg-panel)` / `data-line-number` | `<table>` + `pl-2/pr-3`，无固定列宽、无 `data-line-number`（→ **F16 无法实现**） | P2 |
@@ -680,7 +679,7 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
   - 三次调整（2026-09-28 用户拍板，**当前形态**）：版本胶囊改为「`v0.1.0 · pi v0.87.1`」同行——pi 版本随应用版本常驻品牌行（`Sidebar` 的 `piVersionLabel`）；窄侧栏（最小 180px）下胶囊先截断，不挤掉右侧主题按钮
 - [x] **T2-16** 文件树行几何 + git 徽标 + 行内「提及/下载」。〔L19/L21/L22〕
 - [x] **T2-17（新·M5/M6/M7）** `transient` 守卫、`detailsPending` 的 `…`、去掉列表 `pr-1` + 透传 `focusedIndex`、标题补 `title` tooltip。
-- [x] **T2-18** 建 `apps/web/public/icons/catppuccin/{latte,mocha}/`（沿用规范图标），`file-icon.tsx` 改用 `.catppuccin-file-icon`（14px 单色 `--text-dim`）。〔L20 / F14 / T4-10〕
+- [x] **T2-18** ~~建 `apps/web/public/icons/catppuccin/`~~ **2026-10-06 资产随 ADR-0034 退役**（图标换 DSH FileTypeIcon）。〔L20 / F14〕
 - [x] **T2-20（新）** 会话列表按「今天 / 昨天 / 更早」分组（本地日历日）；窗口化从「固定 54px 行高」改为「分组头 + 会话行」前缀和布局（`packages/client/src/view-models/session-list-window.ts`，头 34 / 行 54；分组头 11px/700 + 上分隔线）。（2026-09-27 用户拍板）
 - [x] **T2-21（新）** 会话行改**单行**（**有意偏离**规范 A 的两行 54px，对齐 Codex / DeepSeekHarness 的密度）：行高 54 → **34**（窄屏 ≤640px → 44）、分组头 34 → 26（窄屏 30）、`SESSION_LIST_OVERSCAN` 8 → 10 行；meta 从第二行移到行尾右对齐（`[运行/未读] 紧凑时间 {n}条`，时间/条数各定宽 + `tabular-nums` 保证竖向对齐），时间文案改紧凑单位（`40m` / `2h` / `3d`，超过一周给 `M/D`；新增三语 key `sidebar.time{JustNow,Minutes,Hours,Days}`），条数用新增 `sidebar.messagesCountShort`（`697条`；原 `sidebar.messagesCount` 保留以对齐规范 A 的 key 集），**运行/未读指示器不再顶掉时间**，标题**去掉加粗**（原 `600/500` → 常规字重，选中态改由底色 + accent 左边条区分），worktree 分支收成 9px 图标（全名进 tooltip），hover 双图标按钮 32 → 26 且**顶掉 meta**（不再挤标题），行内删除确认按钮 30 → 22 / 重命名输入框 30 → 24 / 确认文案标题截 22 → 12 字。（2026-09-27 用户拍板；`packages/client/src/view-models/session-list-window.ts` + `packages/ui/src/sidebar/sidebar.tsx` + `docs/design/piboat-web-v4.html`）
 - ~~T2-19 会话家族聚簇 / 机器人图标 / 折叠 chevron~~ ⛔ **排除域（会话平铺是终态）**
@@ -726,7 +725,7 @@ grep -rIl "MobileGate\|agents-section\|session-family\|AgentSessionPanel\|provid
 - [ ] **T4-9** 补 `AudioViewer`/`VideoViewer`；PDF 增强 toolbar + 分页。〔F10〕
 - [ ] **T4-10（新·F16）** 查看器「@ 提及」按钮 + 选中行提及（Cmd/Ctrl+I）+ 选区→行范围算法。〔F16〕
 - [ ] **T4-11（新·F17）** 每页签查看器状态持久化（`viewerState` + `viewerRevision` + `<FileViewer key>`）。〔F17〕
-- [ ] **T4-12（新·F18）** DiffView 改上下文折叠 + 单列行号。〔F18〕
+- [x] **T4-12（新·F18）** ~~DiffView 改上下文折叠~~ 2026-10-06 整体换 `code/DiffBlock`（ADR-0034）。〔F18〕
 - [ ] **T4-13** toolbar 内联值 + meta 三段（语言·行数·大小）；删自造「在新标签页打开」、删「二进制文件」分支、空态改单行居中；下载位归位。〔F11/F20/F22〕
 - [ ] **T4-14** TabBar 补中键关闭 + 方向键轮转。〔F13〕
 - [ ] **T4-15** 落地 `AnsiText`（+ `ansi_up` 依赖）。〔F15〕

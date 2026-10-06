@@ -3,11 +3,13 @@ import {
   closeFileTab,
   EMPTY_FILE_TABS,
   type FileDisplayMode,
+  type FilePreviewMode,
   type FileTabsState,
   isImagePath,
   openFileTab,
   resolveInitialDisplayMode,
   setTabDisplayMode,
+  setTabPreviewMode,
   toggleTabWrap,
 } from '@ice-ai/client';
 
@@ -48,6 +50,10 @@ class FileTabsStore {
 
   setMode(path: string, mode: FileDisplayMode): void {
     this.commit(setTabDisplayMode(this.state, path, mode));
+  }
+
+  setPreviewMode(path: string, mode: FilePreviewMode): void {
+    this.commit(setTabPreviewMode(this.state, path, mode));
   }
 
   toggleWrap(path: string): void {

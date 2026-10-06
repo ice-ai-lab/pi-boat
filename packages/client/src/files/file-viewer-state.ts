@@ -4,11 +4,16 @@
  */
 export type FileDisplayMode = 'source' | 'preview' | 'diff';
 
+/** 文本正文渲染方式（markdown 文件的查看器选择，DSH documentpreview 的 renderer 同概念） */
+export type FilePreviewMode = 'markdown' | 'code' | 'text';
+
 export interface FileTab {
   /** 绝对路径（唯一键） */
   path: string;
   displayMode: FileDisplayMode;
   wrapLines: boolean;
+  /** markdown 文件的正文渲染选择；undefined = 自动（.md → markdown，其余 → code） */
+  previewMode?: FilePreviewMode;
 }
 
 export interface FileTabsState {
@@ -57,6 +62,18 @@ export function setTabDisplayMode(
 ): FileTabsState {
   return {
     tabs: state.tabs.map((tab) => (tab.path === path ? { ...tab, displayMode } : tab)),
+    activePath: state.activePath,
+  };
+}
+
+/** 更新 markdown 文件的正文渲染选择（仅 markdown 文件出现该选择器） */
+export function setTabPreviewMode(
+  state: FileTabsState,
+  path: string,
+  previewMode: FilePreviewMode,
+): FileTabsState {
+  return {
+    tabs: state.tabs.map((tab) => (tab.path === path ? { ...tab, previewMode } : tab)),
     activePath: state.activePath,
   };
 }

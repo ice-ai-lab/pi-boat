@@ -33,7 +33,6 @@ export {
 } from './files/file-paths';
 export {
   documentPreviewKind,
-  formatFileSize,
   getLanguageFromPath,
   isDocxPath,
   isImagePath,
@@ -44,11 +43,13 @@ export {
   closeFileTab,
   EMPTY_FILE_TABS,
   type FileDisplayMode,
+  type FilePreviewMode,
   type FileTab,
   type FileTabsState,
   openFileTab,
   resolveInitialDisplayMode,
   setTabDisplayMode,
+  setTabPreviewMode,
   toggleTabWrap,
 } from './files/file-viewer-state';
 export { parseUnifiedDiff } from './files/unified-diff';

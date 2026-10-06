@@ -1,306 +1,123 @@
-import { fileByteUrl, getRelativeFilePath } from '@ice-ai/client';
-import type { FileListEntry, GitFileStatus, GitFileStatusKind } from '@ice-ai/protocol';
-import { useRef, useState } from 'react';
-import { useScrollbarVisibility } from '../utils/use-scrollbar-visibility';
-import { FileIcon } from './file-icon';
+import type { FileListEntry } from '@ice-ai/protocol';
+import { FileTypeIcon } from '../code/file-type-icon';
+import { IconFolderCloseRegular, IconFolderOpenRegular } from '../code/icons';
+import { useI18n } from '../i18n/i18n-provider';
 import styles from './file-tree.module.css';
 
 /**
- * FileTree（2026 视觉替换自 dsh-file-explorer）：
- * - 行：`height:28` / `paddingLeft: 8 + depth*12` / `gap:6` / `radius:8` / 文字 13px
- * - chevron 12px（目录才显示，展开旋转 90°），图标 16px（目录走 `--accent`）
- * - hover / 选中同为 `--bg-hover`（参照实现无边框、无底纹）
- * - git 徽标：14×14 / mono 11 / 600 / **仅未 hover 显示**
- * - hover 时右侧出现「提及」（`@`）与「下载」圆形幽灵按钮
+ * FileTree——按 DSH `ui-sidebar-files` 的 FilesBody 重做（MIT，逻辑同形、接线本地化）：
+ * - 目录优先，同组内 `Intl.Collator` 自然序（`file2` < `file10`），大小写不敏感；
+ * - 每层一个 `<ul>`，子层缩进 18px；行内 hover 底色、目录三级墨色开合图标、文件彩色类型图标；
+ * - 折叠层缓存已列条目（重开秒出），失败/空目录各占一行注记；
+ * - 与 DSH 对齐：行内不放 hover 动作（提及/下载走查看器与工具行），git 徽标进「变更文件」区。
  */
 export interface FileTreeProps {
-  /** 根目录绝对路径（展示用） */
+  /** 根目录绝对路径（展示与相对路径基准） */
   root: string;
   /** 已加载的目录内容：绝对路径 → 条目 */
   entriesByPath: ReadonlyMap<string, FileListEntry[]>;
   /** 正在加载的目录 */
   loadingPaths?: ReadonlySet<string>;
+  /** 列目录失败的目录：绝对路径 → 错误文案（在该层位置出一行注记） */
+  errorsByPath?: ReadonlyMap<string, string>;
   expandedPaths: ReadonlySet<string>;
-  activePath: string | null;
-  /** git 状态：相对 root 的路径 → 状态 */
-  gitStatus?: ReadonlyMap<string, GitFileStatus>;
+  activePath?: string | null;
   onToggleDir(path: string): void;
   onOpenFile(path: string): void;
-  /** 「提及」：把相对路径插入输入框（`@path`）。不传则不渲染该按钮 */
-  onAtMention?(relativePath: string, isDir: boolean): void;
 }
 
-/** 目录优先、再按名称排序（A 类按设计规范的 dirent 排序语义） */
-export function sortEntries(entries: readonly FileListEntry[]): FileListEntry[] {
-  return [...entries].sort((a, b) => {
-    const aDir = a.type === 'directory';
-    const bDir = b.type === 'directory';
-    if (aDir !== bDir) return aDir ? -1 : 1;
-    return a.name.localeCompare(b.name);
+/** 自然、大小写不敏感的名称序（DSH `byName` 同款 Collator）。 */
+const byName = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
+
+/** 目录优先，再按名称自然序（DSH `orderEntries` 同形）。 */
+export function orderEntries(entries: readonly FileListEntry[]): FileListEntry[] {
+  return [...entries].sort((left, right) => {
+    const group = Number(right.type === 'directory') - Number(left.type === 'directory');
+    return group !== 0 ? group : byName.compare(left.name, right.name);
   });
 }
 
-/** git 徽标色（设计规范 `GIT_STATUS_COLORS`） */
-const GIT_STATUS_COLORS: Record<GitFileStatusKind, string> = {
-  modified: '#d6a84b',
-  added: 'var(--green)',
-  deleted: 'var(--red)',
-  renamed: 'var(--accent)',
-  untracked: 'var(--green)',
-  conflict: 'var(--red)',
-};
+/** 一层的行表：加载中 / 失败 / 空 / 条目 / 被忽略注记。 */
+function Level({ path, tree }: { path: string; tree: FileTreeProps }) {
+  const { t } = useI18n();
+  const level = tree.entriesByPath.get(path);
+  const error = tree.errorsByPath?.get(path);
 
-const GIT_STATUS_CODES: Record<GitFileStatusKind, string> = {
-  modified: 'M',
-  added: 'A',
-  deleted: 'D',
-  renamed: 'R',
-  untracked: 'U',
-  conflict: 'C',
-};
-
-/** 缩进几何：参照实现的 `8 + depth * 12` */
-function indentOf(depth: number): number {
-  return 8 + depth * 12;
-}
-
-/** 展开箭头（dsh-file-explorer 同款 16viewBox / 12px 描边箭头） */
-function Chevron({ open }: { open: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      width={12}
-      height={12}
-      fill="none"
-      aria-hidden="true"
-      className={`${styles.chev}${open ? ` ${styles.chevOpen}` : ''}`}
-    >
-      <path
-        d="M6 3.5 10.5 8 6 12.5"
-        stroke="currentColor"
-        strokeWidth={1.7}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function GitStatusBadge({ status, label }: { status: GitFileStatus; label: string }) {
-  return (
-    <span
-      role="img"
-      title={label}
-      aria-label={label}
-      className={styles.badge}
-      style={{ color: GIT_STATUS_COLORS[status.kind] }}
-    >
-      {GIT_STATUS_CODES[status.kind]}
-    </span>
-  );
-}
-
-export function FileTree({
-  root,
-  entriesByPath,
-  loadingPaths,
-  expandedPaths,
-  activePath,
-  gitStatus,
-  onToggleDir,
-  onOpenFile,
-  onAtMention,
-}: FileTreeProps) {
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-  useScrollbarVisibility(scrollRef);
-  const rootEntries = entriesByPath.get(root);
-
-  if (rootEntries === undefined) {
-    return <p className={styles.hint}>展开以加载文件…</p>;
+  if (level === undefined) {
+    return <li className={styles.note}>{t('files.treeLoading')}</li>;
   }
-
+  if (tree.loadingPaths?.has(path) === true && level.length === 0) {
+    return <li className={styles.note}>{t('files.treeLoading')}</li>;
+  }
+  if (level.length === 0 && error === undefined) {
+    return <li className={styles.note}>{t('files.treeEmpty')}</li>;
+  }
   return (
-    // ARIA tree 模式要求 role=tree/item/group（无等价原生元素）
-    <div ref={scrollRef} className={`scrollbar-subtle ${styles.tree}`} role="tree">
-      <TreeLevel
-        entries={sortEntries(rootEntries)}
-        depth={0}
-        entriesByPath={entriesByPath}
-        loadingPaths={loadingPaths}
-        expandedPaths={expandedPaths}
-        activePath={activePath}
-        gitStatus={gitStatus}
-        root={root}
-        onToggleDir={onToggleDir}
-        onOpenFile={onOpenFile}
-        onAtMention={onAtMention}
-      />
-    </div>
-  );
-}
-
-interface TreeLevelProps extends Omit<FileTreeProps, 'root'> {
-  entries: FileListEntry[];
-  depth: number;
-  root: string;
-}
-
-function TreeLevel({ entries, depth, ...rest }: TreeLevelProps) {
-  return (
-    // biome-ignore lint/a11y/useSemanticElements: ARIA tree 模式的 group 角色（无等价原生元素）
-    <div role="group" className={styles.group}>
-      {entries.map((entry) => (
-        <TreeNode key={entry.path} entry={entry} depth={depth} {...rest} />
+    <>
+      {error !== undefined && <li className={styles.note}>{error}</li>}
+      {orderEntries(level).map((entry) => (
+        <Entry key={entry.name} entry={entry} tree={tree} />
       ))}
-      {entries.length === 0 && (
-        <p className={styles.hint} style={{ paddingLeft: indentOf(depth) }}>
-          空目录
-        </p>
-      )}
-    </div>
+    </>
   );
 }
 
-function TreeNode({
-  entry,
-  depth,
-  entriesByPath,
-  loadingPaths,
-  expandedPaths,
-  activePath,
-  gitStatus,
-  root,
-  onToggleDir,
-  onOpenFile,
-  onAtMention,
-}: Omit<TreeLevelProps, 'entries'> & { entry: FileListEntry }) {
-  const isDir = entry.type === 'directory';
-  const expanded = expandedPaths.has(entry.path);
-  const children = entriesByPath.get(entry.path);
-  const relative = getRelativeFilePath(entry.path, root);
-  const status = gitStatus?.get(relative);
-  const [hovered, setHovered] = useState(false);
-  const loading = loadingPaths?.has(entry.path) === true;
-  const active = activePath === entry.path;
-
-  return (
-    <div role="treeitem" tabIndex={-1} aria-expanded={isDir ? expanded : undefined}>
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: 按参照实现文件树行（点击展开/打开） */}
-      {/* biome-ignore lint/a11y/useKeyWithClickEvents: 同上——键盘入口由 role=tree 的容器与行内按钮提供 */}
-      <div
-        className={`${styles.row}${active ? ` ${styles.rowActive}` : ''}`}
-        style={{ paddingLeft: indentOf(depth) }}
-        onClick={() => (isDir ? onToggleDir(entry.path) : onOpenFile(entry.path))}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-      >
-        {isDir ? (
-          <Chevron open={expanded} />
-        ) : (
-          <span className={`${styles.chev} ${styles.chevNone}`} />
+/** 一条目：目录切换 / 文件打开（协议只有这两种；防御分支不出）。 */
+function Entry({ entry, tree }: { entry: FileListEntry; tree: FileTreeProps }) {
+  const path = entry.path;
+  if (entry.type === 'directory') {
+    const expanded = tree.expandedPaths.has(path);
+    return (
+      <li className={styles.item}>
+        <button
+          type="button"
+          className={styles.row}
+          aria-expanded={expanded}
+          onClick={() => tree.onToggleDir(path)}
+        >
+          <span className={styles.icon}>
+            {expanded ? <IconFolderOpenRegular size={16} /> : <IconFolderCloseRegular size={16} />}
+          </span>
+          <span className={styles.name} title={entry.name}>
+            {entry.name}
+          </span>
+        </button>
+        {expanded && (
+          <ul className={styles.level}>
+            <Level path={path} tree={tree} />
+          </ul>
         )}
-        <span className={styles.icon}>
-          {loading ? (
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              aria-hidden="true"
-            >
-              <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4" />
-            </svg>
-          ) : (
-            <FileIcon
-              name={entry.name}
-              isDir={isDir}
-              expanded={expanded}
-              tone={isDir ? 'accent' : 'muted'}
-            />
-          )}
+      </li>
+    );
+  }
+  return (
+    <li className={styles.item}>
+      <button
+        type="button"
+        className={`${styles.row}${tree.activePath === path ? ` ${styles.rowActive}` : ''}`}
+        onClick={() => tree.onOpenFile(path)}
+      >
+        <span className={styles.fileIcon}>
+          <FileTypeIcon path={entry.name} size={16} />
         </span>
-        <span className={styles.name} title={entry.path}>
+        <span className={styles.name} title={entry.name}>
           {entry.name}
         </span>
-        {!hovered && !isDir && status !== undefined && (
-          <GitStatusBadge status={status} label={status.kind} />
-        )}
-        {/* hover：右侧「提及 / 下载」 */}
-        {onAtMention !== undefined && hovered && (
-          <button
-            type="button"
-            className={styles.action}
-            style={{ right: isDir ? 4 : 30 }}
-            onClick={(e) => {
-              e.stopPropagation();
-              onAtMention(relative, isDir);
-            }}
-            title="插入路径"
-            aria-label="插入路径"
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <circle cx="12" cy="12" r="4" />
-              <path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-4 8" />
-            </svg>
-          </button>
-        )}
-        {hovered && !isDir && (
-          <a
-            href={fileByteUrl(entry.path, 'download')}
-            download
-            onClick={(e) => e.stopPropagation()}
-            title="下载"
-            aria-label="下载"
-            className={styles.action}
-            style={{ right: 4 }}
-          >
-            <svg
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            <span className="sr-only">下载</span>
-          </a>
-        )}
-      </div>
-      {isDir && expanded && children !== undefined && (
-        <TreeLevel
-          entries={sortEntries(children)}
-          depth={depth + 1}
-          entriesByPath={entriesByPath}
-          loadingPaths={loadingPaths}
-          expandedPaths={expandedPaths}
-          activePath={activePath}
-          gitStatus={gitStatus}
-          root={root}
-          onToggleDir={onToggleDir}
-          onOpenFile={onOpenFile}
-          onAtMention={onAtMention}
-        />
-      )}
-    </div>
+      </button>
+    </li>
+  );
+}
+
+/** 文件树本体：根层 + 已展开的各层。 */
+export function FileTree(props: FileTreeProps) {
+  const { t } = useI18n();
+  const rootLevel = props.entriesByPath.get(props.root);
+  if (rootLevel === undefined && props.loadingPaths?.has(props.root) !== true) {
+    return <p className={styles.note}>{t('files.treeLoading')}</p>;
+  }
+  return (
+    <ul className={styles.level}>
+      <Level path={props.root} tree={props} />
+    </ul>
   );
 }

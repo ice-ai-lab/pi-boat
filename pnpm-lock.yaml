@@ -414,6 +414,9 @@ importers:
       '@ice-ai/protocol':
         specifier: workspace:*
         version: link:../protocol
+      '@shikijs/langs':
+        specifier: ^4.4.3
+        version: 4.4.3
       ansi_up:
         specifier: ^6.0.6
         version: 6.0.6

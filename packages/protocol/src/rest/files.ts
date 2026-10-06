@@ -76,8 +76,6 @@ export type FileListEntry = {
 export type FileListResponse = {
   path: string;
   entries: FileListEntry[];
-  /** 被忽略的目录名（node_modules / .git …），前端可提示"这些没列" */
-  ignored?: string[];
 };
 
 export type FileMetaResponse = {

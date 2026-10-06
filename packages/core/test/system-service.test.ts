@@ -107,13 +107,11 @@ describe('SystemService：文件与索引', () => {
   const realRoot = () => realpathSync(root);
   const service = () => new SystemService({ guard: new PathGuard([root]) });
 
-  it('listDirectory：目录在前、忽略体积目录（node_modules）并回报忽略项；敏感目录**不列**', async () => {
+  it('listDirectory：如实列出整目录（含 node_modules，2026-10-06 起不再隐藏）；敏感目录**不列**', async () => {
     const listed = await service().listDirectory(root);
-    expect(listed?.entries.map((entry) => entry.name)).toEqual(['src']);
-    expect(listed?.ignored).toContain('node_modules');
+    expect(listed?.entries.map((entry) => entry.name)).toEqual(['node_modules', 'src']);
     // .ssh 连存在性都不暴露（上一条测试在 root 里建过它）
     expect(listed?.entries.some((entry) => entry.name === '.ssh')).toBe(false);
-    expect(listed?.ignored).not.toContain('.ssh');
   });
 
   it('listDirectory：roots 外返回 null（**列目录不适用会话引用放行**）', async () => {

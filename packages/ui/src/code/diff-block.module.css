@@ -1,0 +1,92 @@
+.block {
+  overflow: hidden;
+}
+
+.body {
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr);
+  padding: 6px 0 20px;
+  font: var(--dsw-font-markdown-code-block);
+  overflow-x: auto;
+}
+
+.line {
+  box-sizing: border-box;
+  min-height: 1lh;
+  padding: 0 22px;
+  white-space: pre;
+}
+
+.block[data-code-wrap='true'] .body {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.block[data-code-wrap='true'] .line {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.path {
+  color: var(var(--text-muted));
+  font-weight: 500;
+}
+
+.gap {
+  color: var(var(--text-dim));
+}
+
+.del::before {
+  content: '- ';
+}
+
+.del {
+  color: var(var(--red));
+  background: var(--dsw-alias-code-diff-deleted);
+  box-shadow: inset 3px 0 0 var(var(--red));
+}
+
+.add::before {
+  content: '+ ';
+}
+
+.add {
+  color: var(var(--green));
+  background: var(--dsw-alias-code-diff-added);
+  box-shadow: inset 3px 0 0 var(var(--green));
+}
+
+.context {
+  color: var(var(--text-muted));
+}
+
+.context::before {
+  content: '  ';
+}
+
+.expand {
+  display: block;
+  width: 100%;
+  padding: 0 22px;
+  border: none;
+  background: transparent;
+  color: var(var(--text-dim));
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.expand:hover {
+  color: var(var(--text-muted));
+}
+
+.empty {
+  padding: 8px 12px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+/* 正文行内 token 着色走 shiki 的 `--shiki-*` 变量（span style 自带），
+   这里只兜底继承色。 */
+.codeText {
+  color: inherit;
+}

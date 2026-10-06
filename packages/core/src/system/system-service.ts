@@ -283,12 +283,9 @@ export class SystemService {
     }
 
     const entries: FileListEntry[] = [];
-    const ignored: string[] = [];
     for (const dirent of dirents) {
-      if (IGNORED_DIRECTORY_NAMES.includes(dirent.name)) {
-        ignored.push(dirent.name);
-        continue;
-      }
+      // 体积目录（node_modules 等）**不隐藏**（2026-10-06 定案，DSH 同口径：文件浏览器
+      // 如实列出整目录）；敏感路径（.ssh / .aws …）仍连存在性都不列——那是安全边界
       const child = join(decision.path, dirent.name);
       // 敏感路径（.ssh / .aws …）连**存在性**都不列：读被 check() 挡住，
       // 但列出名字仍然等于告诉调用方凭据放在哪
@@ -312,7 +309,7 @@ export class SystemService {
       return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
     });
 
-    return { path: decision.path, entries, ...(ignored.length > 0 ? { ignored } : {}) };
+    return { path: decision.path, entries };
   }
 
   async meta(path: string, references: SessionReferences = []): Promise<FileMetaResponse | null> {

@@ -1,7 +1,7 @@
 import type { FileTab } from '@ice-ai/client';
 import { getFileName } from '@ice-ai/client';
 import { X } from 'lucide-react';
-import { FileIcon } from './file-icon';
+import { FileTypeIcon } from '../code/file-type-icon';
 import styles from './file-tabs.module.css';
 
 /**
@@ -52,7 +52,7 @@ export function FileTabs({
           >
             <button type="button" className={styles.main} onClick={() => onActivate(tab.path)}>
               <span className={styles.icon}>
-                <FileIcon name={tab.path} />
+                <FileTypeIcon path={tab.path} size={14} />
               </span>
               <span className={styles.label}>{label}</span>
               {dirtyPaths?.has(tab.path) === true && (

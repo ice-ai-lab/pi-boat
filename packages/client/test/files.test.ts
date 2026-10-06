@@ -16,7 +16,6 @@ import {
 } from '../src/files/file-paths';
 import {
   documentPreviewKind,
-  formatFileSize,
   getFileExt,
   getImageMime,
   getLanguageFromPath,
@@ -91,12 +90,6 @@ describe('file-types', () => {
     expect(isProbablyTextPath('/a/README')).toBe(true);
     expect(isProbablyTextPath('/a/.env.local')).toBe(true);
     expect(isProbablyTextPath('/a/x.bin')).toBe(false);
-  });
-
-  it('体积格式化', () => {
-    expect(formatFileSize(512)).toBe('512 B');
-    expect(formatFileSize(2048)).toBe('2.0 KB');
-    expect(formatFileSize(5 * 1024 * 1024)).toBe('5.0 MB');
   });
 });
 

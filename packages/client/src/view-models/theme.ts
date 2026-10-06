@@ -2,8 +2,7 @@
  * 主题（ADR-0020 视觉基准；2026 年起精简为三态）。
  *
  * - 偏好是 `light/dark/auto` 三选一；`auto` 解析为跟随系统的 `dark` / `light`；
- * - 落地写 `data-theme`（theme.css 的变量块挂它）+ `dark` class（`html.dark` 选择器
- *   与 `.catppuccin-file-icon` 等靠它生效）。
+ * - 落地写 `data-theme`（theme.css 的变量块挂它）+ `dark` class（`html.dark` 选择器靠它）。
  *
  * 纯逻辑 + DOM 写入都在这里，React 订阅（含 View Transition 圆形揭示）在 app 层。
  */
@@ -37,7 +36,7 @@ export function themeLabel(preference: ThemePreference): string {
 
 /** 落到 DOM：`data-theme` + `dark` class（设计规范 `applyDomTheme`） */
 export function applyTheme(theme: ResolvedTheme, root: HTMLElement): void {
-  root.dataset['theme'] = theme;
+  root.dataset.theme = theme;
   root.classList.toggle('dark', isDarkTheme(theme));
 }
 

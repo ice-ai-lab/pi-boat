@@ -35,7 +35,7 @@ import {
   EmptyState,
   ExtensionRequestDialog,
   ExtensionStatusBar,
-  FileIcon,
+  FileTypeIcon,
   formatMoney,
   hasSessionBranches,
   MessageList,
@@ -676,8 +676,12 @@ export function ChatPane({
 
   const mentionItems: SuggestionItem[] = mentionEntries.map((entry) => ({
     label: entry.path,
-    // 设计规范的 `@` 浮层每行带文件/目录图标（ChatInput:2060 getFileIcon）
-    icon: <FileIcon name={entry.path.split('/').pop() ?? entry.path} isDir={entry.isDir} />,
+    // `@` 浮层每行带文件/目录图标（目录走 FileTypeIcon 的 folder 字形，文件走类型色字形）
+    icon: entry.isDir ? (
+      <FileTypeIcon kind="folder" size={14} />
+    ) : (
+      <FileTypeIcon path={entry.path.split('/').pop() ?? entry.path} size={14} />
+    ),
     hint: entry.isDir ? '目录' : undefined,
   }));
 

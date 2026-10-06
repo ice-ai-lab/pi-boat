@@ -1,14 +1,13 @@
 /* FileTabs 样式（CSS Modules，files 域）。
-   2026 视觉对齐 dsh-file-explorer：36px 条内放 28px 圆角（8）胶囊标签，
-   去掉标签间描边，活动态用实色底 + 主文字色。 */
+   2026-10-06 对齐 DSH：38px 条内放 28px 圆角 8 胶囊标签，激活态 = 浅灰胶囊（--bg-hover）。 */
 
 .bar {
   display: flex;
   align-items: center;
   gap: 2px;
-  height: 36px;
+  height: 38px;
   padding: 0 6px;
-  /* 底色由宿主顶栏提供（files-pane 的 topBar 已是 --bar-tint），这里透明避免叠两层 */
+  /* 底色由宿主顶栏提供（files-pane 的 topBar 已是平面 --bg），这里透明避免叠两层 */
   background: transparent;
   overflow-x: auto;
   overflow-y: hidden;
@@ -44,13 +43,13 @@
 }
 
 .tabActive {
-  background: var(--bg);
+  background: var(--bg-hover);
   color: var(--text);
   font-weight: 500;
 }
 
 .tabActive:hover {
-  background: var(--bg);
+  background: var(--bg-hover);
 }
 
 .main {

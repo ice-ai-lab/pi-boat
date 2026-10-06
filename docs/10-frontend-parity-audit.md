@@ -490,13 +490,13 @@ globals.css    A=288  B=271  仅 A 有 47：
 - [ ] **T4-1** 落地 `MermaidBlock`（A `MermaidBlock.tsx` 329 行 + zoom dialog + SVG 下载），md 预览与聊天都接。〔F2〕
 - [ ] **T4-2** `FileViewer` 补 `displayModes = ['source','preview','diff']` + md/HTML preview（iframe sandbox）+ md/html **默认进 preview**。〔F3〕
 - [ ] **T4-3** 落地 `FrontmatterCard`（`remark-frontmatter`）。〔F4〕
-- [ ] **T4-4** `CodeViewer` 接语法高亮（**见 Q3**）+ 1000 行降级 + 行号列固定 `width:48` + `data-line-number`。〔F5/F21〕
+- [x] **T4-4** 代码高亮已接 shiki（ADR-0029）；2026-10-06 起引擎/查看器/代码块统一为 `code/`（ADR-0034），行号走 CodeBlock `lineNumbers`。〔F5/F21〕
 - [ ] **T4-5** 上传交互升级（头部图标 + 进度条 + 冲突三选一 + 汇总 + 树内蓝点）。后端已就绪。〔F8〕
 - [ ] **T4-6** 图片查看器按 A `ImageViewer` 重写（path + `W×H` + 大小 + live + 棋盘格），删自造缩放栏。〔F9〕
 - [ ] **T4-7** 补 `AudioViewer`/`VideoViewer`；PDF 增强 toolbar + 分页。〔F10〕
 - [ ] **T4-8** 查看器「@ 提及」按钮 + 选中行提及（Cmd/Ctrl+I）+ 选区→行范围算法。〔F16〕
 - [ ] **T4-9** 每页签查看器状态持久化（`viewerState` + `viewerRevision` + `<FileViewer key>`）。〔F17〕
-- [ ] **T4-10** `DiffView` 改 3 行上下文折叠 + `... N unchanged lines ...` + **单列**行号，删自造 `+N/-N` 汇总条。〔F18〕
+- [x] **T4-10** 2026-10-06 整体换 `code/DiffBlock`（DSH 观感，ADR-0034）。〔F18〕
 - [ ] **T4-11** toolbar 内联值（`gap:8`/`padding:'5px 12px'`/`var(--bg)`/fontSize 11）+ meta 三段（语言·行数·大小）；删自造「在新标签页打开」、删「二进制文件」分支、空态改单行居中。〔F11/F20/F22〕
 - [ ] **T4-12** TabBar 补中键关闭 + `←/→/Home/End` 轮转。〔F13〕
 - [ ] **T4-13** ~~live watch~~ ⛔ **阻塞：本仓协议无 `type=watch`**

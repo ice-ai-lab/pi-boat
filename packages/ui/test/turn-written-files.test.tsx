@@ -23,7 +23,7 @@ describe('TurnWrittenFiles（chip 形态）', () => {
     expect(html).toContain('<ul aria-label="Files changed"');
     expect(html).toContain('title="/repo/docs/10-frontend-parity-audit.md"');
     expect(html).toContain('>10-frontend-parity-audit.md</span>');
-    // 文件图标按扩展名取（.md → catppuccin markdown），不是纯文字（file-icon.module.css 的 .icon）
+    // 文件图标按扩展名取（.md → FileTypeIcon 的 markdown 字形），不是纯文字（file-type-icon.module.css 的 .icon）
     expect(html).toContain('_icon_');
     // 无标题行（旧实现的「本轮改动 N 个文件」必须消失）
     expect(html).not.toContain('本轮改动');

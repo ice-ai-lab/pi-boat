@@ -117,7 +117,22 @@
   --glass-pop-shadow:
     0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 20px -6px rgba(0, 0, 0, 0.14),
     0 30px 70px -24px rgba(0, 0, 0, 0.32);
+
+  /* ---- shiki css-variables 主题 token 色板（code/highlight.ts 的 css-variables 主题消费；
+       取色 = GitHub Light Default，2026 对齐 DSH 方案） ---- */
+  --shiki-foreground: #1f2328;
+  --shiki-background: #ffffff;
+  --shiki-token-comment: #6e7781;
+  --shiki-token-keyword: #cf222e;
+  --shiki-token-string: #0a3069;
+  --shiki-token-string-expression: #0a3069;
+  --shiki-token-constant: #0550ae;
+  --shiki-token-function: #0550ae;
+  --shiki-token-parameter: #953800;
+  --shiki-token-punctuation: #1f2328;
+  --shiki-token-link: #0a3069;
 }
+
 
 html.dark,
 [data-theme="dark"] {
@@ -186,6 +201,19 @@ html.dark,
   --tool-ls-bg: rgba(148, 173, 192, 0.13);
 
   --elev-panel: 0 2px 8px rgba(0, 0, 0, 0.45), 0 22px 50px -20px rgba(0, 0, 0, 0.7);
+
+  /* ---- shiki css-variables 主题 token 色板（暗色 = GitHub Dark Default） ---- */
+  --shiki-foreground: #e6edf3;
+  --shiki-background: #0d1117;
+  --shiki-token-comment: #8b949e;
+  --shiki-token-keyword: #ff7b72;
+  --shiki-token-string: #a5d6ff;
+  --shiki-token-string-expression: #a5d6ff;
+  --shiki-token-constant: #79c0ff;
+  --shiki-token-function: #79c0ff;
+  --shiki-token-parameter: #ffa657;
+  --shiki-token-punctuation: #e6edf3;
+  --shiki-token-link: #a5d6ff;
 }
 
 /* WebKit 在已安装的桌面/主屏应用里用 dvh/innerHeight 会少掉状态栏那一条；standalone 下没有
@@ -200,6 +228,7 @@ html.dark,
 /* 语义 Tailwind token（暗色经 var() 间接引用，切主题即时生效）。
    规范名在前（`bg-bg-panel` / `text-text-muted` / `border-border` …），
    旧 pi-boat 语义名保留为别名（`bg-surface-side` / `text-fg-muted` / `border-line-2` …）。 */
+
 @theme inline {
   /* 规范名 */
   --color-bg: var(--bg);

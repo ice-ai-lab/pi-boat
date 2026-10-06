@@ -1,0 +1,6 @@
+/* 文件类型字形统一走主题蓝（accent）：文件浏览器的图标整体读作蓝色系，
+   不再按 excel 红 / pdf 绿一类的多色区分（原 per-kind 色板连同坏的
+   var(var(--x)) 写法一并移除）。宿主仍可用 --ice-file-type-icon-color 覆盖。 */
+.icon {
+  color: var(--ice-file-type-icon-color, var(--accent));
+}

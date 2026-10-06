@@ -1,5 +1,5 @@
 import { getFileName } from '@ice-ai/client';
-import { getFileIcon } from '../files/file-icon';
+import { FileTypeIcon } from '../code/file-type-icon';
 import { useI18n } from '../i18n/i18n-provider';
 
 /**
@@ -34,7 +34,7 @@ export function TurnWrittenFiles({ paths, onOpen }: TurnWrittenFilesProps) {
               onClick={() => onOpen(path)}
               className="inline-flex cursor-pointer items-center gap-[4px] rounded-[6px] border border-border bg-bg-subtle px-[8px] py-[2px] font-mono text-[12px] text-text"
             >
-              {getFileIcon(name, 12)}
+              <FileTypeIcon path={name} size={12} />
               <span>{name}</span>
             </button>
           </li>

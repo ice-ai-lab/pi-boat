@@ -131,10 +131,3 @@ export function getLanguageFromPath(filePath: string): string {
   if (ext.length > 0) return EXT_TO_LANGUAGE[ext] ?? 'text';
   return EXT_TO_LANGUAGE[getBaseName(filePath).toLowerCase()] ?? 'text';
 }
-
-/** 人类可读体积（列表/查看器抬头） */
-export function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}

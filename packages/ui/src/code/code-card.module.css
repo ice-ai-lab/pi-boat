@@ -1,0 +1,91 @@
+/* 代码卡片头（语言标 + 动作）——移植自 DSH CodeCard.module.css（MIT），token 换成 pi-boat 的。
+   `.card` 同时是 DiffBlock 的根类；代码底色/字体/圆角以 `--ice-code-*` 局部变量在此定义，
+   code-block.module.css 在自己的 `.block` 上定义同款（两个组件不共父级）。 */
+
+.card {
+  --ice-code-bg: color-mix(in srgb, var(--bg) 92%, var(--bg-panel));
+  --ice-code-radius: 10px;
+  --ice-code-content-font: calc(12px + var(--chat-font-size-offset, 0px)) / 1.62 var(--font-mono);
+
+  position: relative;
+  margin: 16px 0;
+  color: var(--text);
+  background: var(--ice-code-bg);
+  border-radius: var(--ice-code-radius);
+  font: var(--ice-code-content-font);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 18px 8px 22px;
+  background: var(--ice-code-bg);
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
+  color: var(--text-muted);
+  font: 11px/18px var(--font);
+}
+
+.heading {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+
+.language {
+  color: var(--text-dim);
+  flex: none;
+  font-family: var(--font-mono);
+}
+
+.title {
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: none;
+}
+
+.status {
+  margin-right: 8px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  color: var(--text-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.action:hover {
+  background: var(--bg-hover);
+}
+
+.action:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.body {
+  padding: 6px 22px 20px;
+  font: var(--ice-code-content-font);
+  overflow-x: auto;
+}

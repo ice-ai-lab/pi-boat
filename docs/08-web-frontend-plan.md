@@ -120,7 +120,7 @@ src/
 │   └── helpers/                # message-display / streaming-message / tool-names / ansi …
 ├── sidebar/                    # SessionSidebar(容器*) / SessionRow / ProjectGroupHeader /
 │                               #   WorktreeSwitcher / SessionSearch / FileTree / DirectoryPicker
-├── files/                      # FileTabs / FileViewer / CodeViewer / ImagePreview /
+├── files/                      # FileTabs / FileViewer / FileTree / ImagePreview（代码渲染在 code/，ADR-0034）
 │                               #   file-viewer-state
 ├── settings/                   # SettingsPanel(容器*) / GeneralSection / ModelsConfig /
 │                               #   EnabledModelsSection / SkillsConfig / PluginsConfig / FrontmatterCard

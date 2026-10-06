@@ -112,8 +112,8 @@
 | `UserBubble` | `text` `images?` `at` | `.msg-user` `.bub` `.tm` |
 | `AssistantTurn` | `turn: Turn` | `.msg-asst` → `.model-tag` + `.flow` + 用量胶囊行（`usage-pills`，2026-10-05 起替代 `.usage-line`） |
 | `MarkdownView` | `markdown`（流式增量） | `.md` 全量排版 + `.tbl` 表格 wrap |
-| `CodeBlock` | `code` `lang` `onCopy` | `.codeblk`（banner + 语言 + 复制 + `pre`） |
-| `DiffView` | `lines`（来自 `toolResult.details.diff`） | `.diff`（行号 + `+`/`-`/ctx 前缀）——**无需 diff 库、无需协议改动**，见 §11.2 行 5 附注 |
+| `CodeBlock` | `code` `lang` `streaming` `lineNumbers` `toolbarLabels`… | **2026-10-06 起 = `code/CodeBlock`（DSH 移植，ADR-0034）**：卡片头（语言标 + 折行 + 复制）+ 三渲染臂（流式增量 token / 静止 shiki HTML / 纯文本兜底）；聊天不带行号，行号只在文件查看器 |
+| `DiffBlock` | `patch`（服务端 unified patch） | **2026-10-06 起 = `code/DiffBlock`（DSH 观感，ADR-0034）**：path 行 + `⋯` 缝 + 增删行语义色（`::before` 前缀 + 3px 色条）+ 中段折叠 + 折行/复制；替代原 `.diff` 行号表格 |
 | `CollapseRow` | `tag` `title` `durationMs` `open` `onToggle` `children` | `.disc` 原子（耗时 + 限高滚动体）；**轨迹行不画 chev 箭头**（展开指示只在 `ProcessGroup` 组头保留） |
 | `ToolTag` | `toolName` `status` | `.tag.tool.{bash,read,edit,write,grep,find,ls}`，色表见 §7；失败态不改签色，标题字改红 |
 | `ThinkingRow` | `text` `streaming` `durationMs` | 收起 = 「思考」签 + 首行预览 + 耗时（`.shimmer` 流式态）；**展开 = 与标题合并为同一枚卡片**（灯泡 + 全文，不再另挂 `.disc-inner`） |
@@ -148,6 +148,19 @@
 > 查看器标题行 36px、图标动作改 28×28 圆形幽灵按钮、内容/diff 分段改填充底；筛选框 28px /
 > 圆角 10 / 透明底、聚焦才描边；标签与工具行改 28px 圆角胶囊。样式落在 `files/*.module.css`
 > 与 `apps/web/src/panes/*.module.css`（ADR-0028 的按域就近模块化口径）。
+>
+> **2026-10-06（DSH 对齐，ADR-0034）**：`FileTree` 按 DeepSeek Harness FilesBody 重做——
+> 目录优先 + `Intl.Collator` 自然序、折叠层缓存条目、失败/空目录/被忽略项各占一行注记；
+> 行图标换 `code/FileTypeIcon` 全彩类型字形（Catppuccin 精灵图退役），行内不再挂 hover
+> 提及/下载与 git 徽标（收敛到「变更文件」区块与查看器）；工具行加 `PathLabel` 根路径。
+> 查看器正文换 `code/CodeBlock`（行号 + viewport 高亮 + 折行），diff 换 `code/DiffBlock`。
+>
+> **2026-10-06 二轮（同日定案）**：查看器操作行精简——不显示行数/体积 meta，不出
+> 复制/下载/新标签页动作（保留提及/折行与内容/diff 切换）；markdown 文件默认用
+> `MarkdownView` 渲染，右上角出「Markdown / 代码 / 纯文本」查看方式选择器（选择持久在页签，
+> `FileTab.previewMode`）；文件浏览器**不再隐藏** node_modules 等体积目录（DSH 同口径，
+> 敏感路径 .ssh/.aws 仍不列——安全边界）；配色平面化：顶条/工具行/标题行 38px + 0.5px
+> 发丝线、平面 `--bg` 底、激活页签浅灰胶囊、图标按钮圆角 8。
 
 ### 4.4 不进 ui（留 `apps/web`）
 
@@ -310,7 +323,7 @@ AppShell 三栏布局 + 拖拽/折叠（`makeDrag`）、主题切换、路由、
 | 2 | `#trajScroll` 在脚本中被查询，DOM 里无此元素 | 死代码，删 |
 | 3 | 演示文案残留旧架构/端口：`core:8787`、`localhost:5173`、`VITE v6.3.5` | 改为 9527 / 9528（`PORTS` 单一来源） |
 | 4 | 侧栏会话项写死"19 条消息""昨天"分组等假数据 | 接 `SessionInfo.modified/messageCount` |
-| 5 | `.viewer-code` 自养高亮（`.kw/.st/.fn/.cm`） | ~~换 shiki（与 `MarkdownView` 的 `CodeBlock` 同源）~~ **已落地**：统一 `packages/ui/src/highlight/`，一套高亮器（ADR-0029） |
+| 5 | `.viewer-code` 自养高亮（`.kw/.st/.fn/.cm`） | ~~换 shiki~~ **已落地并再演进**：ADR-0029 统一高亮；2026-10-06 起高亮引擎为 `code/highlight.ts`（DSH 移植：shiki core + JS regex 引擎 + 懒语法，ADR-0034） |
 | 6 | `.tnode`/`.mm-bar` 用 `div` 承担点击 | 改 `button`（§8.3、§9.2） |
 | 7 | 原型 hero 版本文案 `web v0.1.0` | 接构建期注入的真实版本号 |
 

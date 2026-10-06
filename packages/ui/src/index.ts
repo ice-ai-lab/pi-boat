@@ -15,6 +15,45 @@ export { MessageList } from './chat/message-list';
 export { QueueBar } from './chat/queue-bar';
 export type { SuggestionItem } from './chat/suggestion-menu';
 export { WorkspacePlaceholder } from './chat/workspace-placeholder';
+// files 册（docs/06 §4.3）
+export {
+  CodeBlock,
+  type CodeBlockProps,
+} from './code/code-block';
+export {
+  CODE_FILE_TYPES,
+  type CodeFileType,
+  classifyCodeFileType,
+  isCodeFileType,
+  isLinkCodeExtension,
+} from './code/code-file-types';
+export { useCodeHighlighter } from './code/code-highlighting';
+export { CodeLineSpans, CodeRuns } from './code/code-runs';
+export { CodeToolbar, type CodeToolbarLabels } from './code/code-toolbar';
+export {
+  buildRows,
+  DEFAULT_DIFF_MAX_LINES,
+  DiffBlock,
+  type DiffBlockLabels,
+} from './code/diff-block';
+export {
+  classifyFileType,
+  type FileType,
+  FileTypeIcon,
+  type FileTypeKind,
+  fileExtension,
+} from './code/file-type-icon';
+export {
+  grammarForHint,
+  grammarLoadCount,
+  type HighlightSpan,
+  highlightLines,
+  highlightToHtml,
+  StreamingHighlightSession,
+  subscribeGrammarLoaded,
+  supportsHighlighting,
+} from './code/highlight';
+export { PathLabel } from './code/path-label';
 // 费用显示币种（同 i18n 的容器例外：状态在 ui、取数由宿主注入）
 export {
   type Currency,
@@ -27,10 +66,8 @@ export {
 // extension 册（ADR-0012）
 export { ExtensionRequestDialog } from './extension/extension-request-dialog';
 export { ExtensionStatusBar } from './extension/extension-status-bar';
-// files 册（docs/06 §4.3）
-export { FileIcon } from './files/file-icon';
 export { FileTabs } from './files/file-tabs';
-export { FileTree } from './files/file-tree';
+export { FileTree, orderEntries } from './files/file-tree';
 export { FileViewer } from './files/file-viewer';
 // i18n（docs/06 §1 第 5 处 ui 容器例外）
 export { formatRelativeTime } from './i18n/format';

@@ -1,8 +1,7 @@
 import type { ToolRow as ToolRowModel } from '@ice-ai/client';
-import { formatDuration } from '@ice-ai/client';
+import { formatDuration, getLanguageFromPath } from '@ice-ai/client';
 import { useState } from 'react';
-import { shikiLanguageFor } from '../highlight/code-highlight';
-import { HighlightedCode } from '../highlight/highlighted-code';
+import { CodeRuns } from '../code/code-runs';
 import { cn } from '../utils/cn';
 import { ChatImageList } from './chat-image';
 import { TrailTag } from './trail';
@@ -23,12 +22,15 @@ const TAG_TONE: Record<string, string | undefined> = {
  * 工具输出的 shiki 语言（F5）：只按形态能确定的才高亮——
  * `read` 的标题是文件路径，`bash` 是命令行产物，`edit` 吐 patch；其余（grep/find/ls 的表格文本）保持纯文本。
  */
-function outputLanguage(row: ToolRowModel): string | null {
-  if (row.output === null || row.output.length === 0) return null;
-  if (row.toolName === 'read') return shikiLanguageFor(row.title);
+function outputLanguage(row: ToolRowModel): string | undefined {
+  if (row.output === null || row.output.length === 0) return undefined;
+  if (row.toolName === 'read') {
+    const language = getLanguageFromPath(row.title);
+    return language === 'text' ? undefined : language;
+  }
   if (row.toolName === 'bash') return 'bash';
   if (row.toolName === 'edit') return 'diff';
-  return null;
+  return undefined;
 }
 
 /**
@@ -48,11 +50,11 @@ function ToolRowDetail({ row }: { row: ToolRowModel }) {
       )}
       <pre className={styles.discInnerPre}>
         {/* 参数原文是 JSON（流式中可能是半截 JSON，shiki 认得下） */}
-        <HighlightedCode code={row.argsText} language="json" />
+        <CodeRuns code={row.argsText} language="json" />
         {hasOutput && (
           <>
             {'\n'}
-            <HighlightedCode code={output} language={outputLanguage(row)} />
+            <CodeRuns code={output} language={outputLanguage(row)} />
           </>
         )}
       </pre>

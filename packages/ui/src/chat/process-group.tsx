@@ -7,10 +7,10 @@ import { ToolRowView } from './tool-row';
 import { TrailChevron } from './trail';
 import styles from './trail.module.css';
 
-function ProcessItem({ item }: { item: TrailItem }) {
+function ProcessItem({ item, streaming }: { item: TrailItem; streaming: boolean }) {
   if (item.kind === 'thinking') return <ThinkingRowView row={item} />;
   if (item.kind === 'tool') return <ToolRowView row={item} />;
-  if (item.kind === 'text') return <TextRowView row={item} />;
+  if (item.kind === 'text') return <TextRowView row={item} streaming={streaming} />;
   return <SystemRowView text={item.text} tone={item.tone} />;
 }
 
@@ -23,9 +23,12 @@ function ProcessItem({ item }: { item: TrailItem }) {
 export function ProcessGroup({
   group,
   defaultExpanded,
+  streaming = false,
 }: {
   group: ProcessGroupData;
   defaultExpanded: boolean;
+  /** 会话整体是否仍在流式（本轮组内的文本行还在增长） */
+  streaming?: boolean;
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const duration = groupDuration(group);
@@ -78,6 +81,7 @@ export function ProcessGroup({
             <ProcessItem
               key={item.kind === 'tool' ? item.toolCallId : `${item.kind}-${index}`}
               item={item}
+              streaming={streaming}
             />
           ))}
         </div>

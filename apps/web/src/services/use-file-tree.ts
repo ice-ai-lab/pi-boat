@@ -3,8 +3,9 @@ import type { FileListEntry } from '@ice-ai/protocol';
 import { useCallback, useEffect, useState } from 'react';
 
 /**
- * 文件树数据（web 层）：按目录懒加载 + 展开态。
- * 展开态是 UI 偏好（切换项目时重置），条目缓存在组件生命周期内保持。
+ * 文件树数据（web 层）：按目录懒加载 + 展开态 + 每层失败态。
+ * 展开态是 UI 偏好（切换项目时重置）；条目缓存在组件生命周期内保持（折叠不丢，重开秒出）；
+ * 失败按目录记录（树在该层位置出一行注记，DSH FilesBody 同形），重试=刷新该目录。
  */
 export interface FileTreeController {
   /** 服务端解析后的真实根（realpath）：符号链接路径（/tmp → /private/tmp）下只有它
@@ -13,7 +14,8 @@ export interface FileTreeController {
   entriesByPath: ReadonlyMap<string, FileListEntry[]>;
   loadingPaths: ReadonlySet<string>;
   expandedPaths: ReadonlySet<string>;
-  error: string | null;
+  /** 列目录失败的目录：绝对路径 → 错误文案 */
+  errorsByPath: ReadonlyMap<string, string>;
   toggleDir(path: string): void;
   /** 首层载入（根目录） */
   loadRoot(): void;
@@ -26,7 +28,7 @@ export function useFileTree(root: string | null): FileTreeController {
   const [entriesByPath, setEntriesByPath] = useState<Map<string, FileListEntry[]>>(new Map());
   const [loadingPaths, setLoadingPaths] = useState<ReadonlySet<string>>(new Set());
   const [expandedPaths, setExpandedPaths] = useState<ReadonlySet<string>>(new Set());
-  const [error, setError] = useState<string | null>(null);
+  const [errorsByPath, setErrorsByPath] = useState<Map<string, string>>(new Map());
   const [resolvedRoot, setResolvedRoot] = useState<string | null>(null);
 
   const loadDir = useCallback(
@@ -44,9 +46,15 @@ export function useFileTree(root: string | null): FileTreeController {
           return next;
         });
         if (root !== null && path === root) setResolvedRoot(listed.path);
-        setError(null);
+        setErrorsByPath((previous) => {
+          if (!previous.has(path)) return previous;
+          const next = new Map(previous);
+          next.delete(path);
+          return next;
+        });
       } catch (caught) {
-        setError(caught instanceof Error ? caught.message : '目录读取失败');
+        const message = caught instanceof Error ? caught.message : '目录读取失败';
+        setErrorsByPath((previous) => new Map(previous).set(path, message));
       } finally {
         setLoadingPaths((previous) => {
           const next = new Set(previous);
@@ -62,7 +70,7 @@ export function useFileTree(root: string | null): FileTreeController {
   useEffect(() => {
     setEntriesByPath(new Map());
     setExpandedPaths(new Set());
-    setError(null);
+    setErrorsByPath(new Map());
     setResolvedRoot(null);
     if (root !== null) {
       setExpandedPaths(new Set([root]));
@@ -96,6 +104,7 @@ export function useFileTree(root: string | null): FileTreeController {
   const reset = useCallback(() => {
     setEntriesByPath(new Map());
     setExpandedPaths(new Set());
+    setErrorsByPath(new Map());
   }, []);
 
   return {
@@ -103,7 +112,7 @@ export function useFileTree(root: string | null): FileTreeController {
     entriesByPath,
     loadingPaths,
     expandedPaths,
-    error,
+    errorsByPath,
     toggleDir,
     loadRoot: () => {
       if (root !== null) void loadDir(root);
