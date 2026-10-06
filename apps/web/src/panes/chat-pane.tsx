@@ -1215,6 +1215,8 @@ export function ChatPane({
           height: CHAT_TOOLBAR_HEIGHT,
           paddingTop: 'env(safe-area-inset-top)',
         }}
+        // 桌面壳钩子（样式见 ui/theme.css）：头部行可拖窗；内部按钮自动 no-drag
+        data-desktop-drag=""
       >
         {onToggleSidebar !== undefined && (
           <SidebarToggleButton open={sidebarOpen} onToggle={onToggleSidebar} />

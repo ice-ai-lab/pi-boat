@@ -269,3 +269,28 @@ html.dark,
     "Noto Sans Mono Variable", "JetBrains Mono", "Fira Code", "Consolas", ui-monospace,
     "PingFang SC", "Microsoft YaHei", monospace;
 }
+
+/* ── 桌面壳环境钩子（ADR-0035）────────────────────────────────────────────
+   macOS hiddenInset 标题栏下，红绿灯悬浮在页面左上、原生标题栏不再存在，
+   头部行需要①让出红绿灯位置、②充当窗口拖拽区。
+   标记类由桌面 main 进程在 dom-ready 时注入 documentElement
+   （pi-boat-desktop / pi-boat-desktop-mac）；浏览器环境无这些类，规则零命中，
+   -webkit-app-region 在浏览器里本就被忽略 —— web 视觉基线（ADR-0020）不受影响。
+   标记点：data-desktop-drag = 可拖拽的头部行；data-desktop-traffic-lights =
+   左上角需为红绿灯让位的行（mac 下整行下移，红绿灯独占顶部条，同 DSH 布局）。 */
+[data-desktop-drag] {
+  -webkit-app-region: drag;
+}
+[data-desktop-drag] button,
+[data-desktop-drag] input,
+[data-desktop-drag] select,
+[data-desktop-drag] a,
+[data-desktop-drag] [role='button'] {
+  -webkit-app-region: no-drag;
+}
+html.pi-boat-desktop-mac [data-desktop-traffic-lights] {
+  /* DSH 式布局：顶部多出一条红绿灯专属高度，品牌行内容盒保持原 44px 不变形；
+     让位区属于本行（drag 区），红绿灯悬浮其上 */
+  padding-top: 38px !important;
+  height: 82px !important;
+}

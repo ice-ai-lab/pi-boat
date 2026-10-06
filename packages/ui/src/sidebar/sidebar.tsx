@@ -1072,6 +1072,9 @@ export function Sidebar(props: SidebarProps) {
             height: 44,
             padding: '0 12px 0 17px',
           }}
+          // 桌面壳钩子（样式见 theme.css）：头部行可拖窗；mac 下红绿灯悬浮在左上，让出位置
+          data-desktop-drag=""
+          data-desktop-traffic-lights=""
         >
           <img src="/favicon.svg" width={20} height={20} alt="" style={{ flexShrink: 0 }} />
           <BrandTitle versionLabel={props.versionLabel} piVersionLabel={props.piVersionLabel} />
