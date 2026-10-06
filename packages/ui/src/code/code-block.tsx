@@ -236,7 +236,8 @@ export function CodeBlock({
         className,
       )}
       data-line-numbers={lineNumbers || undefined}
-      data-code-wrap={toolbarLabels === undefined ? undefined : wrapped}
+      /* 属主受控（wrap prop）或卡片工具栏切换时都暴露状态；file-viewer 无 toolbar 也走这里 */
+      data-code-wrap={wrapped}
       style={
         sourceLines === undefined
           ? undefined

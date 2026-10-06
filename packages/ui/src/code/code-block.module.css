@@ -109,11 +109,12 @@
   overflow-wrap: anywhere;
 }
 
-.card[data-code-wrap='false'] {
+/* 不折行：卡片与无工具栏的属主（file-viewer）同一条规则——lineNumbers 模式靠变量切到 pre */
+.block[data-code-wrap='false'] {
   --ice-code-line-white-space: pre;
 }
 
-.card[data-code-wrap='false'] :where(pre) {
+.block[data-code-wrap='false'] :where(pre) {
   white-space: pre;
   overflow-wrap: normal;
 }
