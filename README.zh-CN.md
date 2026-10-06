@@ -19,10 +19,10 @@ PiBoat 的定位不是"又一个 Web 版 pi"，而是**一套核心 + 多个前�
 | 端 | 状态 | 说明 |
 | --- | --- | --- |
 | **Web** | ✅ 当前版本已交付 | 浏览器访问本机 Agent；单进程即完整产品（页面 + API + SSE 同源） |
-| **桌面（Electron）** | 🚧 二期 | 壳进程拉起同一个 server 子进程，复用同一套 Web UI 与全部核心包 |
+| **桌面（Electron，macOS）** | ✅ 当前版本已交付 | 同一个单进程 server 的原生窗口：壳自己拉起 server（不要求系统 Node），复用同一套 Web UI、会话与设置 |
 | **移动 / 其他** | 📋 远期 | 传输无关的核心 + 浏览器原生 SSE，对移动端天然友好 |
 
-> **当前版本只实现了 Web 端**。桌面端与移动端尚未开工，但核心与契约已按多端设计：`packages/core` 不含任何 HTTP 概念，协议也不绑定传输方式，新增端不需要改动核心逻辑。
+> **当前版本已实现 Web 端与 macOS 桌面端，移动端尚未开工**。核心与契约已按多端设计：`packages/core` 不含任何 HTTP 概念，协议也不绑定传输方式，新增端不需要改动核心逻辑。
 
 ---
 
@@ -65,6 +65,19 @@ pi-boat
 ```
 
 升级：`Ctrl+C` 停掉正在运行的进程，重新执行上面的安装命令即可。卸载：`npm uninstall -g @ice-ai/pi-boat`。
+
+### 桌面应用（macOS）
+
+桌面端是同一个本地 server 的原生窗口（不要求系统 Node，也不需要重复配置）：关窗后任务在后台继续跑，退出前会询问进行中的任务，目录选择走系统原生对话框，菜单里可复制服务地址、用浏览器打开同一个实例。
+
+![PiBoat macOS 桌面端](https://raw.githubusercontent.com/ice-ai-lab/pi-boat/main/docs/images/desktop-macos.png)
+
+目前从仓库自行打包（签名安装包与自动更新在路线图上，见 [ADR-0035](./docs/adr/0035-electron-desktop-shell.md)）：
+
+```bash
+pnpm install
+pnpm --filter @ice-ai/desktop run package   # 产出 apps/desktop/release/mac-arm64/PiBoat.app（未签名）
+```
 
 ### 启动参数
 
@@ -121,7 +134,7 @@ pnpm bundle
 
 ```text
 apps/web            前端 SPA：Vite + React 19（当前交付端）
-apps/desktop        Electron 桌面端（二期，未建）
+apps/desktop        Electron 桌面端（macOS，同一 server 的原生窗口）
 packages/protocol   API 契约与事件 wire 格式（纯类型 + Zod，零业务逻辑）
 packages/core       Agent 业务核心（全仓唯一允许依赖 pi SDK 的包，传输无关）
 packages/server     Hono HTTP/SSE 服务，组装 core（bin: pi-boat-server）

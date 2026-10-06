@@ -39,3 +39,4 @@
 | [0032](0032-default-model-and-thinking-setting.md) | 选择列表钉选设「新会话默认模型 / 默认推理级别」，显式配置写全局 settings.json（收窄 0019 决策 4 边界，落实 07 G2-11 预留方案） | 已接受 | 2026-10-05 |
 | [0033](0033-sdk-1-0-2-alignment.md) | pi SDK 从 0.87.x 对齐到 1.0.2——preflightResult 判据反转；新能力分级：disposition / exposure / thinkingLevel 搭车采纳，MCP / codemode 等延后立项 | 已接受 | 2026-10-05 |
 | [0034](0034-dsh-code-domain-port.md) | 代码域与文件树参照 DeepSeek Harness 重做——`packages/ui/src/code/` 落地 DSH 原语（流式增量高亮 / 文件类型图标 / PathLabel / DiffBlock），Catppuccin 图标方案退役 | 已接受 | 2026-10-06 |
+| [0035](0035-electron-desktop-shell.md) | Electron 桌面端——RunAsNode 子进程编排 + renderer 同源 loadURL 接入；否决 dsh-app:// 式自定义协议转发与 electron-vite；打包与窗口生命周期对策参照 DSH | 已接受 | 2026-10-06 |

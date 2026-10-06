@@ -30,7 +30,7 @@ server 验收：单测 `packages/server/test/server.test.ts`（75 用例：安�
 
 ```
 apps/web          前端 SPA —— Vite + React 19 静态产物（已交付，ADR-0002）
-apps/desktop      Electron（二期，未建）
+apps/desktop      Electron 桌面壳（ADR-0035，二期已开工）—— main 编排 + preload 窄桥，renderer 零自有代码，复用 web 产物
 packages/protocol 纯类型（复用 SDK 导出）+ 入参 Zod，零业务逻辑 —— 前后端唯一契约
 packages/core     Agent 业务核心 —— 全仓唯一允许依赖 pi SDK 的包
 packages/server   Hono HTTP/SSE 服务，组装 core，原生模块收敛于此

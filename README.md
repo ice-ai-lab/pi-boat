@@ -19,10 +19,10 @@ PiBoat is not "yet another web version of pi". It is a **single core with multip
 | Front end | Status | Notes |
 | --- | --- | --- |
 | **Web** | ✅ Shipped in the current version | Visit the local agent from a browser; one process is the whole product (UI + API + SSE served from the same origin). |
-| **Desktop (Electron)** | 🚧 Phase two | The shell spawns the same server process and reuses the same Web UI and every core package. |
+| **Desktop (Electron, macOS)** | ✅ Shipped in the current version | A native window around the same single-process server: the shell spawns the server itself (no system Node required) and reuses the same Web UI, sessions, and settings. |
 | **Mobile / others** | 📋 Later | A transport-agnostic core plus browser-native SSE makes mobile a natural fit. |
 
-> **Only the Web front end is implemented today.** Desktop and mobile have not been started, but the core and the contract are already designed for them: `packages/core` contains no HTTP concepts and the protocol is not bound to a transport, so adding a front end requires no changes to core logic.
+> **Web and the macOS desktop app are implemented today; mobile has not been started.** The core and the contract are designed for more front ends: `packages/core` contains no HTTP concepts and the protocol is not bound to a transport, so adding a front end requires no changes to core logic.
 
 ---
 
@@ -65,6 +65,19 @@ pi-boat
 ```
 
 To update, stop the running process with `Ctrl+C` and run the same install command again. To uninstall, run `npm uninstall -g @ice-ai/pi-boat`.
+
+### Desktop app (macOS)
+
+The desktop app is a native window around the same local server (no system Node required, no duplicate configuration): closing the window keeps tasks running in the background, quitting asks about running tasks, directory selection uses the native folder picker, and a menu item copies the server URL so a browser can open the very same instance.
+
+![PiBoat desktop app on macOS](https://raw.githubusercontent.com/ice-ai-lab/pi-boat/main/docs/images/desktop-macos.png)
+
+It is currently built from the repository (a signed installer and auto-update are on the roadmap, [ADR-0035](./docs/adr/0035-electron-desktop-shell.md)):
+
+```bash
+pnpm install
+pnpm --filter @ice-ai/desktop run package   # produces apps/desktop/release/mac-arm64/PiBoat.app (unsigned)
+```
 
 ### Launch options
 
@@ -121,7 +134,7 @@ pnpm bundle
 
 ```text
 apps/web            Front-end SPA: Vite + React 19 (the front end shipped today)
-apps/desktop        Electron desktop shell (phase two, not built yet)
+apps/desktop        Electron desktop shell for macOS (a native window over the same server)
 packages/protocol   API contract and event wire format (types + Zod, no business logic)
 packages/core       Agent business core (the only package allowed to depend on the pi SDK; transport-agnostic)
 packages/server     Hono HTTP/SSE server assembling core (bin: pi-boat-server)
