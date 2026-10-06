@@ -141,6 +141,7 @@ export const jaLocale: LocalePlugin = {
     'directoryPicker.goToParent': '親ディレクトリへ移動',
     'directoryPicker.directoryPath': 'ディレクトリパス',
     'directoryPicker.goToDirectory': 'ディレクトリへ移動',
+    'directoryPicker.nativePicker': 'OSのフォルダ選択ダイアログを開く（デスクトップ）',
     'directoryPicker.go': '移動',
     'directoryPicker.loadingDirectories': 'ディレクトリを読み込み中…',
     'directoryPicker.noSubdirectories': 'サブディレクトリはありません',

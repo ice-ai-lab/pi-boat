@@ -139,6 +139,7 @@ export const zhCNLocale: LocalePlugin = {
     'directoryPicker.goToParent': '转到上级目录',
     'directoryPicker.directoryPath': '目录路径',
     'directoryPicker.goToDirectory': '转到目录',
+    'directoryPicker.nativePicker': '打开系统文件夹选择器（桌面端）',
     'directoryPicker.go': '转到',
     'directoryPicker.loadingDirectories': '正在加载目录…',
     'directoryPicker.noSubdirectories': '没有子目录',

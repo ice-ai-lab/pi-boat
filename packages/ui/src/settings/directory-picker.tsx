@@ -9,9 +9,18 @@ interface DirectoryEntry {
   path: string;
 }
 
+/** PiBoat 桌面端原生窄桥（preload contextBridge 注入；浏览器环境 undefined，ADR-0035） */
+declare global {
+  interface Window {
+    piBoat?: { pickDirectory: () => Promise<string | null> };
+  }
+}
+
 /**
  * DirectoryPicker：按设计规范（T2-10 / G5）——
  * portal 模态 520×620、圆角 10；目录数据走 `GET /api/cwd/browse`（ui 依赖 client 的既定例外）。
+ * 桌面端额外提供系统原生选择入口（特性检测 window.piBoat，ADR-0035）；
+ * 两条路径殊途同归：选中值仍由消费方走 `POST /api/cwd/validate` 登记。
  */
 export interface DirectoryPickerProps {
   onCancel: () => void;
@@ -111,6 +120,12 @@ export function DirectoryPicker({
     const candidate = pathInput.trim();
     if (candidate) void navigateTo(candidate);
   };
+  // 桌面端窄桥：系统原生目录对话框，选完把路径灌回本选择器（仍走统一的选中/校验流）
+  const nativePickerAvailable = typeof window !== 'undefined' && window.piBoat !== undefined;
+  const handleNativePick = useCallback(async () => {
+    const picked = await window.piBoat?.pickDirectory();
+    if (picked) void navigateTo(picked);
+  }, [navigateTo]);
   const hasUncommittedPath = pathInput.trim() !== currentPath;
   const canSelect = Boolean(currentPath) && !hasUncommittedPath && !busy;
   const canNavigateUp = Boolean(parentDirectory) || isWindowsDriveRoot(currentPath);
@@ -300,6 +315,45 @@ export function DirectoryPicker({
           >
             {t('directoryPicker.go')}
           </button>
+          {nativePickerAvailable && (
+            <button
+              className={styles.back}
+              type="button"
+              onClick={() => void handleNativePick()}
+              disabled={loading}
+              title={t('directoryPicker.nativePicker')}
+              aria-label={t('directoryPicker.nativePicker')}
+              style={{
+                width: 36,
+                height: 36,
+                padding: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                background: 'var(--bg-hover)',
+                color: 'var(--text-muted)',
+                cursor: loading ? 'default' : 'pointer',
+                opacity: loading ? 0.45 : 1,
+              }}
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M1.5 12.5v-8l2-2h3l1.5 2h6.5v8z" />
+              </svg>
+            </button>
+          )}
         </form>
 
         <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '8px 10px' }}>

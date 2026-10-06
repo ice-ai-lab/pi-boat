@@ -140,6 +140,7 @@ export const enLocale: LocalePlugin = {
     'directoryPicker.goToParent': 'Go to parent directory',
     'directoryPicker.directoryPath': 'Directory path',
     'directoryPicker.goToDirectory': 'Go to directory',
+    'directoryPicker.nativePicker': 'Open the native folder picker (desktop app)',
     'directoryPicker.go': 'Go',
     'directoryPicker.loadingDirectories': 'Loading directories…',
     'directoryPicker.noSubdirectories': 'No subdirectories',
