@@ -16,7 +16,8 @@ import { fileURLToPath } from 'node:url';
  *   pnpm release --resume [--otp <code>]     # finish a release that failed midway
  *
  * The working tree must be clean and on `main`; the version is bumped in
- * packages/pi-boat/package.json and committed as `chore(pi-boat): release vX.Y.Z`.
+ * packages/pi-boat/package.json (and mirrored into apps/desktop/package.json, ADR-0035)
+ * and committed as `chore(pi-boat): release vX.Y.Z`.
  * That file is the single source of the app version: the web bundle reads it at build time
  * (apps/web/vite.config.ts), so the in-app label follows automatically.
  * With `--resume` no bump/commit/tag/push happens: it only (re)packs, publishes the
@@ -30,6 +31,8 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const packageDir = join(repoRoot, 'packages/pi-boat');
 const packagePath = join(packageDir, 'package.json');
+// ADR-0035：桌面端版本与 @ice-ai/pi-boat 绑定、同版本发布（壳 + web 产物 + server 组合验证）
+const desktopPackagePath = join(repoRoot, 'apps/desktop/package.json');
 
 const PACKAGE_NAME = '@ice-ai/pi-boat';
 const NPM_REGISTRY = 'https://registry.npmjs.org';
@@ -181,7 +184,7 @@ function checkEnvironment() {
 async function confirm(version, tag) {
   const plan = [
     `Release ${PACKAGE_NAME} ${pkg.version} -> ${version}`,
-    '  1. bump packages/pi-boat/package.json (single source of the app version), build the bundle',
+    '  1. bump packages/pi-boat/package.json + apps/desktop/package.json (same version, ADR-0035), build the bundle',
     `  2. commit "chore(pi-boat): release ${tag}" and create tag ${tag}`,
     `  3. push ${RELEASE_BRANCH} and ${tag} to origin`,
     `  4. publish to ${NPM_REGISTRY}`,
@@ -221,10 +224,14 @@ async function main() {
     console.log(`[release] ${PACKAGE_NAME} ${pkg.version} -> ${version}`);
     await confirm(version, tag);
     if (!options.dryRun) {
+      const desktopPkg = JSON.parse(readFileSync(desktopPackagePath, 'utf8'));
       writeFileSync(packagePath, `${JSON.stringify({ ...pkg, version }, null, 2)}\n`);
+      writeFileSync(desktopPackagePath, `${JSON.stringify({ ...desktopPkg, version }, null, 2)}\n`);
     }
     run('pnpm', ['run', 'bundle'], { dryRun: options.dryRun });
-    run('git', ['add', 'packages/pi-boat/package.json'], { dryRun: options.dryRun });
+    run('git', ['add', 'packages/pi-boat/package.json', 'apps/desktop/package.json'], {
+      dryRun: options.dryRun,
+    });
     run('git', ['commit', '-m', `chore(pi-boat): release ${tag}`], { dryRun: options.dryRun });
     run('git', ['tag', tag], { dryRun: options.dryRun });
     run('git', ['push', 'origin', RELEASE_BRANCH], { dryRun: options.dryRun });

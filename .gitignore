@@ -22,6 +22,9 @@ packages/pi-boat/README.md
 
 # npm pack 产物
 *.tgz
+
+# electron-builder 产物（apps/desktop/electron-builder.yml 的 directories.output）
+apps/desktop/release/
 # playwright
 playwright-report/
 test-results/

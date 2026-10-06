@@ -4,8 +4,11 @@ packages:
   - "packages/config/*"
 
 # 构建脚本许可：pnpm 11 起 onlyBuiltDependencies 已被 allowBuilds 取代（静默忽略）
-# pi SDK 依赖链中需要执行 postinstall 的包（esbuild 为 tsx 运行所必需）
+# pi SDK 依赖链中需要执行 postinstall 的包（esbuild 为 tsx 运行所必需；electron 下载二进制；dmg-license 为 electron-builder 出 dmg 所需）
 allowBuilds:
   "@google/genai": true
   esbuild: true
   protobufjs: true
+  electron: true
+  dmg-license: true
+  electron-winstaller: true

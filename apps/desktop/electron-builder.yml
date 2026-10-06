@@ -1,0 +1,25 @@
+# Electron 桌面端打包配置（ADR-0035）
+#
+# 关键事实：RunAsNode 子进程是普通 Node，读不了 asar——`@ice-ai/pi-boat` 整树
+# （dist/pi-boat.mjs 入口 + dist/web 静态产物 + pi SDK 依赖链）必须落在真实文件系统，
+# 因此 node_modules 全量 asarUnpack（asar 只包住 desktop 自有的 main/preload/恢复页）。
+# 「pi SDK 运行时资产 asarUnpack」的落地形式即为整树解包。
+appId: ai.ice.piboat
+productName: PiBoat
+directories:
+  output: release
+files:
+  - dist/**
+asar: true
+asarUnpack:
+  - node_modules/**
+npmRebuild: false
+mac:
+  category: public.app-category.developer-tools
+  # 签名/公证不在本 ADR 范围（自动更新同批立项）；本地出未签名包
+  identity: null
+  target:
+    - target: dmg
+      arch: [arm64]
+    - target: zip
+      arch: [arm64]
