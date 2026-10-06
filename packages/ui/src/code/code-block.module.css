@@ -90,8 +90,11 @@
   border-bottom-right-radius: var(--ice-code-radius);
 }
 
-/* shiki 会在行内塞主题背景色变量，指回本仓 token。 */
-.block :where(pre.shiki) {
+/* shiki 会在行内塞主题背景色变量，指回本仓 token。注意 `shiki` 是运行时全局类
+   （shiki HTML 输出 / SHIKI_PRE_PROPS），必须 :global 包裹——否则 CSS Modules 会把它
+   哈希成 _shiki_xxx，规则永不匹配，内联的 var(--shiki-background)（浅色 = 纯白）
+   就会盖掉块面，看起来“代码块样式丢了”（2026-10-07）。 */
+.block :where(pre:global(.shiki)) {
   background: var(--ice-code-bg) !important;
 }
 
