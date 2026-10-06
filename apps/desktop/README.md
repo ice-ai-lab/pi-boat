@@ -1,58 +1,74 @@
 # @ice-ai/desktop
 
-PiBoat Electron 桌面端壳（ADR-0035）。main 编排 + preload 窄桥，**renderer 零自有代码**——
-页面永远是 `@ice-ai/pi-boat` 托管的 web UI（生产态同源 loadURL；dev 态直连 vite 9528）。
+**English** | [简体中文](./README.zh-CN.md)
 
-```
-src/main/            进程编排（无业务逻辑）
-  index.ts           生命周期：单实例锁 / dev-prod 分支 / 退出确认 / 恢复界面
-  server-process.ts  RunAsNode 子进程编排（electron-free，vitest 直测）
-  window.ts          主窗口与防护面（sandbox / 导航拦截 / 关窗=隐藏）
-  menu.ts            应用菜单（含「复制服务地址」）
-  tray.ts            Windows/Linux 最小托盘（macOS 走 Dock）
-  ipc.ts             窄桥 handler（校验 sender frame URL）
-  runtime.ts         打包态运行时定位 + 登录 shell PATH 对策
-  url-guard.ts       URL 安全判定（纯函数）
-src/preload/         contextBridge 窄桥（sandbox CJS）：pickDirectory / recover / quit
-src/recovery.html    启动失败恢复页
-scripts/build.mjs    esbuild bundle + desktop-bundle-imports 静态检查 + Node 底线断言
-test/                vitest（electron-free）
-```
+PiBoat's Electron desktop shell ([ADR-0035](../../docs/adr/0035-electron-desktop-shell.md)). The main process orchestrates, the preload exposes a narrow bridge, and the **renderer contains zero code of its own** — the page is always the web UI hosted by `@ice-ai/pi-boat` (production: same-origin `loadURL`; dev: connects straight to vite on `9528`).
 
-## 常用命令
+## Quick start (from source)
+
+Requires Node.js ≥ 22.19.0, pnpm, and a macOS host for packaging (the dev shell itself also runs on other platforms, but packaging targets are macOS-only today).
 
 ```bash
-pnpm --filter @ice-ai/desktop run build     # esbuild 出 dist/（main ESM + preload CJS + recovery.html）
-pnpm turbo run dev                          # 先起两进程（server 9527 + vite 9528）
-pnpm --filter @ice-ai/desktop run start     # dev 态壳：loadURL http://127.0.0.1:9528，不拉子进程
-pnpm --filter @ice-ai/desktop run package   # 先 bundle @ice-ai/pi-boat（含 turbo build + web 产物拷贝）→ electron-builder --dir
-pnpm --filter @ice-ai/desktop run dist      # 出 dmg/zip（未签名；签名/公证随自动更新立项）
-pnpm --filter @ice-ai/desktop run test      # 就绪行解析 / 子进程编排 / Node 底线 / 版本绑定
+# from the repository root
+pnpm install
+pnpm turbo run dev                        # terminal 1: agent server (9527) + web (9528)
+pnpm --filter @ice-ai/desktop run start   # terminal 2: dev shell, loads http://127.0.0.1:9528
 ```
 
-## 运行模型（ADR-0035）
+In dev mode the shell does **not** spawn a server child process — it reuses the two dev servers from `pnpm turbo run dev`. Changes to main/preload code need `pnpm --filter @ice-ai/desktop run build` (or restart `start`) to take effect; web UI changes hot-reload via vite.
 
-- **生产**：main `spawn(process.execPath, [pi-boat.mjs], { ELECTRON_RUN_AS_NODE: '1' })`
-  拉起 server 子进程（不要求系统 Node），默认 `PORT=0`（OS 分配；`PIBOAT_PORT` 可覆盖），
-  解析 stdout `[pi-boat-server] listening on <url>`（`packages/server/src/start.ts` 契约）后同源
-  `loadURL`；超时/失败进恢复页（重试经窄桥 `pi-boat:recover`）。
-- **dev**：`app.isPackaged === false` → 只 loadURL(9528)，复用 `turbo dev`，不拉子进程。
-- **退出**：`before-quit` 先 `GET /api/agent/running` 询问进行中任务，确认后 SIGTERM 子进程
-  （start.ts 优雅退出）；关窗=隐藏，macOS 经 Dock、Windows/Linux 经托盘恢复。
-- **浏览器可访问**：桌面实例的地址可复制给系统浏览器（无凭据的副产品，有意保留）。
+To produce an installable app from source:
 
-## 打包要点
+```bash
+pnpm --filter @ice-ai/desktop run package   # bundles @ice-ai/pi-boat, then electron-builder --dir
+                                            # → apps/desktop/release/mac-arm64/PiBoat.app (unsigned)
+```
 
-- `@ice-ai/pi-boat` 是唯一运行时依赖（`dependencies`），自带 server bundle + web 静态产物；
-  desktop 不二次打包它们。
-- **RunAsNode 子进程是普通 Node，读不了 asar** —— 因此 `electron-builder.yml` 把
-  `node_modules/**` 全量 `asarUnpack`（asar 只包 main/preload/恢复页）。
-- Electron 内嵌 Node 须 ≥ 22.19（SDK engines）：`scripts/build.mjs` 与
-  `test/release-constraints.test.ts` 双闸把关。
-- 版本与 `@ice-ai/pi-boat` 绑定、同版本发布（`scripts/release.mjs` 负责同步 bump）。
+## Layout
 
-## 已知边界
+```text
+src/main/            Process orchestration (no business logic)
+  index.ts           Lifecycle: single-instance lock / dev-prod branches / quit confirmation / recovery view
+  server-process.ts  RunAsNode child-process orchestration (electron-free, tested directly by vitest)
+  window.ts          Main window and protective surface (sandbox / navigation guard / close = hide)
+  menu.ts            Application menu (incl. "Copy Server URL")
+  tray.ts            Minimal tray for Windows/Linux (macOS uses the Dock)
+  ipc.ts             Narrow-bridge handlers (validate sender frame URL)
+  runtime.ts         Packaged-runtime resolution + login-shell PATH workaround
+  url-guard.ts       URL safety decision (pure function)
+src/preload/         contextBridge narrow bridge (sandboxed CJS): pickDirectory / recover / quit
+src/recovery.html    Recovery page for failed startup
+scripts/build.mjs    esbuild bundle + desktop-bundle-imports static check + Node floor assertion
+test/                vitest (electron-free)
+```
 
-- 应用图标暂用 Electron 默认（自定义 icns 随品牌批次）；托盘图标是内嵌的占位方块。
-- Windows/Linux 打包目标未配置（M4 验收线 = macOS；其余平台单独立项）。
-- 自动更新 / 全局快捷键 / 多窗口：见 ADR-0035「二期后续」。
+## Common commands
+
+```bash
+pnpm --filter @ice-ai/desktop run build     # esbuild to dist/ (main ESM + preload CJS + recovery.html)
+pnpm turbo run dev                          # start the two dev processes (server 9527 + vite 9528)
+pnpm --filter @ice-ai/desktop run start     # dev shell: loadURL http://127.0.0.1:9528, spawns no child
+pnpm --filter @ice-ai/desktop run package   # bundle @ice-ai/pi-boat first (turbo build + web output copy) → electron-builder --dir
+pnpm --filter @ice-ai/desktop run dist      # produce dmg/zip (unsigned; signing/notarization comes with auto-update)
+pnpm --filter @ice-ai/desktop run test      # readiness-line parsing / child orchestration / Node floor / version binding
+```
+
+## Runtime model (ADR-0035)
+
+- **Production**: main `spawn(process.execPath, [pi-boat.mjs], { ELECTRON_RUN_AS_NODE: '1' })` spawns the server child process (no system Node required), default `PORT=0` (OS-assigned; `PIBOAT_PORT` overrides). It parses `[pi-boat-server] listening on <url>` from stdout (the contract in `packages/server/src/start.ts`) and then does a same-origin `loadURL`; on timeout or failure it shows the recovery page (retry goes through the narrow bridge `pi-boat:recover`).
+- **Dev**: `app.isPackaged === false` → only `loadURL(9528)`, reusing `turbo dev`, spawning no child process.
+- **Quit**: `before-quit` first asks `GET /api/agent/running` about in-flight tasks, then SIGTERMs the child after confirmation (graceful exit in start.ts). Closing the window hides it; macOS restores via the Dock, Windows/Linux via the tray.
+- **Browser access**: a desktop instance's URL can be copied for the system browser (a deliberate by-product of having no credentials).
+
+## Packaging notes
+
+- `@ice-ai/pi-boat` is the only runtime dependency; it ships the server bundle + web static output, and desktop does not repackage them.
+- **The RunAsNode child is a plain Node process and cannot read asar** — therefore `electron-builder.yml` unpacks `node_modules/**` entirely (`asarUnpack`); asar only wraps main/preload/the recovery page.
+- Electron's embedded Node must be ≥ 22.19 (SDK engines): `scripts/build.mjs` and `test/release-constraints.test.ts` both enforce it.
+- The version is bound to `@ice-ai/pi-boat` and released at the same version (`scripts/release.mjs` syncs bumps).
+
+## Known limitations
+
+- The app icon is still Electron's default (a custom icns comes with the branding batch); the tray icon is a placeholder block.
+- Windows/Linux packaging targets are not configured (the M4 acceptance line = macOS; other platforms are separate work items).
+- Auto-update / global shortcuts / multi-window: see ADR-0035 "phase-two follow-ups".
