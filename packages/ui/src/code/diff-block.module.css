@@ -6,7 +6,8 @@
   display: grid;
   grid-template-columns: minmax(max-content, 1fr);
   padding: 6px 0 20px;
-  font: var(--dsw-font-markdown-code-block);
+  /* 字号阶梯复用属主 `.card`（code-card.module.css）定义的同款变量，与 CodeBlock 一致 */
+  font: var(--ice-code-content-font);
   overflow-x: auto;
 }
 
@@ -27,12 +28,12 @@
 }
 
 .path {
-  color: var(var(--text-muted));
+  color: var(--text-muted);
   font-weight: 500;
 }
 
 .gap {
-  color: var(var(--text-dim));
+  color: var(--text-dim);
 }
 
 .del::before {
@@ -40,9 +41,9 @@
 }
 
 .del {
-  color: var(var(--red));
-  background: var(--dsw-alias-code-diff-deleted);
-  box-shadow: inset 3px 0 0 var(var(--red));
+  color: var(--red);
+  background: var(--red-bg);
+  box-shadow: inset 3px 0 0 var(--red);
 }
 
 .add::before {
@@ -50,13 +51,13 @@
 }
 
 .add {
-  color: var(var(--green));
-  background: var(--dsw-alias-code-diff-added);
-  box-shadow: inset 3px 0 0 var(var(--green));
+  color: var(--green);
+  background: var(--green-bg);
+  box-shadow: inset 3px 0 0 var(--green);
 }
 
 .context {
-  color: var(var(--text-muted));
+  color: var(--text-muted);
 }
 
 .context::before {
@@ -69,14 +70,14 @@
   padding: 0 22px;
   border: none;
   background: transparent;
-  color: var(var(--text-dim));
+  color: var(--text-dim);
   cursor: pointer;
   font: inherit;
   text-align: left;
 }
 
 .expand:hover {
-  color: var(var(--text-muted));
+  color: var(--text-muted);
 }
 
 .empty {

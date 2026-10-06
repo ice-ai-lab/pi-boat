@@ -3,7 +3,8 @@
    code-block.module.css 在自己的 `.block` 上定义同款（两个组件不共父级）。 */
 
 .card {
-  --ice-code-bg: color-mix(in srgb, var(--bg) 92%, var(--bg-panel));
+  /* 与 code-block.module.css 同款（对齐 DSH neutral-bluish-50；92/8 的旧配比在白卡上隐形） */
+  --ice-code-bg: color-mix(in srgb, var(--bg-panel) 70%, var(--bg));
   --ice-code-radius: 10px;
   --ice-code-content-font: calc(12px + var(--chat-font-size-offset, 0px)) / 1.62 var(--font-mono);
 

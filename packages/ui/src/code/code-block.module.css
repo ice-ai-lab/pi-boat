@@ -2,8 +2,10 @@
    高亮颜色仍走 shiki 的 `--shiki-*` 变量，由 theme.css 的 [data-theme] 取亮/暗。 */
 
 .block {
-  --ice-code-bg: color-mix(in srgb, var(--bg) 92%, var(--bg-panel));
-  --ice-code-banner-bg: color-mix(in srgb, var(--bg) 92%, var(--bg-panel));
+  /* 代码块底：对齐 DSH `--dsw-alias-markdown-code-block`（light = neutral-bluish-50 #f9fafb，
+     深色亮一档）。曾是 `bg 92% + panel 8%` 的 mix——落在白卡上 ≈ #fefeff，块与 banner 全部隐形。 */
+  --ice-code-bg: color-mix(in srgb, var(--bg-panel) 70%, var(--bg));
+  --ice-code-banner-bg: color-mix(in srgb, var(--bg-panel) 70%, var(--bg));
   --ice-code-radius: 10px;
   /* 11/18 局部值：banner 随 markdown 0.875 阶梯缩放，不波及其它小字场景 */
   --ice-code-banner-font: 11px/18px var(--font);
