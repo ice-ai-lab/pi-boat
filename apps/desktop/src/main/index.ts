@@ -23,7 +23,8 @@ const hasLock = app.requestSingleInstanceLock();
 if (!hasLock) {
   app.quit();
 } else {
-  void bootstrap();
+  // BrowserWindow/窗口创建必须在 ready 之后；packaged 态此前靠 spawn 等待的时序侥幸过关，dev 态首帧即炸
+  void app.whenReady().then(() => bootstrap());
 }
 
 let mainWindow: BrowserWindow | null = null;
