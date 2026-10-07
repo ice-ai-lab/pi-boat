@@ -8,7 +8,7 @@ PiBoat shares the same local configuration and session files as the pi CLI: conv
 
 **One command to start, then use it in your browser**: `npx @ice-ai/pi-boat@latest`
 
-![PiBoat Web UI: session workspace, project navigation, and streaming replies](https://raw.githubusercontent.com/ice-ai-lab/pi-boat/main/docs/images/web-chat.png)
+![PiBoat demo: start a session with the pi CLI, then resume and continue it in the browser](https://raw.githubusercontent.com/ice-ai-lab/pi-boat/main/docs/images/pi-boat-demo.gif)
 
 ---
 
@@ -165,3 +165,7 @@ This project draws on and improves upon these projects:
 
 - <https://github.com/agegr/pi-web>
 - <https://github.com/deepseek-ai/deepseek-harness>
+
+## License
+
+[MIT](./LICENSE). Third-party components are covered by their own licenses — see [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md).

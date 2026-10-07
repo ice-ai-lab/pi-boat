@@ -8,7 +8,7 @@ PiBoat 与 pi CLI 共用同一份本机配置与会话文件：终端里 pi 聊�
 
 **一条命令启动，浏览器即用**：`npx @ice-ai/pi-boat@latest`
 
-![PiBoat Web 端：会话工作区、项目导航与流式回复](https://raw.githubusercontent.com/ice-ai-lab/pi-boat/main/docs/images/web-chat.png)
+![PiBoat 演示：终端里用 pi CLI 开会话，浏览器里接着聊](https://raw.githubusercontent.com/ice-ai-lab/pi-boat/main/docs/images/pi-boat-demo.gif)
 
 ---
 
@@ -165,3 +165,7 @@ packages/pi-boat    npm 分发包：`pi-boat` CLI（打包 server + web 静态�
 
 - <https://github.com/agegr/pi-web>
 - <https://github.com/deepseek-ai/deepseek-harness>
+
+## 许可证
+
+[MIT](./LICENSE)。第三方组件遵循其自身许可证，详见 [THIRD_PARTY_NOTICES.md](./THIRD_PARTY_NOTICES.md)。
