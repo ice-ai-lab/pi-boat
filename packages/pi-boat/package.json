@@ -1,6 +1,7 @@
 {
   "name": "@ice-ai/pi-boat",
   "version": "1.4.2",
+  "license": "MIT",
   "description": "PiBoat — the ship that carries pi: a local AI coding assistant built on the pi-coding-agent SDK. One command to start, use it in your browser (one core, many front ends; the web front end ships today).",
   "keywords": [
     "pi",

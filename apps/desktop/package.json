@@ -2,6 +2,7 @@
   "name": "@ice-ai/desktop",
   "description": "PiBoat Electron desktop shell (ADR-0035): main orchestrates a RunAsNode server child and loads the same-origin web UI; zero renderer code of its own",
   "version": "1.4.2",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "main": "dist/main/index.js",

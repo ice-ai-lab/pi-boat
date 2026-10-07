@@ -2,6 +2,7 @@
   "name": "@ice-ai/ui",
   "description": "PiBoat presentational component library (depends only on protocol types and client hooks, no host framework)",
   "version": "0.0.0",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",

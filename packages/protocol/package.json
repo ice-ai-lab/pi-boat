@@ -2,6 +2,7 @@
   "name": "@ice-ai/protocol",
   "description": "PiBoat single contract between front end and back end: API types + event wire format (reuses SDK types + Zod input schemas, zero business logic)",
   "version": "0.0.0",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",

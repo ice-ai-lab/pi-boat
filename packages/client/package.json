@@ -2,6 +2,7 @@
   "name": "@ice-ai/client",
   "description": "PiBoat type-safe client SDK + React hooks (framework-agnostic core plus client/react subpath exports, dual entry points)",
   "version": "0.0.0",
+  "license": "MIT",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
