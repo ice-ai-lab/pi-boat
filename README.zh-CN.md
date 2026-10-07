@@ -35,6 +35,10 @@ PiBoat 的定位不是"又一个 Web 版 pi"，而是**一套核心 + 多个前�
 - **可视化配置**：provider 登录与 API Key、模型、模型连通性测试、插件包与技能，都能在页面内管理，无需回到命令行。
 - **三种界面语言**：English / 简体中文 / 日本語，首次跟随浏览器语言，可在设置里切换。
 
+Web 端快速走览——对话、项目文件与系统面板：
+
+![PiBoat Web 端走览：对话、项目文件与系统面板](https://raw.githubusercontent.com/ice-ai-lab/pi-boat/main/docs/images/web-demo.gif)
+
 | 会话统计与用量 | 设置 |
 | --- | --- |
 | ![会话统计：消息数、token、费用、上下文与缓存命中率](https://raw.githubusercontent.com/ice-ai-lab/pi-boat/main/docs/images/web-session-stats.png) | ![设置：界面语言、聊天内容宽度与字号](https://raw.githubusercontent.com/ice-ai-lab/pi-boat/main/docs/images/web-settings.png) |

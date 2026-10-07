@@ -35,6 +35,10 @@ PiBoat is not "yet another web version of pi". It is a **single core with multip
 - **In-browser configuration**: manage provider login and API keys, models, model connectivity tests, plugin packages, and skills without leaving the page.
 - **English, Simplified Chinese, and Japanese UI**: PiBoat follows the browser language initially and provides a language switcher in Settings.
 
+A quick walkthrough of the web UI — chat, project files, and system panels:
+
+![PiBoat web UI walkthrough: chat, project files, and system panels](https://raw.githubusercontent.com/ice-ai-lab/pi-boat/main/docs/images/web-demo.gif)
+
 | Session stats and usage | Settings |
 | --- | --- |
 | ![Session stats: message counts, tokens, cost, context, and cache hit rate](https://raw.githubusercontent.com/ice-ai-lab/pi-boat/main/docs/images/web-session-stats.png) | ![Settings: interface language, chat content width, and font size](https://raw.githubusercontent.com/ice-ai-lab/pi-boat/main/docs/images/web-settings.png) |
