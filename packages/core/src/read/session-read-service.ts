@@ -134,6 +134,29 @@ function buildSearchSnippet(
 const AUTO_NAME_TIMEOUT_MS = 30_000;
 const AUTO_NAME_MAX_LENGTH = 80;
 
+/** BCP-47 tag → 提示词里的英文语言名（前端支持的语言，见 ui 的 Locale）；未知 tag 原样传，模型认识 BCP-47 */
+const AUTO_NAME_LANGUAGE_NAMES: Record<string, string> = {
+  'zh-CN': 'Simplified Chinese',
+  ja: 'Japanese',
+};
+
+/**
+ * auto-name 的提示词（纯函数，导出以便单测锁口径）。
+ * 指令主体保持英文（对模型最稳），目标语言追加一句显式指令；缺省/`en*` 不加（默认英文）。
+ */
+export function buildAutoNamePrompt(excerpt: string, language?: string): string {
+  const languageInstruction =
+    language === undefined || language === '' || language.startsWith('en')
+      ? ''
+      : ` Write the title in ${AUTO_NAME_LANGUAGE_NAMES[language] ?? language}.`;
+  return (
+    'Summarize this coding session as a short title (max 6 words, no quotes, ' +
+    'no trailing punctuation). Reply with the title only.' +
+    languageInstruction +
+    `\n\n${excerpt}`
+  );
+}
+
 /**
  * auto-name 的模型选取：settings 的默认模型 → 目录里的第一个。
  *
@@ -504,10 +527,14 @@ export class SessionReadService {
    *
    * 用**会话自己的前几条消息**做输入（不从磁盘重读全文，避免把整段历史塞进
    * 一次小请求）。模型取该 cwd 的默认模型（失效时回退目录第一个，见
-   * `resolveAutoNameModel`）。**只生成不落盘**：写盘归调用方（server 路由决定走命令通道
+   * `resolveAutoNameModel`）。`language`（BCP-47 tag）让标题跟随前端当前语言——
+   * 选了中文就出中文标题。**只生成不落盘**：写盘归调用方（server 路由决定走命令通道
    * 还是 `rename`，避免与运行中的 runtime 抢写同一文件）。
    */
-  async autoName(id: string, options: { cwd?: string } = {}): Promise<{ title: string } | null> {
+  async autoName(
+    id: string,
+    options: { cwd?: string; language?: string } = {},
+  ): Promise<{ title: string } | null> {
     const manager = await this.openById(id);
     if (manager === null) return null;
     const entries = manager.getEntries();
@@ -527,15 +554,7 @@ export class SessionReadService {
         messages: [
           {
             role: 'user',
-            content: [
-              {
-                type: 'text',
-                text:
-                  'Summarize this coding session as a short title (max 6 words, no quotes, ' +
-                  'no trailing punctuation). Reply with the title only.\n\n' +
-                  excerpt,
-              },
-            ],
+            content: [{ type: 'text', text: buildAutoNamePrompt(excerpt, options.language) }],
             timestamp: Date.now(),
           },
         ],

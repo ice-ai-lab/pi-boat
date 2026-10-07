@@ -119,6 +119,8 @@ export const SessionAutoNameRequestSchema = z.object({
   cwd: z.string().optional(),
   /** 只回名字，不落盘（前端先预览） */
   dryRun: z.boolean().optional(),
+  /** 标题语言（BCP-47 tag，如 `zh-CN`）；缺省/`en*` = 英文。未知 tag 原样进提示词 */
+  language: z.string().optional(),
 });
 
 export type SessionAutoNameResponse = {

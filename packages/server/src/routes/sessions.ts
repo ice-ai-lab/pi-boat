@@ -160,7 +160,10 @@ export function registerSessionRoutes(app: Hono, deps: SessionRouteDeps): void {
       return c.json<CommandError>({ error: firstIssueMessage(parsed.error.issues) }, 400);
     }
     try {
-      const result = await readService.autoName(id, { cwd: parsed.data.cwd });
+      const result = await readService.autoName(id, {
+        cwd: parsed.data.cwd,
+        language: parsed.data.language,
+      });
       if (result === null) {
         return c.json<CommandError>({ error: 'Session not found' }, 404);
       }

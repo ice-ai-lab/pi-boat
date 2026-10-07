@@ -224,7 +224,7 @@
 | `GET /api/sessions/:id/state` | 同 `/api/agent/:id` 形状，但会话文件不存在时 **404**（而非 `{running:false}`；语义差异需保留） |
 | `GET /api/sessions/:id/export` | → HTML 导出（attachment/inline） |
 | `GET /api/sessions/:id/revision` | → `{revision}`：会话文件指纹（G2-6，size+mtime，与 `listFingerprint` 同构但针对单文件）。不透明、**无单调性**（只比较相等），客户端拿它决定详情视图缓存能否复用 |
-| `POST /api/sessions/:id/auto-name` | → `{title, usage}`（LLM 生成会话名） |
+| `POST /api/sessions/:id/auto-name` | 入参 `{cwd?, dryRun?, language?}` → `{title, usage}`（LLM 生成会话名；`language` 为 BCP-47 tag，标题跟随前端当前语言——选中文出中文标题，缺省/`en*` 英文） |
 
 ### 6.3 历史分页与惰性加载
 

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { SessionManager } from '@earendil-works/pi-coding-agent';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
+  buildAutoNamePrompt,
   computeStats,
   resolveAutoNameModel,
   SessionReadService,
@@ -1084,6 +1085,35 @@ describe('SessionReadService（B4）', () => {
     const shadowed = await service().list({ transient: [{ ...transient, id: sessionId }] });
     expect(shadowed).toHaveLength(1);
     expect(shadowed[0]?.transient).toBe(true);
+  });
+});
+
+/**
+ * auto-name 提示词的语言跟随：指令主体固定英文，目标语言追加显式指令。
+ * 口径：缺省/空/`en*` 不加指令；已知 tag（zh-CN/ja）映射英文语言名；未知 tag 原样传。
+ */
+describe('buildAutoNamePrompt（标题语言跟随）', () => {
+  const base =
+    'Summarize this coding session as a short title (max 6 words, no quotes, ' +
+    'no trailing punctuation). Reply with the title only.';
+
+  it('缺省 / 空 / en* → 纯英文提示词，不加语言指令', () => {
+    expect(buildAutoNamePrompt('EXCERPT')).toBe(`${base}\n\nEXCERPT`);
+    expect(buildAutoNamePrompt('EXCERPT', '')).toBe(`${base}\n\nEXCERPT`);
+    expect(buildAutoNamePrompt('EXCERPT', 'en')).toBe(`${base}\n\nEXCERPT`);
+    expect(buildAutoNamePrompt('EXCERPT', 'en-US')).toBe(`${base}\n\nEXCERPT`);
+  });
+
+  it('已知 tag → 映射英文语言名；未知 tag 原样传', () => {
+    expect(buildAutoNamePrompt('EXCERPT', 'zh-CN')).toBe(
+      `${base} Write the title in Simplified Chinese.\n\nEXCERPT`,
+    );
+    expect(buildAutoNamePrompt('EXCERPT', 'ja')).toBe(
+      `${base} Write the title in Japanese.\n\nEXCERPT`,
+    );
+    expect(buildAutoNamePrompt('EXCERPT', 'pt-BR')).toBe(
+      `${base} Write the title in pt-BR.\n\nEXCERPT`,
+    );
   });
 });
 

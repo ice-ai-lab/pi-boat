@@ -877,10 +877,23 @@ describe('会话域 B4 路由（docs/02 §6.2/§6.3、ADR-0013b）', () => {
     });
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ title: '自动命名' });
-    expect(readService.autoName).toHaveBeenCalledWith('sess-disk', { cwd: undefined });
+    expect(readService.autoName).toHaveBeenCalledWith('sess-disk', {
+      cwd: undefined,
+      language: undefined,
+    });
+    // language（BCP-47）透传给 core，让标题跟随前端当前语言；404 用例放前面，免得成「最后一次调用」
     expect((await request(app, '/api/sessions/nope/auto-name', { method: 'POST' })).status).toBe(
       404,
     );
+    await request(app, '/api/sessions/sess-disk/auto-name', {
+      method: 'POST',
+      headers: JSON_HEADERS,
+      body: JSON.stringify({ dryRun: true, language: 'zh-CN' }),
+    });
+    expect(readService.autoName).toHaveBeenLastCalledWith('sess-disk', {
+      cwd: undefined,
+      language: 'zh-CN',
+    });
   });
 
   it('POST /api/sessions/:id/auto-name：非 dryRun 时由路由落盘一次（冷会话 → rename）', async () => {

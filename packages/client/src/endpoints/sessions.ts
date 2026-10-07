@@ -48,10 +48,10 @@ export function entryImageUrl(sessionId: string, entryId: string, blockIndex: nu
   return `/api/sessions/${encodeURIComponent(sessionId)}/entries/${encodeURIComponent(entryId)}/image?blockIndex=${blockIndex}`;
 }
 
-/** POST /api/sessions/:id/auto-name —— LLM 生成标题（dryRun=只回名字不落盘） */
+/** POST /api/sessions/:id/auto-name —— LLM 生成标题（dryRun=只回名字不落盘；language=标题语言，BCP-47） */
 export function autoNameSession(
   sessionId: string,
-  options: { cwd?: string; dryRun?: boolean } = {},
+  options: { cwd?: string; dryRun?: boolean; language?: string } = {},
 ): Promise<{ title: string }> {
   return http
     .post<{ title: string }>(`/sessions/${encodeURIComponent(sessionId)}/auto-name`, options)

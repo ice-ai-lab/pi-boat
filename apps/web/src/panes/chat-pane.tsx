@@ -1014,11 +1014,12 @@ export function ChatPane({
       (sessionStats?.userMessages ?? 0) > 0 || (session.liveState?.messageCount ?? 0) > 0;
     if (!hasMessages) return;
     autoNamedRef.current.add(sessionId);
-    void session.autoName().then((result) => {
+    // 标题语言跟随前端当前语言（选中文就出中文标题）；locale 变了也只影响之后新建的会话
+    void session.autoName({ language: locale }).then((result) => {
       if (result.error !== undefined) return;
       void queryClient.invalidateQueries({ queryKey: queryKeys.sessions() });
     });
-  }, [chat.streaming, sessionId, detail.data, session, sessionStats, queryClient]);
+  }, [chat.streaming, sessionId, detail.data, session, sessionStats, queryClient, locale]);
 
   const compacting = session.liveState?.isCompacting === true;
 
