@@ -74,7 +74,9 @@ export class ServerProcess {
     return new Promise<URL>((resolve, reject) => {
       // ADR-0035：RunAsNode 让 Electron 二进制兼职 Node；--expose-internals 为 DSH 同款对策，
       // 对本仓 bundle 无实际消费，按决策记录保留。
-      const child = spawn(nodePath, ['--expose-internals', entryPath], {
+      // --no-open：CLI 默认就绪后拉系统浏览器（cli.ts openBrowser）；桌面端窗口自己同源加载，
+      // 子进程不能抢开浏览器（否则用户桌面双开页面，2026-10 修复）
+      const child = spawn(nodePath, ['--expose-internals', entryPath, '--no-open'], {
         env: { ...env, ELECTRON_RUN_AS_NODE: '1', PORT: String(port) },
         stdio: ['ignore', 'pipe', 'pipe'],
       });
