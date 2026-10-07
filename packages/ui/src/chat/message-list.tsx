@@ -7,6 +7,7 @@ import {
   shouldShowScrollToLatest,
 } from '@ice-ai/client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useI18n } from '../i18n/i18n-provider';
 import { cn } from '../utils/cn';
 import { useScrollbarVisibility } from '../utils/use-scrollbar-visibility';
 import { AssistantTurn, UserBubble } from './assistant-turn';
@@ -58,6 +59,7 @@ export function MessageList({
   const pendingAnchorRef = useRef<number | null>(null);
 
   const [showJump, setShowJump] = useState(false);
+  const { t } = useI18n();
 
   const scrollToBottom = useCallback((behavior: ScrollBehavior = 'auto') => {
     const el = scrollRef.current;
@@ -196,6 +198,12 @@ export function MessageList({
                 />
               </div>
             ))}
+            {/* 流式状态文本：正文流内、最后一轮（含改动文件 chips）下方靠左；流式结束即隐藏 */}
+            {chat.streaming && (
+              <p className={cn('shimmer', styles.streamingHint)} role="status">
+                {t('chat.generating')}
+              </p>
+            )}
             <div style={{ height: 16 }} />
           </div>
         </div>

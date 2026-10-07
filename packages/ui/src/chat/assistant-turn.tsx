@@ -199,7 +199,6 @@ export const AssistantTurn = memo(function AssistantTurn({
   const liveTail = turn.status === 'streaming' && streaming;
   const grouped = groupTrail(turn.trail, liveTail);
   const hasFinal = turn.final !== null && turn.final.markdown.trim().length > 0;
-  const streamingText = liveTail && turn.final === null;
 
   return (
     <div style={{ marginBottom: 16 }}>
@@ -215,7 +214,6 @@ export const AssistantTurn = memo(function AssistantTurn({
           }}
         >
           <span>{turn.model.modelId}</span>
-          {liveTail && <span className="shimmer">生成中…</span>}
         </div>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -237,7 +235,6 @@ export const AssistantTurn = memo(function AssistantTurn({
             return <TextRowView key={trailKey(item, index)} row={item} streaming={liveTail} />;
           return <SystemRowView key={trailKey(item, index)} text={item.text} tone={item.tone} />;
         })}
-        {streamingText && turn.model === null && <p className="shimmer text-[12px]">生成中…</p>}
         {turn.final !== null && turn.final.markdown.length > 0 && (
           <div className="min-w-0">
             <MarkdownView markdown={turn.final.markdown} />

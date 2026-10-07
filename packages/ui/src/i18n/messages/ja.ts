@@ -233,6 +233,7 @@ export const jaLocale: LocalePlugin = {
     'chat.loadingSession': 'セッションを読み込み中...',
     'chat.runningTool': 'ツールを実行中...',
     'chat.generatingToolInput': 'パラメータを生成中...',
+    'chat.generating': '生成中…',
     'chat.truncatedByOutputLimit':
       'この応答はモデルの出力上限に達したため途切れました。続けるにはフォローアップを送信してください。',
     'chat.runningNamedTool': '{name} を実行中...',
