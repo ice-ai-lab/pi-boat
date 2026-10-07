@@ -1393,63 +1393,67 @@ export function ChatPane({
             </svg>
           </button>
         )}
-        {/* 顶部面板：fixed 贴顶下拉（T1-3，一次只开一个）；会话信息面板例外——
-            它的入口在输入卡下方的指标行，所以从指标行**向上**弹出（⑥b）。面板（系统提示词 /
-            工具定义）都是自带滚动与圆角投影的玻璃卡，故宿主**不能** overflow:auto——
-            否则圆角外的投影会被裁（2026-09-28 用户报告）。宽度不占满会话列，
-            系统 / 工具各按 `.pop` 的 560px 口径夹取（列更窄时用列宽）。 */}
-        {activePanel !== null &&
-          activePanel !== 'branches' &&
-          (activePanel === 'session' ? metricsPanelPos !== null : topPanelPos !== null) &&
-          (() => {
-            const anchored: CSSProperties =
-              activePanel === 'session' && metricsPanelPos !== null
-                ? ({
-                    left: metricsPanelPos.center,
-                    bottom: metricsPanelPos.bottom,
-                    // 面板 left 落在指标行中点上，靠这一步居中（宽度不用先量）
-                    transform: 'translateX(-50%)',
-                    // 可用高度交给弹窗自己滚（它内部 max-height: var(--popover-max-height)）——
-                    // 宿主一旦 overflow:auto，弹窗的投影会被裁到弹窗自己的矩形里（四周无影、圆角外冒方角）
-                    '--popover-max-height': `${metricsPanelPos.maxHeight}px`,
-                  } as CSSProperties)
-                : ({
-                    // 与工具条留 8px 间隙，卡片浮在下方；左缘对齐芯片组
-                    top: topPanelPos?.top !== undefined ? topPanelPos.top + 8 : 0,
-                    left: topPanelLeft,
-                    width: topPanelWidth,
-                    // 卡片可用高度 = 视口 − 面板顶 − 底部留白
-                    '--panel-max-height': `calc(100dvh - ${(topPanelPos?.top ?? 0) + 8}px - 12px)`,
-                  } as CSSProperties);
-            return (
-              <div
-                ref={panelHostRef}
-                style={{
-                  position: 'fixed',
-                  ...anchored,
-                  zIndex: 500,
-                }}
-              >
-                <PanelsHost
-                  active={activePanel}
-                  systemPrompt={session.liveState?.systemPrompt ?? null}
-                  systemLoading={false}
-                  tools={session.tools.map((tool) => ({
-                    name: tool.name,
-                    description: tool.description,
-                    active: tool.active === true,
-                    parameters: tool.parameters,
-                    promptGuidelines: tool.promptGuidelines,
-                  }))}
-                  toolsLoading={false}
-                  stats={sessionStats}
-                  contextUsage={contextUsage}
-                  onClose={() => setActivePanel(null)}
-                />
-              </div>
-            );
-          })()}
       </div>
+      {/* 顶部面板：fixed 贴顶下拉（T1-3，一次只开一个）；会话信息面板例外——
+          它的入口在输入卡下方的指标行，所以从指标行**向上**弹出（⑥b）。面板（系统提示词 /
+          工具定义）都是自带滚动与圆角投影的玻璃卡，故宿主**不能** overflow:auto——
+          否则圆角外的投影会被裁（2026-09-28 用户报告）。宽度不占满会话列，
+          系统 / 工具各按 `.pop` 的 560px 口径夹取（列更窄时用列宽）。
+          宿主必须是上面头部行（data-desktop-drag）的**兄弟**而不是子元素：桌面壳把头部行
+          标成窗口拖拽区（ui/theme.css），Electron 的 drag 区会吞掉后代上的一切 mousedown，
+          面板一旦嵌进去，滚动条拖动 / 正文选择在桌面端全部失灵（2026-09-30 用户报告
+          「滑条滑不动」）。fixed 定位不依赖父级，移出去版面不变。 */}
+      {activePanel !== null &&
+        activePanel !== 'branches' &&
+        (activePanel === 'session' ? metricsPanelPos !== null : topPanelPos !== null) &&
+        (() => {
+          const anchored: CSSProperties =
+            activePanel === 'session' && metricsPanelPos !== null
+              ? ({
+                  left: metricsPanelPos.center,
+                  bottom: metricsPanelPos.bottom,
+                  // 面板 left 落在指标行中点上，靠这一步居中（宽度不用先量）
+                  transform: 'translateX(-50%)',
+                  // 可用高度交给弹窗自己滚（它内部 max-height: var(--popover-max-height)）——
+                  // 宿主一旦 overflow:auto，弹窗的投影会被裁到弹窗自己的矩形里（四周无影、圆角外冒方角）
+                  '--popover-max-height': `${metricsPanelPos.maxHeight}px`,
+                } as CSSProperties)
+              : ({
+                  // 与工具条留 8px 间隙，卡片浮在下方；左缘对齐芯片组
+                  top: topPanelPos?.top !== undefined ? topPanelPos.top + 8 : 0,
+                  left: topPanelLeft,
+                  width: topPanelWidth,
+                  // 卡片可用高度 = 视口 − 面板顶 − 底部留白
+                  '--panel-max-height': `calc(100dvh - ${(topPanelPos?.top ?? 0) + 8}px - 12px)`,
+                } as CSSProperties);
+          return (
+            <div
+              ref={panelHostRef}
+              style={{
+                position: 'fixed',
+                ...anchored,
+                zIndex: 500,
+              }}
+            >
+              <PanelsHost
+                active={activePanel}
+                systemPrompt={session.liveState?.systemPrompt ?? null}
+                systemLoading={false}
+                tools={session.tools.map((tool) => ({
+                  name: tool.name,
+                  description: tool.description,
+                  active: tool.active === true,
+                  parameters: tool.parameters,
+                  promptGuidelines: tool.promptGuidelines,
+                }))}
+                toolsLoading={false}
+                stats={sessionStats}
+                contextUsage={contextUsage}
+                onClose={() => setActivePanel(null)}
+              />
+            </div>
+          );
+        })()}
     </div>
   );
 
